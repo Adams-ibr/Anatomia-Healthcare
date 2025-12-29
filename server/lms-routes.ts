@@ -1,6 +1,6 @@
 import { Router, Request, Response } from "express";
-import { lmsStorage } from "./lms-storage";
-import { isAuthenticated, isMemberAuthenticated } from "./auth";
+import { lmsStorage, logAuditAction } from "./lms-storage";
+import { isAuthenticated, isMemberAuthenticated, isContentAdmin, isSuperAdmin } from "./auth";
 import { 
   insertCourseSchema, 
   insertCourseModuleSchema,
@@ -10,6 +10,7 @@ import {
   insertQuizSchema,
   insertQuizQuestionSchema,
   insertQuizOptionSchema,
+  insertCoursePrerequisiteSchema,
 } from "@shared/schema";
 
 const router = Router();
@@ -25,13 +26,64 @@ adminRouter.use(isAuthenticated);
 
 // ============ PUBLIC ROUTES ============
 
-// Get all published courses
+// Get all published courses with optional filters
 publicRouter.get("/courses", async (req: Request, res: Response) => {
   try {
-    const courses = await lmsStorage.getPublishedCourses();
+    const { category, level, search, sort } = req.query;
+    let courses = await lmsStorage.getPublishedCourses();
+    
+    // Filter by category
+    if (category && typeof category === "string") {
+      courses = courses.filter(c => c.category?.toLowerCase() === category.toLowerCase());
+    }
+    
+    // Filter by level
+    if (level && typeof level === "string") {
+      courses = courses.filter(c => c.level?.toLowerCase() === level.toLowerCase());
+    }
+    
+    // Search by title and description
+    if (search && typeof search === "string") {
+      const searchLower = search.toLowerCase();
+      courses = courses.filter(c => 
+        c.title.toLowerCase().includes(searchLower) ||
+        c.description?.toLowerCase().includes(searchLower) ||
+        c.shortDescription?.toLowerCase().includes(searchLower)
+      );
+    }
+    
+    // Sort options
+    if (sort && typeof sort === "string") {
+      switch (sort) {
+        case "newest":
+          courses.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+          break;
+        case "oldest":
+          courses.sort((a, b) => new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime());
+          break;
+        case "title_asc":
+          courses.sort((a, b) => a.title.localeCompare(b.title));
+          break;
+        case "title_desc":
+          courses.sort((a, b) => b.title.localeCompare(a.title));
+          break;
+      }
+    }
+    
     res.json(courses);
   } catch (error) {
     res.status(500).json({ message: "Failed to fetch courses" });
+  }
+});
+
+// Get course categories
+publicRouter.get("/courses/categories", async (req: Request, res: Response) => {
+  try {
+    const courses = await lmsStorage.getPublishedCourses();
+    const categories = [...new Set(courses.map(c => c.category).filter(Boolean))];
+    res.json(categories);
+  } catch (error) {
+    res.status(500).json({ message: "Failed to fetch categories" });
   }
 });
 
@@ -96,6 +148,19 @@ memberRouter.post("/enrollments", async (req: Request, res: Response) => {
       return res.status(400).json({ message: "Already enrolled in this course" });
     }
 
+    // Check prerequisites
+    const prerequisitesMet = await lmsStorage.checkPrerequisitesMet(member.id, courseId);
+    if (!prerequisitesMet) {
+      const prereqs = await lmsStorage.getPrerequisitesByCourseId(courseId);
+      const prereqCourses = await Promise.all(
+        prereqs.map(p => lmsStorage.getCourseById(p.prerequisiteId))
+      );
+      return res.status(400).json({ 
+        message: "Prerequisites not met", 
+        prerequisites: prereqCourses.filter(Boolean).map(c => ({ id: c!.id, title: c!.title }))
+      });
+    }
+
     const enrollment = await lmsStorage.createEnrollment({
       memberId: member.id,
       courseId,
@@ -106,6 +171,38 @@ memberRouter.post("/enrollments", async (req: Request, res: Response) => {
     res.status(201).json(enrollment);
   } catch (error) {
     res.status(500).json({ message: "Failed to enroll in course" });
+  }
+});
+
+// Get notifications for member
+memberRouter.get("/notifications", async (req: Request, res: Response) => {
+  try {
+    const member = (req as any).member;
+    const notifications = await lmsStorage.getNotificationsByMemberId(member.id);
+    res.json(notifications);
+  } catch (error) {
+    res.status(500).json({ message: "Failed to fetch notifications" });
+  }
+});
+
+// Mark notification as read
+memberRouter.patch("/notifications/:id/read", async (req: Request, res: Response) => {
+  try {
+    await lmsStorage.markNotificationRead(req.params.id);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ message: "Failed to mark notification as read" });
+  }
+});
+
+// Mark all notifications as read
+memberRouter.post("/notifications/read-all", async (req: Request, res: Response) => {
+  try {
+    const member = (req as any).member;
+    await lmsStorage.markAllNotificationsRead(member.id, undefined);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ message: "Failed to mark notifications as read" });
   }
 });
 
@@ -134,13 +231,15 @@ memberRouter.post("/lessons/:lessonId/progress", async (req: Request, res: Respo
   try {
     const member = (req as any).member;
     const { lessonId } = req.params;
-    const { isCompleted, progressPercent } = req.body;
+    const { isCompleted, progressPercent, timeSpentSeconds, resumePositionSeconds } = req.body;
 
     const progress = await lmsStorage.upsertLessonProgress({
       memberId: member.id,
       lessonId,
       isCompleted: isCompleted || false,
       progressPercent: progressPercent || 0,
+      timeSpentSeconds: timeSpentSeconds || 0,
+      resumePositionSeconds: resumePositionSeconds || 0,
     });
     
     res.json(progress);
@@ -589,9 +688,567 @@ adminRouter.get("/lms/stats", async (req: Request, res: Response) => {
   }
 });
 
+// Course Prerequisites
+adminRouter.get("/courses/:courseId/prerequisites", async (req: Request, res: Response) => {
+  try {
+    const prerequisites = await lmsStorage.getPrerequisitesByCourseId(req.params.courseId);
+    const prereqWithDetails = await Promise.all(
+      prerequisites.map(async (prereq) => {
+        const course = await lmsStorage.getCourseById(prereq.prerequisiteId);
+        return { ...prereq, prerequisiteCourse: course };
+      })
+    );
+    res.json(prereqWithDetails);
+  } catch (error) {
+    res.status(500).json({ message: "Failed to fetch prerequisites" });
+  }
+});
+
+adminRouter.post("/courses/:courseId/prerequisites", async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    const { prerequisiteId } = req.body;
+    
+    if (req.params.courseId === prerequisiteId) {
+      return res.status(400).json({ message: "Course cannot be its own prerequisite" });
+    }
+    
+    const validated = insertCoursePrerequisiteSchema.parse({
+      courseId: req.params.courseId,
+      prerequisiteId,
+    });
+    
+    const prerequisite = await lmsStorage.addPrerequisite(validated);
+    
+    // Audit log
+    await logAuditAction(
+      user?.id || null,
+      "add_prerequisite",
+      "course_prerequisite",
+      prerequisite.id,
+      null,
+      prerequisite,
+      req
+    );
+    
+    res.status(201).json(prerequisite);
+  } catch (error: any) {
+    res.status(400).json({ message: error.message || "Failed to add prerequisite" });
+  }
+});
+
+adminRouter.delete("/courses/:courseId/prerequisites/:prerequisiteId", async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    const { courseId, prerequisiteId } = req.params;
+    
+    const deleted = await lmsStorage.removePrerequisite(courseId, prerequisiteId);
+    if (!deleted) {
+      return res.status(404).json({ message: "Prerequisite not found" });
+    }
+    
+    // Audit log
+    await logAuditAction(
+      user?.id || null,
+      "remove_prerequisite",
+      "course_prerequisite",
+      null,
+      { courseId, prerequisiteId },
+      null,
+      req
+    );
+    
+    res.json({ message: "Prerequisite removed" });
+  } catch (error) {
+    res.status(500).json({ message: "Failed to remove prerequisite" });
+  }
+});
+
+// ============ QUESTION BANK ROUTES ============
+
+// Get all question topics
+adminRouter.get("/question-topics", async (req: Request, res: Response) => {
+  try {
+    const topics = await lmsStorage.getQuestionTopics();
+    res.json(topics);
+  } catch (error) {
+    res.status(500).json({ message: "Failed to fetch question topics" });
+  }
+});
+
+// Create question topic
+adminRouter.post("/question-topics", isContentAdmin, async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    const topic = await lmsStorage.createQuestionTopic(req.body);
+    
+    await logAuditAction(user?.id, "create_question_topic", "question_topic", topic.id, null, topic, req);
+    res.status(201).json(topic);
+  } catch (error: any) {
+    res.status(400).json({ message: error.message || "Failed to create topic" });
+  }
+});
+
+// Update question topic
+adminRouter.put("/question-topics/:id", isContentAdmin, async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    const oldTopic = await lmsStorage.getQuestionTopicById(req.params.id);
+    const topic = await lmsStorage.updateQuestionTopic(req.params.id, req.body);
+    
+    if (!topic) {
+      return res.status(404).json({ message: "Topic not found" });
+    }
+    
+    await logAuditAction(user?.id, "update_question_topic", "question_topic", topic.id, oldTopic, topic, req);
+    res.json(topic);
+  } catch (error: any) {
+    res.status(400).json({ message: error.message || "Failed to update topic" });
+  }
+});
+
+// Delete question topic
+adminRouter.delete("/question-topics/:id", isContentAdmin, async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    const oldTopic = await lmsStorage.getQuestionTopicById(req.params.id);
+    const deleted = await lmsStorage.deleteQuestionTopic(req.params.id);
+    
+    if (!deleted) {
+      return res.status(404).json({ message: "Topic not found" });
+    }
+    
+    await logAuditAction(user?.id, "delete_question_topic", "question_topic", req.params.id, oldTopic, null, req);
+    res.json({ message: "Topic deleted" });
+  } catch (error) {
+    res.status(500).json({ message: "Failed to delete topic" });
+  }
+});
+
+// Get all question bank items with optional filters
+adminRouter.get("/question-bank", async (req: Request, res: Response) => {
+  try {
+    const { topicId, difficulty } = req.query;
+    const items = await lmsStorage.getQuestionBankItems({
+      topicId: topicId as string,
+      difficulty: difficulty as string,
+    });
+    res.json(items);
+  } catch (error) {
+    res.status(500).json({ message: "Failed to fetch questions" });
+  }
+});
+
+// Get question bank item by ID with options
+adminRouter.get("/question-bank/:id", async (req: Request, res: Response) => {
+  try {
+    const item = await lmsStorage.getQuestionBankItemById(req.params.id);
+    if (!item) {
+      return res.status(404).json({ message: "Question not found" });
+    }
+    
+    const options = await lmsStorage.getQuestionBankOptionsByQuestionId(req.params.id);
+    res.json({ ...item, options });
+  } catch (error) {
+    res.status(500).json({ message: "Failed to fetch question" });
+  }
+});
+
+// Create question bank item
+adminRouter.post("/question-bank", isContentAdmin, async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    const { options, ...questionData } = req.body;
+    
+    const question = await lmsStorage.createQuestionBankItem({
+      ...questionData,
+      createdBy: user?.id || null,
+    });
+    
+    // Create options if provided
+    if (options && Array.isArray(options)) {
+      for (let i = 0; i < options.length; i++) {
+        await lmsStorage.createQuestionBankOption({
+          questionId: question.id,
+          optionText: options[i].optionText,
+          isCorrect: options[i].isCorrect || false,
+          explanation: options[i].explanation || null,
+          order: i,
+        });
+      }
+    }
+    
+    const fullQuestion = await lmsStorage.getQuestionBankItemById(question.id);
+    const questionOptions = await lmsStorage.getQuestionBankOptionsByQuestionId(question.id);
+    
+    await logAuditAction(user?.id, "create_question", "question_bank", question.id, null, question, req);
+    res.status(201).json({ ...fullQuestion, options: questionOptions });
+  } catch (error: any) {
+    res.status(400).json({ message: error.message || "Failed to create question" });
+  }
+});
+
+// Update question bank item
+adminRouter.put("/question-bank/:id", isContentAdmin, async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    const { options, ...questionData } = req.body;
+    
+    const oldQuestion = await lmsStorage.getQuestionBankItemById(req.params.id);
+    const question = await lmsStorage.updateQuestionBankItem(req.params.id, questionData);
+    
+    if (!question) {
+      return res.status(404).json({ message: "Question not found" });
+    }
+    
+    // Update options if provided
+    if (options && Array.isArray(options)) {
+      // Delete existing options
+      const existingOptions = await lmsStorage.getQuestionBankOptionsByQuestionId(req.params.id);
+      for (const opt of existingOptions) {
+        await lmsStorage.deleteQuestionBankOption(opt.id);
+      }
+      
+      // Create new options
+      for (let i = 0; i < options.length; i++) {
+        await lmsStorage.createQuestionBankOption({
+          questionId: question.id,
+          optionText: options[i].optionText,
+          isCorrect: options[i].isCorrect || false,
+          explanation: options[i].explanation || null,
+          order: i,
+        });
+      }
+    }
+    
+    const questionOptions = await lmsStorage.getQuestionBankOptionsByQuestionId(question.id);
+    
+    await logAuditAction(user?.id, "update_question", "question_bank", question.id, oldQuestion, question, req);
+    res.json({ ...question, options: questionOptions });
+  } catch (error: any) {
+    res.status(400).json({ message: error.message || "Failed to update question" });
+  }
+});
+
+// Delete question bank item (soft delete)
+adminRouter.delete("/question-bank/:id", isContentAdmin, async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    const oldQuestion = await lmsStorage.getQuestionBankItemById(req.params.id);
+    const deleted = await lmsStorage.deleteQuestionBankItem(req.params.id);
+    
+    if (!deleted) {
+      return res.status(404).json({ message: "Question not found" });
+    }
+    
+    await logAuditAction(user?.id, "delete_question", "question_bank", req.params.id, oldQuestion, null, req);
+    res.json({ message: "Question deleted" });
+  } catch (error) {
+    res.status(500).json({ message: "Failed to delete question" });
+  }
+});
+
+// ============ FLASHCARD ROUTES ============
+
+// Get all flashcard decks
+adminRouter.get("/flashcard-decks", async (req: Request, res: Response) => {
+  try {
+    const { courseId } = req.query;
+    const decks = await lmsStorage.getFlashcardDecks(courseId as string);
+    res.json(decks);
+  } catch (error) {
+    res.status(500).json({ message: "Failed to fetch flashcard decks" });
+  }
+});
+
+// Get flashcard deck by ID with flashcards
+adminRouter.get("/flashcard-decks/:id", async (req: Request, res: Response) => {
+  try {
+    const deck = await lmsStorage.getFlashcardDeckById(req.params.id);
+    if (!deck) {
+      return res.status(404).json({ message: "Deck not found" });
+    }
+    
+    const flashcards = await lmsStorage.getFlashcardsByDeckId(req.params.id);
+    res.json({ ...deck, flashcards });
+  } catch (error) {
+    res.status(500).json({ message: "Failed to fetch deck" });
+  }
+});
+
+// Create flashcard deck
+adminRouter.post("/flashcard-decks", isContentAdmin, async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    const deck = await lmsStorage.createFlashcardDeck(req.body);
+    
+    await logAuditAction(user?.id, "create_flashcard_deck", "flashcard_deck", deck.id, null, deck, req);
+    res.status(201).json(deck);
+  } catch (error: any) {
+    res.status(400).json({ message: error.message || "Failed to create deck" });
+  }
+});
+
+// Update flashcard deck
+adminRouter.put("/flashcard-decks/:id", isContentAdmin, async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    const oldDeck = await lmsStorage.getFlashcardDeckById(req.params.id);
+    const deck = await lmsStorage.updateFlashcardDeck(req.params.id, req.body);
+    
+    if (!deck) {
+      return res.status(404).json({ message: "Deck not found" });
+    }
+    
+    await logAuditAction(user?.id, "update_flashcard_deck", "flashcard_deck", deck.id, oldDeck, deck, req);
+    res.json(deck);
+  } catch (error: any) {
+    res.status(400).json({ message: error.message || "Failed to update deck" });
+  }
+});
+
+// Delete flashcard deck
+adminRouter.delete("/flashcard-decks/:id", isContentAdmin, async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    const oldDeck = await lmsStorage.getFlashcardDeckById(req.params.id);
+    const deleted = await lmsStorage.deleteFlashcardDeck(req.params.id);
+    
+    if (!deleted) {
+      return res.status(404).json({ message: "Deck not found" });
+    }
+    
+    await logAuditAction(user?.id, "delete_flashcard_deck", "flashcard_deck", req.params.id, oldDeck, null, req);
+    res.json({ message: "Deck deleted" });
+  } catch (error) {
+    res.status(500).json({ message: "Failed to delete deck" });
+  }
+});
+
+// Create flashcard in deck
+adminRouter.post("/flashcard-decks/:deckId/flashcards", isContentAdmin, async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    const flashcard = await lmsStorage.createFlashcard({
+      ...req.body,
+      deckId: req.params.deckId,
+    });
+    
+    await logAuditAction(user?.id, "create_flashcard", "flashcard", flashcard.id, null, flashcard, req);
+    res.status(201).json(flashcard);
+  } catch (error: any) {
+    res.status(400).json({ message: error.message || "Failed to create flashcard" });
+  }
+});
+
+// Update flashcard
+adminRouter.put("/flashcards/:id", isContentAdmin, async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    const oldFlashcard = await lmsStorage.getFlashcardById(req.params.id);
+    const flashcard = await lmsStorage.updateFlashcard(req.params.id, req.body);
+    
+    if (!flashcard) {
+      return res.status(404).json({ message: "Flashcard not found" });
+    }
+    
+    await logAuditAction(user?.id, "update_flashcard", "flashcard", flashcard.id, oldFlashcard, flashcard, req);
+    res.json(flashcard);
+  } catch (error: any) {
+    res.status(400).json({ message: error.message || "Failed to update flashcard" });
+  }
+});
+
+// Delete flashcard
+adminRouter.delete("/flashcards/:id", isContentAdmin, async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    const oldFlashcard = await lmsStorage.getFlashcardById(req.params.id);
+    const deleted = await lmsStorage.deleteFlashcard(req.params.id);
+    
+    if (!deleted) {
+      return res.status(404).json({ message: "Flashcard not found" });
+    }
+    
+    await logAuditAction(user?.id, "delete_flashcard", "flashcard", req.params.id, oldFlashcard, null, req);
+    res.json({ message: "Flashcard deleted" });
+  } catch (error) {
+    res.status(500).json({ message: "Failed to delete flashcard" });
+  }
+});
+
+// ============ PUBLIC QUESTION BANK ROUTES (for practice mode) ============
+
+// Get question topics (public read)
+publicRouter.get("/question-topics", async (req: Request, res: Response) => {
+  try {
+    const topics = await lmsStorage.getQuestionTopics();
+    res.json(topics);
+  } catch (error) {
+    res.status(500).json({ message: "Failed to fetch question topics" });
+  }
+});
+
+// Get question bank items for practice (public read)
+publicRouter.get("/question-bank", async (req: Request, res: Response) => {
+  try {
+    const { topicId, difficulty } = req.query;
+    const items = await lmsStorage.getQuestionBankItems({
+      topicId: topicId as string,
+      difficulty: difficulty as string,
+    });
+    res.json(items);
+  } catch (error) {
+    res.status(500).json({ message: "Failed to fetch questions" });
+  }
+});
+
+// Get question bank item by ID with options (public read)
+publicRouter.get("/question-bank/:id", async (req: Request, res: Response) => {
+  try {
+    const item = await lmsStorage.getQuestionBankItemById(req.params.id);
+    if (!item) {
+      return res.status(404).json({ message: "Question not found" });
+    }
+    
+    const options = await lmsStorage.getQuestionBankOptionsByQuestionId(req.params.id);
+    res.json({ ...item, options });
+  } catch (error) {
+    res.status(500).json({ message: "Failed to fetch question" });
+  }
+});
+
+// ============ PUBLIC FLASHCARD ROUTES ============
+
+// Get all flashcard decks (public read)
+publicRouter.get("/flashcard-decks", async (req: Request, res: Response) => {
+  try {
+    const { courseId } = req.query;
+    const decks = await lmsStorage.getFlashcardDecks(courseId as string);
+    res.json(decks);
+  } catch (error) {
+    res.status(500).json({ message: "Failed to fetch flashcard decks" });
+  }
+});
+
+// Get flashcard deck by ID with flashcards (public read)
+publicRouter.get("/flashcard-decks/:id", async (req: Request, res: Response) => {
+  try {
+    const deck = await lmsStorage.getFlashcardDeckById(req.params.id);
+    if (!deck) {
+      return res.status(404).json({ message: "Deck not found" });
+    }
+    
+    const flashcards = await lmsStorage.getFlashcardsByDeckId(req.params.id);
+    res.json({ ...deck, flashcards });
+  } catch (error) {
+    res.status(500).json({ message: "Failed to fetch deck" });
+  }
+});
+
+// ============ MEMBER FLASHCARD STUDY ROUTES ============
+
+// Get flashcard decks for members (public decks or course-related)
+memberRouter.get("/flashcard-decks", async (req: Request, res: Response) => {
+  try {
+    const { courseId } = req.query;
+    const decks = await lmsStorage.getFlashcardDecks(courseId as string);
+    res.json(decks);
+  } catch (error) {
+    res.status(500).json({ message: "Failed to fetch flashcard decks" });
+  }
+});
+
+// Get due flashcards for study
+memberRouter.get("/flashcard-decks/:deckId/due", async (req: Request, res: Response) => {
+  try {
+    const member = (req as any).member;
+    const dueCards = await lmsStorage.getDueFlashcards(member.id, req.params.deckId);
+    
+    // Get flashcard details for each due card
+    const cardsWithDetails = await Promise.all(
+      dueCards.map(async (progress) => {
+        const flashcard = await lmsStorage.getFlashcardById(progress.flashcardId);
+        return { ...flashcard, progress };
+      })
+    );
+    
+    res.json(cardsWithDetails);
+  } catch (error) {
+    res.status(500).json({ message: "Failed to fetch due flashcards" });
+  }
+});
+
+// Submit flashcard review (spaced repetition update)
+memberRouter.post("/flashcards/:flashcardId/review", async (req: Request, res: Response) => {
+  try {
+    const member = (req as any).member;
+    const { quality } = req.body; // quality: 0-5 (0=complete fail, 5=perfect)
+    
+    const existing = await lmsStorage.getFlashcardProgress(member.id, req.params.flashcardId);
+    
+    // SM-2 algorithm for spaced repetition
+    let easeFactor = existing?.easeFactor || 250;
+    let interval = existing?.interval || 1;
+    let masteryLevel = existing?.masteryLevel || 0;
+    
+    if (quality >= 3) {
+      // Correct response
+      if (interval === 1) {
+        interval = 1;
+      } else if (interval === 2) {
+        interval = 6;
+      } else {
+        interval = Math.round(interval * (easeFactor / 100));
+      }
+      
+      easeFactor = easeFactor + (80 - 5 * (5 - quality) - (5 - quality) * (5 - quality));
+      if (easeFactor < 130) easeFactor = 130;
+      
+      masteryLevel = Math.min(5, masteryLevel + 1);
+    } else {
+      // Incorrect response - reset
+      interval = 1;
+      masteryLevel = Math.max(0, masteryLevel - 1);
+    }
+    
+    const nextReviewAt = new Date();
+    nextReviewAt.setDate(nextReviewAt.getDate() + interval);
+    
+    const progress = await lmsStorage.upsertFlashcardProgress({
+      memberId: member.id,
+      flashcardId: req.params.flashcardId,
+      masteryLevel,
+      interval,
+      easeFactor,
+      nextReviewAt,
+    });
+    
+    res.json(progress);
+  } catch (error) {
+    res.status(500).json({ message: "Failed to update flashcard progress" });
+  }
+});
+
+// Audit Logs (Super Admin only)
+const superAdminRouter = Router();
+superAdminRouter.use(isSuperAdmin);
+
+superAdminRouter.get("/audit-logs", async (req: Request, res: Response) => {
+  try {
+    const limit = parseInt(req.query.limit as string) || 50;
+    const offset = parseInt(req.query.offset as string) || 0;
+    const logs = await lmsStorage.getAuditLogs(limit, offset);
+    res.json(logs);
+  } catch (error) {
+    res.status(500).json({ message: "Failed to fetch audit logs" });
+  }
+});
+
 // Mount sub-routers on main router
 router.use("/", publicRouter);
 router.use("/", memberRouter);
 router.use("/admin", adminRouter);
+router.use("/admin", superAdminRouter);
 
 export default router;

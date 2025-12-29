@@ -47,13 +47,31 @@ The platform includes a full-fledged LMS with:
 - **Courses**: Title, description, category, level, pricing, publishing status
 - **Modules**: Sections within courses, ordered sequentially
 - **Lessons**: Text, video, or interactive content with duration tracking
-- **Progress Tracking**: Enrollment-based progress with lesson completion status
+- **Progress Tracking**: Enrollment-based progress with lesson completion status, time-on-task tracking
 - **Quizzes**: Multiple choice assessments with scoring and passing thresholds
 - **Certificates**: Completion certificates with unique verification numbers
+- **Course Prerequisites**: Enforced prerequisite completion before enrollment
+- **Question Bank**: Centralized question repository with topics, difficulty levels, and tagging
+- **Flashcards**: Spaced repetition system with SM-2 algorithm for optimal retention
+- **Practice Mode**: Randomized question practice with real-time scoring and timer
+- **Notifications**: In-app notification system for students and admins
+- **Audit Logging**: Comprehensive admin action logging for compliance
+
+### Role-Based Access Control (RBAC)
+- **Super Admin**: Full system access, audit log viewing
+- **Content Admin**: Manage courses, questions, flashcards
+- **Reviewer**: Review and approve content (future)
+- **Student (Member)**: Access enrolled courses, practice, flashcards
 
 Admin routes: `/api/lms/admin/*` (requires admin auth)
-Public routes: `/api/lms/courses`, `/api/lms/certificates/verify/:number`
-Member routes: `/api/lms/enrollments`, `/api/lms/lessons/:id/progress`
+Public routes: `/api/lms/courses`, `/api/lms/question-topics`, `/api/lms/question-bank`, `/api/lms/flashcard-decks`
+Member routes: `/api/lms/enrollments`, `/api/lms/lessons/:id/progress`, `/api/lms/flashcards/:id/review`
+
+### Student-Facing Pages
+- `/dashboard` - Student dashboard with enrollments, progress, achievements
+- `/courses` - Course catalog with search and filters (category, level, sort)
+- `/practice` - Practice mode with randomized questions
+- `/flashcards` - Flashcard study with browse and spaced repetition modes
 
 ### Build System
 - **Client Build**: Vite outputs to `dist/public`

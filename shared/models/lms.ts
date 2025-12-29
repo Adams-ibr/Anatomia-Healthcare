@@ -126,6 +126,8 @@ export const lessonProgress = pgTable("lesson_progress", {
   lessonId: varchar("lesson_id").notNull().references(() => lessons.id, { onDelete: "cascade" }),
   isCompleted: boolean("is_completed").default(false),
   progressPercent: integer("progress_percent").default(0),
+  timeSpentSeconds: integer("time_spent_seconds").default(0),
+  resumePositionSeconds: integer("resume_position_seconds").default(0),
   lastAccessedAt: timestamp("last_accessed_at").defaultNow(),
   completedAt: timestamp("completed_at"),
 }, (table) => [
@@ -236,3 +238,224 @@ export const insertCertificateSchema = createInsertSchema(certificates).omit({
 
 export type InsertCertificate = z.infer<typeof insertCertificateSchema>;
 export type Certificate = typeof certificates.$inferSelect;
+
+// Course Prerequisites (dependencies between courses)
+export const coursePrerequisites = pgTable("course_prerequisites", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  courseId: varchar("course_id").notNull().references(() => courses.id, { onDelete: "cascade" }),
+  prerequisiteId: varchar("prerequisite_id").notNull().references(() => courses.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  uniqueIndex("course_prereq_idx").on(table.courseId, table.prerequisiteId)
+]);
+
+export const insertCoursePrerequisiteSchema = createInsertSchema(coursePrerequisites).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertCoursePrerequisite = z.infer<typeof insertCoursePrerequisiteSchema>;
+export type CoursePrerequisite = typeof coursePrerequisites.$inferSelect;
+
+// Admin Audit Log (track administrative actions)
+export const auditLogs = pgTable("audit_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id),
+  action: text("action").notNull(),
+  entityType: text("entity_type").notNull(),
+  entityId: varchar("entity_id"),
+  oldData: jsonb("old_data"),
+  newData: jsonb("new_data"),
+  ipAddress: varchar("ip_address"),
+  userAgent: text("user_agent"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertAuditLogSchema = createInsertSchema(auditLogs).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertAuditLog = z.infer<typeof insertAuditLogSchema>;
+export type AuditLog = typeof auditLogs.$inferSelect;
+
+// Question Bank Topics (for organizing questions by topic)
+export const questionTopics = pgTable("question_topics", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  slug: text("slug").notNull().unique(),
+  description: text("description"),
+  parentId: varchar("parent_id"),
+  order: integer("order").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertQuestionTopicSchema = createInsertSchema(questionTopics).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertQuestionTopic = z.infer<typeof insertQuestionTopicSchema>;
+export type QuestionTopic = typeof questionTopics.$inferSelect;
+
+// Question Bank (centralized question pool)
+export const questionBank = pgTable("question_bank", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  question: text("question").notNull(),
+  questionType: text("question_type").notNull().default("multiple_choice"),
+  difficulty: text("difficulty").notNull().default("medium"),
+  topicId: varchar("topic_id").references(() => questionTopics.id),
+  explanation: text("explanation"),
+  points: integer("points").default(1),
+  tags: text("tags").array(),
+  isActive: boolean("is_active").default(true),
+  createdBy: varchar("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertQuestionBankSchema = createInsertSchema(questionBank).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertQuestionBank = z.infer<typeof insertQuestionBankSchema>;
+export type QuestionBankItem = typeof questionBank.$inferSelect;
+
+// Question Bank Options (answers for question bank items)
+export const questionBankOptions = pgTable("question_bank_options", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  questionId: varchar("question_id").notNull().references(() => questionBank.id, { onDelete: "cascade" }),
+  optionText: text("option_text").notNull(),
+  isCorrect: boolean("is_correct").default(false),
+  order: integer("order").default(0),
+});
+
+export const insertQuestionBankOptionSchema = createInsertSchema(questionBankOptions).omit({
+  id: true,
+});
+
+export type InsertQuestionBankOption = z.infer<typeof insertQuestionBankOptionSchema>;
+export type QuestionBankOption = typeof questionBankOptions.$inferSelect;
+
+// Flashcard Decks (per course/module)
+export const flashcardDecks = pgTable("flashcard_decks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  courseId: varchar("course_id").references(() => courses.id, { onDelete: "cascade" }),
+  moduleId: varchar("module_id").references(() => courseModules.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
+  description: text("description"),
+  isPublished: boolean("is_published").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertFlashcardDeckSchema = createInsertSchema(flashcardDecks).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertFlashcardDeck = z.infer<typeof insertFlashcardDeckSchema>;
+export type FlashcardDeck = typeof flashcardDecks.$inferSelect;
+
+// Flashcards
+export const flashcards = pgTable("flashcards", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  deckId: varchar("deck_id").notNull().references(() => flashcardDecks.id, { onDelete: "cascade" }),
+  front: text("front").notNull(),
+  back: text("back").notNull(),
+  imageUrl: text("image_url"),
+  audioUrl: text("audio_url"),
+  order: integer("order").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertFlashcardSchema = createInsertSchema(flashcards).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertFlashcard = z.infer<typeof insertFlashcardSchema>;
+export type Flashcard = typeof flashcards.$inferSelect;
+
+// Flashcard Progress (spaced repetition tracking per user)
+export const flashcardProgress = pgTable("flashcard_progress", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  memberId: varchar("member_id").notNull().references(() => members.id, { onDelete: "cascade" }),
+  flashcardId: varchar("flashcard_id").notNull().references(() => flashcards.id, { onDelete: "cascade" }),
+  masteryLevel: integer("mastery_level").default(0),
+  interval: integer("interval").default(1),
+  easeFactor: integer("ease_factor").default(250),
+  nextReviewAt: timestamp("next_review_at").defaultNow(),
+  reviewCount: integer("review_count").default(0),
+  lastReviewedAt: timestamp("last_reviewed_at"),
+}, (table) => [
+  uniqueIndex("flashcard_progress_member_card_idx").on(table.memberId, table.flashcardId)
+]);
+
+export const insertFlashcardProgressSchema = createInsertSchema(flashcardProgress).omit({
+  id: true,
+  lastReviewedAt: true,
+});
+
+export type InsertFlashcardProgress = z.infer<typeof insertFlashcardProgressSchema>;
+export type FlashcardProgress = typeof flashcardProgress.$inferSelect;
+
+// In-App Notifications
+export const notifications = pgTable("notifications", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  memberId: varchar("member_id").references(() => members.id, { onDelete: "cascade" }),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }),
+  type: text("type").notNull(),
+  title: text("title").notNull(),
+  message: text("message").notNull(),
+  link: text("link"),
+  isRead: boolean("is_read").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertNotificationSchema = createInsertSchema(notifications).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertNotification = z.infer<typeof insertNotificationSchema>;
+export type Notification = typeof notifications.$inferSelect;
+
+// Student Achievements
+export const achievements = pgTable("achievements", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  description: text("description").notNull(),
+  badgeUrl: text("badge_url"),
+  type: text("type").notNull(),
+  criteria: jsonb("criteria"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertAchievementSchema = createInsertSchema(achievements).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertAchievement = z.infer<typeof insertAchievementSchema>;
+export type Achievement = typeof achievements.$inferSelect;
+
+// Member Achievements (earned achievements)
+export const memberAchievements = pgTable("member_achievements", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  memberId: varchar("member_id").notNull().references(() => members.id, { onDelete: "cascade" }),
+  achievementId: varchar("achievement_id").notNull().references(() => achievements.id, { onDelete: "cascade" }),
+  earnedAt: timestamp("earned_at").defaultNow(),
+}, (table) => [
+  uniqueIndex("member_achievement_idx").on(table.memberId, table.achievementId)
+]);
+
+export const insertMemberAchievementSchema = createInsertSchema(memberAchievements).omit({
+  id: true,
+  earnedAt: true,
+});
+
+export type InsertMemberAchievement = z.infer<typeof insertMemberAchievementSchema>;
+export type MemberAchievement = typeof memberAchievements.$inferSelect;

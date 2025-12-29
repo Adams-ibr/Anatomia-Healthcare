@@ -182,6 +182,60 @@ export const isMemberAuthenticated: RequestHandler = async (req, res, next) => {
   next();
 };
 
+// Role-based access control middleware factory
+export const requireRole = (...allowedRoles: string[]): RequestHandler => {
+  return async (req, res, next) => {
+    const userId = (req.session as any).userId;
+    if (!userId) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const [user] = await db.select().from(users).where(eq(users.id, userId));
+    if (!user) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    if (!allowedRoles.includes(user.role)) {
+      return res.status(403).json({ error: "Forbidden - Insufficient permissions" });
+    }
+
+    (req as any).user = user;
+    next();
+  };
+};
+
+// Super Admin only middleware
+export const isSuperAdmin: RequestHandler = async (req, res, next) => {
+  const userId = (req.session as any).userId;
+  if (!userId) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+
+  const [user] = await db.select().from(users).where(eq(users.id, userId));
+  if (!user || user.role !== "super_admin") {
+    return res.status(403).json({ error: "Forbidden - Super Admin access required" });
+  }
+
+  (req as any).user = user;
+  next();
+};
+
+// Content Admin or above middleware
+export const isContentAdmin: RequestHandler = async (req, res, next) => {
+  const userId = (req.session as any).userId;
+  if (!userId) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+
+  const [user] = await db.select().from(users).where(eq(users.id, userId));
+  if (!user || !["super_admin", "content_admin"].includes(user.role)) {
+    return res.status(403).json({ error: "Forbidden - Content Admin access required" });
+  }
+
+  (req as any).user = user;
+  next();
+};
+
 // Member (regular user) routes
 export function registerMemberRoutes(app: Express) {
   // Register new member

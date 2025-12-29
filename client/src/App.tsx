@@ -29,14 +29,23 @@ import AdminNewsletter from "@/pages/admin/AdminNewsletter";
 import AdminCourses from "@/pages/admin/AdminCourses";
 import AdminModules from "@/pages/admin/AdminModules";
 import AdminLessons from "@/pages/admin/AdminLessons";
+import AdminQuestionBank from "@/pages/admin/AdminQuestionBank";
 import Login from "@/pages/admin/Login";
 import Register from "@/pages/auth/Register";
 import UserLogin from "@/pages/auth/UserLogin";
+import StudentDashboard from "@/pages/member/StudentDashboard";
+import PracticeMode from "@/pages/member/PracticeMode";
+import FlashcardStudy from "@/pages/member/FlashcardStudy";
+import CourseCatalog from "@/pages/CourseCatalog";
 
 function Router() {
   return (
     <Switch>
       <Route path="/" component={Home} />
+      <Route path="/dashboard" component={StudentDashboard} />
+      <Route path="/practice" component={PracticeMode} />
+      <Route path="/flashcards" component={FlashcardStudy} />
+      <Route path="/courses" component={CourseCatalog} />
       <Route path="/about" component={About} />
       <Route path="/blog" component={Blog} />
       <Route path="/blog/:slug" component={SingleBlog} />
@@ -59,6 +68,7 @@ function Router() {
       <Route path="/admin/courses" component={AdminCourses} />
       <Route path="/admin/courses/:courseId/modules" component={AdminModules} />
       <Route path="/admin/modules/:moduleId/lessons" component={AdminLessons} />
+      <Route path="/admin/question-bank" component={AdminQuestionBank} />
       <Route path="/admin/login" component={Login} />
       <Route path="/register" component={Register} />
       <Route path="/login" component={UserLogin} />

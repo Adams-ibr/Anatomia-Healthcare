@@ -12,6 +12,15 @@ import {
   quizOptions, QuizOption, InsertQuizOption,
   quizAttempts, QuizAttempt, InsertQuizAttempt,
   certificates, Certificate, InsertCertificate,
+  coursePrerequisites, CoursePrerequisite, InsertCoursePrerequisite,
+  auditLogs, AuditLog, InsertAuditLog,
+  notifications, Notification, InsertNotification,
+  questionTopics, QuestionTopic, InsertQuestionTopic,
+  questionBank, QuestionBankItem, InsertQuestionBank,
+  questionBankOptions, QuestionBankOption, InsertQuestionBankOption,
+  flashcardDecks, FlashcardDeck, InsertFlashcardDeck,
+  flashcards, Flashcard, InsertFlashcard,
+  flashcardProgress, FlashcardProgress, InsertFlashcardProgress,
 } from "@shared/schema";
 
 export interface ILmsStorage {
@@ -83,6 +92,61 @@ export interface ILmsStorage {
   getCertificatesByMemberId(memberId: string): Promise<Certificate[]>;
   getCertificateByNumber(certificateNumber: string): Promise<Certificate | undefined>;
   createCertificate(certificate: InsertCertificate): Promise<Certificate>;
+
+  // Course Prerequisites
+  getPrerequisitesByCourseId(courseId: string): Promise<CoursePrerequisite[]>;
+  addPrerequisite(prerequisite: InsertCoursePrerequisite): Promise<CoursePrerequisite>;
+  removePrerequisite(courseId: string, prerequisiteId: string): Promise<boolean>;
+  checkPrerequisitesMet(memberId: string, courseId: string): Promise<boolean>;
+
+  // Audit Logs
+  createAuditLog(log: InsertAuditLog): Promise<AuditLog>;
+  getAuditLogs(limit?: number, offset?: number): Promise<AuditLog[]>;
+
+  // Notifications
+  getNotificationsByMemberId(memberId: string): Promise<Notification[]>;
+  getNotificationsByUserId(userId: string): Promise<Notification[]>;
+  createNotification(notification: InsertNotification): Promise<Notification>;
+  markNotificationRead(id: string): Promise<boolean>;
+  markAllNotificationsRead(memberId?: string, userId?: string): Promise<boolean>;
+
+  // Question Bank Topics
+  getQuestionTopics(): Promise<QuestionTopic[]>;
+  getQuestionTopicById(id: string): Promise<QuestionTopic | undefined>;
+  createQuestionTopic(topic: InsertQuestionTopic): Promise<QuestionTopic>;
+  updateQuestionTopic(id: string, topic: Partial<InsertQuestionTopic>): Promise<QuestionTopic | undefined>;
+  deleteQuestionTopic(id: string): Promise<boolean>;
+
+  // Question Bank
+  getQuestionBankItems(filters?: { topicId?: string; difficulty?: string }): Promise<QuestionBankItem[]>;
+  getQuestionBankItemById(id: string): Promise<QuestionBankItem | undefined>;
+  createQuestionBankItem(item: InsertQuestionBank): Promise<QuestionBankItem>;
+  updateQuestionBankItem(id: string, item: Partial<InsertQuestionBank>): Promise<QuestionBankItem | undefined>;
+  deleteQuestionBankItem(id: string): Promise<boolean>;
+
+  // Question Bank Options
+  getQuestionBankOptionsByQuestionId(questionId: string): Promise<QuestionBankOption[]>;
+  createQuestionBankOption(option: InsertQuestionBankOption): Promise<QuestionBankOption>;
+  deleteQuestionBankOption(id: string): Promise<boolean>;
+
+  // Flashcard Decks
+  getFlashcardDecks(courseId?: string): Promise<FlashcardDeck[]>;
+  getFlashcardDeckById(id: string): Promise<FlashcardDeck | undefined>;
+  createFlashcardDeck(deck: InsertFlashcardDeck): Promise<FlashcardDeck>;
+  updateFlashcardDeck(id: string, deck: Partial<InsertFlashcardDeck>): Promise<FlashcardDeck | undefined>;
+  deleteFlashcardDeck(id: string): Promise<boolean>;
+
+  // Flashcards
+  getFlashcardsByDeckId(deckId: string): Promise<Flashcard[]>;
+  getFlashcardById(id: string): Promise<Flashcard | undefined>;
+  createFlashcard(flashcard: InsertFlashcard): Promise<Flashcard>;
+  updateFlashcard(id: string, flashcard: Partial<InsertFlashcard>): Promise<Flashcard | undefined>;
+  deleteFlashcard(id: string): Promise<boolean>;
+
+  // Flashcard Progress
+  getFlashcardProgress(memberId: string, flashcardId: string): Promise<FlashcardProgress | undefined>;
+  getDueFlashcards(memberId: string, deckId: string): Promise<FlashcardProgress[]>;
+  upsertFlashcardProgress(progress: InsertFlashcardProgress): Promise<FlashcardProgress>;
 }
 
 export class LmsStorage implements ILmsStorage {
@@ -249,9 +313,11 @@ export class LmsStorage implements ILmsStorage {
     const existing = await this.getLessonProgress(progress.memberId, progress.lessonId);
     
     if (existing) {
+      const accumulatedTime = (existing.timeSpentSeconds || 0) + (progress.timeSpentSeconds || 0);
       const [updated] = await db.update(lessonProgress)
         .set({ 
-          ...progress, 
+          ...progress,
+          timeSpentSeconds: accumulatedTime,
           lastAccessedAt: new Date(),
           completedAt: progress.isCompleted ? new Date() : existing.completedAt 
         })
@@ -357,6 +423,312 @@ export class LmsStorage implements ILmsStorage {
     const [newCert] = await db.insert(certificates).values(certificate).returning();
     return newCert;
   }
+
+  // Course Prerequisites
+  async getPrerequisitesByCourseId(courseId: string): Promise<CoursePrerequisite[]> {
+    return db.select().from(coursePrerequisites).where(eq(coursePrerequisites.courseId, courseId));
+  }
+
+  async addPrerequisite(prerequisite: InsertCoursePrerequisite): Promise<CoursePrerequisite> {
+    const [newPrereq] = await db.insert(coursePrerequisites).values(prerequisite).returning();
+    return newPrereq;
+  }
+
+  async removePrerequisite(courseId: string, prerequisiteId: string): Promise<boolean> {
+    const result = await db.delete(coursePrerequisites)
+      .where(and(
+        eq(coursePrerequisites.courseId, courseId),
+        eq(coursePrerequisites.prerequisiteId, prerequisiteId)
+      ));
+    return result.rowCount !== null && result.rowCount > 0;
+  }
+
+  async checkPrerequisitesMet(memberId: string, courseId: string): Promise<boolean> {
+    const prereqs = await this.getPrerequisitesByCourseId(courseId);
+    if (prereqs.length === 0) return true;
+
+    for (const prereq of prereqs) {
+      const enrollment = await this.getEnrollment(memberId, prereq.prerequisiteId);
+      if (!enrollment || enrollment.status !== "completed") {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  // Audit Logs
+  async createAuditLog(log: InsertAuditLog): Promise<AuditLog> {
+    const [newLog] = await db.insert(auditLogs).values(log).returning();
+    return newLog;
+  }
+
+  async getAuditLogs(limit: number = 50, offset: number = 0): Promise<AuditLog[]> {
+    return db.select().from(auditLogs)
+      .orderBy(desc(auditLogs.createdAt))
+      .limit(limit)
+      .offset(offset);
+  }
+
+  // Notifications
+  async getNotificationsByMemberId(memberId: string): Promise<Notification[]> {
+    return db.select().from(notifications)
+      .where(eq(notifications.memberId, memberId))
+      .orderBy(desc(notifications.createdAt));
+  }
+
+  async getNotificationsByUserId(userId: string): Promise<Notification[]> {
+    return db.select().from(notifications)
+      .where(eq(notifications.userId, userId))
+      .orderBy(desc(notifications.createdAt));
+  }
+
+  async createNotification(notification: InsertNotification): Promise<Notification> {
+    const [newNotification] = await db.insert(notifications).values(notification).returning();
+    return newNotification;
+  }
+
+  async markNotificationRead(id: string): Promise<boolean> {
+    const result = await db.update(notifications)
+      .set({ isRead: true })
+      .where(eq(notifications.id, id));
+    return result.rowCount !== null && result.rowCount > 0;
+  }
+
+  async markAllNotificationsRead(memberId?: string, userId?: string): Promise<boolean> {
+    if (memberId) {
+      await db.update(notifications)
+        .set({ isRead: true })
+        .where(eq(notifications.memberId, memberId));
+      return true;
+    }
+    if (userId) {
+      await db.update(notifications)
+        .set({ isRead: true })
+        .where(eq(notifications.userId, userId));
+      return true;
+    }
+    return false;
+  }
+
+  // Question Bank Topics
+  async getQuestionTopics(): Promise<QuestionTopic[]> {
+    return db.select().from(questionTopics).orderBy(asc(questionTopics.order));
+  }
+
+  async getQuestionTopicById(id: string): Promise<QuestionTopic | undefined> {
+    const [topic] = await db.select().from(questionTopics).where(eq(questionTopics.id, id));
+    return topic;
+  }
+
+  async createQuestionTopic(topic: InsertQuestionTopic): Promise<QuestionTopic> {
+    const [newTopic] = await db.insert(questionTopics).values(topic).returning();
+    return newTopic;
+  }
+
+  async updateQuestionTopic(id: string, topic: Partial<InsertQuestionTopic>): Promise<QuestionTopic | undefined> {
+    const [updated] = await db.update(questionTopics).set(topic).where(eq(questionTopics.id, id)).returning();
+    return updated;
+  }
+
+  async deleteQuestionTopic(id: string): Promise<boolean> {
+    const result = await db.delete(questionTopics).where(eq(questionTopics.id, id));
+    return result.rowCount !== null && result.rowCount > 0;
+  }
+
+  // Question Bank
+  async getQuestionBankItems(filters?: { topicId?: string; difficulty?: string }): Promise<QuestionBankItem[]> {
+    let query = db.select().from(questionBank).where(eq(questionBank.isActive, true));
+    const items = await query.orderBy(desc(questionBank.createdAt));
+    
+    let result = items;
+    if (filters?.topicId) {
+      result = result.filter(q => q.topicId === filters.topicId);
+    }
+    if (filters?.difficulty) {
+      result = result.filter(q => q.difficulty === filters.difficulty);
+    }
+    return result;
+  }
+
+  async getQuestionBankItemById(id: string): Promise<QuestionBankItem | undefined> {
+    const [item] = await db.select().from(questionBank).where(eq(questionBank.id, id));
+    return item;
+  }
+
+  async createQuestionBankItem(item: InsertQuestionBank): Promise<QuestionBankItem> {
+    const [newItem] = await db.insert(questionBank).values(item).returning();
+    return newItem;
+  }
+
+  async updateQuestionBankItem(id: string, item: Partial<InsertQuestionBank>): Promise<QuestionBankItem | undefined> {
+    const [updated] = await db.update(questionBank)
+      .set({ ...item, updatedAt: new Date() })
+      .where(eq(questionBank.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteQuestionBankItem(id: string): Promise<boolean> {
+    const result = await db.update(questionBank).set({ isActive: false }).where(eq(questionBank.id, id));
+    return result.rowCount !== null && result.rowCount > 0;
+  }
+
+  // Question Bank Options
+  async getQuestionBankOptionsByQuestionId(questionId: string): Promise<QuestionBankOption[]> {
+    return db.select().from(questionBankOptions)
+      .where(eq(questionBankOptions.questionId, questionId))
+      .orderBy(asc(questionBankOptions.order));
+  }
+
+  async createQuestionBankOption(option: InsertQuestionBankOption): Promise<QuestionBankOption> {
+    const [newOption] = await db.insert(questionBankOptions).values(option).returning();
+    return newOption;
+  }
+
+  async deleteQuestionBankOption(id: string): Promise<boolean> {
+    const result = await db.delete(questionBankOptions).where(eq(questionBankOptions.id, id));
+    return result.rowCount !== null && result.rowCount > 0;
+  }
+
+  // Flashcard Decks
+  async getFlashcardDecks(courseId?: string): Promise<FlashcardDeck[]> {
+    if (courseId) {
+      return db.select().from(flashcardDecks).where(eq(flashcardDecks.courseId, courseId));
+    }
+    return db.select().from(flashcardDecks).orderBy(desc(flashcardDecks.createdAt));
+  }
+
+  async getFlashcardDeckById(id: string): Promise<FlashcardDeck | undefined> {
+    const [deck] = await db.select().from(flashcardDecks).where(eq(flashcardDecks.id, id));
+    return deck;
+  }
+
+  async createFlashcardDeck(deck: InsertFlashcardDeck): Promise<FlashcardDeck> {
+    const [newDeck] = await db.insert(flashcardDecks).values(deck).returning();
+    return newDeck;
+  }
+
+  async updateFlashcardDeck(id: string, deck: Partial<InsertFlashcardDeck>): Promise<FlashcardDeck | undefined> {
+    const [updated] = await db.update(flashcardDecks).set(deck).where(eq(flashcardDecks.id, id)).returning();
+    return updated;
+  }
+
+  async deleteFlashcardDeck(id: string): Promise<boolean> {
+    const result = await db.delete(flashcardDecks).where(eq(flashcardDecks.id, id));
+    return result.rowCount !== null && result.rowCount > 0;
+  }
+
+  // Flashcards
+  async getFlashcardsByDeckId(deckId: string): Promise<Flashcard[]> {
+    return db.select().from(flashcards)
+      .where(eq(flashcards.deckId, deckId))
+      .orderBy(asc(flashcards.order));
+  }
+
+  async getFlashcardById(id: string): Promise<Flashcard | undefined> {
+    const [card] = await db.select().from(flashcards).where(eq(flashcards.id, id));
+    return card;
+  }
+
+  async createFlashcard(flashcard: InsertFlashcard): Promise<Flashcard> {
+    const [newCard] = await db.insert(flashcards).values(flashcard).returning();
+    return newCard;
+  }
+
+  async updateFlashcard(id: string, flashcard: Partial<InsertFlashcard>): Promise<Flashcard | undefined> {
+    const [updated] = await db.update(flashcards).set(flashcard).where(eq(flashcards.id, id)).returning();
+    return updated;
+  }
+
+  async deleteFlashcard(id: string): Promise<boolean> {
+    const result = await db.delete(flashcards).where(eq(flashcards.id, id));
+    return result.rowCount !== null && result.rowCount > 0;
+  }
+
+  // Flashcard Progress
+  async getFlashcardProgress(memberId: string, flashcardId: string): Promise<FlashcardProgress | undefined> {
+    const [progress] = await db.select().from(flashcardProgress)
+      .where(and(
+        eq(flashcardProgress.memberId, memberId),
+        eq(flashcardProgress.flashcardId, flashcardId)
+      ));
+    return progress;
+  }
+
+  async getDueFlashcards(memberId: string, deckId: string): Promise<FlashcardProgress[]> {
+    const deckCards = await this.getFlashcardsByDeckId(deckId);
+    const cardIds = deckCards.map(c => c.id);
+    if (cardIds.length === 0) return [];
+
+    const now = new Date();
+    const progressRecords: FlashcardProgress[] = [];
+    
+    for (const cardId of cardIds) {
+      const [progress] = await db.select().from(flashcardProgress)
+        .where(and(
+          eq(flashcardProgress.memberId, memberId),
+          eq(flashcardProgress.flashcardId, cardId)
+        ));
+      if (progress && progress.nextReviewAt && new Date(progress.nextReviewAt) <= now) {
+        progressRecords.push(progress);
+      } else if (!progress) {
+        progressRecords.push({
+          id: "",
+          memberId,
+          flashcardId: cardId,
+          masteryLevel: 0,
+          interval: 1,
+          easeFactor: 250,
+          nextReviewAt: now,
+          reviewCount: 0,
+          lastReviewedAt: null,
+        });
+      }
+    }
+    
+    return progressRecords;
+  }
+
+  async upsertFlashcardProgress(progress: InsertFlashcardProgress): Promise<FlashcardProgress> {
+    const existing = await this.getFlashcardProgress(progress.memberId, progress.flashcardId);
+    
+    if (existing) {
+      const [updated] = await db.update(flashcardProgress)
+        .set({ 
+          ...progress, 
+          lastReviewedAt: new Date(),
+          reviewCount: (existing.reviewCount || 0) + 1
+        })
+        .where(eq(flashcardProgress.id, existing.id))
+        .returning();
+      return updated;
+    } else {
+      const [newProgress] = await db.insert(flashcardProgress).values(progress).returning();
+      return newProgress;
+    }
+  }
 }
 
 export const lmsStorage = new LmsStorage();
+
+// Audit log helper function
+export async function logAuditAction(
+  userId: string | null,
+  action: string,
+  entityType: string,
+  entityId?: string,
+  oldData?: any,
+  newData?: any,
+  req?: { ip?: string; headers?: { "user-agent"?: string } }
+) {
+  return lmsStorage.createAuditLog({
+    userId,
+    action,
+    entityType,
+    entityId,
+    oldData: oldData ?? null,
+    newData: newData ?? null,
+    ipAddress: req?.ip ?? null,
+    userAgent: req?.headers?.["user-agent"] ?? null,
+  });
+}
