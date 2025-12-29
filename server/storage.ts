@@ -38,20 +38,33 @@ export class MemStorage implements IStorage {
 
   async getUserByUsername(username: string): Promise<User | undefined> {
     return Array.from(this.users.values()).find(
-      (user) => user.username === username,
+      (user) => user.email === username,
     );
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
     const id = randomUUID();
-    const user: User = { ...insertUser, id };
+    const user: User = { 
+      ...insertUser, 
+      id,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      firstName: insertUser.firstName || null,
+      lastName: insertUser.lastName || null,
+      profileImageUrl: insertUser.profileImageUrl || null,
+    };
     this.users.set(id, user);
     return user;
   }
 
   async createContactMessage(insertMessage: InsertContactMessage): Promise<ContactMessage> {
     const id = randomUUID();
-    const message: ContactMessage = { ...insertMessage, id };
+    const message: ContactMessage = { 
+      ...insertMessage, 
+      id,
+      createdAt: new Date(),
+      isRead: false,
+    };
     this.contactMessages.set(id, message);
     return message;
   }
@@ -62,7 +75,11 @@ export class MemStorage implements IStorage {
 
   async createNewsletterSubscription(insertSubscription: InsertNewsletterSubscription): Promise<NewsletterSubscription> {
     const id = randomUUID();
-    const subscription: NewsletterSubscription = { ...insertSubscription, id };
+    const subscription: NewsletterSubscription = { 
+      ...insertSubscription, 
+      id,
+      createdAt: new Date(),
+    };
     this.newsletterSubscriptions.set(id, subscription);
     return subscription;
   }
