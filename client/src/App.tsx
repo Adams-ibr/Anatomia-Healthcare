@@ -24,6 +24,7 @@ import AdminFaq from "@/pages/admin/AdminFaq";
 import AdminCareers from "@/pages/admin/AdminCareers";
 import AdminContacts from "@/pages/admin/AdminContacts";
 import AdminNewsletter from "@/pages/admin/AdminNewsletter";
+import Login from "@/pages/admin/Login";
 
 function Router() {
   return (
@@ -48,6 +49,7 @@ function Router() {
       <Route path="/admin/careers" component={AdminCareers} />
       <Route path="/admin/contacts" component={AdminContacts} />
       <Route path="/admin/newsletter" component={AdminNewsletter} />
+      <Route path="/admin/login" component={Login} />
       <Route component={NotFound} />
     </Switch>
   );

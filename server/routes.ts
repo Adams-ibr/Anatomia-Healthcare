@@ -18,15 +18,15 @@ import {
   insertFaqItemSchema,
   insertCareerSchema
 } from "@shared/schema";
-import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
+import { setupSession, registerAuthRoutes, isAuthenticated } from "./auth";
 
 export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
   
-  // Set up authentication FIRST
-  await setupAuth(app);
+  // Set up session and auth routes FIRST
+  setupSession(app);
   registerAuthRoutes(app);
 
   // Public routes

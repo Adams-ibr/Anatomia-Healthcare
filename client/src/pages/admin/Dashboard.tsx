@@ -46,7 +46,7 @@ export default function Dashboard() {
           <CardContent className="text-center">
             <p className="text-muted-foreground mb-4">Please log in to access the admin dashboard.</p>
             <Button asChild>
-              <a href="/api/login" data-testid="button-login">Log In with Replit</a>
+              <Link href="/admin/login" data-testid="button-login">Log In</Link>
             </Button>
           </CardContent>
         </Card>
