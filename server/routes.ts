@@ -19,6 +19,7 @@ import {
   insertCareerSchema
 } from "@shared/schema";
 import { setupSession, registerAuthRoutes, registerMemberRoutes, isAuthenticated } from "./auth";
+import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -29,6 +30,7 @@ export async function registerRoutes(
   setupSession(app);
   registerAuthRoutes(app);
   registerMemberRoutes(app);
+  registerObjectStorageRoutes(app);
 
   // Public routes
   app.post("/api/contact", async (req, res) => {
