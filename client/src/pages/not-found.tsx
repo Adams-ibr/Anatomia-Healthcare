@@ -2,7 +2,9 @@ import { Link } from "wouter";
 import { Layout } from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search, Home, BookOpen, Bone } from "lucide-react";
+import { Search, Home, BookOpen } from "lucide-react";
+
+import skeletonImg from "@assets/stock_images/human_skeleton_medic_56e01afd.jpg";
 
 export default function NotFound() {
   return (
@@ -11,11 +13,13 @@ export default function NotFound() {
         <div className="max-w-4xl mx-auto px-4 sm:px-6">
           <div className="grid md:grid-cols-2 gap-12 items-center">
             <div className="order-2 md:order-1">
-              <div className="aspect-square max-w-xs mx-auto bg-gradient-to-br from-slate-700 to-slate-800 rounded-xl flex items-center justify-center p-8">
-                <div className="text-center">
-                  <Bone className="w-24 h-24 text-slate-400 mx-auto mb-4" />
-                  <p className="text-sm text-slate-400">Lost Skeleton</p>
-                </div>
+              <div className="aspect-square max-w-xs mx-auto rounded-xl overflow-hidden shadow-lg">
+                <img 
+                  src={skeletonImg} 
+                  alt="Anatomy Skeleton" 
+                  className="w-full h-full object-cover"
+                  data-testid="img-404-skeleton"
+                />
               </div>
             </div>
 

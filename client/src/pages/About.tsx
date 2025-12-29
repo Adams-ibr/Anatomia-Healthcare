@@ -9,10 +9,12 @@ import {
   Shield, 
   Globe, 
   Lightbulb,
-  Users,
-  ArrowRight,
-  Star
+  ArrowRight
 } from "lucide-react";
+
+import heroAnatomyImg from "@assets/stock_images/3d_human_anatomy_mus_873f0c5b.jpg";
+import doctorImg from "@assets/stock_images/doctor_professional__26ea132c.jpg";
+import studentsImg from "@assets/stock_images/medical_students_stu_234d9069.jpg";
 
 const stats = [
   { value: "5M+", label: "Active Users" },
@@ -40,18 +42,26 @@ const values = [
 ];
 
 const team = [
-  { name: "Dr. Sarah Jenks", role: "Chief Editor", description: "Former surgeon with 15 years of experience in clinical anatomy education." },
-  { name: "Mark Dee", role: "Lead Illustrator", description: "Award-winning medical illustrator specializing in 3D visualization." },
-  { name: "James Wilson", role: "CTO", description: "Tech visionary ensuring our platform runs smoothly for millions of users." },
-  { name: "Emily Chen", role: "Head of Community", description: "Connecting students and educators to foster a global learning network." },
+  { name: "Dr. Sarah Jenks", role: "Chief Editor", description: "Former surgeon with 15 years of experience in clinical anatomy education.", image: doctorImg },
+  { name: "Mark Dee", role: "Lead Illustrator", description: "Award-winning medical illustrator specializing in 3D visualization.", image: studentsImg },
+  { name: "James Wilson", role: "CTO", description: "Tech visionary ensuring our platform runs smoothly for millions of users.", image: doctorImg },
+  { name: "Emily Chen", role: "Head of Community", description: "Connecting students and educators to foster a global learning network.", image: studentsImg },
 ];
 
 export default function About() {
   return (
     <Layout>
-      <section className="relative py-16 md:py-24 bg-gradient-to-br from-primary via-primary/90 to-primary/80 text-primary-foreground overflow-hidden">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6">
-          <div className="max-w-3xl">
+      <section className="relative py-16 md:py-24 overflow-hidden">
+        <div className="absolute inset-0">
+          <img 
+            src={heroAnatomyImg} 
+            alt="" 
+            className="w-full h-full object-cover"
+          />
+          <div className="absolute inset-0 bg-gradient-to-r from-primary/95 to-primary/80" />
+        </div>
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6">
+          <div className="max-w-3xl text-primary-foreground">
             <h1 className="text-4xl md:text-5xl font-bold mb-6" data-testid="text-about-hero-title">
               Bridging the Gap Between Textbooks and Understanding
             </h1>
@@ -151,7 +161,7 @@ export default function About() {
 
       <section className="py-16 md:py-24">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
-          <div className="flex justify-between items-center mb-8">
+          <div className="flex flex-wrap justify-between items-center gap-4 mb-8">
             <div>
               <Badge variant="outline" className="mb-2">OUR TEAM</Badge>
               <h2 className="text-3xl md:text-4xl font-bold text-foreground" data-testid="text-team-title">
@@ -170,20 +180,21 @@ export default function About() {
 
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {team.map((member) => (
-              <Card key={member.name}>
-                <CardContent className="p-6 text-center">
-                  <div className="w-20 h-20 rounded-full bg-gradient-to-br from-primary/20 to-primary/10 mx-auto mb-4 flex items-center justify-center">
-                    <Users className="w-10 h-10 text-primary/50" />
+              <Card key={member.name} className="overflow-hidden">
+                <CardContent className="p-0">
+                  <div className="aspect-square overflow-hidden">
+                    <img 
+                      src={member.image} 
+                      alt={member.name}
+                      className="w-full h-full object-cover"
+                    />
                   </div>
-                  <h3 className="font-semibold text-foreground" data-testid={`text-team-${member.name.toLowerCase().replace(/\s/g, '-')}`}>
-                    {member.name}
-                  </h3>
-                  <p className="text-sm text-primary mb-2">{member.role}</p>
-                  <p className="text-xs text-muted-foreground">{member.description}</p>
-                  <div className="flex justify-center gap-1 mt-3">
-                    {[1, 2, 3, 4, 5].map((star) => (
-                      <Star key={star} className="w-3 h-3 fill-primary text-primary" />
-                    ))}
+                  <div className="p-4 text-center">
+                    <h3 className="font-semibold text-foreground" data-testid={`text-team-${member.name.toLowerCase().replace(/\s/g, '-')}`}>
+                      {member.name}
+                    </h3>
+                    <p className="text-sm text-primary mb-2">{member.role}</p>
+                    <p className="text-xs text-muted-foreground">{member.description}</p>
                   </div>
                 </CardContent>
               </Card>

@@ -10,13 +10,19 @@ import {
   User,
   ChevronLeft,
   ChevronRight,
-  Loader2,
-  CheckCircle
+  Loader2
 } from "lucide-react";
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+
+import armImg from "@assets/stock_images/human_arm_muscles_an_9d7db348.jpg";
+import brainImg from "@assets/stock_images/human_brain_anatomy__282b70de.jpg";
+import heartImg from "@assets/stock_images/human_heart_anatomy__701f24b0.jpg";
+import spineImg from "@assets/stock_images/human_spine_vertebra_b5200c9c.jpg";
+import torsoImg from "@assets/stock_images/human_torso_chest_an_152c69d9.jpg";
+import skeletonImg from "@assets/stock_images/human_skeleton_medic_56e01afd.jpg";
 
 const categories = ["All", "Musculoskeletal", "Neuroanatomy", "Visceral", "Clinical Case"];
 
@@ -34,7 +40,8 @@ const articles = [
     excerpt: "A comprehensive look at the arterial blood supply of the brain, its anastomoses, structure, and clinical...",
     author: "Dr. Sarah Chen",
     readTime: "8 min read",
-    date: "Oct 24, 2023"
+    date: "Oct 24, 2023",
+    image: brainImg
   },
   {
     category: "STUDY TIPS",
@@ -42,7 +49,8 @@ const articles = [
     excerpt: "Memorize the 12 cranial nerves faster with these student-approved memory aids and mnemonic devices...",
     author: "James Victor",
     readTime: "5 min read",
-    date: "Oct 20, 2023"
+    date: "Oct 20, 2023",
+    image: skeletonImg
   },
   {
     category: "MUSCULOSKELETAL",
@@ -50,7 +58,8 @@ const articles = [
     excerpt: "A deep dive into the 8 carpal bones of the wrist, including the flexor retinaculum attachments and carpal...",
     author: "Dr. Sarah Chen",
     readTime: "7 min read",
-    date: "Oct 18, 2023"
+    date: "Oct 18, 2023",
+    image: armImg
   },
   {
     category: "CARDIOLOGY",
@@ -58,7 +67,8 @@ const articles = [
     excerpt: "Exploring the mitral, tricuspid, aortic, and pulmonary valves. Understand diastolic/systolic points and...",
     author: "Dr. Peter Rodriguez",
     readTime: "10 min read",
-    date: "Oct 15, 2023"
+    date: "Oct 15, 2023",
+    image: heartImg
   },
   {
     category: "CASE STUDIES",
@@ -66,7 +76,8 @@ const articles = [
     excerpt: "A clinical presentation walkthrough through a patient presentation of L5-S1 disc herniation, sensory...",
     author: "Dr. Big Patel",
     readTime: "12 min read",
-    date: "Sep 08, 2023"
+    date: "Sep 08, 2023",
+    image: spineImg
   },
   {
     category: "PATHOLOGY",
@@ -74,7 +85,8 @@ const articles = [
     excerpt: "Two X-differentiating common lung pathologies on a standard chest X-ray. Key visual markers and...",
     author: "Dr. James Victor",
     readTime: "7 min read",
-    date: "Sep 25, 2023"
+    date: "Sep 25, 2023",
+    image: torsoImg
   },
 ];
 
@@ -140,11 +152,13 @@ export default function Blog() {
               <Card className="mb-8 overflow-hidden">
                 <CardContent className="p-0">
                   <div className="grid md:grid-cols-2 gap-0">
-                    <div className="bg-gradient-to-br from-primary/20 to-primary/10 aspect-square md:aspect-auto flex items-center justify-center p-8">
-                      <div className="text-center">
-                        <Badge className="mb-2">FEATURED ARTICLE</Badge>
-                        <p className="text-sm text-muted-foreground">Nerve Anatomy</p>
-                      </div>
+                    <div className="aspect-square md:aspect-auto relative overflow-hidden">
+                      <img 
+                        src={armImg} 
+                        alt="Brachial Plexus" 
+                        className="w-full h-full object-cover"
+                      />
+                      <Badge className="absolute top-4 left-4">FEATURED ARTICLE</Badge>
                     </div>
                     <div className="p-6 md:p-8 flex flex-col justify-center">
                       <h2 className="text-2xl md:text-3xl font-bold text-foreground mb-4" data-testid="text-featured-title">
@@ -194,7 +208,12 @@ export default function Blog() {
                   <Link key={index} href="/blog/article">
                     <Card className="h-full group cursor-pointer transition-all duration-300 hover:shadow-lg">
                       <CardContent className="p-0">
-                        <div className="h-40 bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center relative">
+                        <div className="h-40 relative overflow-hidden">
+                          <img 
+                            src={article.image} 
+                            alt={article.title}
+                            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                          />
                           <Badge variant="secondary" className="absolute top-3 left-3 text-xs">{article.category}</Badge>
                         </div>
                         <div className="p-4">

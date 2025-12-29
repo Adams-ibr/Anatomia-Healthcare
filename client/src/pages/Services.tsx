@@ -24,6 +24,13 @@ import {
   Layers
 } from "lucide-react";
 
+import heroAnatomyImg from "@assets/stock_images/3d_human_anatomy_mus_873f0c5b.jpg";
+import heartImg from "@assets/stock_images/human_heart_anatomy__701f24b0.jpg";
+import brainImg from "@assets/stock_images/human_brain_anatomy__282b70de.jpg";
+import eyeImg from "@assets/stock_images/human_eye_anatomy_cl_a34cfb66.jpg";
+import skeletonImg from "@assets/stock_images/human_skeleton_medic_56e01afd.jpg";
+import studentsImg from "@assets/stock_images/medical_students_stu_234d9069.jpg";
+
 const categories = [
   { icon: Layers, label: "All Products", active: true },
   { icon: Monitor, label: "Digital Atlases" },
@@ -39,7 +46,8 @@ const products = [
     description: "The world's most accurate and advanced 3D anatomy platform...",
     price: "$34.99/yr",
     badge: "BESTSELLER",
-    badgeColor: "bg-primary"
+    badgeColor: "bg-primary",
+    image: heroAnatomyImg
   },
   {
     title: "Deluxe Heart Model",
@@ -47,7 +55,8 @@ const products = [
     description: "2-part life-size heart model with removable front wall to show...",
     price: "$129.00",
     badge: null,
-    badgeColor: null
+    badgeColor: null,
+    image: heartImg
   },
   {
     title: "Neuro VR Lab",
@@ -55,7 +64,8 @@ const products = [
     description: "Immersive virtual reality experience for neuroanatomy...",
     price: "Contact Sales",
     badge: "NEW",
-    badgeColor: "bg-green-500"
+    badgeColor: "bg-green-500",
+    image: brainImg
   },
   {
     title: "Ophthalmology Suite",
@@ -63,7 +73,8 @@ const products = [
     description: "Detailed cross-sections and pathologies of the human eye...",
     price: "$19.99/mo",
     badge: null,
-    badgeColor: null
+    badgeColor: null,
+    image: eyeImg
   },
   {
     title: "Premium Skeleton",
@@ -71,7 +82,8 @@ const products = [
     description: "Full-size articulated skeleton with muscle insertion and origin poin...",
     price: "$299.00",
     badge: null,
-    badgeColor: null
+    badgeColor: null,
+    image: skeletonImg
   },
   {
     title: "University Enterprise",
@@ -79,18 +91,31 @@ const products = [
     description: "Site-wide licensing for medical schools and teaching hospitals...",
     price: "Custom Quote",
     badge: null,
-    badgeColor: null
+    badgeColor: null,
+    image: studentsImg
   },
 ];
 
 export default function Services() {
   return (
     <Layout>
-      <section className="py-12 md:py-20 bg-gradient-to-br from-slate-900 to-slate-800 text-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6">
+      <section className="py-12 md:py-20 bg-gradient-to-br from-slate-900 to-slate-800 text-white relative overflow-hidden">
+        <div className="absolute inset-0 opacity-20">
+          <img 
+            src={heroAnatomyImg} 
+            alt="" 
+            className="w-full h-full object-cover"
+          />
+        </div>
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6">
           <div className="grid lg:grid-cols-2 gap-12 items-center">
-            <div className="aspect-video bg-gradient-to-br from-primary/30 to-primary/10 rounded-xl flex items-center justify-center">
-              <Layers className="w-24 h-24 text-primary/50" />
+            <div className="aspect-video rounded-xl overflow-hidden shadow-2xl">
+              <img 
+                src={heroAnatomyImg} 
+                alt="3D Anatomy Model" 
+                className="w-full h-full object-cover"
+                data-testid="img-services-hero"
+              />
             </div>
             <div>
               <h1 className="text-4xl md:text-5xl font-bold mb-6" data-testid="text-services-hero-title">
@@ -194,13 +219,17 @@ export default function Services() {
                 {products.map((product) => (
                   <Card key={product.title} className="group cursor-pointer transition-all duration-300 hover:shadow-lg overflow-hidden">
                     <CardContent className="p-0">
-                      <div className="aspect-square bg-gradient-to-br from-primary/10 to-primary/5 relative flex items-center justify-center">
+                      <div className="aspect-square relative overflow-hidden">
+                        <img 
+                          src={product.image} 
+                          alt={product.title}
+                          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                        />
                         {product.badge && (
                           <Badge className={`absolute top-3 left-3 ${product.badgeColor} text-white`}>
                             {product.badge}
                           </Badge>
                         )}
-                        <Layers className="w-16 h-16 text-primary/30" />
                       </div>
                       <div className="p-4">
                         <p className="text-xs text-primary font-medium mb-1">{product.category}</p>

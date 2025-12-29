@@ -16,6 +16,16 @@ import {
   ArrowRight
 } from "lucide-react";
 
+import heroAnatomyImg from "@assets/stock_images/3d_human_anatomy_mus_873f0c5b.jpg";
+import armImg from "@assets/stock_images/human_arm_muscles_an_9d7db348.jpg";
+import legImg from "@assets/stock_images/human_leg_muscles_an_357c0b04.jpg";
+import skullImg from "@assets/stock_images/human_skeleton_medic_56e01afd.jpg";
+import torsoImg from "@assets/stock_images/human_torso_chest_an_152c69d9.jpg";
+import spineImg from "@assets/stock_images/human_spine_vertebra_b5200c9c.jpg";
+import pelvisImg from "@assets/stock_images/human_pelvis_hip_ana_160d6786.jpg";
+import heartImg from "@assets/stock_images/human_heart_anatomy__701f24b0.jpg";
+import brainImg from "@assets/stock_images/human_brain_anatomy__282b70de.jpg";
+
 const trustedBy = [
   { icon: GraduationCap, label: "Medical Schools" },
   { icon: Building2, label: "Hospitals" },
@@ -24,12 +34,12 @@ const trustedBy = [
 ];
 
 const regions = [
-  { title: "Upper Limb", description: "Shoulder, Arm, Elbow, Forearm, Hand", color: "bg-blue-500/10", badge: "REGION" },
-  { title: "Lower Limb", description: "Hip, Thigh, Knee, Leg, Ankle, Foot", color: "bg-green-500/10", badge: "REGION" },
-  { title: "Head & Neck", description: "Skull, Face, Neck, Cranial Nerves", color: "bg-purple-500/10", badge: "REGION" },
-  { title: "Thorax", description: "Heart, Lungs, Mediastinum, Ribcage", color: "bg-orange-500/10", badge: "REGION" },
-  { title: "Abdomen", description: "Digestive Tract, Liver, Kidneys, Spleen", color: "bg-red-500/10", badge: "REGION" },
-  { title: "Pelvis", description: "Reproductive Organs, Bladder, Perineum", color: "bg-teal-500/10", badge: "REGION" },
+  { title: "Upper Limb", description: "Shoulder, Arm, Elbow, Forearm, Hand", image: armImg, badge: "REGION" },
+  { title: "Lower Limb", description: "Hip, Thigh, Knee, Leg, Ankle, Foot", image: legImg, badge: "REGION" },
+  { title: "Head & Neck", description: "Skull, Face, Neck, Cranial Nerves", image: skullImg, badge: "REGION" },
+  { title: "Thorax", description: "Heart, Lungs, Mediastinum, Ribcage", image: torsoImg, badge: "REGION" },
+  { title: "Abdomen", description: "Digestive Tract, Liver, Kidneys, Spleen", image: spineImg, badge: "REGION" },
+  { title: "Pelvis", description: "Reproductive Organs, Bladder, Perineum", image: pelvisImg, badge: "REGION" },
 ];
 
 const features3D = [
@@ -38,24 +48,31 @@ const features3D = [
   { icon: Monitor, text: "Works on all devices" },
 ];
 
+const model3DItems = [
+  { label: "Joint Systems", image: armImg },
+  { label: "Muscular System", image: heroAnatomyImg },
+  { label: "Organ Systems", image: heartImg },
+  { label: "Skeletal System", image: skullImg },
+];
+
 const articles = [
   { 
     category: "NERVES", 
     title: "The Brachial Plexus Explained", 
     readTime: "5 min read",
-    color: "bg-blue-500"
+    image: brainImg
   },
   { 
     category: "VASCULAR", 
     title: "Circle of Willis: Anatomy & Function", 
     readTime: "4 min read",
-    color: "bg-red-500"
+    image: heartImg
   },
   { 
     category: "JOINTS", 
     title: "Cruciate Ligaments of the Knee", 
     readTime: "6 min read",
-    color: "bg-green-500"
+    image: legImg
   },
 ];
 
@@ -88,13 +105,15 @@ export default function Home() {
               </div>
             </div>
             <div className="relative">
-              <div className="aspect-square max-w-md mx-auto bg-gradient-to-br from-primary/20 to-primary/5 rounded-2xl flex items-center justify-center">
-                <div className="text-center p-8">
-                  <div className="w-24 h-24 mx-auto mb-4 bg-primary/10 rounded-full flex items-center justify-center">
-                    <Layers className="w-12 h-12 text-primary" />
-                  </div>
-                  <p className="text-sm font-medium text-primary">Interactive View</p>
-                  <p className="text-xs text-muted-foreground mt-1">3D Anatomy Explorer</p>
+              <div className="aspect-square max-w-md mx-auto rounded-2xl overflow-hidden shadow-xl relative">
+                <img 
+                  src={heroAnatomyImg} 
+                  alt="3D Human Anatomy Model" 
+                  className="w-full h-full object-cover"
+                  data-testid="img-hero-anatomy"
+                />
+                <div className="absolute top-4 left-4 bg-white/90 dark:bg-black/90 backdrop-blur-sm rounded-lg px-3 py-2">
+                  <p className="text-xs font-medium text-primary">Interactive View</p>
                 </div>
               </div>
             </div>
@@ -128,16 +147,23 @@ export default function Home() {
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {regions.map((region) => (
               <Link key={region.title} href="/services">
-                <Card className="group cursor-pointer transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
-                  <CardContent className="p-6">
-                    <div className={`w-full aspect-square mb-4 rounded-lg ${region.color} flex items-center justify-center`}>
-                      <Layers className="w-16 h-16 text-primary/50 group-hover:text-primary transition-colors" />
+                <Card className="group cursor-pointer transition-all duration-300 hover:shadow-lg hover:-translate-y-1 overflow-hidden">
+                  <CardContent className="p-0">
+                    <div className="aspect-square relative overflow-hidden">
+                      <img 
+                        src={region.image} 
+                        alt={region.title}
+                        className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                      <Badge variant="secondary" className="absolute top-3 left-3 text-xs">{region.badge}</Badge>
                     </div>
-                    <Badge variant="secondary" className="mb-2 text-xs">{region.badge}</Badge>
-                    <h3 className="text-lg font-semibold text-foreground mb-1" data-testid={`text-region-${region.title.toLowerCase().replace(/\s/g, '-')}`}>
-                      {region.title}
-                    </h3>
-                    <p className="text-sm text-muted-foreground">{region.description}</p>
+                    <div className="p-4">
+                      <h3 className="text-lg font-semibold text-foreground mb-1" data-testid={`text-region-${region.title.toLowerCase().replace(/\s/g, '-')}`}>
+                        {region.title}
+                      </h3>
+                      <p className="text-sm text-muted-foreground">{region.description}</p>
+                    </div>
                   </CardContent>
                 </Card>
               </Link>
@@ -174,11 +200,16 @@ export default function Home() {
               </Link>
             </div>
             <div className="grid grid-cols-2 gap-4">
-              {["Joint Systems", "Muscular System", "Organ Systems", "Skeletal System"].map((system) => (
-                <Card key={system} className="aspect-square flex items-center justify-center bg-gradient-to-br from-primary/10 to-primary/5">
-                  <div className="text-center p-4">
-                    <Layers className="w-8 h-8 text-primary mx-auto mb-2" />
-                    <p className="text-sm font-medium text-foreground">{system}</p>
+              {model3DItems.map((item) => (
+                <Card key={item.label} className="aspect-square overflow-hidden relative group">
+                  <img 
+                    src={item.image} 
+                    alt={item.label}
+                    className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
+                  <div className="absolute bottom-0 left-0 right-0 p-3">
+                    <p className="text-sm font-medium text-white">{item.label}</p>
                   </div>
                 </Card>
               ))}
@@ -189,7 +220,7 @@ export default function Home() {
 
       <section className="py-16 md:py-24">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
-          <div className="flex justify-between items-center mb-8">
+          <div className="flex flex-wrap justify-between items-center gap-4 mb-8">
             <h2 className="text-2xl md:text-3xl font-bold text-foreground" data-testid="text-articles-title">
               Latest Articles
             </h2>
@@ -202,10 +233,14 @@ export default function Home() {
           <div className="grid md:grid-cols-3 gap-6">
             {articles.map((article) => (
               <Link key={article.title} href="/blog">
-                <Card className="group cursor-pointer transition-all duration-300 hover:shadow-lg">
+                <Card className="group cursor-pointer transition-all duration-300 hover:shadow-lg overflow-hidden">
                   <CardContent className="p-0">
-                    <div className={`h-40 ${article.color}/10 flex items-center justify-center`}>
-                      <Layers className="w-12 h-12 text-muted-foreground/50" />
+                    <div className="h-40 overflow-hidden">
+                      <img 
+                        src={article.image} 
+                        alt={article.title}
+                        className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                      />
                     </div>
                     <div className="p-4">
                       <Badge variant="secondary" className="mb-2 text-xs">{article.category}</Badge>
