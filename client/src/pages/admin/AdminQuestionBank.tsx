@@ -32,6 +32,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Edit, Trash2, HelpCircle, Tag, Filter, Search } from "lucide-react";
+import { AdminLayout } from "@/components/admin/AdminLayout";
 import type { QuestionTopic, QuestionBankItem } from "@shared/schema";
 
 interface QuestionBankItemWithOptions extends QuestionBankItem {
@@ -51,14 +52,14 @@ export default function AdminQuestionBank() {
   const [topicDialogOpen, setTopicDialogOpen] = useState(false);
   const [editingQuestion, setEditingQuestion] = useState<QuestionBankItemWithOptions | null>(null);
   const [editingTopic, setEditingTopic] = useState<QuestionTopic | null>(null);
-  const [filterTopic, setFilterTopic] = useState<string>("");
-  const [filterDifficulty, setFilterDifficulty] = useState<string>("");
+  const [filterTopic, setFilterTopic] = useState<string>("all");
+  const [filterDifficulty, setFilterDifficulty] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
 
   const [questionForm, setQuestionForm] = useState({
     question: "",
     questionType: "multiple_choice" as string,
-    topicId: "",
+    topicId: "none",
     difficulty: "medium" as string,
     explanation: "",
     points: 1,
@@ -86,10 +87,16 @@ export default function AdminQuestionBank() {
     queryKey: ["/api/lms/admin/question-bank", filterTopic, filterDifficulty],
     queryFn: async () => {
       const params = new URLSearchParams();
-      if (filterTopic) params.append("topicId", filterTopic);
-      if (filterDifficulty) params.append("difficulty", filterDifficulty);
-      const res = await fetch(`/api/lms/admin/question-bank?${params}`);
-      return res.json();
+      if (filterTopic && filterTopic !== "all") params.append("topicId", filterTopic);
+      if (filterDifficulty && filterDifficulty !== "all") params.append("difficulty", filterDifficulty);
+      const res = await fetch(`/api/lms/admin/question-bank?${params}`, {
+        credentials: "include",
+      });
+      if (!res.ok) {
+        return [];
+      }
+      const data = await res.json();
+      return Array.isArray(data) ? data : [];
     },
   });
 
@@ -175,7 +182,7 @@ export default function AdminQuestionBank() {
     setQuestionForm({
       question: "",
       questionType: "multiple_choice",
-      topicId: "",
+      topicId: "none",
       difficulty: "medium",
       explanation: "",
       points: 1,
@@ -206,7 +213,7 @@ export default function AdminQuestionBank() {
     setQuestionForm({
       question: fullQuestion.question,
       questionType: fullQuestion.questionType,
-      topicId: fullQuestion.topicId || "",
+      topicId: fullQuestion.topicId || "none",
       difficulty: fullQuestion.difficulty || "medium",
       explanation: fullQuestion.explanation || "",
       points: fullQuestion.points || 1,
@@ -239,7 +246,7 @@ export default function AdminQuestionBank() {
   const handleSaveQuestion = () => {
     const data = {
       ...questionForm,
-      topicId: questionForm.topicId || null,
+      topicId: questionForm.topicId === "none" ? null : questionForm.topicId || null,
       options: questionForm.options.filter((o) => o.optionText.trim()),
     };
 
@@ -312,12 +319,9 @@ export default function AdminQuestionBank() {
   };
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between gap-4 flex-wrap">
-        <h1 className="text-2xl font-bold" data-testid="text-page-title">Question Bank</h1>
-      </div>
-
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
+    <AdminLayout title="Question Bank">
+      <div className="space-y-6">
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="questions" data-testid="tab-questions">
             <HelpCircle className="w-4 h-4 mr-2" />
@@ -363,7 +367,7 @@ export default function AdminQuestionBank() {
                       <SelectValue placeholder="All Topics" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">All Topics</SelectItem>
+                      <SelectItem value="all">All Topics</SelectItem>
                       {topics.map((topic) => (
                         <SelectItem key={topic.id} value={topic.id}>
                           {topic.name}
@@ -376,7 +380,7 @@ export default function AdminQuestionBank() {
                       <SelectValue placeholder="All Levels" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">All Levels</SelectItem>
+                      <SelectItem value="all">All Levels</SelectItem>
                       <SelectItem value="easy">Easy</SelectItem>
                       <SelectItem value="medium">Medium</SelectItem>
                       <SelectItem value="hard">Hard</SelectItem>
@@ -594,7 +598,7 @@ export default function AdminQuestionBank() {
                     <SelectValue placeholder="Select a topic" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">No Topic</SelectItem>
+                    <SelectItem value="none">No Topic</SelectItem>
                     {topics.map((topic) => (
                       <SelectItem key={topic.id} value={topic.id}>
                         {topic.name}
@@ -762,6 +766,7 @@ export default function AdminQuestionBank() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+      </div>
+    </AdminLayout>
   );
 }
