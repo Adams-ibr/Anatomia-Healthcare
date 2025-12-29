@@ -20,6 +20,7 @@ import {
 } from "@shared/schema";
 import { setupSession, registerAuthRoutes, registerMemberRoutes, isAuthenticated } from "./auth";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
+import lmsRoutes from "./lms-routes";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -31,6 +32,9 @@ export async function registerRoutes(
   registerAuthRoutes(app);
   registerMemberRoutes(app);
   registerObjectStorageRoutes(app);
+  
+  // LMS routes
+  app.use("/api/lms", lmsRoutes);
 
   // Public routes
   app.post("/api/contact", async (req, res) => {

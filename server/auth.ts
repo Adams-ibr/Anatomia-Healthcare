@@ -166,6 +166,22 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
   next();
 };
 
+// Authentication middleware for members
+export const isMemberAuthenticated: RequestHandler = async (req, res, next) => {
+  const memberId = (req.session as any).memberId;
+  if (!memberId) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+
+  const [member] = await db.select().from(members).where(eq(members.id, memberId));
+  if (!member) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+
+  (req as any).member = member;
+  next();
+};
+
 // Member (regular user) routes
 export function registerMemberRoutes(app: Express) {
   // Register new member

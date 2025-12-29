@@ -8,7 +8,8 @@ import {
   HelpCircle, 
   Briefcase, 
   Mail, 
-  Newspaper
+  Newspaper,
+  GraduationCap
 } from "lucide-react";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 
@@ -23,6 +24,7 @@ export default function Dashboard() {
   });
 
   const menuItems = [
+    { title: "LMS Courses", icon: GraduationCap, href: "/admin/courses", description: "Manage courses & lessons" },
     { title: "Articles", icon: FileText, href: "/admin/articles", description: "Manage blog posts" },
     { title: "Team", icon: Users, href: "/admin/team", description: "Manage team members" },
     { title: "Products", icon: Package, href: "/admin/products", description: "Manage products/services" },

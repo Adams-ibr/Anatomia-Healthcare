@@ -26,6 +26,9 @@ import AdminFaq from "@/pages/admin/AdminFaq";
 import AdminCareers from "@/pages/admin/AdminCareers";
 import AdminContacts from "@/pages/admin/AdminContacts";
 import AdminNewsletter from "@/pages/admin/AdminNewsletter";
+import AdminCourses from "@/pages/admin/AdminCourses";
+import AdminModules from "@/pages/admin/AdminModules";
+import AdminLessons from "@/pages/admin/AdminLessons";
 import Login from "@/pages/admin/Login";
 import Register from "@/pages/auth/Register";
 import UserLogin from "@/pages/auth/UserLogin";
@@ -53,6 +56,9 @@ function Router() {
       <Route path="/admin/careers" component={AdminCareers} />
       <Route path="/admin/contacts" component={AdminContacts} />
       <Route path="/admin/newsletter" component={AdminNewsletter} />
+      <Route path="/admin/courses" component={AdminCourses} />
+      <Route path="/admin/courses/:courseId/modules" component={AdminModules} />
+      <Route path="/admin/modules/:moduleId/lessons" component={AdminLessons} />
       <Route path="/admin/login" component={Login} />
       <Route path="/register" component={Register} />
       <Route path="/login" component={UserLogin} />

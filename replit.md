@@ -35,7 +35,25 @@ The server handles API routes for contact form submissions and newsletter subscr
 - **Current Storage**: In-memory storage implementation (MemStorage class)
 - **Database Ready**: Drizzle config points to PostgreSQL via DATABASE_URL
 
-The schema defines three tables: users, contact_messages, and newsletter_subscriptions. The storage abstraction (IStorage interface) allows swapping between memory and database implementations.
+The schema defines multiple tables including:
+- **Auth**: users (admins), members (students), sessions
+- **Content**: contact_messages, newsletter_subscriptions, articles, team_members, products, faq_items, careers
+- **LMS**: courses, course_modules, lessons, lesson_assets, enrollments, lesson_progress, quizzes, quiz_questions, quiz_options, quiz_attempts, certificates
+
+The storage abstraction (IStorage interface for basic operations, LmsStorage for LMS operations) allows swapping between memory and database implementations.
+
+### Learning Management System (LMS)
+The platform includes a full-fledged LMS with:
+- **Courses**: Title, description, category, level, pricing, publishing status
+- **Modules**: Sections within courses, ordered sequentially
+- **Lessons**: Text, video, or interactive content with duration tracking
+- **Progress Tracking**: Enrollment-based progress with lesson completion status
+- **Quizzes**: Multiple choice assessments with scoring and passing thresholds
+- **Certificates**: Completion certificates with unique verification numbers
+
+Admin routes: `/api/lms/admin/*` (requires admin auth)
+Public routes: `/api/lms/courses`, `/api/lms/certificates/verify/:number`
+Member routes: `/api/lms/enrollments`, `/api/lms/lessons/:id/progress`
 
 ### Build System
 - **Client Build**: Vite outputs to `dist/public`
