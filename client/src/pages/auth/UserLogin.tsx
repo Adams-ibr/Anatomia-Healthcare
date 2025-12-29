@@ -30,7 +30,7 @@ export default function UserLogin() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/members/me"] });
       toast({ title: "Login successful!" });
-      setLocation("/");
+      setLocation("/dashboard");
     },
     onError: (error) => {
       toast({ 

@@ -31,7 +31,7 @@ export default function Register() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/members/me"] });
       toast({ title: "Account created successfully!" });
-      setLocation("/");
+      setLocation("/dashboard");
     },
     onError: (error) => {
       toast({ 
