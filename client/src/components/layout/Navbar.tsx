@@ -4,7 +4,7 @@ import { Search, Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { useState } from "react";
+import { useState, useCallback } from "react";
 
 const navLinks = [
   { label: "Home", href: "/" },
@@ -27,10 +27,19 @@ const mobileMenuVariants = {
 };
 
 export function Navbar() {
-  const [location] = useLocation();
+  const [location, setLocation] = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   const prefersReducedMotion = useReducedMotion();
+
+  const handleSearch = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter" && searchQuery.trim()) {
+      setLocation(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
+      setSearchQuery("");
+      setSearchOpen(false);
+    }
+  }, [searchQuery, setLocation]);
 
   return (
     <header className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-border">
@@ -90,9 +99,12 @@ export function Navbar() {
                 <Input
                   type="search"
                   placeholder="Search..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={handleSearch}
                   className="pl-9 pr-4 h-9 bg-muted/50 border-transparent focus:border-primary"
                   onFocus={() => setSearchOpen(true)}
-                  onBlur={() => setSearchOpen(false)}
+                  onBlur={() => setTimeout(() => setSearchOpen(false), 100)}
                   data-testid="input-search"
                 />
               </div>
