@@ -20,6 +20,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import {
   Table,
@@ -29,10 +30,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Plus, Pencil, Trash2, Layers, ArrowLeft, BookOpen, HelpCircle } from "lucide-react";
+import { Plus, Pencil, Trash2, Layers, ArrowLeft, BookOpen, HelpCircle, Lightbulb, Sparkles } from "lucide-react";
 import type { FlashcardDeck, Flashcard } from "@shared/schema";
 
 interface FlashcardOption {
@@ -42,6 +42,17 @@ interface FlashcardOption {
 
 interface FlashcardWithOptions extends Omit<Flashcard, 'options'> {
   options?: FlashcardOption[] | unknown;
+}
+
+const CARD_TYPES = [
+  { value: "learning", label: "Learning Card", icon: BookOpen, description: "Term and definition flip card" },
+  { value: "question", label: "Question Card", icon: HelpCircle, description: "Multiple choice question" },
+  { value: "fun_fact", label: "Fun Fact", icon: Sparkles, description: "Interesting fact to remember" },
+  { value: "tip", label: "Educational Tip", icon: Lightbulb, description: "Helpful study tip or advice" },
+];
+
+function getCardTypeInfo(cardType: string) {
+  return CARD_TYPES.find(t => t.value === cardType) || CARD_TYPES[0];
 }
 
 export default function AdminFlashcards() {
@@ -130,7 +141,8 @@ export default function AdminFlashcards() {
       setIsCardDialogOpen(false);
       resetCardForm();
     },
-    onError: () => {
+    onError: (error: any) => {
+      console.error("Failed to create card:", error);
       toast({ title: "Failed to create card", variant: "destructive" });
     },
   });
@@ -195,19 +207,33 @@ export default function AdminFlashcards() {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
     
-    const data: Partial<FlashcardWithOptions> = {
+    const front = formData.get("front") as string;
+    const back = formData.get("back") as string;
+    const explanation = formData.get("explanation") as string;
+    
+    const data: Record<string, any> = {
       cardType,
-      front: formData.get("front") as string,
-      back: formData.get("back") as string,
-      explanation: formData.get("explanation") as string || null,
+      front,
+      back,
+      explanation: explanation || null,
     };
 
     if (cardType === "question") {
       const validOptions = cardOptions.filter(opt => opt.text.trim());
+      if (validOptions.length < 2) {
+        toast({ title: "Please add at least 2 answer options", variant: "destructive" });
+        return;
+      }
+      if (!validOptions.some(opt => opt.isCorrect)) {
+        toast({ title: "Please mark at least one option as correct", variant: "destructive" });
+        return;
+      }
       data.options = validOptions;
       const correctOption = validOptions.find(opt => opt.isCorrect);
       data.correctAnswer = correctOption?.text || null;
     }
+
+    console.log("Submitting card data:", data);
 
     if (editingCard) {
       updateCardMutation.mutate({ id: editingCard.id, data });
@@ -230,7 +256,7 @@ export default function AdminFlashcards() {
     setEditingCard(card);
     setCardType(card.cardType || "learning");
     if (card.options && Array.isArray(card.options)) {
-      setCardOptions(card.options.length > 0 ? card.options : [
+      setCardOptions(card.options.length > 0 ? card.options as FlashcardOption[] : [
         { text: "", isCorrect: false },
         { text: "", isCorrect: false },
         { text: "", isCorrect: false },
@@ -265,6 +291,21 @@ export default function AdminFlashcards() {
 
   const removeOption = (index: number) => {
     setCardOptions(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const getCardIcon = (type: string) => {
+    const info = getCardTypeInfo(type);
+    const Icon = info.icon;
+    return <Icon className="h-3 w-3 mr-1" />;
+  };
+
+  const getCardBadgeVariant = (type: string): "default" | "secondary" | "outline" => {
+    switch (type) {
+      case "question": return "default";
+      case "fun_fact": return "outline";
+      case "tip": return "outline";
+      default: return "secondary";
+    }
   };
 
   if (selectedDeck) {
@@ -307,12 +348,9 @@ export default function AdminFlashcards() {
                   {cards.map((card) => (
                     <TableRow key={card.id} data-testid={`row-card-${card.id}`}>
                       <TableCell>
-                        <Badge variant={card.cardType === "question" ? "default" : "secondary"}>
-                          {card.cardType === "question" ? (
-                            <><HelpCircle className="h-3 w-3 mr-1" /> Question</>
-                          ) : (
-                            <><BookOpen className="h-3 w-3 mr-1" /> Learning</>
-                          )}
+                        <Badge variant={getCardBadgeVariant(card.cardType || "learning")}>
+                          {getCardIcon(card.cardType || "learning")}
+                          {getCardTypeInfo(card.cardType || "learning").label}
                         </Badge>
                       </TableCell>
                       <TableCell className="max-w-[200px]">
@@ -352,27 +390,42 @@ export default function AdminFlashcards() {
             <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>{editingCard ? "Edit Card" : "Add New Card"}</DialogTitle>
+                <DialogDescription>
+                  Create different types of flashcards for your students
+                </DialogDescription>
               </DialogHeader>
               <form onSubmit={handleCardSubmit} className="space-y-4">
                 <div className="space-y-2">
                   <Label>Card Type</Label>
-                  <Tabs value={cardType} onValueChange={setCardType}>
-                    <TabsList className="grid w-full grid-cols-2">
-                      <TabsTrigger value="learning" data-testid="tab-learning">
-                        <BookOpen className="h-4 w-4 mr-2" />
-                        Learning Card
-                      </TabsTrigger>
-                      <TabsTrigger value="question" data-testid="tab-question">
-                        <HelpCircle className="h-4 w-4 mr-2" />
-                        Question Card
-                      </TabsTrigger>
-                    </TabsList>
-                  </Tabs>
+                  <Select value={cardType} onValueChange={setCardType}>
+                    <SelectTrigger data-testid="select-card-type">
+                      <SelectValue placeholder="Select card type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {CARD_TYPES.map((type) => {
+                        const Icon = type.icon;
+                        return (
+                          <SelectItem key={type.value} value={type.value}>
+                            <div className="flex items-center gap-2">
+                              <Icon className="h-4 w-4" />
+                              <span>{type.label}</span>
+                            </div>
+                          </SelectItem>
+                        );
+                      })}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    {getCardTypeInfo(cardType).description}
+                  </p>
                 </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="front">
-                    {cardType === "question" ? "Question" : "Term / Front"}
+                    {cardType === "question" ? "Question" : 
+                     cardType === "fun_fact" ? "Fun Fact Title" :
+                     cardType === "tip" ? "Tip Title" :
+                     "Term / Front"}
                   </Label>
                   <Textarea
                     id="front"
@@ -380,82 +433,86 @@ export default function AdminFlashcards() {
                     defaultValue={editingCard?.front || ""}
                     required
                     rows={3}
+                    placeholder={
+                      cardType === "question" ? "Enter your question here..." :
+                      cardType === "fun_fact" ? "Did you know?" :
+                      cardType === "tip" ? "Pro tip:" :
+                      "Enter the term or front of the card..."
+                    }
                     data-testid="input-front"
                   />
                 </div>
 
-                {cardType === "question" ? (
-                  <>
-                    <div className="space-y-3">
-                      <Label>Answer Options</Label>
-                      {cardOptions.map((option, index) => (
-                        <div key={index} className="flex items-center gap-3">
-                          <Checkbox
-                            checked={option.isCorrect}
-                            onCheckedChange={(checked) => updateOption(index, "isCorrect", !!checked)}
-                            data-testid={`checkbox-correct-${index}`}
-                          />
-                          <Input
-                            value={option.text}
-                            onChange={(e) => updateOption(index, "text", e.target.value)}
-                            placeholder={`Option ${index + 1}`}
-                            className="flex-1"
-                            data-testid={`input-option-${index}`}
-                          />
-                          {cardOptions.length > 2 && (
-                            <Button
-                              type="button"
-                              size="icon"
-                              variant="ghost"
-                              onClick={() => removeOption(index)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          )}
-                        </div>
-                      ))}
-                      <Button type="button" variant="outline" onClick={addOption} className="w-full">
-                        <Plus className="h-4 w-4 mr-2" />
-                        Add Option
-                      </Button>
-                      <p className="text-xs text-muted-foreground">
-                        Check the box next to the correct answer(s)
-                      </p>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="back">Correct Answer / Summary</Label>
-                      <Textarea
-                        id="back"
-                        name="back"
-                        defaultValue={editingCard?.back || ""}
-                        required
-                        rows={2}
-                        data-testid="input-back"
-                      />
-                    </div>
-                  </>
-                ) : (
-                  <div className="space-y-2">
-                    <Label htmlFor="back">Definition / Back</Label>
-                    <Textarea
-                      id="back"
-                      name="back"
-                      defaultValue={editingCard?.back || ""}
-                      required
-                      rows={3}
-                      data-testid="input-back"
-                    />
+                {cardType === "question" && (
+                  <div className="space-y-3">
+                    <Label>Answer Options</Label>
+                    {cardOptions.map((option, index) => (
+                      <div key={index} className="flex items-center gap-3">
+                        <Checkbox
+                          checked={option.isCorrect}
+                          onCheckedChange={(checked) => updateOption(index, "isCorrect", !!checked)}
+                          data-testid={`checkbox-correct-${index}`}
+                        />
+                        <Input
+                          value={option.text}
+                          onChange={(e) => updateOption(index, "text", e.target.value)}
+                          placeholder={`Option ${index + 1}`}
+                          className="flex-1"
+                          data-testid={`input-option-${index}`}
+                        />
+                        {cardOptions.length > 2 && (
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => removeOption(index)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                    ))}
+                    <Button type="button" variant="outline" onClick={addOption} className="w-full">
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add Option
+                    </Button>
+                    <p className="text-xs text-muted-foreground">
+                      Check the box next to the correct answer(s)
+                    </p>
                   </div>
                 )}
 
                 <div className="space-y-2">
-                  <Label htmlFor="explanation">Explanation (Optional)</Label>
+                  <Label htmlFor="back">
+                    {cardType === "question" ? "Correct Answer Explanation" : 
+                     cardType === "fun_fact" ? "The Fun Fact" :
+                     cardType === "tip" ? "The Tip" :
+                     "Definition / Back"}
+                  </Label>
+                  <Textarea
+                    id="back"
+                    name="back"
+                    defaultValue={editingCard?.back || ""}
+                    required
+                    rows={3}
+                    placeholder={
+                      cardType === "question" ? "Explain why this is the correct answer..." :
+                      cardType === "fun_fact" ? "Share the interesting fact here..." :
+                      cardType === "tip" ? "Provide your helpful tip here..." :
+                      "Enter the definition or back of the card..."
+                    }
+                    data-testid="input-back"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="explanation">Additional Notes (Optional)</Label>
                   <Textarea
                     id="explanation"
                     name="explanation"
                     defaultValue={editingCard?.explanation || ""}
                     rows={2}
-                    placeholder="Additional explanation for the answer"
+                    placeholder="Any additional context or explanation..."
                     data-testid="input-explanation"
                   />
                 </div>
@@ -555,6 +612,9 @@ export default function AdminFlashcards() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{editingDeck ? "Edit Deck" : "Create New Deck"}</DialogTitle>
+            <DialogDescription>
+              Create a deck to organize your flashcards
+            </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleDeckSubmit} className="space-y-4">
             <div className="space-y-2">
@@ -582,6 +642,7 @@ export default function AdminFlashcards() {
                 id="category"
                 name="category"
                 defaultValue={editingDeck?.category || ""}
+                placeholder="e.g., Anatomy, Physiology, Pharmacology"
                 data-testid="input-category"
               />
             </div>

@@ -21,7 +21,9 @@ import {
   BookOpen,
   HelpCircle,
   Check,
-  X
+  X,
+  Sparkles,
+  Lightbulb
 } from "lucide-react";
 import type { FlashcardDeck, Flashcard } from "@shared/schema";
 
@@ -43,6 +45,13 @@ interface FlashcardWithProgress extends Omit<Flashcard, 'options'> {
 interface DeckWithCards extends FlashcardDeck {
   flashcards: FlashcardWithProgress[];
 }
+
+const CARD_TYPE_INFO: Record<string, { icon: any; label: string; color: string }> = {
+  learning: { icon: BookOpen, label: "Learning", color: "text-blue-500" },
+  question: { icon: HelpCircle, label: "Question", color: "text-purple-500" },
+  fun_fact: { icon: Sparkles, label: "Fun Fact", color: "text-yellow-500" },
+  tip: { icon: Lightbulb, label: "Tip", color: "text-green-500" },
+};
 
 export default function FlashcardStudy() {
   const [selectedDeck, setSelectedDeck] = useState<DeckWithCards | null>(null);
@@ -197,17 +206,157 @@ export default function FlashcardStudy() {
     setIsFlipped(true);
   };
 
-  const isAnswerCorrect = (card: FlashcardWithProgress, answer: string | null): boolean => {
-    if (!answer) return false;
-    const options = getCardOptions(card);
-    const selectedOption = options.find(opt => opt.text === answer);
-    return selectedOption?.isCorrect || false;
-  };
-
   const currentCard = studySession?.cards[currentIndex];
   const isSessionComplete = studySession && currentIndex >= studySession.cards.length;
   const cardOptions = currentCard ? getCardOptions(currentCard) : [];
   const isQuestionCard = currentCard?.cardType === "question" && cardOptions.length > 0;
+  const cardTypeInfo = currentCard ? CARD_TYPE_INFO[currentCard.cardType || "learning"] || CARD_TYPE_INFO.learning : null;
+
+  const renderCardContent = () => {
+    if (!currentCard) return null;
+    const cardType = currentCard.cardType || "learning";
+    const TypeIcon = cardTypeInfo?.icon || BookOpen;
+
+    if (cardType === "question" && isQuestionCard) {
+      return (
+        <Card className="min-h-[300px]">
+          <CardContent className="p-8 space-y-6">
+            <div className="text-center">
+              <div className="flex items-center justify-center gap-2 mb-4">
+                <TypeIcon className={`h-5 w-5 ${cardTypeInfo?.color}`} />
+                <p className="text-sm text-muted-foreground">QUESTION</p>
+              </div>
+              <h2 className="text-xl font-medium" data-testid="text-card-front">
+                {currentCard.front}
+              </h2>
+            </div>
+
+            <RadioGroup 
+              value={selectedAnswer || ""} 
+              onValueChange={setSelectedAnswer}
+              disabled={showAnswerResult}
+              className="space-y-3"
+            >
+              {cardOptions.map((option, index) => {
+                const isSelected = selectedAnswer === option.text;
+                const showCorrect = showAnswerResult && option.isCorrect;
+                const showIncorrect = showAnswerResult && isSelected && !option.isCorrect;
+                
+                return (
+                  <div 
+                    key={index}
+                    className={`flex items-center space-x-3 p-3 rounded-md border transition-colors ${
+                      showCorrect ? "border-green-500 bg-green-50 dark:bg-green-900/20" :
+                      showIncorrect ? "border-red-500 bg-red-50 dark:bg-red-900/20" :
+                      isSelected ? "border-primary" : "border-border"
+                    }`}
+                  >
+                    <RadioGroupItem 
+                      value={option.text} 
+                      id={`option-${index}`}
+                      data-testid={`radio-option-${index}`}
+                    />
+                    <Label 
+                      htmlFor={`option-${index}`} 
+                      className="flex-1 cursor-pointer flex items-center justify-between"
+                    >
+                      {option.text}
+                      {showCorrect && <Check className="h-5 w-5 text-green-500" />}
+                      {showIncorrect && <X className="h-5 w-5 text-red-500" />}
+                    </Label>
+                  </div>
+                );
+              })}
+            </RadioGroup>
+
+            {showAnswerResult && (
+              <div className="space-y-3">
+                <div className="p-4 rounded-md bg-muted">
+                  <p className="text-sm font-medium mb-1">Answer:</p>
+                  <p className="text-sm">{currentCard.back}</p>
+                </div>
+                {currentCard.explanation && (
+                  <div className="p-4 rounded-md bg-muted/50">
+                    <p className="text-sm font-medium mb-1">Additional Notes:</p>
+                    <p className="text-sm text-muted-foreground">{currentCard.explanation}</p>
+                  </div>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      );
+    }
+
+    if (cardType === "fun_fact" || cardType === "tip") {
+      return (
+        <Card className={`min-h-[300px] ${cardType === "fun_fact" ? "border-yellow-500/30" : "border-green-500/30"}`}>
+          <CardContent className="p-8 flex flex-col items-center justify-center min-h-[300px]">
+            <div className="text-center">
+              <div className="flex items-center justify-center gap-2 mb-4">
+                <TypeIcon className={`h-8 w-8 ${cardTypeInfo?.color}`} />
+              </div>
+              <p className="text-sm font-medium text-muted-foreground mb-3">
+                {cardType === "fun_fact" ? "FUN FACT" : "EDUCATIONAL TIP"}
+              </p>
+              <h2 className="text-xl font-medium mb-6" data-testid="text-card-front">
+                {currentCard.front}
+              </h2>
+              <div className="p-4 rounded-lg bg-muted">
+                <p className="text-base" data-testid="text-card-back">
+                  {currentCard.back}
+                </p>
+              </div>
+              {currentCard.explanation && (
+                <p className="text-sm text-muted-foreground mt-4">
+                  {currentCard.explanation}
+                </p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      );
+    }
+
+    return (
+      <div 
+        className="perspective-1000 cursor-pointer"
+        onClick={() => setIsFlipped(!isFlipped)}
+        data-testid="flashcard"
+      >
+        <Card className="min-h-[300px] flex items-center justify-center">
+          <CardContent className="text-center p-8">
+            {!isFlipped ? (
+              <div>
+                <div className="flex items-center justify-center gap-2 mb-4">
+                  <TypeIcon className={`h-5 w-5 ${cardTypeInfo?.color}`} />
+                  <p className="text-sm text-muted-foreground">FRONT</p>
+                </div>
+                <h2 className="text-2xl font-medium" data-testid="text-card-front">
+                  {currentCard.front}
+                </h2>
+                <p className="text-sm text-muted-foreground mt-6">
+                  Click to reveal answer
+                </p>
+              </div>
+            ) : (
+              <div>
+                <p className="text-sm text-muted-foreground mb-4">BACK</p>
+                <h2 className="text-2xl font-medium" data-testid="text-card-back">
+                  {currentCard.back}
+                </h2>
+                {currentCard.explanation && (
+                  <p className="text-sm text-muted-foreground mt-4">
+                    {currentCard.explanation}
+                  </p>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    );
+  };
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -376,11 +525,15 @@ export default function FlashcardStudy() {
                   <Badge variant="outline" className="no-default-active-elevate">
                     Card {currentIndex + 1} of {studySession.cards.length}
                   </Badge>
-                  <Badge variant={isQuestionCard ? "default" : "secondary"} className="no-default-active-elevate">
-                    {isQuestionCard ? (
-                      <><HelpCircle className="h-3 w-3 mr-1" /> Question</>
-                    ) : (
-                      <><BookOpen className="h-3 w-3 mr-1" /> Learning</>
+                  <Badge variant="secondary" className="no-default-active-elevate">
+                    {cardTypeInfo && (
+                      <>
+                        {(() => {
+                          const Icon = cardTypeInfo.icon;
+                          return <Icon className={`h-3 w-3 mr-1 ${cardTypeInfo.color}`} />;
+                        })()}
+                        {cardTypeInfo.label}
+                      </>
                     )}
                   </Badge>
                 </div>
@@ -397,104 +550,7 @@ export default function FlashcardStudy() {
                 className="h-2"
               />
 
-              {isQuestionCard ? (
-                <Card className="min-h-[300px]">
-                  <CardContent className="p-8 space-y-6">
-                    <div className="text-center">
-                      <p className="text-sm text-muted-foreground mb-4">QUESTION</p>
-                      <h2 className="text-xl font-medium" data-testid="text-card-front">
-                        {currentCard.front}
-                      </h2>
-                    </div>
-
-                    <RadioGroup 
-                      value={selectedAnswer || ""} 
-                      onValueChange={setSelectedAnswer}
-                      disabled={showAnswerResult}
-                      className="space-y-3"
-                    >
-                      {cardOptions.map((option, index) => {
-                        const isSelected = selectedAnswer === option.text;
-                        const showCorrect = showAnswerResult && option.isCorrect;
-                        const showIncorrect = showAnswerResult && isSelected && !option.isCorrect;
-                        
-                        return (
-                          <div 
-                            key={index}
-                            className={`flex items-center space-x-3 p-3 rounded-md border transition-colors ${
-                              showCorrect ? "border-green-500 bg-green-50 dark:bg-green-900/20" :
-                              showIncorrect ? "border-red-500 bg-red-50 dark:bg-red-900/20" :
-                              isSelected ? "border-primary" : "border-border"
-                            }`}
-                          >
-                            <RadioGroupItem 
-                              value={option.text} 
-                              id={`option-${index}`}
-                              data-testid={`radio-option-${index}`}
-                            />
-                            <Label 
-                              htmlFor={`option-${index}`} 
-                              className="flex-1 cursor-pointer flex items-center justify-between"
-                            >
-                              {option.text}
-                              {showCorrect && <Check className="h-5 w-5 text-green-500" />}
-                              {showIncorrect && <X className="h-5 w-5 text-red-500" />}
-                            </Label>
-                          </div>
-                        );
-                      })}
-                    </RadioGroup>
-
-                    {showAnswerResult && currentCard.explanation && (
-                      <div className="p-4 rounded-md bg-muted">
-                        <p className="text-sm font-medium mb-1">Explanation:</p>
-                        <p className="text-sm text-muted-foreground">{currentCard.explanation}</p>
-                      </div>
-                    )}
-
-                    {showAnswerResult && (
-                      <div className="text-center">
-                        <p className="text-sm text-muted-foreground mb-2">Answer:</p>
-                        <p className="font-medium">{currentCard.back}</p>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              ) : (
-                <div 
-                  className="perspective-1000 cursor-pointer"
-                  onClick={() => setIsFlipped(!isFlipped)}
-                  data-testid="flashcard"
-                >
-                  <Card className="min-h-[300px] flex items-center justify-center">
-                    <CardContent className="text-center p-8">
-                      {!isFlipped ? (
-                        <div>
-                          <p className="text-sm text-muted-foreground mb-4">FRONT</p>
-                          <h2 className="text-2xl font-medium" data-testid="text-card-front">
-                            {currentCard.front}
-                          </h2>
-                          <p className="text-sm text-muted-foreground mt-6">
-                            Click to reveal answer
-                          </p>
-                        </div>
-                      ) : (
-                        <div>
-                          <p className="text-sm text-muted-foreground mb-4">BACK</p>
-                          <h2 className="text-2xl font-medium" data-testid="text-card-back">
-                            {currentCard.back}
-                          </h2>
-                          {currentCard.explanation && (
-                            <p className="text-sm text-muted-foreground mt-4">
-                              {currentCard.explanation}
-                            </p>
-                          )}
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                </div>
-              )}
+              {renderCardContent()}
 
               <div className="flex justify-between items-center pt-4">
                 {studyMode === "browse" ? (
@@ -525,7 +581,7 @@ export default function FlashcardStudy() {
                       <ChevronRight className="w-4 h-4 ml-2" />
                     </Button>
                   </div>
-                ) : (isFlipped || (isQuestionCard && showAnswerResult)) ? (
+                ) : (isFlipped || (isQuestionCard && showAnswerResult) || currentCard.cardType === "fun_fact" || currentCard.cardType === "tip") ? (
                   <div className="flex justify-center gap-4 w-full">
                     <Button 
                       variant="outline"
