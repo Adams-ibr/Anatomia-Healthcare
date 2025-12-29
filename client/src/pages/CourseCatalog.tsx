@@ -9,8 +9,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "wouter";
 import { BookOpen, Clock, Search, Filter, GraduationCap, ArrowUpDown } from "lucide-react";
 import type { Course } from "@shared/schema";
-import { Navbar } from "@/components/layout/Navbar";
-import { Footer } from "@/components/layout/Footer";
 
 function CourseSkeleton() {
   return (
@@ -70,9 +68,7 @@ export default function CourseCatalog() {
   };
 
   return (
-    <>
-      <Navbar />
-      <main className="min-h-screen bg-background">
+    <div className="bg-background">
         <section className="relative py-16 bg-gradient-to-br from-primary/10 via-background to-background">
           <div className="container mx-auto px-4">
             <div className="max-w-3xl mx-auto text-center">
@@ -226,8 +222,6 @@ export default function CourseCatalog() {
             )}
           </div>
         </section>
-      </main>
-      <Footer />
-    </>
+    </div>
   );
 }

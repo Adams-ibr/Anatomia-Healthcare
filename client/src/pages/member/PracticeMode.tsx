@@ -11,8 +11,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Navbar } from "@/components/layout/Navbar";
-import { Footer } from "@/components/layout/Footer";
 import { 
   Play, 
   RotateCcw, 
@@ -185,10 +183,7 @@ export default function PracticeMode() {
   const score = getScore();
 
   return (
-    <div className="min-h-screen flex flex-col bg-background">
-      <Navbar />
-      
-      <main className="flex-1 container mx-auto px-4 py-8">
+    <div className="container mx-auto px-4 py-8">
         <div className="max-w-4xl mx-auto">
           <div className="mb-8">
             <h1 className="text-3xl font-bold mb-2" data-testid="text-page-title">Practice Mode</h1>
@@ -476,9 +471,6 @@ export default function PracticeMode() {
             </div>
           )}
         </div>
-      </main>
-
-      <Footer />
     </div>
   );
 }

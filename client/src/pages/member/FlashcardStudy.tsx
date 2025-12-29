@@ -5,8 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { Navbar } from "@/components/layout/Navbar";
-import { Footer } from "@/components/layout/Footer";
 import { 
   Play, 
   RotateCcw, 
@@ -165,10 +163,7 @@ export default function FlashcardStudy() {
   const isSessionComplete = studySession && currentIndex >= studySession.cards.length;
 
   return (
-    <div className="min-h-screen flex flex-col bg-background">
-      <Navbar />
-      
-      <main className="flex-1 container mx-auto px-4 py-8">
+    <div className="container mx-auto px-4 py-8">
         <div className="max-w-4xl mx-auto">
           <div className="flex items-center justify-between gap-4 flex-wrap mb-8">
             <div>
@@ -436,9 +431,6 @@ export default function FlashcardStudy() {
             </div>
           )}
         </div>
-      </main>
-
-      <Footer />
 
       <style>{`
         .perspective-1000 {

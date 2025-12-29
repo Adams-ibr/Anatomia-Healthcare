@@ -5,6 +5,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/ThemeProvider";
+import { StudentLayout } from "@/components/StudentLayout";
 import Home from "@/pages/Home";
 import About from "@/pages/About";
 import Blog from "@/pages/Blog";
@@ -40,17 +41,40 @@ import Anatomy3DViewer from "@/pages/member/Anatomy3DViewer";
 import CoursePlayer from "@/pages/member/CoursePlayer";
 import CourseCatalog from "@/pages/CourseCatalog";
 
+function StudentRoutes() {
+  return (
+    <StudentLayout>
+      <Switch>
+        <Route path="/dashboard" component={StudentDashboard} />
+        <Route path="/practice" component={PracticeMode} />
+        <Route path="/flashcards" component={FlashcardStudy} />
+        <Route path="/anatomy-viewer" component={Anatomy3DViewer} />
+        <Route path="/courses" component={CourseCatalog} />
+        <Route path="/learn/:courseId" component={CoursePlayer} />
+        <Route path="/learn/:courseId/:lessonId" component={CoursePlayer} />
+      </Switch>
+    </StudentLayout>
+  );
+}
+
 function Router() {
+  const [location] = useLocation();
+  
+  const isStudentRoute = 
+    location === "/dashboard" ||
+    location === "/practice" ||
+    location === "/flashcards" ||
+    location === "/anatomy-viewer" ||
+    location === "/courses" ||
+    location.startsWith("/learn/");
+  
+  if (isStudentRoute) {
+    return <StudentRoutes />;
+  }
+  
   return (
     <Switch>
       <Route path="/" component={Home} />
-      <Route path="/dashboard" component={StudentDashboard} />
-      <Route path="/practice" component={PracticeMode} />
-      <Route path="/flashcards" component={FlashcardStudy} />
-      <Route path="/anatomy-viewer" component={Anatomy3DViewer} />
-      <Route path="/courses" component={CourseCatalog} />
-      <Route path="/learn/:courseId" component={CoursePlayer} />
-      <Route path="/learn/:courseId/:lessonId" component={CoursePlayer} />
       <Route path="/about" component={About} />
       <Route path="/blog" component={Blog} />
       <Route path="/blog/:slug" component={SingleBlog} />
