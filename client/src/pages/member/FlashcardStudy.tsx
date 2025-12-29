@@ -1,28 +1,37 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
 import { 
-  Play, 
   RotateCcw, 
   ChevronLeft,
   ChevronRight,
   Eye,
-  EyeOff,
   ThumbsUp,
   ThumbsDown,
   Zap,
   Layers,
-  Clock,
   CheckCircle2,
-  Loader2
+  Loader2,
+  BookOpen,
+  HelpCircle,
+  Check,
+  X
 } from "lucide-react";
 import type { FlashcardDeck, Flashcard } from "@shared/schema";
 
-interface FlashcardWithProgress extends Flashcard {
+interface FlashcardOption {
+  text: string;
+  isCorrect: boolean;
+}
+
+interface FlashcardWithProgress extends Omit<Flashcard, 'options'> {
+  options?: FlashcardOption[] | unknown;
   progress?: {
     masteryLevel: number;
     interval: number;
@@ -32,7 +41,7 @@ interface FlashcardWithProgress extends Flashcard {
 }
 
 interface DeckWithCards extends FlashcardDeck {
-  flashcards: Flashcard[];
+  flashcards: FlashcardWithProgress[];
 }
 
 export default function FlashcardStudy() {
@@ -40,6 +49,8 @@ export default function FlashcardStudy() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
   const [studyMode, setStudyMode] = useState<"browse" | "spaced">("browse");
+  const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
+  const [showAnswerResult, setShowAnswerResult] = useState(false);
   const [studySession, setStudySession] = useState<{
     cards: FlashcardWithProgress[];
     reviewed: number;
@@ -51,7 +62,9 @@ export default function FlashcardStudy() {
     queryKey: ["/api/lms/flashcard-decks"],
     queryFn: async () => {
       const res = await fetch("/api/lms/flashcard-decks");
-      return res.json();
+      if (!res.ok) return [];
+      const data = await res.json();
+      return Array.isArray(data) ? data : [];
     },
   });
 
@@ -59,23 +72,28 @@ export default function FlashcardStudy() {
     queryKey: ["/api/lms/flashcard-decks", selectedDeck?.id, "due"],
     queryFn: async () => {
       if (!selectedDeck) return [];
-      const res = await fetch(`/api/lms/flashcard-decks/${selectedDeck.id}/due`);
-      return res.json();
+      const res = await fetch(`/api/lms/flashcard-decks/${selectedDeck.id}/due`, {
+        credentials: "include",
+      });
+      if (!res.ok) return [];
+      const data = await res.json();
+      return Array.isArray(data) ? data : [];
     },
     enabled: !!selectedDeck && studyMode === "spaced",
   });
 
   const reviewMutation = useMutation({
     mutationFn: ({ flashcardId, quality }: { flashcardId: string; quality: number }) =>
-      apiRequest(`/api/lms/flashcards/${flashcardId}/review`, "POST", { quality }),
+      apiRequest("POST", `/api/lms/flashcards/${flashcardId}/review`, { quality }),
     onSuccess: () => {
       if (studySession) {
         const nextIndex = currentIndex + 1;
+        setCurrentIndex(nextIndex);
+        setIsFlipped(false);
+        setSelectedAnswer(null);
+        setShowAnswerResult(false);
         if (nextIndex >= studySession.cards.length) {
           refetchDue();
-        } else {
-          setCurrentIndex(nextIndex);
-          setIsFlipped(false);
         }
       }
     },
@@ -89,6 +107,8 @@ export default function FlashcardStudy() {
       setCurrentIndex(0);
       setIsFlipped(false);
       setStudySession(null);
+      setSelectedAnswer(null);
+      setShowAnswerResult(false);
     } catch (error) {
       console.error("Failed to load deck:", error);
     }
@@ -105,6 +125,8 @@ export default function FlashcardStudy() {
     });
     setCurrentIndex(0);
     setIsFlipped(false);
+    setSelectedAnswer(null);
+    setShowAnswerResult(false);
   };
 
   const startSpacedMode = () => {
@@ -119,6 +141,8 @@ export default function FlashcardStudy() {
       });
       setCurrentIndex(0);
       setIsFlipped(false);
+      setSelectedAnswer(null);
+      setShowAnswerResult(false);
     }
   };
 
@@ -140,9 +164,13 @@ export default function FlashcardStudy() {
     if (direction === "prev" && currentIndex > 0) {
       setCurrentIndex(currentIndex - 1);
       setIsFlipped(false);
+      setSelectedAnswer(null);
+      setShowAnswerResult(false);
     } else if (direction === "next" && currentIndex < studySession.cards.length - 1) {
       setCurrentIndex(currentIndex + 1);
       setIsFlipped(false);
+      setSelectedAnswer(null);
+      setShowAnswerResult(false);
     }
   };
 
@@ -151,16 +179,35 @@ export default function FlashcardStudy() {
     setStudySession(null);
     setCurrentIndex(0);
     setIsFlipped(false);
+    setSelectedAnswer(null);
+    setShowAnswerResult(false);
   };
 
-  const getMasteryColor = (level: number) => {
-    if (level >= 4) return "bg-green-500";
-    if (level >= 2) return "bg-yellow-500";
-    return "bg-red-500";
+  const getCardOptions = (card: FlashcardWithProgress): FlashcardOption[] => {
+    if (!card.options) return [];
+    if (Array.isArray(card.options)) {
+      return card.options as FlashcardOption[];
+    }
+    return [];
+  };
+
+  const handleCheckAnswer = () => {
+    if (!currentCard || !selectedAnswer) return;
+    setShowAnswerResult(true);
+    setIsFlipped(true);
+  };
+
+  const isAnswerCorrect = (card: FlashcardWithProgress, answer: string | null): boolean => {
+    if (!answer) return false;
+    const options = getCardOptions(card);
+    const selectedOption = options.find(opt => opt.text === answer);
+    return selectedOption?.isCorrect || false;
   };
 
   const currentCard = studySession?.cards[currentIndex];
   const isSessionComplete = studySession && currentIndex >= studySession.cards.length;
+  const cardOptions = currentCard ? getCardOptions(currentCard) : [];
+  const isQuestionCard = currentCard?.cardType === "question" && cardOptions.length > 0;
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -234,7 +281,7 @@ export default function FlashcardStudy() {
               <CardContent className="space-y-6">
                 <div className="grid gap-4 md:grid-cols-2 text-center">
                   <div className="p-4 rounded-lg bg-muted">
-                    <div className="text-3xl font-bold">{selectedDeck.flashcards.length}</div>
+                    <div className="text-3xl font-bold">{selectedDeck.flashcards?.length || 0}</div>
                     <div className="text-sm text-muted-foreground">Total Cards</div>
                   </div>
                   <div className="p-4 rounded-lg bg-muted">
@@ -300,7 +347,7 @@ export default function FlashcardStudy() {
                   </div>
                   <div className="p-4 rounded-lg bg-muted">
                     <div className="text-3xl font-bold">
-                      {Math.round(Date.now() - studySession.startTime.getTime()) / 1000 / 60 | 0}m
+                      {Math.round((Date.now() - studySession.startTime.getTime()) / 1000 / 60)}m
                     </div>
                     <div className="text-sm text-muted-foreground">Time Spent</div>
                   </div>
@@ -325,9 +372,18 @@ export default function FlashcardStudy() {
           ) : currentCard && (
             <div className="space-y-6">
               <div className="flex items-center justify-between gap-4 flex-wrap">
-                <Badge variant="outline" className="no-default-active-elevate">
-                  Card {currentIndex + 1} of {studySession.cards.length}
-                </Badge>
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className="no-default-active-elevate">
+                    Card {currentIndex + 1} of {studySession.cards.length}
+                  </Badge>
+                  <Badge variant={isQuestionCard ? "default" : "secondary"} className="no-default-active-elevate">
+                    {isQuestionCard ? (
+                      <><HelpCircle className="h-3 w-3 mr-1" /> Question</>
+                    ) : (
+                      <><BookOpen className="h-3 w-3 mr-1" /> Learning</>
+                    )}
+                  </Badge>
+                </div>
                 <Badge 
                   variant="outline" 
                   className="no-default-active-elevate"
@@ -341,12 +397,75 @@ export default function FlashcardStudy() {
                 className="h-2"
               />
 
-              <div 
-                className="perspective-1000 cursor-pointer"
-                onClick={() => setIsFlipped(!isFlipped)}
-                data-testid="flashcard"
-              >
-                <div className={`relative transition-transform duration-500 preserve-3d ${isFlipped ? "rotate-y-180" : ""}`}>
+              {isQuestionCard ? (
+                <Card className="min-h-[300px]">
+                  <CardContent className="p-8 space-y-6">
+                    <div className="text-center">
+                      <p className="text-sm text-muted-foreground mb-4">QUESTION</p>
+                      <h2 className="text-xl font-medium" data-testid="text-card-front">
+                        {currentCard.front}
+                      </h2>
+                    </div>
+
+                    <RadioGroup 
+                      value={selectedAnswer || ""} 
+                      onValueChange={setSelectedAnswer}
+                      disabled={showAnswerResult}
+                      className="space-y-3"
+                    >
+                      {cardOptions.map((option, index) => {
+                        const isSelected = selectedAnswer === option.text;
+                        const showCorrect = showAnswerResult && option.isCorrect;
+                        const showIncorrect = showAnswerResult && isSelected && !option.isCorrect;
+                        
+                        return (
+                          <div 
+                            key={index}
+                            className={`flex items-center space-x-3 p-3 rounded-md border transition-colors ${
+                              showCorrect ? "border-green-500 bg-green-50 dark:bg-green-900/20" :
+                              showIncorrect ? "border-red-500 bg-red-50 dark:bg-red-900/20" :
+                              isSelected ? "border-primary" : "border-border"
+                            }`}
+                          >
+                            <RadioGroupItem 
+                              value={option.text} 
+                              id={`option-${index}`}
+                              data-testid={`radio-option-${index}`}
+                            />
+                            <Label 
+                              htmlFor={`option-${index}`} 
+                              className="flex-1 cursor-pointer flex items-center justify-between"
+                            >
+                              {option.text}
+                              {showCorrect && <Check className="h-5 w-5 text-green-500" />}
+                              {showIncorrect && <X className="h-5 w-5 text-red-500" />}
+                            </Label>
+                          </div>
+                        );
+                      })}
+                    </RadioGroup>
+
+                    {showAnswerResult && currentCard.explanation && (
+                      <div className="p-4 rounded-md bg-muted">
+                        <p className="text-sm font-medium mb-1">Explanation:</p>
+                        <p className="text-sm text-muted-foreground">{currentCard.explanation}</p>
+                      </div>
+                    )}
+
+                    {showAnswerResult && (
+                      <div className="text-center">
+                        <p className="text-sm text-muted-foreground mb-2">Answer:</p>
+                        <p className="font-medium">{currentCard.back}</p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              ) : (
+                <div 
+                  className="perspective-1000 cursor-pointer"
+                  onClick={() => setIsFlipped(!isFlipped)}
+                  data-testid="flashcard"
+                >
                   <Card className="min-h-[300px] flex items-center justify-center">
                     <CardContent className="text-center p-8">
                       {!isFlipped ? (
@@ -365,16 +484,21 @@ export default function FlashcardStudy() {
                           <h2 className="text-2xl font-medium" data-testid="text-card-back">
                             {currentCard.back}
                           </h2>
+                          {currentCard.explanation && (
+                            <p className="text-sm text-muted-foreground mt-4">
+                              {currentCard.explanation}
+                            </p>
+                          )}
                         </div>
                       )}
                     </CardContent>
                   </Card>
                 </div>
-              </div>
+              )}
 
               <div className="flex justify-between items-center pt-4">
                 {studyMode === "browse" ? (
-                  <div className="flex justify-between w-full">
+                  <div className="flex justify-between w-full gap-4">
                     <Button 
                       variant="outline" 
                       onClick={() => navigateCard("prev")}
@@ -383,6 +507,16 @@ export default function FlashcardStudy() {
                       <ChevronLeft className="w-4 h-4 mr-2" />
                       Previous
                     </Button>
+                    
+                    {isQuestionCard && !showAnswerResult ? (
+                      <Button 
+                        onClick={handleCheckAnswer}
+                        disabled={!selectedAnswer}
+                      >
+                        Check Answer
+                      </Button>
+                    ) : null}
+                    
                     <Button 
                       onClick={() => navigateCard("next")}
                       disabled={currentIndex === studySession.cards.length - 1}
@@ -391,7 +525,7 @@ export default function FlashcardStudy() {
                       <ChevronRight className="w-4 h-4 ml-2" />
                     </Button>
                   </div>
-                ) : isFlipped ? (
+                ) : (isFlipped || (isQuestionCard && showAnswerResult)) ? (
                   <div className="flex justify-center gap-4 w-full">
                     <Button 
                       variant="outline"
@@ -420,6 +554,15 @@ export default function FlashcardStudy() {
                     >
                       <ThumbsUp className="w-4 h-4 mr-2" />
                       Easy
+                    </Button>
+                  </div>
+                ) : isQuestionCard ? (
+                  <div className="flex justify-center w-full">
+                    <Button 
+                      onClick={handleCheckAnswer}
+                      disabled={!selectedAnswer}
+                    >
+                      Check Answer
                     </Button>
                   </div>
                 ) : (

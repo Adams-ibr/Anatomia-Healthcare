@@ -346,6 +346,7 @@ export const flashcardDecks = pgTable("flashcard_decks", {
   moduleId: varchar("module_id").references(() => courseModules.id, { onDelete: "cascade" }),
   title: text("title").notNull(),
   description: text("description"),
+  category: text("category"),
   isPublished: boolean("is_published").default(false),
   createdAt: timestamp("created_at").defaultNow(),
 });
@@ -362,8 +363,12 @@ export type FlashcardDeck = typeof flashcardDecks.$inferSelect;
 export const flashcards = pgTable("flashcards", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   deckId: varchar("deck_id").notNull().references(() => flashcardDecks.id, { onDelete: "cascade" }),
+  cardType: text("card_type").notNull().default("learning"),
   front: text("front").notNull(),
   back: text("back").notNull(),
+  options: jsonb("options"),
+  correctAnswer: text("correct_answer"),
+  explanation: text("explanation"),
   imageUrl: text("image_url"),
   audioUrl: text("audio_url"),
   order: integer("order").default(0),
