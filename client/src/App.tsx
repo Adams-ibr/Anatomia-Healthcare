@@ -6,6 +6,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { StudentLayout } from "@/components/StudentLayout";
+import { Preloader } from "@/components/Preloader";
 import Home from "@/pages/Home";
 import About from "@/pages/About";
 import Blog from "@/pages/Blog";
@@ -130,6 +131,7 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
         <TooltipProvider>
+          <Preloader />
           <Toaster />
           <Analytics />
           <Router />
