@@ -1,4 +1,5 @@
 import { Link, useLocation } from "wouter";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { Search, Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,44 +15,75 @@ const navLinks = [
   { label: "Contact", href: "/contact" },
 ];
 
+const navItemVariants = {
+  hidden: { opacity: 0, y: -10 },
+  visible: { opacity: 1, y: 0 },
+};
+
+const mobileMenuVariants = {
+  hidden: { opacity: 0, height: 0 },
+  visible: { opacity: 1, height: "auto" },
+  exit: { opacity: 0, height: 0 },
+};
+
 export function Navbar() {
   const [location] = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const prefersReducedMotion = useReducedMotion();
 
   return (
     <header className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-border">
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
         <div className="flex items-center justify-between h-16 gap-4">
-          <Link href="/" className="flex items-center gap-2 shrink-0">
-            <div className="w-8 h-8 bg-primary rounded-md flex items-center justify-center">
-              <svg viewBox="0 0 24 24" className="w-5 h-5 text-primary-foreground" fill="currentColor">
-                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
-              </svg>
-            </div>
-            <span className="text-xl font-bold text-foreground" data-testid="text-logo">Anatomia</span>
-          </Link>
+          <motion.div
+            initial={prefersReducedMotion ? false : { opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.3 }}
+          >
+            <Link href="/" className="flex items-center gap-2 shrink-0">
+              <div className="w-8 h-8 bg-primary rounded-md flex items-center justify-center">
+                <svg viewBox="0 0 24 24" className="w-5 h-5 text-primary-foreground" fill="currentColor">
+                  <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+                </svg>
+              </div>
+              <span className="text-xl font-bold text-foreground" data-testid="text-logo">Anatomia</span>
+            </Link>
+          </motion.div>
 
           <nav className="hidden lg:flex items-center gap-1">
-            {navLinks.map((link) => (
-              <Link key={link.href} href={link.href}>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className={`text-sm font-medium ${
-                    location === link.href 
-                      ? "text-primary" 
-                      : "text-muted-foreground"
-                  }`}
-                  data-testid={`link-nav-${link.label.toLowerCase().replace(/\s/g, '-')}`}
-                >
-                  {link.label}
-                </Button>
-              </Link>
+            {navLinks.map((link, index) => (
+              <motion.div
+                key={link.href}
+                initial={prefersReducedMotion ? false : "hidden"}
+                animate="visible"
+                variants={navItemVariants}
+                transition={{ duration: 0.3, delay: index * 0.05 }}
+              >
+                <Link href={link.href}>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className={`text-sm font-medium ${
+                      location === link.href 
+                        ? "text-primary" 
+                        : "text-muted-foreground"
+                    }`}
+                    data-testid={`link-nav-${link.label.toLowerCase().replace(/\s/g, '-')}`}
+                  >
+                    {link.label}
+                  </Button>
+                </Link>
+              </motion.div>
             ))}
           </nav>
 
-          <div className="flex items-center gap-2">
+          <motion.div 
+            className="flex items-center gap-2"
+            initial={prefersReducedMotion ? false : { opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.3, delay: 0.2 }}
+          >
             <div className={`hidden sm:flex items-center ${searchOpen ? 'w-64' : 'w-48'} transition-all duration-200`}>
               <div className="relative w-full">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -90,37 +122,90 @@ export function Navbar() {
             >
               {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </Button>
-          </div>
+          </motion.div>
         </div>
 
-        {mobileMenuOpen && (
-          <div className="lg:hidden py-4 border-t border-border">
-            <nav className="flex flex-col gap-1">
-              {navLinks.map((link) => (
-                <Link key={link.href} href={link.href} onClick={() => setMobileMenuOpen(false)}>
-                  <Button
-                    variant="ghost"
-                    className={`w-full justify-start ${
-                      location === link.href 
-                        ? "text-primary bg-primary/5" 
-                        : "text-muted-foreground"
-                    }`}
-                    data-testid={`link-mobile-${link.label.toLowerCase().replace(/\s/g, '-')}`}
+        {prefersReducedMotion ? (
+          mobileMenuOpen && (
+            <div className="lg:hidden py-4 border-t border-border">
+              <nav className="flex flex-col gap-1">
+                {navLinks.map((link) => (
+                  <Link key={link.href} href={link.href} onClick={() => setMobileMenuOpen(false)}>
+                    <Button
+                      variant="ghost"
+                      className={`w-full justify-start ${
+                        location === link.href 
+                          ? "text-primary bg-primary/5" 
+                          : "text-muted-foreground"
+                      }`}
+                      data-testid={`link-mobile-${link.label.toLowerCase().replace(/\s/g, '-')}`}
+                    >
+                      {link.label}
+                    </Button>
+                  </Link>
+                ))}
+                <div className="flex gap-2 mt-4 pt-4 border-t border-border">
+                  <Link href="/register" className="flex-1">
+                    <Button className="w-full" size="sm" data-testid="button-signup-mobile">Sign Up</Button>
+                  </Link>
+                  <Link href="/login" className="flex-1">
+                    <Button variant="outline" className="w-full" size="sm" data-testid="button-login-mobile">Log In</Button>
+                  </Link>
+                </div>
+              </nav>
+            </div>
+          )
+        ) : (
+          <AnimatePresence>
+            {mobileMenuOpen && (
+              <motion.div
+                className="lg:hidden py-4 border-t border-border overflow-hidden"
+                initial="hidden"
+                animate="visible"
+                exit="exit"
+                variants={mobileMenuVariants}
+                transition={{ duration: 0.2 }}
+              >
+                <nav className="flex flex-col gap-1">
+                  {navLinks.map((link, index) => (
+                    <motion.div
+                      key={link.href}
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ duration: 0.2, delay: index * 0.03 }}
+                    >
+                      <Link href={link.href} onClick={() => setMobileMenuOpen(false)}>
+                        <Button
+                          variant="ghost"
+                          className={`w-full justify-start ${
+                            location === link.href 
+                              ? "text-primary bg-primary/5" 
+                              : "text-muted-foreground"
+                          }`}
+                          data-testid={`link-mobile-${link.label.toLowerCase().replace(/\s/g, '-')}`}
+                        >
+                          {link.label}
+                        </Button>
+                      </Link>
+                    </motion.div>
+                  ))}
+                  <motion.div
+                    className="flex gap-2 mt-4 pt-4 border-t border-border"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ duration: 0.2, delay: 0.2 }}
                   >
-                    {link.label}
-                  </Button>
-                </Link>
-              ))}
-              <div className="flex gap-2 mt-4 pt-4 border-t border-border">
-                <Link href="/register" className="flex-1">
-                  <Button className="w-full" size="sm" data-testid="button-signup-mobile">Sign Up</Button>
-                </Link>
-                <Link href="/login" className="flex-1">
-                  <Button variant="outline" className="w-full" size="sm" data-testid="button-login-mobile">Log In</Button>
-                </Link>
-              </div>
-            </nav>
-          </div>
+                    <Link href="/register" className="flex-1">
+                      <Button className="w-full" size="sm" data-testid="button-signup-mobile">Sign Up</Button>
+                    </Link>
+                    <Link href="/login" className="flex-1">
+                      <Button variant="outline" className="w-full" size="sm" data-testid="button-login-mobile">Log In</Button>
+                    </Link>
+                  </motion.div>
+                </nav>
+              </motion.div>
+            )}
+          </AnimatePresence>
         )}
       </div>
     </header>
