@@ -18,7 +18,7 @@ import {
   insertFaqItemSchema,
   insertCareerSchema
 } from "@shared/schema";
-import { setupSession, registerAuthRoutes, isAuthenticated } from "./auth";
+import { setupSession, registerAuthRoutes, registerMemberRoutes, isAuthenticated } from "./auth";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -28,6 +28,7 @@ export async function registerRoutes(
   // Set up session and auth routes FIRST
   setupSession(app);
   registerAuthRoutes(app);
+  registerMemberRoutes(app);
 
   // Public routes
   app.post("/api/contact", async (req, res) => {
