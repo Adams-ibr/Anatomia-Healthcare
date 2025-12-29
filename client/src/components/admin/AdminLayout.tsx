@@ -10,7 +10,11 @@ import {
   Mail, 
   Newspaper,
   LogOut,
-  ExternalLink
+  ExternalLink,
+  GraduationCap,
+  Brain,
+  Layers,
+  Atom
 } from "lucide-react";
 import {
   Sidebar,
@@ -31,19 +35,29 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
 const menuItems = [
-  { title: "Dashboard", icon: LayoutDashboard, href: "/admin" },
-  { title: "Articles", icon: FileText, href: "/admin/articles" },
-  { title: "Team", icon: Users, href: "/admin/team" },
-  { title: "Products", icon: Package, href: "/admin/products" },
-  { title: "FAQ", icon: HelpCircle, href: "/admin/faq" },
-  { title: "Careers", icon: Briefcase, href: "/admin/careers" },
-  { title: "Messages", icon: Mail, href: "/admin/contacts" },
-  { title: "Newsletter", icon: Newspaper, href: "/admin/newsletter" },
+  { title: "Dashboard", icon: LayoutDashboard, href: "/admin", group: "Management" },
+  { title: "LMS Courses", icon: GraduationCap, href: "/admin/courses", group: "LMS" },
+  { title: "Question Bank", icon: Brain, href: "/admin/question-bank", group: "LMS" },
+  { title: "Flashcards", icon: Layers, href: "/admin/flashcards", group: "LMS" },
+  { title: "3D Models", icon: Atom, href: "/admin/anatomy-models", group: "LMS" },
+  { title: "Articles", icon: FileText, href: "/admin/articles", group: "Content" },
+  { title: "Team", icon: Users, href: "/admin/team", group: "Content" },
+  { title: "Products", icon: Package, href: "/admin/products", group: "Content" },
+  { title: "FAQ", icon: HelpCircle, href: "/admin/faq", group: "Content" },
+  { title: "Careers", icon: Briefcase, href: "/admin/careers", group: "Content" },
+  { title: "Messages", icon: Mail, href: "/admin/contacts", group: "Management" },
+  { title: "Newsletter", icon: Newspaper, href: "/admin/newsletter", group: "Management" },
 ];
 
 function AdminSidebar() {
   const [location] = useLocation();
   const { logout } = useAuth();
+
+  const groups = ["Management", "LMS", "Content"];
+  const itemsByGroup = groups.map(group => ({
+    group,
+    items: menuItems.filter(item => item.group === group)
+  }));
 
   return (
     <Sidebar>
@@ -54,27 +68,29 @@ function AdminSidebar() {
         </div>
       </SidebarHeader>
       <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel>Management</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {menuItems.map((item) => {
-                const isActive = location === item.href || 
-                  (item.href !== "/admin" && location.startsWith(item.href));
-                return (
-                  <SidebarMenuItem key={item.href}>
-                    <SidebarMenuButton asChild isActive={isActive}>
-                      <Link href={item.href} data-testid={`nav-${item.title.toLowerCase()}`}>
-                        <item.icon className="h-4 w-4" />
-                        <span>{item.title}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                );
-              })}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {itemsByGroup.map(({ group, items }) => (
+          <SidebarGroup key={group}>
+            <SidebarGroupLabel>{group}</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {items.map((item) => {
+                  const isActive = location === item.href || 
+                    (item.href !== "/admin" && location.startsWith(item.href));
+                  return (
+                    <SidebarMenuItem key={item.href}>
+                      <SidebarMenuButton asChild isActive={isActive}>
+                        <Link href={item.href} data-testid={`nav-${item.title.toLowerCase().replace(/\s+/g, '-')}`}>
+                          <item.icon className="h-4 w-4" />
+                          <span>{item.title}</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  );
+                })}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        ))}
       </SidebarContent>
       <SidebarFooter className="p-4 border-t">
         <SidebarMenu>

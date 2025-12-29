@@ -1317,6 +1317,16 @@ publicRouter.get("/anatomy-models/:id", async (req: Request, res: Response) => {
 
 // ============ ADMIN 3D ANATOMY MODELS ROUTES ============
 
+// Get all anatomy models (admin)
+adminRouter.get("/anatomy-models", async (req: Request, res: Response) => {
+  try {
+    const models = await lmsStorage.getAnatomyModels({});
+    res.json(models);
+  } catch (error) {
+    res.status(500).json({ message: "Failed to fetch anatomy models" });
+  }
+});
+
 // Create anatomy model (admin only)
 adminRouter.post("/anatomy-models", isContentAdmin, async (req: Request, res: Response) => {
   try {
