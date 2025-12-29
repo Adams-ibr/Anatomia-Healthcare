@@ -44,8 +44,8 @@ interface PracticeSession {
 }
 
 export default function PracticeMode() {
-  const [selectedTopic, setSelectedTopic] = useState<string>("");
-  const [selectedDifficulty, setSelectedDifficulty] = useState<string>("");
+  const [selectedTopic, setSelectedTopic] = useState<string>("all");
+  const [selectedDifficulty, setSelectedDifficulty] = useState<string>("all");
   const [questionCount, setQuestionCount] = useState<number>(10);
   const [session, setSession] = useState<PracticeSession | null>(null);
   const [selectedAnswer, setSelectedAnswer] = useState<string[]>([]);
@@ -73,10 +73,10 @@ export default function PracticeMode() {
   const startPractice = async () => {
     let filtered = [...allQuestions];
     
-    if (selectedTopic) {
+    if (selectedTopic && selectedTopic !== "all") {
       filtered = filtered.filter(q => q.topicId === selectedTopic);
     }
-    if (selectedDifficulty) {
+    if (selectedDifficulty && selectedDifficulty !== "all") {
       filtered = filtered.filter(q => q.difficulty === selectedDifficulty);
     }
 
@@ -212,7 +212,7 @@ export default function PracticeMode() {
                         <SelectValue placeholder="All Topics" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">All Topics</SelectItem>
+                        <SelectItem value="all">All Topics</SelectItem>
                         {topics.map((topic) => (
                           <SelectItem key={topic.id} value={topic.id}>
                             {topic.name}
@@ -229,7 +229,7 @@ export default function PracticeMode() {
                         <SelectValue placeholder="All Levels" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">All Levels</SelectItem>
+                        <SelectItem value="all">All Levels</SelectItem>
                         <SelectItem value="easy">Easy</SelectItem>
                         <SelectItem value="medium">Medium</SelectItem>
                         <SelectItem value="hard">Hard</SelectItem>
@@ -260,8 +260,8 @@ export default function PracticeMode() {
                 <div className="flex items-center justify-between pt-4 border-t">
                   <div className="text-sm text-muted-foreground">
                     {allQuestions.length} questions available
-                    {selectedTopic && ` in ${topics.find(t => t.id === selectedTopic)?.name}`}
-                    {selectedDifficulty && ` (${selectedDifficulty})`}
+                    {selectedTopic && selectedTopic !== "all" && ` in ${topics.find(t => t.id === selectedTopic)?.name}`}
+                    {selectedDifficulty && selectedDifficulty !== "all" && ` (${selectedDifficulty})`}
                   </div>
                   <Button 
                     onClick={startPractice} 
