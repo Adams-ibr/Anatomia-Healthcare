@@ -64,10 +64,12 @@ export interface ILmsStorage {
   // Lesson Progress
   getLessonProgress(memberId: string, lessonId: string): Promise<LessonProgress | undefined>;
   getMemberProgressByCourse(memberId: string, courseId: string): Promise<LessonProgress[]>;
+  getRecentLessonProgress(memberId: string, limit: number): Promise<LessonProgress[]>;
   upsertLessonProgress(progress: InsertLessonProgress): Promise<LessonProgress>;
 
   // Quizzes
   getQuizzesByCourseId(courseId: string): Promise<Quiz[]>;
+  getQuizzesByLessonId(lessonId: string): Promise<Quiz[]>;
   getQuizById(id: string): Promise<Quiz | undefined>;
   createQuiz(quiz: InsertQuiz): Promise<Quiz>;
   updateQuiz(id: string, quiz: Partial<InsertQuiz>): Promise<Quiz | undefined>;
@@ -321,6 +323,13 @@ export class LmsStorage implements ILmsStorage {
     return progressRecords;
   }
 
+  async getRecentLessonProgress(memberId: string, limit: number): Promise<LessonProgress[]> {
+    return db.select().from(lessonProgress)
+      .where(eq(lessonProgress.memberId, memberId))
+      .orderBy(desc(lessonProgress.lastAccessedAt))
+      .limit(limit);
+  }
+
   async upsertLessonProgress(progress: InsertLessonProgress): Promise<LessonProgress> {
     const existing = await this.getLessonProgress(progress.memberId, progress.lessonId);
     
@@ -345,6 +354,10 @@ export class LmsStorage implements ILmsStorage {
   // Quizzes
   async getQuizzesByCourseId(courseId: string): Promise<Quiz[]> {
     return db.select().from(quizzes).where(eq(quizzes.courseId, courseId));
+  }
+
+  async getQuizzesByLessonId(lessonId: string): Promise<Quiz[]> {
+    return db.select().from(quizzes).where(eq(quizzes.lessonId, lessonId));
   }
 
   async getQuizById(id: string): Promise<Quiz | undefined> {

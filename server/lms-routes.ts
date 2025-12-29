@@ -239,6 +239,113 @@ memberRouter.post("/notifications/read-all", async (req: Request, res: Response)
   }
 });
 
+// Get lesson content for enrolled member
+memberRouter.get("/lessons/:lessonId", async (req: Request, res: Response) => {
+  try {
+    const member = (req as any).member;
+    const { lessonId } = req.params;
+    
+    const lesson = await lmsStorage.getLessonById(lessonId);
+    if (!lesson || !lesson.isPublished) {
+      return res.status(404).json({ message: "Lesson not found" });
+    }
+    
+    // Get module and course to verify enrollment
+    const module = await lmsStorage.getModuleById(lesson.moduleId);
+    if (!module) {
+      return res.status(404).json({ message: "Module not found" });
+    }
+    
+    const enrollment = await lmsStorage.getEnrollment(member.id, module.courseId);
+    if (!enrollment && !lesson.isFree) {
+      return res.status(403).json({ message: "Enrollment required" });
+    }
+    
+    // Get progress for this lesson
+    const progress = await lmsStorage.getLessonProgress(member.id, lessonId);
+    
+    // Get assets for this lesson
+    const assets = await lmsStorage.getAssetsByLessonId(lessonId);
+    
+    // Get quiz for this lesson if exists
+    const quizzes = await lmsStorage.getQuizzesByLessonId(lessonId);
+    
+    res.json({ ...lesson, progress, assets, quizzes, moduleTitle: module.title, courseId: module.courseId });
+  } catch (error) {
+    res.status(500).json({ message: "Failed to fetch lesson" });
+  }
+});
+
+// Get course with modules, lessons, and progress for enrolled member
+memberRouter.get("/courses/:courseId/content", async (req: Request, res: Response) => {
+  try {
+    const member = (req as any).member;
+    const { courseId } = req.params;
+    
+    const course = await lmsStorage.getCourseById(courseId);
+    if (!course || !course.isPublished) {
+      return res.status(404).json({ message: "Course not found" });
+    }
+    
+    const enrollment = await lmsStorage.getEnrollment(member.id, courseId);
+    if (!enrollment) {
+      return res.status(403).json({ message: "Enrollment required" });
+    }
+    
+    // Get modules and lessons
+    const modules = await lmsStorage.getModulesByCourseId(courseId);
+    const modulesWithLessons = await Promise.all(
+      modules.map(async (module) => {
+        const lessons = await lmsStorage.getLessonsByModuleId(module.id);
+        // Get progress for each lesson
+        const lessonsWithProgress = await Promise.all(
+          lessons.map(async (lesson) => {
+            const progress = await lmsStorage.getLessonProgress(member.id, lesson.id);
+            return { ...lesson, progress };
+          })
+        );
+        return { ...module, lessons: lessonsWithProgress };
+      })
+    );
+    
+    res.json({ ...course, enrollment, modules: modulesWithLessons });
+  } catch (error) {
+    res.status(500).json({ message: "Failed to fetch course content" });
+  }
+});
+
+// Get member's recent activity
+memberRouter.get("/activity/recent", async (req: Request, res: Response) => {
+  try {
+    const member = (req as any).member;
+    const recentProgress = await lmsStorage.getRecentLessonProgress(member.id, 10);
+    
+    // Enrich with lesson and course details
+    const activityWithLessons = await Promise.all(
+      recentProgress.map(async (progress) => {
+        const lesson = await lmsStorage.getLessonById(progress.lessonId);
+        let courseId: string | null = null;
+        if (lesson) {
+          const module = await lmsStorage.getModuleById(lesson.moduleId);
+          if (module) {
+            courseId = module.courseId;
+          }
+        }
+        return { ...progress, lesson, courseId };
+      })
+    );
+    
+    // Filter out entries without courseId and limit to 5
+    const validActivity = activityWithLessons
+      .filter(a => a.courseId !== null)
+      .slice(0, 5);
+    
+    res.json(validActivity);
+  } catch (error) {
+    res.status(500).json({ message: "Failed to fetch recent activity" });
+  }
+});
+
 // Get member's enrollments
 memberRouter.get("/enrollments/me", async (req: Request, res: Response) => {
   try {

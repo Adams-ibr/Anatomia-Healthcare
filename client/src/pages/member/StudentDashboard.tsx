@@ -6,10 +6,12 @@ import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "wouter";
 import { BookOpen, Award, Clock, Play, Bell, GraduationCap, TrendingUp, CheckCircle } from "lucide-react";
-import type { Course, Enrollment, Notification, Certificate } from "@shared/schema";
+import type { Course, Enrollment, Notification, Certificate, LessonProgress, Lesson } from "@shared/schema";
+import { History, FileText } from "lucide-react";
 
 type EnrollmentWithCourse = Enrollment & { course: Course };
 type CertificateWithCourse = Certificate & { course: Course };
+type RecentActivity = LessonProgress & { lesson?: Lesson; courseId?: string };
 
 function DashboardSkeleton() {
   return (
@@ -53,6 +55,10 @@ export default function StudentDashboard() {
 
   const { data: memberData } = useQuery<{ firstName?: string; lastName?: string; email: string }>({
     queryKey: ["/api/members/me"],
+  });
+
+  const { data: recentActivity } = useQuery<RecentActivity[]>({
+    queryKey: ["/api/lms/activity/recent"],
   });
 
   if (enrollmentsLoading) {
@@ -183,7 +189,7 @@ export default function StudentDashboard() {
                         </div>
                       </div>
                       <Button size="sm" asChild data-testid={`button-continue-${enrollment.courseId}`}>
-                        <Link href={`/courses/${enrollment.course?.slug}`}>Continue</Link>
+                        <Link href={`/learn/${enrollment.courseId}`}>Continue</Link>
                       </Button>
                     </div>
                   ))}
@@ -227,7 +233,7 @@ export default function StudentDashboard() {
                         </div>
                       </div>
                       <Button variant="ghost" size="sm" asChild>
-                        <Link href={`/courses/${enrollment.course?.slug}`}>View</Link>
+                        <Link href={`/learn/${enrollment.courseId}`}>View</Link>
                       </Button>
                     </div>
                   ))}
@@ -236,6 +242,79 @@ export default function StudentDashboard() {
                       <Link href="/my-courses">View All Courses</Link>
                     </Button>
                   )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <History className="h-5 w-5" />
+                Recent Activity
+              </CardTitle>
+              <CardDescription>Your latest learning sessions</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {!recentActivity || recentActivity.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <History className="h-10 w-10 mx-auto mb-2 opacity-50" />
+                  <p className="text-sm">No recent activity</p>
+                  <p className="text-xs mt-1">Start learning to see your activity here</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {recentActivity.slice(0, 5).map((activity, index) => (
+                    <div
+                      key={activity.id || index}
+                      className="flex items-center gap-3 py-2 border-b last:border-b-0"
+                      data-testid={`activity-${activity.id}`}
+                    >
+                      <div className="flex-shrink-0 w-8 h-8 bg-muted rounded-full flex items-center justify-center">
+                        {activity.isCompleted ? (
+                          <CheckCircle className="h-4 w-4 text-green-500" />
+                        ) : (
+                          <FileText className="h-4 w-4 text-muted-foreground" />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">
+                          {activity.lesson?.title || `Lesson ${activity.lessonId?.slice(0, 8)}...`}
+                        </p>
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
+                          {activity.isCompleted ? (
+                            <Badge variant="default" className="text-xs">Completed</Badge>
+                          ) : (
+                            <Badge variant="secondary" className="text-xs">
+                              {activity.progressPercent || 0}% Progress
+                            </Badge>
+                          )}
+                          {activity.timeSpentSeconds && activity.timeSpentSeconds > 0 && (
+                            <span className="flex items-center gap-1">
+                              <Clock className="h-3 w-3" />
+                              {Math.round(activity.timeSpentSeconds / 60)}m
+                            </span>
+                          )}
+                          {activity.lastAccessedAt && (
+                            <span>
+                              {new Date(activity.lastAccessedAt).toLocaleDateString()}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <Button 
+                        size="sm" 
+                        variant="ghost" 
+                        asChild 
+                        data-testid={`button-resume-activity-${activity.id}`}
+                      >
+                        <Link href={`/learn/${activity.courseId}`}>
+                          <Play className="h-3 w-3 mr-1" />
+                          Resume
+                        </Link>
+                      </Button>
+                    </div>
+                  ))}
                 </div>
               )}
             </CardContent>
@@ -320,6 +399,54 @@ export default function StudentDashboard() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Clock className="h-5 w-5" />
+                Study Reminders
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {inProgressCourses.length > 0 ? (
+                <div className="space-y-3">
+                  {inProgressCourses.slice(0, 2).map((enrollment) => (
+                    <div
+                      key={enrollment.id}
+                      className="p-3 rounded-lg border bg-accent/20"
+                      data-testid={`reminder-${enrollment.id}`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <Clock className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm font-medium">Continue studying</span>
+                      </div>
+                      <p className="text-sm mt-1 truncate">{enrollment.course?.title}</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {100 - (enrollment.progress || 0)}% remaining
+                      </p>
+                      <Button 
+                        size="sm" 
+                        variant="outline" 
+                        className="mt-2 w-full" 
+                        asChild
+                        data-testid={`button-resume-reminder-${enrollment.id}`}
+                      >
+                        <Link href={`/learn/${enrollment.courseId}`}>
+                          <Play className="h-3 w-3 mr-1" />
+                          Resume
+                        </Link>
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-4 text-muted-foreground">
+                  <Clock className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                  <p className="text-sm">No active courses to remind you about</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <BookOpen className="h-5 w-5" />
                 Quick Actions
               </CardTitle>
             </CardHeader>
@@ -330,16 +457,28 @@ export default function StudentDashboard() {
                   Explore Courses
                 </Link>
               </Button>
-              <Button variant="outline" className="w-full justify-start" asChild data-testid="button-view-certificates">
-                <Link href="/certificates">
-                  <Award className="h-4 w-4 mr-2" />
-                  View Certificates
+              <Button variant="outline" className="w-full justify-start" asChild data-testid="button-practice-mode">
+                <Link href="/practice">
+                  <TrendingUp className="h-4 w-4 mr-2" />
+                  Practice Mode
                 </Link>
               </Button>
               <Button variant="outline" className="w-full justify-start" asChild data-testid="button-flashcards">
                 <Link href="/flashcards">
                   <GraduationCap className="h-4 w-4 mr-2" />
                   Flashcards
+                </Link>
+              </Button>
+              <Button variant="outline" className="w-full justify-start" asChild data-testid="button-anatomy-viewer">
+                <Link href="/anatomy-viewer">
+                  <Play className="h-4 w-4 mr-2" />
+                  3D Anatomy Viewer
+                </Link>
+              </Button>
+              <Button variant="outline" className="w-full justify-start" asChild data-testid="button-view-certificates">
+                <Link href="/certificates">
+                  <Award className="h-4 w-4 mr-2" />
+                  View Certificates
                 </Link>
               </Button>
             </CardContent>
