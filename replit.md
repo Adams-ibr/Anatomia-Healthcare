@@ -72,6 +72,20 @@ Member routes: `/api/lms/enrollments`, `/api/lms/lessons/:id/progress`, `/api/lm
 - `/courses` - Course catalog with search and filters (category, level, sort)
 - `/practice` - Practice mode with randomized questions
 - `/flashcards` - Flashcard study with browse and spaced repetition modes
+- `/anatomy-viewer` - 3D anatomy model viewer with interactive controls
+
+### 3D Anatomy Models
+- Uses @google/model-viewer web component for GLB/GLTF rendering
+- Supports camera controls, auto-rotate, zoom, and fullscreen
+- Models organized by body system and category with search filters
+- Annotations support for labeling anatomical structures
+
+### PDF Certificate Generation
+- PDFKit-based server-side certificate generation
+- Landscape A4 format with medical blue/white theme
+- Contains member name, course title, completion date, certificate ID
+- Downloadable via /api/lms/certificates/download/:number
+- Verifiable at /api/lms/certificates/verify/:number
 
 ### Build System
 - **Client Build**: Vite outputs to `dist/public`

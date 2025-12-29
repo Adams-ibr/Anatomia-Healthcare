@@ -21,6 +21,8 @@ import {
   flashcardDecks, FlashcardDeck, InsertFlashcardDeck,
   flashcards, Flashcard, InsertFlashcard,
   flashcardProgress, FlashcardProgress, InsertFlashcardProgress,
+  anatomyModels, AnatomyModel, InsertAnatomyModel,
+  members, Member,
 } from "@shared/schema";
 
 export interface ILmsStorage {
@@ -147,6 +149,16 @@ export interface ILmsStorage {
   getFlashcardProgress(memberId: string, flashcardId: string): Promise<FlashcardProgress | undefined>;
   getDueFlashcards(memberId: string, deckId: string): Promise<FlashcardProgress[]>;
   upsertFlashcardProgress(progress: InsertFlashcardProgress): Promise<FlashcardProgress>;
+
+  // Anatomy Models
+  getAnatomyModels(filters?: { category?: string; bodySystem?: string }): Promise<AnatomyModel[]>;
+  getAnatomyModelById(id: string): Promise<AnatomyModel | undefined>;
+  createAnatomyModel(model: InsertAnatomyModel): Promise<AnatomyModel>;
+  updateAnatomyModel(id: string, model: Partial<InsertAnatomyModel>): Promise<AnatomyModel | undefined>;
+  deleteAnatomyModel(id: string): Promise<boolean>;
+
+  // Members (for certificate generation)
+  getMemberById(id: string): Promise<Member | undefined>;
 }
 
 export class LmsStorage implements ILmsStorage {
@@ -706,6 +718,51 @@ export class LmsStorage implements ILmsStorage {
       const [newProgress] = await db.insert(flashcardProgress).values(progress).returning();
       return newProgress;
     }
+  }
+
+  // Anatomy Models
+  async getAnatomyModels(filters?: { category?: string; bodySystem?: string }): Promise<AnatomyModel[]> {
+    const conditions = [eq(anatomyModels.isPublished, true)];
+    
+    if (filters?.category) {
+      conditions.push(eq(anatomyModels.category, filters.category));
+    }
+    if (filters?.bodySystem) {
+      conditions.push(eq(anatomyModels.bodySystem, filters.bodySystem));
+    }
+    
+    return db.select().from(anatomyModels)
+      .where(and(...conditions))
+      .orderBy(desc(anatomyModels.createdAt));
+  }
+
+  async getAnatomyModelById(id: string): Promise<AnatomyModel | undefined> {
+    const [model] = await db.select().from(anatomyModels).where(eq(anatomyModels.id, id));
+    return model;
+  }
+
+  async createAnatomyModel(model: InsertAnatomyModel): Promise<AnatomyModel> {
+    const [newModel] = await db.insert(anatomyModels).values(model).returning();
+    return newModel;
+  }
+
+  async updateAnatomyModel(id: string, model: Partial<InsertAnatomyModel>): Promise<AnatomyModel | undefined> {
+    const [updated] = await db.update(anatomyModels)
+      .set({ ...model, updatedAt: new Date() })
+      .where(eq(anatomyModels.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteAnatomyModel(id: string): Promise<boolean> {
+    const result = await db.delete(anatomyModels).where(eq(anatomyModels.id, id));
+    return result.rowCount !== null && result.rowCount > 0;
+  }
+
+  // Members
+  async getMemberById(id: string): Promise<Member | undefined> {
+    const [member] = await db.select().from(members).where(eq(members.id, id));
+    return member;
   }
 }
 

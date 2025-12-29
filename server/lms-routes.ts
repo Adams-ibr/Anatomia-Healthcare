@@ -1,5 +1,6 @@
 import { Router, Request, Response } from "express";
 import { lmsStorage, logAuditAction } from "./lms-storage";
+import { generateCertificatePDF, generateCertificateNumber } from "./certificate-generator";
 import { isAuthenticated, isMemberAuthenticated, isContentAdmin, isSuperAdmin } from "./auth";
 import { 
   insertCourseSchema, 
@@ -131,6 +132,38 @@ publicRouter.get("/certificates/verify/:number", async (req: Request, res: Respo
     });
   } catch (error) {
     res.status(500).json({ message: "Failed to verify certificate" });
+  }
+});
+
+// Download certificate PDF (public with certificate number)
+publicRouter.get("/certificates/download/:number", async (req: Request, res: Response) => {
+  try {
+    const certificate = await lmsStorage.getCertificateByNumber(req.params.number);
+    
+    if (!certificate) {
+      return res.status(404).json({ message: "Certificate not found" });
+    }
+    
+    const course = await lmsStorage.getCourseById(certificate.courseId);
+    if (!course) {
+      return res.status(404).json({ message: "Course not found" });
+    }
+    
+    const member = await lmsStorage.getMemberById(certificate.memberId);
+    if (!member) {
+      return res.status(404).json({ message: "Member not found" });
+    }
+    
+    const doc = generateCertificatePDF({ certificate, course, member });
+    
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `attachment; filename=certificate-${certificate.certificateNumber}.pdf`);
+    
+    doc.pipe(res);
+    doc.end();
+  } catch (error) {
+    console.error("Certificate PDF generation error:", error);
+    res.status(500).json({ message: "Failed to generate certificate PDF" });
   }
 });
 
@@ -1143,6 +1176,89 @@ publicRouter.get("/flashcard-decks/:id", async (req: Request, res: Response) => 
     res.json({ ...deck, flashcards });
   } catch (error) {
     res.status(500).json({ message: "Failed to fetch deck" });
+  }
+});
+
+// ============ PUBLIC 3D ANATOMY MODELS ROUTES ============
+
+// Get all 3D anatomy models (public read)
+publicRouter.get("/anatomy-models", async (req: Request, res: Response) => {
+  try {
+    const { category, bodySystem } = req.query;
+    const models = await lmsStorage.getAnatomyModels({
+      category: category as string,
+      bodySystem: bodySystem as string,
+    });
+    res.json(models);
+  } catch (error) {
+    res.status(500).json({ message: "Failed to fetch anatomy models" });
+  }
+});
+
+// Get anatomy model by ID (public read)
+publicRouter.get("/anatomy-models/:id", async (req: Request, res: Response) => {
+  try {
+    const model = await lmsStorage.getAnatomyModelById(req.params.id);
+    if (!model) {
+      return res.status(404).json({ message: "Model not found" });
+    }
+    res.json(model);
+  } catch (error) {
+    res.status(500).json({ message: "Failed to fetch anatomy model" });
+  }
+});
+
+// ============ ADMIN 3D ANATOMY MODELS ROUTES ============
+
+// Create anatomy model (admin only)
+adminRouter.post("/anatomy-models", isContentAdmin, async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    const model = await lmsStorage.createAnatomyModel({
+      ...req.body,
+      createdBy: user.id,
+    });
+    
+    await logAuditAction(user.id, "CREATE", "anatomy_model", model.id, null, model, req);
+    res.status(201).json(model);
+  } catch (error) {
+    res.status(500).json({ message: "Failed to create anatomy model" });
+  }
+});
+
+// Update anatomy model (admin only)
+adminRouter.patch("/anatomy-models/:id", isContentAdmin, async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    const oldModel = await lmsStorage.getAnatomyModelById(req.params.id);
+    
+    const model = await lmsStorage.updateAnatomyModel(req.params.id, req.body);
+    if (!model) {
+      return res.status(404).json({ message: "Model not found" });
+    }
+    
+    await logAuditAction(user.id, "UPDATE", "anatomy_model", model.id, oldModel, model, req);
+    res.json(model);
+  } catch (error) {
+    res.status(500).json({ message: "Failed to update anatomy model" });
+  }
+});
+
+// Delete anatomy model (admin only)
+adminRouter.delete("/anatomy-models/:id", isContentAdmin, async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    const oldModel = await lmsStorage.getAnatomyModelById(req.params.id);
+    
+    const success = await lmsStorage.deleteAnatomyModel(req.params.id);
+    if (!success) {
+      return res.status(404).json({ message: "Model not found" });
+    }
+    
+    await logAuditAction(user.id, "DELETE", "anatomy_model", req.params.id, oldModel, null, req);
+    res.json({ message: "Model deleted successfully" });
+  } catch (error) {
+    res.status(500).json({ message: "Failed to delete anatomy model" });
   }
 });
 

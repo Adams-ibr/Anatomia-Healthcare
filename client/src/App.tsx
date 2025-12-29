@@ -36,6 +36,7 @@ import UserLogin from "@/pages/auth/UserLogin";
 import StudentDashboard from "@/pages/member/StudentDashboard";
 import PracticeMode from "@/pages/member/PracticeMode";
 import FlashcardStudy from "@/pages/member/FlashcardStudy";
+import Anatomy3DViewer from "@/pages/member/Anatomy3DViewer";
 import CourseCatalog from "@/pages/CourseCatalog";
 
 function Router() {
@@ -45,6 +46,7 @@ function Router() {
       <Route path="/dashboard" component={StudentDashboard} />
       <Route path="/practice" component={PracticeMode} />
       <Route path="/flashcards" component={FlashcardStudy} />
+      <Route path="/anatomy-viewer" component={Anatomy3DViewer} />
       <Route path="/courses" component={CourseCatalog} />
       <Route path="/about" component={About} />
       <Route path="/blog" component={Blog} />

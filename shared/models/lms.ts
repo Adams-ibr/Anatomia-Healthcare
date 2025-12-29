@@ -459,3 +459,29 @@ export const insertMemberAchievementSchema = createInsertSchema(memberAchievemen
 
 export type InsertMemberAchievement = z.infer<typeof insertMemberAchievementSchema>;
 export type MemberAchievement = typeof memberAchievements.$inferSelect;
+
+// 3D Anatomy Models
+export const anatomyModels = pgTable("anatomy_models", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  title: text("title").notNull(),
+  description: text("description"),
+  category: text("category").notNull(),
+  bodySystem: text("body_system"),
+  modelUrl: text("model_url").notNull(),
+  thumbnailUrl: text("thumbnail_url"),
+  tags: text("tags").array(),
+  annotations: jsonb("annotations"),
+  isPublished: boolean("is_published").default(true),
+  createdBy: varchar("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertAnatomyModelSchema = createInsertSchema(anatomyModels).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertAnatomyModel = z.infer<typeof insertAnatomyModelSchema>;
+export type AnatomyModel = typeof anatomyModels.$inferSelect;
