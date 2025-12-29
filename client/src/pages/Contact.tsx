@@ -1,9 +1,12 @@
+import { motion, useReducedMotion } from "framer-motion";
 import { Layout } from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
+import { PageTransition } from "@/components/PageTransition";
+import { AnimatedSection, StaggerContainer, AnimatedItem } from "@/components/AnimatedSection";
+import { fadeInUp, staggerContainer } from "@/lib/motion";
 import {
   Select,
   SelectContent,
@@ -79,6 +82,7 @@ type ContactFormData = z.infer<typeof contactFormSchema>;
 
 export default function Contact() {
   const { toast } = useToast();
+  const prefersReducedMotion = useReducedMotion();
   
   const form = useForm<ContactFormData>({
     resolver: zodResolver(contactFormSchema),
@@ -116,170 +120,187 @@ export default function Contact() {
 
   return (
     <Layout>
-      <section className="py-12 md:py-16">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6">
-          <div className="mb-12">
-            <h1 className="text-4xl md:text-5xl font-bold text-foreground mb-4" data-testid="text-contact-hero-title">
-              Get in Touch
-            </h1>
-            <p className="text-lg text-muted-foreground max-w-2xl">
-              Have a question about a specific muscle group? Need help with your account? We'd love to hear from you.
-            </p>
-          </div>
+      <PageTransition>
+        <section className="py-12 md:py-16">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6">
+            <motion.div 
+              className="mb-12"
+              initial={prefersReducedMotion ? false : "hidden"}
+              animate="visible"
+              variants={staggerContainer}
+            >
+              <motion.h1 
+                variants={fadeInUp}
+                className="text-4xl md:text-5xl font-bold text-foreground mb-4" 
+                data-testid="text-contact-hero-title"
+              >
+                Get in Touch
+              </motion.h1>
+              <motion.p variants={fadeInUp} className="text-lg text-muted-foreground max-w-2xl">
+                Have a question about a specific muscle group? Need help with your account? We'd love to hear from you.
+              </motion.p>
+            </motion.div>
 
-          <div className="grid lg:grid-cols-2 gap-12">
-            <div>
-              <h2 className="text-xl font-semibold text-foreground mb-6">Contact Information</h2>
-              <div className="space-y-4 mb-8">
-                {contactInfo.map((item) => (
-                  <Card key={item.title}>
-                    <CardContent className="p-4 flex items-start gap-4">
-                      <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                        <item.icon className="w-5 h-5 text-primary" />
-                      </div>
-                      <div>
-                        <h3 className="font-medium text-foreground">{item.title}</h3>
-                        <p className="text-sm text-primary">{item.primary}</p>
-                        <p className="text-xs text-muted-foreground">{item.secondary}</p>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
+            <div className="grid lg:grid-cols-2 gap-12">
+              <div>
+                <AnimatedSection>
+                  <h2 className="text-xl font-semibold text-foreground mb-6">Contact Information</h2>
+                </AnimatedSection>
+                <StaggerContainer className="space-y-4 mb-8">
+                  {contactInfo.map((item) => (
+                    <AnimatedItem key={item.title}>
+                      <Card>
+                        <CardContent className="p-4 flex items-start gap-4">
+                          <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                            <item.icon className="w-5 h-5 text-primary" />
+                          </div>
+                          <div>
+                            <h3 className="font-medium text-foreground">{item.title}</h3>
+                            <p className="text-sm text-primary">{item.primary}</p>
+                            <p className="text-xs text-muted-foreground">{item.secondary}</p>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </AnimatedItem>
+                  ))}
+                </StaggerContainer>
 
-              <div className="aspect-video bg-gradient-to-br from-primary/10 to-primary/5 rounded-lg relative overflow-hidden">
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="text-center">
-                    <MapPin className="w-12 h-12 text-primary/30 mx-auto mb-2" />
-                    <p className="text-sm text-muted-foreground">New York Office Location</p>
+                <AnimatedSection delay={0.2}>
+                  <div className="aspect-video bg-gradient-to-br from-primary/10 to-primary/5 rounded-lg relative overflow-hidden">
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="text-center">
+                        <MapPin className="w-12 h-12 text-primary/30 mx-auto mb-2" />
+                        <p className="text-sm text-muted-foreground">New York Office Location</p>
+                      </div>
+                    </div>
                   </div>
-                </div>
+                  <Button variant="outline" className="w-full mt-4 gap-2" data-testid="button-open-maps">
+                    Open in Maps <ExternalLink className="w-4 h-4" />
+                  </Button>
+                </AnimatedSection>
               </div>
-              <Button variant="outline" className="w-full mt-4 gap-2" data-testid="button-open-maps">
-                Open in Maps <ExternalLink className="w-4 h-4" />
-              </Button>
-            </div>
 
-            <div>
-              <Card>
-                <CardContent className="p-6 md:p-8">
-                  <h2 className="text-xl font-semibold text-foreground mb-6">Send us a Message</h2>
-                  <p className="text-sm text-muted-foreground mb-6">
-                    Fill out the form below and our team will get back to you shortly.
-                  </p>
+              <AnimatedSection delay={0.1}>
+                <Card>
+                  <CardContent className="p-6 md:p-8">
+                    <h2 className="text-xl font-semibold text-foreground mb-6">Send us a Message</h2>
+                    <p className="text-sm text-muted-foreground mb-6">
+                      Fill out the form below and our team will get back to you shortly.
+                    </p>
 
-                  <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                      <div className="grid sm:grid-cols-2 gap-4">
-                        <FormField
-                          control={form.control}
-                          name="name"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Full Name</FormLabel>
-                              <FormControl>
-                                <div className="relative">
-                                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                                  <Input placeholder="John Doe" className="pl-9" data-testid="input-name" {...field} />
-                                </div>
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={form.control}
-                          name="email"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Email Address</FormLabel>
-                              <FormControl>
-                                <div className="relative">
-                                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                                  <Input type="email" placeholder="john@example.com" className="pl-9" data-testid="input-email" {...field} />
-                                </div>
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-
-                      <FormField
-                        control={form.control}
-                        name="topic"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Topic</FormLabel>
-                            <Select onValueChange={field.onChange} value={field.value}>
-                              <FormControl>
-                                <SelectTrigger data-testid="select-topic">
-                                  <SelectValue placeholder="Select a topic" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                {topics.map((topic) => (
-                                  <SelectItem key={topic} value={topic.toLowerCase().replace(/\s/g, '-')}>
-                                    {topic}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={form.control}
-                        name="message"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>How can we help?</FormLabel>
-                            <FormControl>
-                              <Textarea 
-                                placeholder="Please describe your question or issue in detail..."
-                                rows={5}
-                                data-testid="input-message"
-                                {...field}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <div className="flex items-center justify-between pt-4">
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <Info className="w-4 h-4" />
-                          <span>Check our <Link href="/faq" className="text-primary hover:underline">FAQ</Link> for instant answers.</span>
+                    <Form {...form}>
+                      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                        <div className="grid sm:grid-cols-2 gap-4">
+                          <FormField
+                            control={form.control}
+                            name="name"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Full Name</FormLabel>
+                                <FormControl>
+                                  <div className="relative">
+                                    <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                                    <Input placeholder="John Doe" className="pl-9" data-testid="input-name" {...field} />
+                                  </div>
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={form.control}
+                            name="email"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Email Address</FormLabel>
+                                <FormControl>
+                                  <div className="relative">
+                                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                                    <Input type="email" placeholder="john@example.com" className="pl-9" data-testid="input-email" {...field} />
+                                  </div>
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
                         </div>
-                        <Button type="submit" className="gap-2" disabled={mutation.isPending} data-testid="button-send-message">
-                          {mutation.isPending ? (
-                            <>
-                              <Loader2 className="w-4 h-4 animate-spin" />
-                              Sending...
-                            </>
-                          ) : mutation.isSuccess ? (
-                            <>
-                              <CheckCircle className="w-4 h-4" />
-                              Sent!
-                            </>
-                          ) : (
-                            <>
-                              Send Message <Send className="w-4 h-4" />
-                            </>
+
+                        <FormField
+                          control={form.control}
+                          name="topic"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Topic</FormLabel>
+                              <Select onValueChange={field.onChange} value={field.value}>
+                                <FormControl>
+                                  <SelectTrigger data-testid="select-topic">
+                                    <SelectValue placeholder="Select a topic" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  {topics.map((topic) => (
+                                    <SelectItem key={topic} value={topic.toLowerCase().replace(/\s/g, '-')}>
+                                      {topic}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
                           )}
-                        </Button>
-                      </div>
-                    </form>
-                  </Form>
-                </CardContent>
-              </Card>
+                        />
+
+                        <FormField
+                          control={form.control}
+                          name="message"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>How can we help?</FormLabel>
+                              <FormControl>
+                                <Textarea 
+                                  placeholder="Please describe your question or issue in detail..."
+                                  rows={5}
+                                  data-testid="input-message"
+                                  {...field}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <div className="flex items-center justify-between pt-4">
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <Info className="w-4 h-4" />
+                            <span>Check our <Link href="/faq" className="text-primary hover:underline">FAQ</Link> for instant answers.</span>
+                          </div>
+                          <Button type="submit" className="gap-2" disabled={mutation.isPending} data-testid="button-send-message">
+                            {mutation.isPending ? (
+                              <>
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                                Sending...
+                              </>
+                            ) : mutation.isSuccess ? (
+                              <>
+                                <CheckCircle className="w-4 h-4" />
+                                Sent!
+                              </>
+                            ) : (
+                              <>
+                                Send Message <Send className="w-4 h-4" />
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                      </form>
+                    </Form>
+                  </CardContent>
+                </Card>
+              </AnimatedSection>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
+      </PageTransition>
     </Layout>
   );
 }
