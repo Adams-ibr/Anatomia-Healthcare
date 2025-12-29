@@ -1,4 +1,5 @@
 import { AdminLayout } from "@/components/admin/AdminLayout";
+import { ImageUploader } from "@/components/admin/ImageUploader";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Card, CardContent } from "@/components/ui/card";
@@ -105,16 +106,16 @@ export default function AdminProducts() {
                 <Label htmlFor="description">Description</Label>
                 <Textarea id="description" name="description" defaultValue={editingProduct?.description || ""} required data-testid="input-description" />
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="price">Price</Label>
-                  <Input id="price" name="price" defaultValue={editingProduct?.price || ""} required placeholder="$99.99" data-testid="input-price" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="imageUrl">Image URL</Label>
-                  <Input id="imageUrl" name="imageUrl" defaultValue={editingProduct?.imageUrl || ""} data-testid="input-imageUrl" />
-                </div>
+              <div className="space-y-2">
+                <Label htmlFor="price">Price</Label>
+                <Input id="price" name="price" defaultValue={editingProduct?.price || ""} required placeholder="$99.99" data-testid="input-price" />
               </div>
+              <ImageUploader 
+                key={editingProduct?.id || "new"} 
+                name="imageUrl" 
+                label="Product Image" 
+                defaultValue={editingProduct?.imageUrl} 
+              />
               <div className="grid grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="badge">Badge</Label>

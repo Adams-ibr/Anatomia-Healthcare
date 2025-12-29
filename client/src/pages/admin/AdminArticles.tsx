@@ -1,4 +1,5 @@
 import { AdminLayout } from "@/components/admin/AdminLayout";
+import { ImageUploader } from "@/components/admin/ImageUploader";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Card, CardContent } from "@/components/ui/card";
@@ -112,15 +113,15 @@ export default function AdminArticles() {
                   <Input id="author" name="author" defaultValue={editingArticle?.author || ""} required data-testid="input-author" />
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="imageUrl">Image URL</Label>
-                  <Input id="imageUrl" name="imageUrl" defaultValue={editingArticle?.imageUrl || ""} data-testid="input-imageUrl" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="readTime">Read Time</Label>
-                  <Input id="readTime" name="readTime" defaultValue={editingArticle?.readTime || ""} placeholder="5 min read" data-testid="input-readTime" />
-                </div>
+              <ImageUploader 
+                key={editingArticle?.id || "new"} 
+                name="imageUrl" 
+                label="Article Image" 
+                defaultValue={editingArticle?.imageUrl} 
+              />
+              <div className="space-y-2">
+                <Label htmlFor="readTime">Read Time</Label>
+                <Input id="readTime" name="readTime" defaultValue={editingArticle?.readTime || ""} placeholder="5 min read" data-testid="input-readTime" />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="excerpt">Excerpt</Label>

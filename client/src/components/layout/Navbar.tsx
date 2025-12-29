@@ -2,6 +2,7 @@ import { Link, useLocation } from "wouter";
 import { Search, Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { useState } from "react";
 
 const navLinks = [
@@ -69,8 +70,10 @@ export function Navbar() {
               <Search className="w-5 h-5" />
             </Button>
 
+            <ThemeToggle />
+
             <div className="hidden sm:flex items-center gap-2">
-              <Link href="/signup">
+              <Link href="/register">
                 <Button size="sm" data-testid="button-signup">Sign Up</Button>
               </Link>
               <Link href="/login">
@@ -109,7 +112,7 @@ export function Navbar() {
                 </Link>
               ))}
               <div className="flex gap-2 mt-4 pt-4 border-t border-border">
-                <Link href="/signup" className="flex-1">
+                <Link href="/register" className="flex-1">
                   <Button className="w-full" size="sm" data-testid="button-signup-mobile">Sign Up</Button>
                 </Link>
                 <Link href="/login" className="flex-1">

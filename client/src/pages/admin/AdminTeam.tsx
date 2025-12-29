@@ -1,4 +1,5 @@
 import { AdminLayout } from "@/components/admin/AdminLayout";
+import { ImageUploader } from "@/components/admin/ImageUploader";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Card, CardContent } from "@/components/ui/card";
@@ -100,15 +101,15 @@ export default function AdminTeam() {
                 <Label htmlFor="description">Description</Label>
                 <Textarea id="description" name="description" defaultValue={editingMember?.description || ""} required data-testid="input-description" />
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="imageUrl">Image URL</Label>
-                  <Input id="imageUrl" name="imageUrl" defaultValue={editingMember?.imageUrl || ""} data-testid="input-imageUrl" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="order">Order</Label>
-                  <Input id="order" name="order" type="number" defaultValue={editingMember?.order || 0} data-testid="input-order" />
-                </div>
+              <ImageUploader 
+                key={editingMember?.id || "new"} 
+                name="imageUrl" 
+                label="Profile Photo" 
+                defaultValue={editingMember?.imageUrl} 
+              />
+              <div className="space-y-2">
+                <Label htmlFor="order">Order</Label>
+                <Input id="order" name="order" type="number" defaultValue={editingMember?.order || 0} data-testid="input-order" />
               </div>
               <div className="flex items-center gap-2">
                 <Switch id="isActive" name="isActive" defaultChecked={editingMember?.isActive ?? true} />

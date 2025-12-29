@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 const menuItems = [
   { title: "Dashboard", icon: LayoutDashboard, href: "/admin" },
@@ -144,8 +145,11 @@ export function AdminLayout({ children, title }: AdminLayoutProps) {
           <header className="flex items-center gap-4 p-4 border-b bg-background">
             <SidebarTrigger data-testid="button-sidebar-toggle" />
             {title && <h1 className="text-lg font-semibold">{title}</h1>}
-            <div className="ml-auto text-sm text-muted-foreground">
-              {user.firstName || user.email}
+            <div className="ml-auto flex items-center gap-3">
+              <ThemeToggle />
+              <span className="text-sm text-muted-foreground">
+                {user.firstName || user.email}
+              </span>
             </div>
           </header>
           <main className="flex-1 overflow-auto p-6 bg-muted/30">
