@@ -16,6 +16,14 @@ import Privacy from "@/pages/Privacy";
 import Terms from "@/pages/Terms";
 import Sitemap from "@/pages/Sitemap";
 import NotFound from "@/pages/not-found";
+import Dashboard from "@/pages/admin/Dashboard";
+import AdminArticles from "@/pages/admin/AdminArticles";
+import AdminTeam from "@/pages/admin/AdminTeam";
+import AdminProducts from "@/pages/admin/AdminProducts";
+import AdminFaq from "@/pages/admin/AdminFaq";
+import AdminCareers from "@/pages/admin/AdminCareers";
+import AdminContacts from "@/pages/admin/AdminContacts";
+import AdminNewsletter from "@/pages/admin/AdminNewsletter";
 
 function Router() {
   return (
@@ -32,6 +40,14 @@ function Router() {
       <Route path="/privacy" component={Privacy} />
       <Route path="/terms" component={Terms} />
       <Route path="/sitemap" component={Sitemap} />
+      <Route path="/admin" component={Dashboard} />
+      <Route path="/admin/articles" component={AdminArticles} />
+      <Route path="/admin/team" component={AdminTeam} />
+      <Route path="/admin/products" component={AdminProducts} />
+      <Route path="/admin/faq" component={AdminFaq} />
+      <Route path="/admin/careers" component={AdminCareers} />
+      <Route path="/admin/contacts" component={AdminContacts} />
+      <Route path="/admin/newsletter" component={AdminNewsletter} />
       <Route component={NotFound} />
     </Switch>
   );
