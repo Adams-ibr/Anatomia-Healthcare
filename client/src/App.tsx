@@ -34,6 +34,7 @@ import AdminLessons from "@/pages/admin/AdminLessons";
 import AdminQuestionBank from "@/pages/admin/AdminQuestionBank";
 import AdminFlashcards from "@/pages/admin/AdminFlashcards";
 import AdminAnatomyModels from "@/pages/admin/AdminAnatomyModels";
+import AdminMembers from "@/pages/admin/AdminMembers";
 import Login from "@/pages/admin/Login";
 import Register from "@/pages/auth/Register";
 import UserLogin from "@/pages/auth/UserLogin";
@@ -103,6 +104,7 @@ function Router() {
       <Route path="/admin/question-bank" component={AdminQuestionBank} />
       <Route path="/admin/flashcards" component={AdminFlashcards} />
       <Route path="/admin/anatomy-models" component={AdminAnatomyModels} />
+      <Route path="/admin/members" component={AdminMembers} />
       <Route path="/admin/login" component={Login} />
       <Route path="/register" component={Register} />
       <Route path="/login" component={UserLogin} />

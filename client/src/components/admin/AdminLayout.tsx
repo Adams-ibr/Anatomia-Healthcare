@@ -14,7 +14,8 @@ import {
   GraduationCap,
   Brain,
   Layers,
-  Atom
+  Atom,
+  Crown
 } from "lucide-react";
 import {
   Sidebar,
@@ -36,6 +37,7 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 
 const menuItems = [
   { title: "Dashboard", icon: LayoutDashboard, href: "/admin", group: "Management" },
+  { title: "Members", icon: Crown, href: "/admin/members", group: "Management" },
   { title: "LMS Courses", icon: GraduationCap, href: "/admin/courses", group: "LMS" },
   { title: "Question Bank", icon: Brain, href: "/admin/question-bank", group: "LMS" },
   { title: "Flashcards", icon: Layers, href: "/admin/flashcards", group: "LMS" },

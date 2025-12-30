@@ -159,8 +159,10 @@ export interface ILmsStorage {
   updateAnatomyModel(id: string, model: Partial<InsertAnatomyModel>): Promise<AnatomyModel | undefined>;
   deleteAnatomyModel(id: string): Promise<boolean>;
 
-  // Members (for certificate generation)
+  // Members (for certificate generation and admin management)
   getMemberById(id: string): Promise<Member | undefined>;
+  getAllMembers(): Promise<Member[]>;
+  updateMemberMembership(id: string, tier: string, expiresAt?: Date | null): Promise<Member | undefined>;
 }
 
 export class LmsStorage implements ILmsStorage {
@@ -776,6 +778,22 @@ export class LmsStorage implements ILmsStorage {
   async getMemberById(id: string): Promise<Member | undefined> {
     const [member] = await db.select().from(members).where(eq(members.id, id));
     return member;
+  }
+
+  async getAllMembers(): Promise<Member[]> {
+    return db.select().from(members).orderBy(desc(members.createdAt));
+  }
+
+  async updateMemberMembership(id: string, tier: string, expiresAt?: Date | null): Promise<Member | undefined> {
+    const [updated] = await db.update(members)
+      .set({ 
+        membershipTier: tier, 
+        membershipExpiresAt: expiresAt,
+        updatedAt: new Date() 
+      })
+      .where(eq(members.id, id))
+      .returning();
+    return updated;
   }
 }
 

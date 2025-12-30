@@ -181,6 +181,37 @@ memberRouter.post("/enrollments", async (req: Request, res: Response) => {
       return res.status(400).json({ message: "Already enrolled in this course" });
     }
 
+    // Get course to check membership requirement
+    const course = await lmsStorage.getCourseById(courseId);
+    if (!course) {
+      return res.status(404).json({ message: "Course not found" });
+    }
+
+    // Check if membership has expired (check first before tier comparison)
+    if (member.membershipExpiresAt) {
+      if (new Date(member.membershipExpiresAt) < new Date()) {
+        return res.status(403).json({ 
+          message: "Membership has expired",
+          expiredAt: member.membershipExpiresAt
+        });
+      }
+    }
+
+    // Check membership tier requirement
+    const { membershipTierHierarchy } = await import("@shared/models/auth");
+    const memberTier = member.membershipTier || "bronze";
+    const requiredTier = course.requiredMembershipTier || "bronze";
+    const memberTierLevel = membershipTierHierarchy[memberTier as keyof typeof membershipTierHierarchy] ?? 0;
+    const requiredTierLevel = membershipTierHierarchy[requiredTier as keyof typeof membershipTierHierarchy] ?? 0;
+    
+    if (memberTierLevel < requiredTierLevel) {
+      return res.status(403).json({ 
+        message: "Membership tier not sufficient",
+        requiredTier: requiredTier,
+        currentTier: memberTier
+      });
+    }
+
     // Check prerequisites
     const prerequisitesMet = await lmsStorage.checkPrerequisitesMet(member.id, courseId);
     if (!prerequisitesMet) {
@@ -1460,6 +1491,58 @@ memberRouter.post("/flashcards/:flashcardId/review", async (req: Request, res: R
     res.json(progress);
   } catch (error) {
     res.status(500).json({ message: "Failed to update flashcard progress" });
+  }
+});
+
+// ============ MEMBER MANAGEMENT (Admin) ============
+
+// Get all members with their membership info
+adminRouter.get("/members", async (req: Request, res: Response) => {
+  try {
+    const allMembers = await lmsStorage.getAllMembers();
+    res.json(allMembers);
+  } catch (error) {
+    res.status(500).json({ message: "Failed to fetch members" });
+  }
+});
+
+// Update member's membership tier
+adminRouter.patch("/members/:id/membership", async (req: Request, res: Response) => {
+  try {
+    const { tier, expiresAt } = req.body;
+    const admin = (req as any).user;
+    
+    // Validate tier
+    const { membershipTiers } = await import("@shared/models/auth");
+    if (!membershipTiers.includes(tier)) {
+      return res.status(400).json({ message: "Invalid membership tier" });
+    }
+    
+    const oldMember = await lmsStorage.getMemberById(req.params.id);
+    if (!oldMember) {
+      return res.status(404).json({ message: "Member not found" });
+    }
+    
+    const updated = await lmsStorage.updateMemberMembership(
+      req.params.id, 
+      tier, 
+      expiresAt ? new Date(expiresAt) : null
+    );
+    
+    // Log the action
+    await logAuditAction(
+      admin.id,
+      "update_membership",
+      "member",
+      req.params.id,
+      { tier: oldMember.membershipTier, expiresAt: oldMember.membershipExpiresAt },
+      { tier, expiresAt },
+      req
+    );
+    
+    res.json(updated);
+  } catch (error) {
+    res.status(500).json({ message: "Failed to update membership" });
   }
 });
 

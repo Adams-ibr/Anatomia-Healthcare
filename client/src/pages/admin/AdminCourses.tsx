@@ -31,7 +31,8 @@ import {
   Layers, 
   FileText,
   Eye,
-  EyeOff
+  EyeOff,
+  Crown
 } from "lucide-react";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { useToast } from "@/hooks/use-toast";
@@ -55,6 +56,7 @@ export default function AdminCourses() {
     isFree: true,
     isPublished: false,
     isFeatured: false,
+    requiredMembershipTier: "bronze",
   });
 
   const { data: courses, isLoading } = useQuery<Course[]>({
@@ -119,6 +121,7 @@ export default function AdminCourses() {
       isFree: true,
       isPublished: false,
       isFeatured: false,
+      requiredMembershipTier: "bronze",
     });
     setEditingCourse(null);
   };
@@ -137,6 +140,7 @@ export default function AdminCourses() {
       isFree: course.isFree ?? true,
       isPublished: course.isPublished ?? false,
       isFeatured: course.isFeatured ?? false,
+      requiredMembershipTier: course.requiredMembershipTier || "bronze",
     });
     setIsDialogOpen(true);
   };
@@ -273,6 +277,25 @@ export default function AdminCourses() {
                     />
                   </div>
                   <div className="grid gap-2">
+                    <Label htmlFor="requiredMembershipTier">Required Membership</Label>
+                    <Select
+                      value={formData.requiredMembershipTier}
+                      onValueChange={(value) => setFormData({ ...formData, requiredMembershipTier: value })}
+                    >
+                      <SelectTrigger data-testid="select-course-membership">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="bronze">Bronze (Free)</SelectItem>
+                        <SelectItem value="silver">Silver</SelectItem>
+                        <SelectItem value="gold">Gold</SelectItem>
+                        <SelectItem value="diamond">Diamond</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="grid gap-2">
                     <Label htmlFor="price">Price (in cents)</Label>
                     <Input
                       id="price"
@@ -364,6 +387,18 @@ export default function AdminCourses() {
                         <Badge variant="outline">Featured</Badge>
                       )}
                       <Badge variant="outline">{course.level}</Badge>
+                      <Badge 
+                        variant="outline" 
+                        className={
+                          course.requiredMembershipTier === "diamond" ? "border-purple-500 text-purple-500" :
+                          course.requiredMembershipTier === "gold" ? "border-yellow-500 text-yellow-600" :
+                          course.requiredMembershipTier === "silver" ? "border-gray-400 text-gray-500" :
+                          ""
+                        }
+                      >
+                        <Crown className="w-3 h-3 mr-1" />
+                        {course.requiredMembershipTier?.charAt(0).toUpperCase() + course.requiredMembershipTier?.slice(1) || "Bronze"}
+                      </Badge>
                     </div>
                     <p className="text-muted-foreground text-sm mb-2">
                       {course.shortDescription || course.description.substring(0, 150)}...

@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "wouter";
-import { BookOpen, Clock, Search, Filter, GraduationCap, ArrowUpDown } from "lucide-react";
+import { BookOpen, Clock, Search, Filter, GraduationCap, ArrowUpDown, Crown } from "lucide-react";
 import type { Course } from "@shared/schema";
 
 function CourseSkeleton() {
@@ -64,6 +64,15 @@ export default function CourseCatalog() {
       case "intermediate": return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-100";
       case "advanced": return "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-100";
       default: return "";
+    }
+  };
+
+  const getMembershipColor = (tier: string) => {
+    switch (tier?.toLowerCase()) {
+      case "diamond": return "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400 border-purple-300";
+      case "gold": return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400 border-yellow-300";
+      case "silver": return "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300 border-gray-300";
+      default: return "bg-orange-50 text-orange-700 dark:bg-orange-900/20 dark:text-orange-400 border-orange-200";
     }
   };
 
@@ -188,6 +197,14 @@ export default function CourseCatalog() {
                       {course.isFeatured && (
                         <Badge className="absolute top-3 left-3" variant="default">
                           Featured
+                        </Badge>
+                      )}
+                      {course.requiredMembershipTier && course.requiredMembershipTier !== "bronze" && course.requiredMembershipTier !== "" && (
+                        <Badge 
+                          className={`absolute top-3 right-3 flex items-center gap-1 ${getMembershipColor(course.requiredMembershipTier)}`}
+                        >
+                          <Crown className="h-3 w-3" />
+                          {(course.requiredMembershipTier || "bronze").charAt(0).toUpperCase() + (course.requiredMembershipTier || "bronze").slice(1)}
                         </Badge>
                       )}
                     </div>
