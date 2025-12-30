@@ -19,6 +19,7 @@ export const courses = pgTable("courses", {
   isFree: boolean("is_free").default(true),
   isPublished: boolean("is_published").default(false),
   isFeatured: boolean("is_featured").default(false),
+  requiredMembershipTier: text("required_membership_tier").notNull().default("bronze"),
   createdBy: varchar("created_by").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),

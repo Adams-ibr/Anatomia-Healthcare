@@ -55,6 +55,18 @@ export type User = typeof users.$inferSelect;
 export type LoginInput = z.infer<typeof loginSchema>;
 export type RegisterInput = z.infer<typeof registerSchema>;
 
+// Membership tiers: bronze (free), silver, gold, diamond
+export const membershipTiers = ["bronze", "silver", "gold", "diamond"] as const;
+export type MembershipTier = typeof membershipTiers[number];
+
+// Membership tier hierarchy (higher index = higher tier)
+export const membershipTierHierarchy: Record<MembershipTier, number> = {
+  bronze: 0,
+  silver: 1,
+  gold: 2,
+  diamond: 3,
+};
+
 // Regular site members (students/users)
 export const members = pgTable("members", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -62,6 +74,8 @@ export const members = pgTable("members", {
   password: varchar("password").notNull(),
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),
+  membershipTier: varchar("membership_tier").notNull().default("bronze"),
+  membershipExpiresAt: timestamp("membership_expires_at"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
