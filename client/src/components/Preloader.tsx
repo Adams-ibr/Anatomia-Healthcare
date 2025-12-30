@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import logoImage from "@assets/Primary@3x_1767094637532.png";
 
 export function Preloader() {
   const [isLoading, setIsLoading] = useState(true);
@@ -23,8 +22,9 @@ export function Preloader() {
           className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-background"
         >
           <div className="flex flex-col items-center gap-8">
-            {/* Logo with pulse animation */}
-            <motion.div
+            {/* Text logo with pulse animation */}
+            <motion.h1
+              className="text-4xl font-bold tracking-tight text-foreground"
               animate={{
                 scale: [1, 1.05, 1],
               }}
@@ -34,8 +34,8 @@ export function Preloader() {
                 ease: "easeInOut",
               }}
             >
-              <img src={logoImage} alt="Anatomia" className="h-24" />
-            </motion.div>
+              Anatomia
+            </motion.h1>
 
             {/* ECG/Heartbeat line */}
             <div className="w-48 h-12 overflow-hidden">
