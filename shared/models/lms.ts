@@ -491,3 +491,29 @@ export const insertAnatomyModelSchema = createInsertSchema(anatomyModels).omit({
 
 export type InsertAnatomyModel = z.infer<typeof insertAnatomyModelSchema>;
 export type AnatomyModel = typeof anatomyModels.$inferSelect;
+
+// Payment Transactions
+export const paymentTransactions = pgTable("payment_transactions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  memberId: varchar("member_id").notNull().references(() => members.id, { onDelete: "cascade" }),
+  amount: integer("amount").notNull(),
+  currency: text("currency").notNull().default("NGN"),
+  membershipTier: text("membership_tier").notNull(),
+  durationMonths: integer("duration_months").notNull().default(1),
+  paymentProvider: text("payment_provider").notNull(),
+  providerReference: text("provider_reference"),
+  providerTransactionId: text("provider_transaction_id"),
+  status: text("status").notNull().default("pending"),
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertPaymentTransactionSchema = createInsertSchema(paymentTransactions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertPaymentTransaction = z.infer<typeof insertPaymentTransactionSchema>;
+export type PaymentTransaction = typeof paymentTransactions.$inferSelect;

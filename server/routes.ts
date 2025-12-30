@@ -18,9 +18,10 @@ import {
   insertFaqItemSchema,
   insertCareerSchema
 } from "@shared/schema";
-import { setupSession, registerAuthRoutes, registerMemberRoutes, isAuthenticated } from "./auth";
+import { setupSession, registerAuthRoutes, registerMemberRoutes, isAuthenticated, isMemberAuthenticated } from "./auth";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 import lmsRoutes from "./lms-routes";
+import paymentRoutes from "./payment-routes";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -35,6 +36,9 @@ export async function registerRoutes(
   
   // LMS routes
   app.use("/api/lms", lmsRoutes);
+  
+  // Payment routes (with member auth middleware)
+  app.use("/api/payments", paymentRoutes);
 
   // Public routes
   app.post("/api/contact", async (req, res) => {
