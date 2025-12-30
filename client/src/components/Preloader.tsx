@@ -22,20 +22,99 @@ export function Preloader() {
           className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-background"
         >
           <div className="flex flex-col items-center gap-8">
-            {/* Text logo with pulse animation */}
-            <motion.h1
-              className="text-4xl font-bold tracking-tight text-foreground"
-              animate={{
-                scale: [1, 1.05, 1],
-              }}
-              transition={{
-                duration: 1.5,
-                repeat: Infinity,
-                ease: "easeInOut",
-              }}
+            {/* Anatomy-themed logo with heartbeat animation */}
+            <div className="relative">
+              {/* Outer pulse ring */}
+              <motion.div
+                className="absolute inset-0 rounded-full border-2 border-primary/30"
+                style={{ width: 120, height: 120, left: -10, top: -10 }}
+                animate={{
+                  scale: [1, 1.3, 1],
+                  opacity: [0.5, 0, 0.5],
+                }}
+                transition={{
+                  duration: 1.5,
+                  repeat: Infinity,
+                  ease: "easeInOut",
+                }}
+              />
+              
+              {/* Inner pulse ring */}
+              <motion.div
+                className="absolute inset-0 rounded-full border-2 border-primary/50"
+                style={{ width: 100, height: 100 }}
+                animate={{
+                  scale: [1, 1.2, 1],
+                  opacity: [0.7, 0.2, 0.7],
+                }}
+                transition={{
+                  duration: 1.5,
+                  repeat: Infinity,
+                  ease: "easeInOut",
+                  delay: 0.2,
+                }}
+              />
+
+              {/* Anatomical heart SVG */}
+              <motion.svg
+                width="100"
+                height="100"
+                viewBox="0 0 100 100"
+                className="text-primary"
+                animate={{
+                  scale: [1, 1.05, 1, 1.08, 1],
+                }}
+                transition={{
+                  duration: 1,
+                  repeat: Infinity,
+                  ease: "easeInOut",
+                }}
+              >
+                {/* Stylized anatomical heart */}
+                <motion.path
+                  d="M50 85 C20 60 10 40 15 28 C20 16 35 12 50 25 C65 12 80 16 85 28 C90 40 80 60 50 85Z"
+                  fill="currentColor"
+                  opacity="0.9"
+                />
+                {/* Aorta */}
+                <motion.path
+                  d="M45 25 C45 15 40 8 35 5 M55 25 C55 15 60 8 65 5"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                  fill="none"
+                  strokeLinecap="round"
+                />
+                {/* Ventricle line */}
+                <motion.path
+                  d="M50 35 L50 55"
+                  stroke="hsl(var(--background))"
+                  strokeWidth="2"
+                  opacity="0.5"
+                />
+                {/* Cross veins */}
+                <motion.path
+                  d="M35 45 C45 45 55 45 65 45"
+                  stroke="hsl(var(--background))"
+                  strokeWidth="1.5"
+                  opacity="0.3"
+                />
+              </motion.svg>
+            </div>
+
+            {/* Brand name */}
+            <motion.div
+              className="flex flex-col items-center gap-2"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3 }}
             >
-              Anatomia
-            </motion.h1>
+              <h1 className="text-3xl font-bold tracking-tight text-foreground">
+                Anatomia
+              </h1>
+              <p className="text-sm text-muted-foreground">
+                Medical Education Platform
+              </p>
+            </motion.div>
 
             {/* ECG/Heartbeat line */}
             <div className="w-48 h-12 overflow-hidden">
