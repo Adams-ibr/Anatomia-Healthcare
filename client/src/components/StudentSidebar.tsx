@@ -81,7 +81,7 @@ export function StudentSidebar() {
     <Sidebar>
       <SidebarHeader className="p-4">
         <Link href="/dashboard" className="flex items-center">
-          <img src={logoImage} alt="Anatomia" className="h-8" />
+          <img src={logoImage} alt="Anatomia" className="h-10" />
         </Link>
       </SidebarHeader>
       

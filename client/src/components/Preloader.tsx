@@ -34,7 +34,7 @@ export function Preloader() {
                 ease: "easeInOut",
               }}
             >
-              <img src={logoImage} alt="Anatomia" className="h-16" />
+              <img src={logoImage} alt="Anatomia" className="h-24" />
             </motion.div>
 
             {/* ECG/Heartbeat line */}

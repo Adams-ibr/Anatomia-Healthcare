@@ -66,7 +66,7 @@ function AdminSidebar() {
     <Sidebar>
       <SidebarHeader className="p-4 border-b">
         <div className="flex items-center gap-2">
-          <img src={logoImage} alt="Anatomia" className="h-7" />
+          <img src={logoImage} alt="Anatomia" className="h-9" />
           <span className="font-semibold text-sm text-muted-foreground">Admin</span>
         </div>
       </SidebarHeader>
