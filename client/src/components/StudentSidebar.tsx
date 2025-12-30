@@ -25,6 +25,7 @@ import {
   GraduationCap
 } from "lucide-react";
 import type { Member } from "@shared/schema";
+import logoImage from "@assets/logo_1767096962278.jpeg";
 
 const menuItems = [
   {
@@ -80,7 +81,7 @@ export function StudentSidebar() {
     <Sidebar>
       <SidebarHeader className="p-4">
         <Link href="/dashboard" className="flex items-center gap-2">
-          <GraduationCap className="h-6 w-6 text-primary" />
+          <img src={logoImage} alt="Anatomia" className="h-7" />
           <span className="text-lg font-semibold">Anatomia</span>
         </Link>
       </SidebarHeader>
