@@ -43,6 +43,8 @@ import PracticeMode from "@/pages/member/PracticeMode";
 import FlashcardStudy from "@/pages/member/FlashcardStudy";
 import Anatomy3DViewer from "@/pages/member/Anatomy3DViewer";
 import CoursePlayer from "@/pages/member/CoursePlayer";
+import Subscribe from "@/pages/member/Subscribe";
+import PaymentVerify from "@/pages/member/PaymentVerify";
 import CourseCatalog from "@/pages/CourseCatalog";
 import Pricing from "@/pages/Pricing";
 
@@ -55,6 +57,8 @@ function StudentRoutes() {
         <Route path="/flashcards" component={FlashcardStudy} />
         <Route path="/anatomy-viewer" component={Anatomy3DViewer} />
         <Route path="/courses" component={CourseCatalog} />
+        <Route path="/subscribe" component={Subscribe} />
+        <Route path="/payment/verify" component={PaymentVerify} />
         <Route path="/learn/:courseId" component={CoursePlayer} />
         <Route path="/learn/:courseId/:lessonId" component={CoursePlayer} />
       </Switch>
@@ -71,6 +75,8 @@ function Router() {
     location === "/flashcards" ||
     location === "/anatomy-viewer" ||
     location === "/courses" ||
+    location === "/subscribe" ||
+    location === "/payment/verify" ||
     location.startsWith("/learn/");
   
   if (isStudentRoute) {

@@ -55,6 +55,7 @@ const membershipTiers = [
     ],
     buttonText: "Subscribe to Silver",
     buttonVariant: "default" as const,
+    buttonLink: "/subscribe",
     popular: false,
   },
   {
@@ -79,6 +80,7 @@ const membershipTiers = [
     ],
     buttonText: "Subscribe to Gold",
     buttonVariant: "default" as const,
+    buttonLink: "/subscribe",
     popular: true,
   },
   {
@@ -102,6 +104,7 @@ const membershipTiers = [
     notIncluded: [],
     buttonText: "Subscribe to Diamond",
     buttonVariant: "default" as const,
+    buttonLink: "/subscribe",
     popular: false,
   },
 ];
@@ -173,7 +176,7 @@ export default function Pricing() {
                       asChild
                       data-testid={`button-subscribe-${tier.name.toLowerCase()}`}
                     >
-                      <Link href="/register">{tier.buttonText}</Link>
+                      <Link href={tier.buttonLink || "/register"}>{tier.buttonText}</Link>
                     </Button>
                   </CardFooter>
                 </Card>

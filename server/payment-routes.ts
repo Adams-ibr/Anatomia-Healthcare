@@ -3,6 +3,7 @@ import { db } from "./db";
 import { paymentTransactions, members } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import crypto from "crypto";
+import { isMemberAuthenticated } from "./auth";
 
 const router = Router();
 
@@ -41,7 +42,17 @@ async function createTransaction(
 }
 
 async function updateMembershipTier(memberId: string, tier: string) {
-  const expiresAt = new Date();
+  const [member] = await db
+    .select()
+    .from(members)
+    .where(eq(members.id, memberId));
+
+  let expiresAt = new Date();
+  
+  if (member?.membershipExpiresAt && new Date(member.membershipExpiresAt) > new Date()) {
+    expiresAt = new Date(member.membershipExpiresAt);
+  }
+  
   expiresAt.setMonth(expiresAt.getMonth() + TIER_DURATION_MONTHS);
 
   await db
@@ -53,7 +64,7 @@ async function updateMembershipTier(memberId: string, tier: string) {
     .where(eq(members.id, memberId));
 }
 
-router.post("/initialize-paystack", async (req: Request, res: Response) => {
+router.post("/initialize-paystack", isMemberAuthenticated, async (req: Request, res: Response) => {
   try {
     const member = (req as any).member;
     if (!member) {
@@ -109,7 +120,7 @@ router.post("/initialize-paystack", async (req: Request, res: Response) => {
   }
 });
 
-router.post("/initialize-flutterwave", async (req: Request, res: Response) => {
+router.post("/initialize-flutterwave", isMemberAuthenticated, async (req: Request, res: Response) => {
   try {
     const member = (req as any).member;
     if (!member) {
@@ -366,7 +377,7 @@ router.post("/webhook/flutterwave", async (req: Request, res: Response) => {
   }
 });
 
-router.get("/transactions", async (req: Request, res: Response) => {
+router.get("/transactions", isMemberAuthenticated, async (req: Request, res: Response) => {
   try {
     const member = (req as any).member;
     if (!member) {
