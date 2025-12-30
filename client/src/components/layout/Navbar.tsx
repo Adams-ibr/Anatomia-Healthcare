@@ -1,6 +1,6 @@
 import { Link, useLocation } from "wouter";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
-import { Search, Menu, X, User, LogOut, LayoutDashboard } from "lucide-react";
+import { Search, Menu, X, User, LogOut, LayoutDashboard, Heart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -85,6 +85,7 @@ export function Navbar() {
             transition={{ duration: 0.3 }}
           >
             <Link href="/" className="flex items-center gap-2 shrink-0">
+              <Heart className="h-6 w-6 text-primary fill-primary" />
               <span className="text-xl font-bold text-foreground" data-testid="text-logo">Anatomia</span>
             </Link>
           </motion.div>

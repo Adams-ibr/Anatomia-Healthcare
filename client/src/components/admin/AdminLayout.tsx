@@ -15,7 +15,8 @@ import {
   Brain,
   Layers,
   Atom,
-  Crown
+  Crown,
+  Heart
 } from "lucide-react";
 import {
   Sidebar,
@@ -65,7 +66,7 @@ function AdminSidebar() {
     <Sidebar>
       <SidebarHeader className="p-4 border-b">
         <div className="flex items-center gap-2">
-          <LayoutDashboard className="h-6 w-6 text-primary" />
+          <Heart className="h-6 w-6 text-primary fill-primary" />
           <span className="font-semibold text-lg">Anatomia Admin</span>
         </div>
       </SidebarHeader>

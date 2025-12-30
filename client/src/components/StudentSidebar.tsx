@@ -22,7 +22,8 @@ import {
   Atom,
   LogOut,
   User,
-  GraduationCap
+  GraduationCap,
+  Heart
 } from "lucide-react";
 import type { Member } from "@shared/schema";
 
@@ -80,7 +81,7 @@ export function StudentSidebar() {
     <Sidebar>
       <SidebarHeader className="p-4">
         <Link href="/dashboard" className="flex items-center gap-2">
-          <GraduationCap className="h-6 w-6 text-primary" />
+          <Heart className="h-6 w-6 text-primary fill-primary" />
           <span className="text-lg font-semibold">Anatomia</span>
         </Link>
       </SidebarHeader>
