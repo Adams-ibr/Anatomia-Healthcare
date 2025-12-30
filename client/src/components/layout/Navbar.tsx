@@ -16,6 +16,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import type { Member } from "@shared/schema";
+import logoImage from "@assets/Primary@3x_1767094637532.png";
 
 const navLinks = [
   { label: "Home", href: "/" },
@@ -84,13 +85,8 @@ export function Navbar() {
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.3 }}
           >
-            <Link href="/" className="flex items-center gap-2 shrink-0">
-              <div className="w-8 h-8 bg-primary rounded-md flex items-center justify-center">
-                <svg viewBox="0 0 24 24" className="w-5 h-5 text-primary-foreground" fill="currentColor">
-                  <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
-                </svg>
-              </div>
-              <span className="text-xl font-bold text-foreground" data-testid="text-logo">Anatomia</span>
+            <Link href="/" className="flex items-center shrink-0">
+              <img src={logoImage} alt="Anatomia" className="h-8" data-testid="img-logo" />
             </Link>
           </motion.div>
 

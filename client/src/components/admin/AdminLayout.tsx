@@ -34,6 +34,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import logoImage from "@assets/Primary@3x_1767094637532.png";
 
 const menuItems = [
   { title: "Dashboard", icon: LayoutDashboard, href: "/admin", group: "Management" },
@@ -65,8 +66,8 @@ function AdminSidebar() {
     <Sidebar>
       <SidebarHeader className="p-4 border-b">
         <div className="flex items-center gap-2">
-          <LayoutDashboard className="h-6 w-6 text-primary" />
-          <span className="font-semibold text-lg">Anatomia Admin</span>
+          <img src={logoImage} alt="Anatomia" className="h-7" />
+          <span className="font-semibold text-sm text-muted-foreground">Admin</span>
         </div>
       </SidebarHeader>
       <SidebarContent>
