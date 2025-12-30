@@ -1,10 +1,21 @@
 import { Link, useLocation } from "wouter";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
-import { Search, Menu, X } from "lucide-react";
+import { Search, Menu, X, User, LogOut, LayoutDashboard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useState, useCallback } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { getQueryFn } from "@/lib/queryClient";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import type { Member } from "@shared/schema";
 
 const navLinks = [
   { label: "Home", href: "/" },
@@ -32,6 +43,29 @@ export function Navbar() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const prefersReducedMotion = useReducedMotion();
+
+  const { data: member, isLoading: memberLoading } = useQuery<Member | null>({
+    queryKey: ["/api/members/me"],
+    queryFn: getQueryFn({ on401: "returnNull" }),
+    retry: false,
+  });
+
+  const isLoggedIn = !!member && !memberLoading;
+
+  const handleLogout = async () => {
+    await fetch("/api/members/logout", { 
+      method: "POST",
+      credentials: "include" 
+    });
+    window.location.href = "/";
+  };
+
+  const getInitials = (member: Member | undefined) => {
+    if (!member) return "U";
+    const first = member.firstName?.charAt(0) || "";
+    const last = member.lastName?.charAt(0) || "";
+    return (first + last).toUpperCase() || member.email.charAt(0).toUpperCase();
+  };
 
   const handleSearch = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter" && searchQuery.trim()) {
@@ -117,12 +151,52 @@ export function Navbar() {
             <ThemeToggle />
 
             <div className="hidden sm:flex items-center gap-2">
-              <Link href="/register">
-                <Button size="sm" data-testid="button-signup">Sign Up</Button>
-              </Link>
-              <Link href="/login">
-                <Button variant="outline" size="sm" data-testid="button-login">Log In</Button>
-              </Link>
+              {isLoggedIn ? (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="sm" className="gap-2" data-testid="button-user-menu">
+                      <Avatar className="h-7 w-7">
+                        <AvatarFallback className="text-xs">{getInitials(member)}</AvatarFallback>
+                      </Avatar>
+                      <span className="hidden md:inline">
+                        {member?.firstName || member?.email?.split('@')[0] || 'Account'}
+                      </span>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-48">
+                    <DropdownMenuItem asChild>
+                      <Link href="/dashboard" className="flex items-center gap-2 cursor-pointer">
+                        <LayoutDashboard className="h-4 w-4" />
+                        <span>Dashboard</span>
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href="/profile" className="flex items-center gap-2 cursor-pointer">
+                        <User className="h-4 w-4" />
+                        <span>Profile</span>
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem 
+                      onClick={handleLogout}
+                      className="flex items-center gap-2 cursor-pointer text-destructive"
+                      data-testid="button-logout"
+                    >
+                      <LogOut className="h-4 w-4" />
+                      <span>Log Out</span>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              ) : (
+                <>
+                  <Link href="/register">
+                    <Button size="sm" data-testid="button-signup">Sign Up</Button>
+                  </Link>
+                  <Link href="/login">
+                    <Button variant="outline" size="sm" data-testid="button-login">Log In</Button>
+                  </Link>
+                </>
+              )}
             </div>
 
             <Button
@@ -156,13 +230,48 @@ export function Navbar() {
                     </Button>
                   </Link>
                 ))}
-                <div className="flex gap-2 mt-4 pt-4 border-t border-border">
-                  <Link href="/register" className="flex-1">
-                    <Button className="w-full" size="sm" data-testid="button-signup-mobile">Sign Up</Button>
-                  </Link>
-                  <Link href="/login" className="flex-1">
-                    <Button variant="outline" className="w-full" size="sm" data-testid="button-login-mobile">Log In</Button>
-                  </Link>
+                <div className="mt-4 pt-4 border-t border-border">
+                  {isLoggedIn ? (
+                    <div className="flex flex-col gap-2">
+                      <div className="flex items-center gap-3 px-3 py-2">
+                        <Avatar className="h-8 w-8">
+                          <AvatarFallback className="text-sm">{getInitials(member)}</AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">
+                            {member?.firstName && member?.lastName 
+                              ? `${member.firstName} ${member.lastName}`
+                              : member?.email || "Student"}
+                          </p>
+                        </div>
+                      </div>
+                      <Link href="/dashboard" onClick={() => setMobileMenuOpen(false)}>
+                        <Button variant="ghost" className="w-full justify-start gap-2" size="sm">
+                          <LayoutDashboard className="h-4 w-4" />
+                          Dashboard
+                        </Button>
+                      </Link>
+                      <Button 
+                        variant="outline" 
+                        className="w-full justify-start gap-2 text-destructive" 
+                        size="sm"
+                        onClick={handleLogout}
+                        data-testid="button-logout-mobile"
+                      >
+                        <LogOut className="h-4 w-4" />
+                        Log Out
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="flex gap-2">
+                      <Link href="/register" className="flex-1">
+                        <Button className="w-full" size="sm" data-testid="button-signup-mobile">Sign Up</Button>
+                      </Link>
+                      <Link href="/login" className="flex-1">
+                        <Button variant="outline" className="w-full" size="sm" data-testid="button-login-mobile">Log In</Button>
+                      </Link>
+                    </div>
+                  )}
                 </div>
               </nav>
             </div>
@@ -202,17 +311,52 @@ export function Navbar() {
                     </motion.div>
                   ))}
                   <motion.div
-                    className="flex gap-2 mt-4 pt-4 border-t border-border"
+                    className="mt-4 pt-4 border-t border-border"
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     transition={{ duration: 0.2, delay: 0.2 }}
                   >
-                    <Link href="/register" className="flex-1">
-                      <Button className="w-full" size="sm" data-testid="button-signup-mobile">Sign Up</Button>
-                    </Link>
-                    <Link href="/login" className="flex-1">
-                      <Button variant="outline" className="w-full" size="sm" data-testid="button-login-mobile">Log In</Button>
-                    </Link>
+                    {isLoggedIn ? (
+                      <div className="flex flex-col gap-2">
+                        <div className="flex items-center gap-3 px-3 py-2">
+                          <Avatar className="h-8 w-8">
+                            <AvatarFallback className="text-sm">{getInitials(member)}</AvatarFallback>
+                          </Avatar>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium truncate">
+                              {member?.firstName && member?.lastName 
+                                ? `${member.firstName} ${member.lastName}`
+                                : member?.email || "Student"}
+                            </p>
+                          </div>
+                        </div>
+                        <Link href="/dashboard" onClick={() => setMobileMenuOpen(false)}>
+                          <Button variant="ghost" className="w-full justify-start gap-2" size="sm">
+                            <LayoutDashboard className="h-4 w-4" />
+                            Dashboard
+                          </Button>
+                        </Link>
+                        <Button 
+                          variant="outline" 
+                          className="w-full justify-start gap-2 text-destructive" 
+                          size="sm"
+                          onClick={handleLogout}
+                          data-testid="button-logout-mobile-anim"
+                        >
+                          <LogOut className="h-4 w-4" />
+                          Log Out
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="flex gap-2">
+                        <Link href="/register" className="flex-1">
+                          <Button className="w-full" size="sm" data-testid="button-signup-mobile">Sign Up</Button>
+                        </Link>
+                        <Link href="/login" className="flex-1">
+                          <Button variant="outline" className="w-full" size="sm" data-testid="button-login-mobile">Log In</Button>
+                        </Link>
+                      </div>
+                    )}
                   </motion.div>
                 </nav>
               </motion.div>
