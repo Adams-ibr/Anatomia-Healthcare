@@ -6,10 +6,10 @@ const footerSections = [
   {
     title: "Platform",
     links: [
+      { label: "Pricing", href: "/pricing" },
       { label: "3D Atlas", href: "/services" },
       { label: "Article Library", href: "/blog" },
-      { label: "Video Tutorials", href: "/blog" },
-      { label: "Quizzes", href: "/faq" },
+      { label: "Courses", href: "/courses" },
     ],
   },
   {

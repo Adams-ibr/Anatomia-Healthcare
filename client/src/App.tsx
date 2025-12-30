@@ -44,6 +44,7 @@ import FlashcardStudy from "@/pages/member/FlashcardStudy";
 import Anatomy3DViewer from "@/pages/member/Anatomy3DViewer";
 import CoursePlayer from "@/pages/member/CoursePlayer";
 import CourseCatalog from "@/pages/CourseCatalog";
+import Pricing from "@/pages/Pricing";
 
 function StudentRoutes() {
   return (
@@ -108,6 +109,7 @@ function Router() {
       <Route path="/admin/login" component={Login} />
       <Route path="/register" component={Register} />
       <Route path="/login" component={UserLogin} />
+      <Route path="/pricing" component={Pricing} />
       <Route component={NotFound} />
     </Switch>
   );
