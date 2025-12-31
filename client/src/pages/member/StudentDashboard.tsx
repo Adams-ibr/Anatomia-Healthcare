@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "wouter";
-import { BookOpen, Award, Clock, Play, Bell, GraduationCap, TrendingUp, CheckCircle } from "lucide-react";
+import { BookOpen, Award, Clock, Play, Bell, GraduationCap, TrendingUp, CheckCircle, Home } from "lucide-react";
 import type { Course, Enrollment, Notification, Certificate, LessonProgress, Lesson } from "@shared/schema";
 import { History, FileText } from "lucide-react";
 
@@ -81,11 +81,19 @@ export default function StudentDashboard() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold" data-testid="text-dashboard-title">
-          Welcome back{memberData?.firstName ? `, ${memberData.firstName}` : ""}
-        </h1>
-        <p className="text-muted-foreground mt-1">Track your learning progress and continue your courses</p>
+      <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold" data-testid="text-dashboard-title">
+            Welcome back{memberData?.firstName ? `, ${memberData.firstName}` : ""}
+          </h1>
+          <p className="text-muted-foreground mt-1">Track your learning progress and continue your courses</p>
+        </div>
+        <Link href="/">
+          <Button variant="outline" className="gap-2" data-testid="button-back-to-home">
+            <Home className="h-4 w-4" />
+            Back to Home
+          </Button>
+        </Link>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">

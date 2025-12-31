@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { useLocation, Link } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -7,8 +8,8 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Check, Crown, Loader2, CreditCard, GraduationCap, Briefcase } from "lucide-react";
-import { apiRequest } from "@/lib/queryClient";
+import { Check, Crown, Loader2, CreditCard, GraduationCap, Briefcase, LogIn } from "lucide-react";
+import { apiRequest, getQueryFn } from "@/lib/queryClient";
 import type { Member } from "@shared/schema";
 
 type AudienceType = "student" | "professional";
@@ -91,9 +92,15 @@ export default function Subscribe() {
   const [selectedAudience, setSelectedAudience] = useState<AudienceType>("student");
   const [selectedProvider, setSelectedProvider] = useState<"paystack" | "flutterwave">("paystack");
 
-  const { data: member } = useQuery<Member>({
+  const [, setLocation] = useLocation();
+  
+  const { data: member, isLoading: memberLoading } = useQuery<Member | null>({
     queryKey: ["/api/members/me"],
+    queryFn: getQueryFn({ on401: "returnNull" }),
+    retry: false,
   });
+  
+  const isLoggedIn = !!member;
 
   const initializePayment = useMutation({
     mutationFn: async ({ period, audience, provider }: { period: string; audience: string; provider: string }) => {
@@ -125,12 +132,8 @@ export default function Subscribe() {
   });
 
   const handleSubscribe = () => {
-    if (!member) {
-      toast({
-        title: "Please log in",
-        description: "You need to be logged in to subscribe",
-        variant: "destructive",
-      });
+    if (!isLoggedIn) {
+      setLocation("/login");
       return;
     }
 
@@ -303,12 +306,32 @@ export default function Subscribe() {
             <span className="text-primary">{formatPrice(selectedPrice)}</span>
           </div>
         </CardContent>
-        <CardFooter>
+        <CardFooter className="flex flex-col gap-4">
+          {!isLoggedIn && !memberLoading && (
+            <div className="w-full p-3 bg-muted rounded-md text-center">
+              <p className="text-sm text-muted-foreground mb-2">
+                You need an account to subscribe
+              </p>
+              <div className="flex flex-wrap justify-center gap-2">
+                <Link href="/login">
+                  <Button variant="outline" size="sm" className="gap-2" data-testid="button-login-from-subscribe">
+                    <LogIn className="h-4 w-4" />
+                    Log In
+                  </Button>
+                </Link>
+                <Link href="/register">
+                  <Button variant="default" size="sm" data-testid="button-register-from-subscribe">
+                    Create Account
+                  </Button>
+                </Link>
+              </div>
+            </div>
+          )}
           <Button
             className="w-full"
             size="lg"
             onClick={handleSubscribe}
-            disabled={initializePayment.isPending}
+            disabled={initializePayment.isPending || memberLoading}
             data-testid="button-pay-now"
           >
             {initializePayment.isPending ? (
@@ -316,8 +339,10 @@ export default function Subscribe() {
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                 Processing...
               </>
-            ) : (
+            ) : isLoggedIn ? (
               `Pay ${formatPrice(selectedPrice)} with ${selectedProvider === "paystack" ? "Paystack" : "Flutterwave"}`
+            ) : (
+              "Log in to Subscribe"
             )}
           </Button>
         </CardFooter>
