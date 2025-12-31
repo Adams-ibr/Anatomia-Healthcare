@@ -48,9 +48,11 @@ export function Navbar() {
     queryKey: ["/api/members/me"],
     queryFn: getQueryFn({ on401: "returnNull" }),
     retry: false,
+    staleTime: 0,
+    refetchOnWindowFocus: true,
   });
 
-  const isLoggedIn = !!member && !memberLoading;
+  const isLoggedIn = !!member;
 
   const handleLogout = async () => {
     await fetch("/api/members/logout", { 

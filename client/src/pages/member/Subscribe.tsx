@@ -5,68 +5,90 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Check, Crown, Loader2, CreditCard } from "lucide-react";
+import { Check, Crown, Loader2, CreditCard, GraduationCap, Briefcase } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import type { Member } from "@shared/schema";
 
-const membershipTiers = [
+type AudienceType = "student" | "professional";
+type PeriodType = "monthly" | "quarterly" | "biannually" | "yearly";
+
+interface PricingPlan {
+  id: string;
+  period: PeriodType;
+  periodLabel: string;
+  durationMonths: number;
+  studentPrice: number;
+  professionalPrice: number;
+  discount?: string;
+}
+
+const pricingPlans: PricingPlan[] = [
   {
-    id: "silver",
-    name: "Silver",
-    price: 15000,
-    priceDisplay: "N15,000",
-    period: "/month",
-    description: "Great for serious students",
-    color: "bg-gray-50 dark:bg-gray-800/50 border-gray-300 dark:border-gray-600",
-    crownColor: "text-gray-400",
-    features: [
-      "Access to Silver-tier courses",
-      "Extended quiz attempts",
-      "Basic flashcard system",
-      "Progress tracking",
-    ],
+    id: "monthly",
+    period: "monthly",
+    periodLabel: "Monthly",
+    durationMonths: 1,
+    studentPrice: 10000,
+    professionalPrice: 20000,
   },
   {
-    id: "gold",
-    name: "Gold",
-    price: 30000,
-    priceDisplay: "N30,000",
-    period: "/month",
-    description: "Ideal for dedicated professionals",
-    color: "bg-yellow-50 dark:bg-yellow-900/20 border-yellow-300 dark:border-yellow-700",
-    crownColor: "text-yellow-500",
-    features: [
-      "Everything in Silver",
-      "Access to Gold-tier courses",
-      "Full 3D anatomy viewer",
-      "Unlimited flashcards",
-      "PDF certificates",
-    ],
-    popular: true,
+    id: "quarterly",
+    period: "quarterly",
+    periodLabel: "Quarterly",
+    durationMonths: 3,
+    studentPrice: 27000,
+    professionalPrice: 54000,
+    discount: "10% off",
   },
   {
-    id: "diamond",
-    name: "Diamond",
-    price: 50000,
-    priceDisplay: "N50,000",
-    period: "/month",
-    description: "Complete elite access",
-    color: "bg-purple-50 dark:bg-purple-900/20 border-purple-300 dark:border-purple-700",
-    crownColor: "text-purple-500",
-    features: [
-      "Everything in Gold",
-      "All Diamond-exclusive courses",
-      "Advanced 3D anatomy models",
-      "1-on-1 mentorship sessions",
-      "24/7 priority support",
-    ],
+    id: "biannually",
+    period: "biannually",
+    periodLabel: "Bi-annually",
+    durationMonths: 6,
+    studentPrice: 48000,
+    professionalPrice: 96000,
+    discount: "20% off",
+  },
+  {
+    id: "yearly",
+    period: "yearly",
+    periodLabel: "Yearly",
+    durationMonths: 12,
+    studentPrice: 84000,
+    professionalPrice: 168000,
+    discount: "30% off",
   },
 ];
 
+const features = {
+  student: [
+    "Full access to all courses",
+    "3D anatomy viewer",
+    "Question bank access",
+    "Flashcard system",
+    "Progress tracking",
+    "PDF certificates",
+  ],
+  professional: [
+    "Everything for Students",
+    "Advanced anatomy models",
+    "Cadaveric dissection videos",
+    "CME/CPD credits",
+    "1-on-1 mentorship sessions",
+    "Priority support",
+  ],
+};
+
+function formatPrice(kobo: number): string {
+  return `N${(kobo / 100).toLocaleString()}`;
+}
+
 export default function Subscribe() {
   const { toast } = useToast();
-  const [selectedTier, setSelectedTier] = useState("gold");
+  const [selectedPeriod, setSelectedPeriod] = useState<PeriodType>("monthly");
+  const [selectedAudience, setSelectedAudience] = useState<AudienceType>("student");
   const [selectedProvider, setSelectedProvider] = useState<"paystack" | "flutterwave">("paystack");
 
   const { data: member } = useQuery<Member>({
@@ -74,12 +96,12 @@ export default function Subscribe() {
   });
 
   const initializePayment = useMutation({
-    mutationFn: async ({ tier, provider }: { tier: string; provider: string }) => {
+    mutationFn: async ({ period, audience, provider }: { period: string; audience: string; provider: string }) => {
       const endpoint = provider === "paystack" 
         ? "/api/payments/initialize-paystack" 
         : "/api/payments/initialize-flutterwave";
       
-      const response = await apiRequest("POST", endpoint, { tier });
+      const response = await apiRequest("POST", endpoint, { period, audience });
       return response.json();
     },
     onSuccess: (data) => {
@@ -112,69 +134,124 @@ export default function Subscribe() {
       return;
     }
 
-    initializePayment.mutate({ tier: selectedTier, provider: selectedProvider });
+    initializePayment.mutate({ period: selectedPeriod, audience: selectedAudience, provider: selectedProvider });
   };
 
-  const selectedPlan = membershipTiers.find(t => t.id === selectedTier);
+  const selectedPlan = pricingPlans.find(p => p.period === selectedPeriod);
+  const selectedPrice = selectedPlan ? (selectedAudience === "student" ? selectedPlan.studentPrice : selectedPlan.professionalPrice) : 0;
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-4xl">
       <div className="text-center mb-8">
         <h1 className="text-3xl font-bold mb-2" data-testid="text-subscribe-title">
-          Upgrade Your Membership
+          Choose Your Plan
         </h1>
         <p className="text-muted-foreground">
-          Choose a plan and payment method to unlock premium features
+          Select your category and billing period to get started
         </p>
-        {member && (
+        {member && member.membershipTier && member.membershipTier !== "bronze" && (
           <Badge variant="outline" className="mt-2">
-            Current tier: {member.membershipTier?.charAt(0).toUpperCase() + (member.membershipTier?.slice(1) || "")}
+            Current: {member.membershipTier?.charAt(0).toUpperCase() + (member.membershipTier?.slice(1) || "")}
           </Badge>
         )}
       </div>
 
-      <div className="grid md:grid-cols-3 gap-4 mb-8">
-        {membershipTiers.map((tier) => (
+      {/* Audience Selection */}
+      <div className="mb-8">
+        <h2 className="text-lg font-semibold mb-4 text-center">I am a...</h2>
+        <div className="grid grid-cols-2 gap-4 max-w-lg mx-auto">
           <Card
-            key={tier.id}
-            className={`relative cursor-pointer transition-all ${tier.color} ${
-              selectedTier === tier.id ? "ring-2 ring-primary" : ""
+            className={`cursor-pointer transition-all hover-elevate ${
+              selectedAudience === "student" ? "ring-2 ring-primary" : ""
             }`}
-            onClick={() => setSelectedTier(tier.id)}
-            data-testid={`card-select-${tier.id}`}
+            onClick={() => setSelectedAudience("student")}
+            data-testid="card-select-student"
           >
-            {tier.popular && (
-              <Badge className="absolute -top-2 left-1/2 -translate-x-1/2 text-xs">
-                Popular
-              </Badge>
-            )}
-            <CardHeader className="text-center pb-2">
-              <Crown className={`h-6 w-6 mx-auto ${tier.crownColor}`} />
-              <CardTitle className="text-lg">{tier.name}</CardTitle>
-              <div>
-                <span className="text-2xl font-bold">{tier.priceDisplay}</span>
-                <span className="text-muted-foreground text-sm">{tier.period}</span>
+            <CardContent className="flex flex-col items-center py-6 gap-3">
+              <GraduationCap className="h-10 w-10 text-primary" />
+              <div className="text-center">
+                <CardTitle className="text-lg">Student</CardTitle>
+                <p className="text-sm text-muted-foreground mt-1">Medical students, interns</p>
               </div>
-            </CardHeader>
-            <CardContent className="pt-0">
-              <ul className="space-y-1 text-sm">
-                {tier.features.slice(0, 3).map((feature) => (
-                  <li key={feature} className="flex items-center gap-1">
-                    <Check className="h-3 w-3 text-green-500 shrink-0" />
-                    <span className="text-xs">{feature}</span>
-                  </li>
-                ))}
-              </ul>
             </CardContent>
           </Card>
-        ))}
+          <Card
+            className={`cursor-pointer transition-all hover-elevate ${
+              selectedAudience === "professional" ? "ring-2 ring-primary" : ""
+            }`}
+            onClick={() => setSelectedAudience("professional")}
+            data-testid="card-select-professional"
+          >
+            <CardContent className="flex flex-col items-center py-6 gap-3">
+              <Briefcase className="h-10 w-10 text-primary" />
+              <div className="text-center">
+                <CardTitle className="text-lg">Professional</CardTitle>
+                <p className="text-sm text-muted-foreground mt-1">Doctors, specialists</p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
 
+      {/* Billing Period Selection */}
+      <div className="mb-8">
+        <h2 className="text-lg font-semibold mb-4 text-center">Billing Period</h2>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {pricingPlans.map((plan) => {
+            const price = selectedAudience === "student" ? plan.studentPrice : plan.professionalPrice;
+            return (
+              <Card
+                key={plan.id}
+                className={`relative cursor-pointer transition-all hover-elevate ${
+                  selectedPeriod === plan.period ? "ring-2 ring-primary" : ""
+                }`}
+                onClick={() => setSelectedPeriod(plan.period)}
+                data-testid={`card-select-${plan.period}`}
+              >
+                {plan.discount && (
+                  <Badge className="absolute -top-2 left-1/2 -translate-x-1/2 text-xs" variant="secondary">
+                    {plan.discount}
+                  </Badge>
+                )}
+                <CardContent className="py-4 text-center">
+                  <CardTitle className="text-base mb-2">{plan.periodLabel}</CardTitle>
+                  <div className="text-2xl font-bold text-primary">{formatPrice(price)}</div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {plan.durationMonths} {plan.durationMonths === 1 ? "month" : "months"}
+                  </p>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Features */}
+      <Card className="mb-8">
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Crown className="h-5 w-5 text-primary" />
+            What's Included ({selectedAudience === "student" ? "Student" : "Professional"})
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ul className="grid grid-cols-1 md:grid-cols-2 gap-2">
+            {features[selectedAudience].map((feature) => (
+              <li key={feature} className="flex items-center gap-2">
+                <Check className="h-4 w-4 text-green-500 shrink-0" />
+                <span className="text-sm">{feature}</span>
+              </li>
+            ))}
+          </ul>
+        </CardContent>
+      </Card>
+
+      {/* Payment Method */}
       <Card className="mb-8">
         <CardHeader>
           <CardTitle className="text-lg flex items-center gap-2">
             <CreditCard className="h-5 w-5" />
-            Select Payment Method
+            Payment Method
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -185,7 +262,7 @@ export default function Subscribe() {
           >
             <Label
               htmlFor="paystack"
-              className={`flex items-center gap-3 p-4 border rounded-lg cursor-pointer transition-all ${
+              className={`flex items-center gap-3 p-4 border rounded-md cursor-pointer transition-all ${
                 selectedProvider === "paystack" ? "border-primary bg-primary/5" : "border-border"
               }`}
             >
@@ -197,7 +274,7 @@ export default function Subscribe() {
             </Label>
             <Label
               htmlFor="flutterwave"
-              className={`flex items-center gap-3 p-4 border rounded-lg cursor-pointer transition-all ${
+              className={`flex items-center gap-3 p-4 border rounded-md cursor-pointer transition-all ${
                 selectedProvider === "flutterwave" ? "border-primary bg-primary/5" : "border-border"
               }`}
             >
@@ -211,18 +288,19 @@ export default function Subscribe() {
         </CardContent>
       </Card>
 
+      {/* Order Summary */}
       <Card>
         <CardHeader>
           <CardTitle className="text-lg">Order Summary</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex justify-between items-center py-2 border-b">
-            <span>{selectedPlan?.name} Membership (1 month)</span>
-            <span className="font-semibold">{selectedPlan?.priceDisplay}</span>
+          <div className="flex justify-between items-center py-2 border-b gap-2">
+            <span>{selectedAudience === "student" ? "Student" : "Professional"} Plan ({selectedPlan?.periodLabel})</span>
+            <span className="font-semibold">{formatPrice(selectedPrice)}</span>
           </div>
-          <div className="flex justify-between items-center py-2 font-bold text-lg">
+          <div className="flex justify-between items-center py-2 font-bold text-lg gap-2">
             <span>Total</span>
-            <span>{selectedPlan?.priceDisplay}</span>
+            <span className="text-primary">{formatPrice(selectedPrice)}</span>
           </div>
         </CardContent>
         <CardFooter>
@@ -239,7 +317,7 @@ export default function Subscribe() {
                 Processing...
               </>
             ) : (
-              `Pay ${selectedPlan?.priceDisplay} with ${selectedProvider === "paystack" ? "Paystack" : "Flutterwave"}`
+              `Pay ${formatPrice(selectedPrice)} with ${selectedProvider === "paystack" ? "Paystack" : "Flutterwave"}`
             )}
           </Button>
         </CardFooter>

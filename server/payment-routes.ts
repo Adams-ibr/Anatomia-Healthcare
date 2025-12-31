@@ -7,31 +7,53 @@ import { isMemberAuthenticated } from "./auth";
 
 const router = Router();
 
+// Pricing in kobo (100 kobo = 1 Naira)
+interface PeriodPricing {
+  student: number;
+  professional: number;
+  durationMonths: number;
+}
+
+const PRICING: Record<string, PeriodPricing> = {
+  monthly: { student: 1000000, professional: 2000000, durationMonths: 1 },
+  quarterly: { student: 2700000, professional: 5400000, durationMonths: 3 },
+  biannually: { student: 4800000, professional: 9600000, durationMonths: 6 },
+  yearly: { student: 8400000, professional: 16800000, durationMonths: 12 },
+};
+
+// Legacy pricing for backwards compatibility
 const MEMBERSHIP_PRICES: Record<string, number> = {
   silver: 1500000,
   gold: 3000000,
   diamond: 5000000,
 };
 
-const TIER_DURATION_MONTHS = 1;
+function getPricing(period: string, audience: string): { amount: number; durationMonths: number } | null {
+  const periodData = PRICING[period];
+  if (!periodData) return null;
+  const amount = audience === "professional" ? periodData.professional : periodData.student;
+  return { amount, durationMonths: periodData.durationMonths as number };
+}
 
 async function createTransaction(
   memberId: string,
   tier: string,
   provider: string,
-  reference: string
+  reference: string,
+  amount?: number,
+  durationMonths?: number
 ) {
-  const amount = MEMBERSHIP_PRICES[tier];
-  if (!amount) throw new Error("Invalid membership tier");
+  const finalAmount = amount || MEMBERSHIP_PRICES[tier];
+  if (!finalAmount) throw new Error("Invalid membership tier or pricing");
 
   const [transaction] = await db
     .insert(paymentTransactions)
     .values({
       memberId,
-      amount,
+      amount: finalAmount,
       currency: "NGN",
       membershipTier: tier,
-      durationMonths: TIER_DURATION_MONTHS,
+      durationMonths: durationMonths || 1,
       paymentProvider: provider,
       providerReference: reference,
       status: "pending",
@@ -41,7 +63,7 @@ async function createTransaction(
   return transaction;
 }
 
-async function updateMembershipTier(memberId: string, tier: string) {
+async function updateMembershipTier(memberId: string, tier: string, durationMonths: number = 1) {
   const [member] = await db
     .select()
     .from(members)
@@ -53,7 +75,7 @@ async function updateMembershipTier(memberId: string, tier: string) {
     expiresAt = new Date(member.membershipExpiresAt);
   }
   
-  expiresAt.setMonth(expiresAt.getMonth() + TIER_DURATION_MONTHS);
+  expiresAt.setMonth(expiresAt.getMonth() + durationMonths);
 
   await db
     .update(members)
@@ -71,12 +93,31 @@ router.post("/initialize-paystack", isMemberAuthenticated, async (req: Request, 
       return res.status(401).json({ error: "Not authenticated" });
     }
 
-    const { tier } = req.body;
-    if (!tier || !MEMBERSHIP_PRICES[tier]) {
-      return res.status(400).json({ error: "Invalid membership tier" });
+    const { period, audience, tier } = req.body;
+    
+    let amount: number;
+    let durationMonths: number;
+    let planDescription: string;
+
+    // Support new period/audience pricing
+    if (period && audience) {
+      const pricing = getPricing(period, audience);
+      if (!pricing) {
+        return res.status(400).json({ error: "Invalid period or audience" });
+      }
+      amount = pricing.amount;
+      durationMonths = pricing.durationMonths;
+      planDescription = `${audience === "professional" ? "Professional" : "Student"} - ${period}`;
+    } 
+    // Legacy tier-based pricing
+    else if (tier && MEMBERSHIP_PRICES[tier]) {
+      amount = MEMBERSHIP_PRICES[tier];
+      durationMonths = 1;
+      planDescription = tier;
+    } else {
+      return res.status(400).json({ error: "Invalid pricing selection" });
     }
 
-    const amount = MEMBERSHIP_PRICES[tier];
     const reference = `ps_${Date.now()}_${crypto.randomBytes(8).toString("hex")}`;
 
     const paystackSecretKey = process.env.PAYSTACK_SECRET_KEY;
@@ -97,7 +138,10 @@ router.post("/initialize-paystack", isMemberAuthenticated, async (req: Request, 
         callback_url: `${process.env.REPLIT_DEV_DOMAIN || req.headers.origin}/payment/verify`,
         metadata: {
           member_id: member.id,
-          tier,
+          period: period || null,
+          audience: audience || null,
+          tier: tier || planDescription,
+          duration_months: durationMonths,
         },
       }),
     });
@@ -108,7 +152,7 @@ router.post("/initialize-paystack", isMemberAuthenticated, async (req: Request, 
       return res.status(400).json({ error: data.message || "Failed to initialize payment" });
     }
 
-    await createTransaction(member.id, tier, "paystack", reference);
+    await createTransaction(member.id, planDescription, "paystack", reference, amount, durationMonths);
 
     res.json({
       authorization_url: data.data.authorization_url,
@@ -127,12 +171,32 @@ router.post("/initialize-flutterwave", isMemberAuthenticated, async (req: Reques
       return res.status(401).json({ error: "Not authenticated" });
     }
 
-    const { tier } = req.body;
-    if (!tier || !MEMBERSHIP_PRICES[tier]) {
-      return res.status(400).json({ error: "Invalid membership tier" });
+    const { period, audience, tier } = req.body;
+    
+    let amountKobo: number;
+    let durationMonths: number;
+    let planDescription: string;
+
+    // Support new period/audience pricing
+    if (period && audience) {
+      const pricing = getPricing(period, audience);
+      if (!pricing) {
+        return res.status(400).json({ error: "Invalid period or audience" });
+      }
+      amountKobo = pricing.amount;
+      durationMonths = pricing.durationMonths;
+      planDescription = `${audience === "professional" ? "Professional" : "Student"} - ${period}`;
+    } 
+    // Legacy tier-based pricing
+    else if (tier && MEMBERSHIP_PRICES[tier]) {
+      amountKobo = MEMBERSHIP_PRICES[tier];
+      durationMonths = 1;
+      planDescription = tier;
+    } else {
+      return res.status(400).json({ error: "Invalid pricing selection" });
     }
 
-    const amount = MEMBERSHIP_PRICES[tier] / 100;
+    const amount = amountKobo / 100; // Convert kobo to Naira for Flutterwave
     const reference = `fw_${Date.now()}_${crypto.randomBytes(8).toString("hex")}`;
 
     const flutterwaveSecretKey = process.env.FLUTTERWAVE_SECRET_KEY;
@@ -157,11 +221,14 @@ router.post("/initialize-flutterwave", isMemberAuthenticated, async (req: Reques
         },
         meta: {
           member_id: member.id,
-          tier,
+          period: period || null,
+          audience: audience || null,
+          tier: tier || planDescription,
+          duration_months: durationMonths,
         },
         customizations: {
           title: "Anatomia Membership",
-          description: `${tier.charAt(0).toUpperCase() + tier.slice(1)} Membership Subscription`,
+          description: `${planDescription.charAt(0).toUpperCase() + planDescription.slice(1)} Subscription`,
         },
       }),
     });
@@ -172,7 +239,7 @@ router.post("/initialize-flutterwave", isMemberAuthenticated, async (req: Reques
       return res.status(400).json({ error: data.message || "Failed to initialize payment" });
     }
 
-    await createTransaction(member.id, tier, "flutterwave", reference);
+    await createTransaction(member.id, planDescription, "flutterwave", reference, amountKobo, durationMonths);
 
     res.json({
       authorization_url: data.data.link,
@@ -227,7 +294,7 @@ router.get("/verify-paystack/:reference", async (req: Request, res: Response) =>
       })
       .where(eq(paymentTransactions.id, transaction.id));
 
-    await updateMembershipTier(transaction.memberId, transaction.membershipTier);
+    await updateMembershipTier(transaction.memberId, transaction.membershipTier, transaction.durationMonths);
 
     res.json({ message: "Payment verified successfully", status: "success" });
   } catch (error) {
@@ -282,7 +349,7 @@ router.get("/verify-flutterwave/:reference", async (req: Request, res: Response)
       })
       .where(eq(paymentTransactions.id, transaction.id));
 
-    await updateMembershipTier(transaction.memberId, transaction.membershipTier);
+    await updateMembershipTier(transaction.memberId, transaction.membershipTier, transaction.durationMonths);
 
     res.json({ message: "Payment verified successfully", status: "success" });
   } catch (error) {
@@ -327,7 +394,7 @@ router.post("/webhook/paystack", async (req: Request, res: Response) => {
           })
           .where(eq(paymentTransactions.id, transaction.id));
 
-        await updateMembershipTier(transaction.memberId, transaction.membershipTier);
+        await updateMembershipTier(transaction.memberId, transaction.membershipTier, transaction.durationMonths);
       }
     }
 
@@ -366,7 +433,7 @@ router.post("/webhook/flutterwave", async (req: Request, res: Response) => {
           })
           .where(eq(paymentTransactions.id, transaction.id));
 
-        await updateMembershipTier(transaction.memberId, transaction.membershipTier);
+        await updateMembershipTier(transaction.memberId, transaction.membershipTier, transaction.durationMonths);
       }
     }
 

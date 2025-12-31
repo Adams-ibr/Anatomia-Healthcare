@@ -18,7 +18,10 @@ import {
   Monitor,
   Check,
   Clock,
-  ArrowRight
+  ArrowRight,
+  Scissors,
+  Video,
+  BookOpen
 } from "lucide-react";
 
 import heroAnatomyImg from "@assets/stock_images/3d_human_anatomy_mus_873f0c5b.jpg";
@@ -79,6 +82,12 @@ const articles = [
     readTime: "6 min read",
     image: legImg
   },
+];
+
+const cadavericFeatures = [
+  { icon: Video, text: "HD video recordings of real dissections" },
+  { icon: Scissors, text: "Step-by-step surgical techniques" },
+  { icon: BookOpen, text: "Detailed anatomical annotations" },
 ];
 
 function AnimatedCard({ children, index }: { children: React.ReactNode; index: number }) {
@@ -300,6 +309,86 @@ export default function Home() {
                   </AnimatedItem>
                 ))}
               </StaggerContainer>
+            </div>
+          </div>
+        </section>
+
+        {/* Cadaveric Dissection Section */}
+        <section className="py-16 md:py-24 bg-card">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6">
+            <div className="grid lg:grid-cols-2 gap-12 items-center">
+              <div className="order-2 lg:order-1">
+                <div className="grid grid-cols-2 gap-4">
+                  <Card className="aspect-square overflow-hidden relative group">
+                    <img 
+                      src={torsoImg} 
+                      alt="Cadaveric Dissection"
+                      className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
+                    <div className="absolute bottom-0 left-0 right-0 p-3">
+                      <p className="text-sm font-medium text-white">Thorax Dissection</p>
+                    </div>
+                  </Card>
+                  <Card className="aspect-square overflow-hidden relative group">
+                    <img 
+                      src={armImg} 
+                      alt="Upper Limb Dissection"
+                      className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
+                    <div className="absolute bottom-0 left-0 right-0 p-3">
+                      <p className="text-sm font-medium text-white">Upper Limb</p>
+                    </div>
+                  </Card>
+                  <Card className="aspect-square overflow-hidden relative group">
+                    <img 
+                      src={legImg} 
+                      alt="Lower Limb Dissection"
+                      className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
+                    <div className="absolute bottom-0 left-0 right-0 p-3">
+                      <p className="text-sm font-medium text-white">Lower Limb</p>
+                    </div>
+                  </Card>
+                  <Card className="aspect-square overflow-hidden relative group">
+                    <img 
+                      src={skullImg} 
+                      alt="Head & Neck Dissection"
+                      className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
+                    <div className="absolute bottom-0 left-0 right-0 p-3">
+                      <p className="text-sm font-medium text-white">Head & Neck</p>
+                    </div>
+                  </Card>
+                </div>
+              </div>
+              <AnimatedSection className="order-1 lg:order-2">
+                <Badge variant="outline" className="mb-4">FOR PROFESSIONALS</Badge>
+                <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4" data-testid="text-cadaveric-title">
+                  Cadaveric<br />Dissection Videos
+                </h2>
+                <p className="text-muted-foreground mb-6">
+                  Experience real cadaveric dissections from top medical institutions. Perfect for medical professionals and advanced students seeking hands-on anatomical knowledge without the lab.
+                </p>
+                <ul className="space-y-3 mb-8">
+                  {cadavericFeatures.map((feature) => (
+                    <li key={feature.text} className="flex items-center gap-3 text-foreground">
+                      <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                        <feature.icon className="w-4 h-4 text-primary" />
+                      </div>
+                      {feature.text}
+                    </li>
+                  ))}
+                </ul>
+                <Link href="/subscribe">
+                  <Button data-testid="button-access-dissection">
+                    Get Professional Access
+                  </Button>
+                </Link>
+              </AnimatedSection>
             </div>
           </div>
         </section>
