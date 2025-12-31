@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useState, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { getQueryFn } from "@/lib/queryClient";
+import { getQueryFn, queryClient } from "@/lib/queryClient";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -59,6 +59,8 @@ export function Navbar() {
       method: "POST",
       credentials: "include" 
     });
+    // Clear the React Query cache to prevent stale auth data
+    queryClient.clear();
     window.location.href = "/";
   };
 

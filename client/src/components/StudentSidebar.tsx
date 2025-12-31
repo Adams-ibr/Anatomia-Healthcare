@@ -1,5 +1,6 @@
 import { Link, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
+import { queryClient } from "@/lib/queryClient";
 import {
   Sidebar,
   SidebarContent,
@@ -67,6 +68,8 @@ export function StudentSidebar() {
       method: "POST",
       credentials: "include" 
     });
+    // Clear the React Query cache to prevent stale auth data
+    queryClient.clear();
     window.location.href = "/login";
   };
 
