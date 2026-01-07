@@ -296,14 +296,21 @@ export function registerMemberRoutes(app: Express) {
         lastName: lastName || null,
       }).returning();
 
-      // Set session
+      // Set session and save it explicitly
       (req.session as any).memberId = newMember.id;
-
-      res.status(201).json({
-        id: newMember.id,
-        email: newMember.email,
-        firstName: newMember.firstName,
-        lastName: newMember.lastName,
+      req.session.save((err) => {
+        if (err) {
+          console.error("Error saving session:", err);
+          return res.status(500).json({ error: "Failed to register" });
+        }
+        res.status(201).json({
+          id: newMember.id,
+          email: newMember.email,
+          firstName: newMember.firstName,
+          lastName: newMember.lastName,
+          membershipTier: newMember.membershipTier,
+          membershipExpiresAt: newMember.membershipExpiresAt,
+        });
       });
     } catch (error) {
       console.error("Error registering member:", error);
@@ -333,14 +340,21 @@ export function registerMemberRoutes(app: Express) {
         return res.status(401).json({ error: "Invalid email or password" });
       }
 
-      // Set session
+      // Set session and save it explicitly
       (req.session as any).memberId = member.id;
-
-      res.json({
-        id: member.id,
-        email: member.email,
-        firstName: member.firstName,
-        lastName: member.lastName,
+      req.session.save((err) => {
+        if (err) {
+          console.error("Error saving session:", err);
+          return res.status(500).json({ error: "Failed to log in" });
+        }
+        res.json({
+          id: member.id,
+          email: member.email,
+          firstName: member.firstName,
+          lastName: member.lastName,
+          membershipTier: member.membershipTier,
+          membershipExpiresAt: member.membershipExpiresAt,
+        });
       });
     } catch (error) {
       console.error("Error logging in:", error);
@@ -366,6 +380,8 @@ export function registerMemberRoutes(app: Express) {
         email: member.email,
         firstName: member.firstName,
         lastName: member.lastName,
+        membershipTier: member.membershipTier,
+        membershipExpiresAt: member.membershipExpiresAt,
       });
     } catch (error) {
       console.error("Error fetching member:", error);
