@@ -182,6 +182,37 @@ export const isMemberAuthenticated: RequestHandler = async (req, res, next) => {
   next();
 };
 
+// Check if member has active subscription (non-bronze tier with valid expiry)
+function hasActiveSubscription(member: typeof members.$inferSelect): boolean {
+  if (!member.membershipTier || member.membershipTier === "bronze") {
+    return false;
+  }
+  if (member.membershipExpiresAt) {
+    return new Date(member.membershipExpiresAt) > new Date();
+  }
+  return true;
+}
+
+// Subscription validation middleware - requires active membership
+export const requireActiveMembership: RequestHandler = async (req, res, next) => {
+  const memberId = (req.session as any).memberId;
+  if (!memberId) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+
+  const [member] = await db.select().from(members).where(eq(members.id, memberId));
+  if (!member) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+
+  if (!hasActiveSubscription(member)) {
+    return res.status(403).json({ error: "Subscription required", code: "SUBSCRIPTION_REQUIRED" });
+  }
+
+  (req as any).member = member;
+  next();
+};
+
 // Role-based access control middleware factory
 export const requireRole = (...allowedRoles: string[]): RequestHandler => {
   return async (req, res, next) => {
