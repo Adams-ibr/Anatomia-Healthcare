@@ -18,6 +18,9 @@ export function setupSession(app: Express) {
     tableName: "sessions",
   });
   
+  // Trust proxy for Replit environment (required for secure cookies behind proxy)
+  app.set("trust proxy", 1);
+  
   app.use(session({
     secret: process.env.SESSION_SECRET!,
     store: sessionStore,
@@ -25,9 +28,9 @@ export function setupSession(app: Express) {
     saveUninitialized: false,
     cookie: {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
+      secure: true,
       maxAge: sessionTtl,
-      sameSite: "lax",
+      sameSite: "none",
     },
   }));
 }
