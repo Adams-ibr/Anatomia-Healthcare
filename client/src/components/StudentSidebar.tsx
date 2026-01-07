@@ -23,9 +23,9 @@ import {
   Atom,
   LogOut,
   User,
-  GraduationCap,
-  Heart
+  GraduationCap
 } from "lucide-react";
+import logoIcon from "@assets/Secondary_Color@3x_1767829263550.png";
 import type { Member } from "@shared/schema";
 
 const menuItems = [
@@ -84,7 +84,7 @@ export function StudentSidebar() {
     <Sidebar>
       <SidebarHeader className="p-4">
         <Link href="/dashboard" className="flex items-center gap-2">
-          <Heart className="h-6 w-6 text-primary fill-primary" />
+          <img src={logoIcon} alt="Anatomia" className="h-6 w-6" />
           <span className="text-lg font-semibold">Anatomia</span>
         </Link>
       </SidebarHeader>
