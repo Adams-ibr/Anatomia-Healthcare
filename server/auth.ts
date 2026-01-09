@@ -12,7 +12,6 @@ const SALT_ROUNDS = 12;
 const updateProfileSchema = z.object({
   firstName: z.string().min(1).optional(),
   lastName: z.string().min(1).optional(),
-  email: z.string().email().optional(),
 });
 
 const changePasswordSchema = z.object({

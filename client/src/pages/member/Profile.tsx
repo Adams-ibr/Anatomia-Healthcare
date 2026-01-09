@@ -258,9 +258,10 @@ export default function Profile() {
                             <FormControl>
                               <div className="relative">
                                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                <Input {...field} className="pl-10" data-testid="input-email" />
+                                <Input {...field} className="pl-10 bg-muted cursor-not-allowed" disabled data-testid="input-email" />
                               </div>
                             </FormControl>
+                            <p className="text-xs text-muted-foreground">Email cannot be changed</p>
                             <FormMessage />
                           </FormItem>
                         )}
