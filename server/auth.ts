@@ -25,8 +25,14 @@ export function setupSession(app: Express) {
   // Trust proxy for Replit environment (required for secure cookies behind proxy)
   app.set("trust proxy", 1);
   
-  // Detect if running in Replit's HTTPS environment (REPL_SLUG indicates Replit)
-  const isReplitProduction = !!process.env.REPL_SLUG || !!process.env.REPLIT_DEPLOYMENT;
+  // Check if we're in production (deployed) or development
+  const isProduction = process.env.NODE_ENV === "production";
+  // Also check for Replit deployment environment
+  const isReplitDeployment = !!process.env.REPLIT_DEPLOYMENT;
+  // Use secure cookies when in production deployment
+  const useSecureCookies = isProduction || isReplitDeployment;
+  
+  console.log(`Session config: isProduction=${isProduction}, isReplitDeployment=${isReplitDeployment}, useSecureCookies=${useSecureCookies}`);
   
   app.use(session({
     secret: process.env.SESSION_SECRET!,
@@ -35,9 +41,9 @@ export function setupSession(app: Express) {
     saveUninitialized: false,
     cookie: {
       httpOnly: true,
-      secure: isReplitProduction,
+      secure: useSecureCookies,
       maxAge: sessionTtl,
-      sameSite: isReplitProduction ? "none" : "lax",
+      sameSite: useSecureCookies ? "none" : "lax",
     },
   }));
 }
@@ -99,31 +105,38 @@ export function registerAuthRoutes(app: Express) {
       }
 
       const { email, password } = result.data;
+      console.log(`Admin login attempt for: ${email}`);
 
       // Find user
       const [user] = await db.select().from(users).where(eq(users.email, email));
       if (!user) {
+        console.log(`Admin login failed: user not found for ${email}`);
         return res.status(401).json({ error: "Invalid email or password" });
       }
 
       // Verify password
       const isValid = await bcrypt.compare(password, user.password);
       if (!isValid) {
+        console.log(`Admin login failed: invalid password for ${email}`);
         return res.status(401).json({ error: "Invalid email or password" });
       }
 
       // Set session and save it explicitly
       (req.session as any).userId = user.id;
+      console.log(`Admin login: setting userId in session: ${user.id}`);
+      
       req.session.save((err) => {
         if (err) {
-          console.error("Error saving session:", err);
+          console.error("Error saving admin session:", err);
           return res.status(500).json({ error: "Failed to log in" });
         }
+        console.log(`Admin login successful for ${email}, session ID: ${req.sessionID}`);
         res.json({
           id: user.id,
           email: user.email,
           firstName: user.firstName,
           lastName: user.lastName,
+          role: user.role,
         });
       });
     } catch (error) {
@@ -174,11 +187,13 @@ export function registerAuthRoutes(app: Express) {
 export const isAuthenticated: RequestHandler = async (req, res, next) => {
   const userId = (req.session as any).userId;
   if (!userId) {
+    console.log(`Admin auth check failed: no userId in session. Session ID: ${req.sessionID}`);
     return res.status(401).json({ error: "Unauthorized" });
   }
 
   const [user] = await db.select().from(users).where(eq(users.id, userId));
   if (!user) {
+    console.log(`Admin auth check failed: user not found for id ${userId}`);
     return res.status(401).json({ error: "Unauthorized" });
   }
 
