@@ -1,6 +1,7 @@
 import { db } from "./db";
 import { eq, and, desc, asc } from "drizzle-orm";
 import {
+  courseCategories, CourseCategory, InsertCourseCategory,
   courses, Course, InsertCourse,
   courseModules, CourseModule, InsertCourseModule,
   lessons, Lesson, InsertLesson,
@@ -26,6 +27,13 @@ import {
 } from "@shared/schema";
 
 export interface ILmsStorage {
+  // Course Categories
+  getCourseCategories(): Promise<CourseCategory[]>;
+  getCourseCategoryById(id: string): Promise<CourseCategory | undefined>;
+  createCourseCategory(category: InsertCourseCategory): Promise<CourseCategory>;
+  updateCourseCategory(id: string, category: Partial<InsertCourseCategory>): Promise<CourseCategory | undefined>;
+  deleteCourseCategory(id: string): Promise<boolean>;
+
   // Courses
   getCourses(): Promise<Course[]>;
   getPublishedCourses(): Promise<Course[]>;
@@ -166,6 +174,31 @@ export interface ILmsStorage {
 }
 
 export class LmsStorage implements ILmsStorage {
+  // Course Categories
+  async getCourseCategories(): Promise<CourseCategory[]> {
+    return db.select().from(courseCategories).orderBy(asc(courseCategories.order));
+  }
+
+  async getCourseCategoryById(id: string): Promise<CourseCategory | undefined> {
+    const [category] = await db.select().from(courseCategories).where(eq(courseCategories.id, id));
+    return category;
+  }
+
+  async createCourseCategory(category: InsertCourseCategory): Promise<CourseCategory> {
+    const [newCategory] = await db.insert(courseCategories).values(category).returning();
+    return newCategory;
+  }
+
+  async updateCourseCategory(id: string, category: Partial<InsertCourseCategory>): Promise<CourseCategory | undefined> {
+    const [updated] = await db.update(courseCategories).set({ ...category, updatedAt: new Date() }).where(eq(courseCategories.id, id)).returning();
+    return updated;
+  }
+
+  async deleteCourseCategory(id: string): Promise<boolean> {
+    const result = await db.delete(courseCategories).where(eq(courseCategories.id, id));
+    return result.rowCount !== null && result.rowCount > 0;
+  }
+
   // Courses
   async getCourses(): Promise<Course[]> {
     return db.select().from(courses).orderBy(desc(courses.createdAt));

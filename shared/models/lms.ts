@@ -4,6 +4,28 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { members, users } from "./auth";
 
+// Course Categories
+export const courseCategories = pgTable("course_categories", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull().unique(),
+  slug: text("slug").notNull().unique(),
+  description: text("description"),
+  iconName: text("icon_name"),
+  order: integer("order").default(0),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertCourseCategorySchema = createInsertSchema(courseCategories).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertCourseCategory = z.infer<typeof insertCourseCategorySchema>;
+export type CourseCategory = typeof courseCategories.$inferSelect;
+
 // Courses
 export const courses = pgTable("courses", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

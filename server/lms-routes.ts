@@ -4,6 +4,7 @@ import { generateCertificatePDF, generateCertificateNumber } from "./certificate
 import { isAuthenticated, isMemberAuthenticated, requireActiveMembership, isContentAdmin, isSuperAdmin } from "./auth";
 import { 
   insertCourseSchema, 
+  insertCourseCategorySchema,
   insertCourseModuleSchema,
   insertLessonSchema,
   insertLessonAssetSchema,
@@ -79,12 +80,28 @@ publicRouter.get("/courses", async (req: Request, res: Response) => {
   }
 });
 
-// Get course categories
+// Get course categories (from dedicated table, fallback to course-derived)
 publicRouter.get("/courses/categories", async (req: Request, res: Response) => {
   try {
-    const courses = await lmsStorage.getPublishedCourses();
-    const categories = [...new Set(courses.map(c => c.category).filter(Boolean))];
-    res.json(categories);
+    const format = req.query.format;
+    const categories = await lmsStorage.getCourseCategories();
+    
+    if (categories.length > 0) {
+      const activeCategories = categories.filter(c => c.isActive);
+      if (format === "full") {
+        res.json(activeCategories);
+      } else {
+        res.json(activeCategories.map(c => c.name));
+      }
+    } else {
+      const courses = await lmsStorage.getPublishedCourses();
+      const derivedCategories = [...new Set(courses.map(c => c.category).filter(Boolean))];
+      if (format === "full") {
+        res.json(derivedCategories.map(name => ({ id: name, name, slug: name.toLowerCase().replace(/\s+/g, '-') })));
+      } else {
+        res.json(derivedCategories);
+      }
+    }
   } catch (error) {
     res.status(500).json({ message: "Failed to fetch categories" });
   }
@@ -544,6 +561,54 @@ subscriberRouter.get("/certificates/me", async (req: Request, res: Response) => 
 });
 
 // ============ ADMIN ROUTES (requires admin auth - middleware applied above) ============
+
+// Course Categories CRUD
+adminRouter.get("/course-categories", async (req: Request, res: Response) => {
+  try {
+    const categories = await lmsStorage.getCourseCategories();
+    res.json(categories);
+  } catch (error) {
+    res.status(500).json({ message: "Failed to fetch course categories" });
+  }
+});
+
+adminRouter.post("/course-categories", async (req: Request, res: Response) => {
+  try {
+    const data = { ...req.body };
+    if (!data.slug && data.name) {
+      data.slug = data.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+    }
+    const validated = insertCourseCategorySchema.parse(data);
+    const category = await lmsStorage.createCourseCategory(validated);
+    res.status(201).json(category);
+  } catch (error: any) {
+    res.status(400).json({ message: error.message || "Failed to create course category" });
+  }
+});
+
+adminRouter.patch("/course-categories/:id", async (req: Request, res: Response) => {
+  try {
+    const category = await lmsStorage.updateCourseCategory(req.params.id, req.body);
+    if (!category) {
+      return res.status(404).json({ message: "Category not found" });
+    }
+    res.json(category);
+  } catch (error: any) {
+    res.status(400).json({ message: error.message || "Failed to update category" });
+  }
+});
+
+adminRouter.delete("/course-categories/:id", async (req: Request, res: Response) => {
+  try {
+    const deleted = await lmsStorage.deleteCourseCategory(req.params.id);
+    if (!deleted) {
+      return res.status(404).json({ message: "Category not found" });
+    }
+    res.json({ message: "Category deleted" });
+  } catch (error) {
+    res.status(500).json({ message: "Failed to delete category" });
+  }
+});
 
 // Get all courses (including unpublished)
 adminRouter.get("/courses", async (req: Request, res: Response) => {
