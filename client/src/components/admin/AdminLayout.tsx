@@ -17,7 +17,8 @@ import {
   Atom,
   Crown,
   Heart,
-  Building2
+  Building2,
+  ShieldCheck
 } from "lucide-react";
 import {
   Sidebar,
@@ -39,6 +40,7 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 
 const menuItems = [
   { title: "Dashboard", icon: LayoutDashboard, href: "/admin", group: "Management" },
+  { title: "Admin Users", icon: ShieldCheck, href: "/admin/users", group: "Management" },
   { title: "Members", icon: Crown, href: "/admin/members", group: "Management" },
   { title: "LMS Courses", icon: GraduationCap, href: "/admin/courses", group: "LMS" },
   { title: "Categories", icon: Layers, href: "/admin/course-categories", group: "LMS" },

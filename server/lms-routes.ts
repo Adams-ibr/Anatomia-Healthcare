@@ -1740,6 +1740,125 @@ superAdminRouter.get("/audit-logs", async (req: Request, res: Response) => {
   }
 });
 
+// Admin User Management (Super Admin only)
+superAdminRouter.get("/users", async (req: Request, res: Response) => {
+  try {
+    const adminUsers = await lmsStorage.getAllAdminUsers();
+    res.json(adminUsers);
+  } catch (error) {
+    res.status(500).json({ message: "Failed to fetch admin users" });
+  }
+});
+
+superAdminRouter.patch("/users/:id/role", async (req: Request, res: Response) => {
+  try {
+    const { role } = req.body;
+    const { adminRoles } = await import("@shared/models/auth");
+    
+    if (!role || !adminRoles.includes(role)) {
+      return res.status(400).json({ message: "Invalid role. Must be one of: " + adminRoles.join(", ") });
+    }
+    
+    const currentUserId = (req.session as any).userId;
+    if (req.params.id === currentUserId) {
+      return res.status(400).json({ message: "Cannot change your own role" });
+    }
+    
+    const updated = await lmsStorage.updateAdminUserRole(req.params.id, role);
+    if (!updated) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    
+    // Log the action
+    const admin = await lmsStorage.getAdminUserById(currentUserId);
+    if (admin) {
+      await logAuditAction(
+        admin.id,
+        "update_admin_role",
+        "user",
+        req.params.id,
+        { role: updated.role },
+        { role },
+        req
+      );
+    }
+    
+    res.json(updated);
+  } catch (error) {
+    res.status(500).json({ message: "Failed to update user role" });
+  }
+});
+
+superAdminRouter.patch("/users/:id/status", async (req: Request, res: Response) => {
+  try {
+    const { isActive } = req.body;
+    
+    if (typeof isActive !== "boolean") {
+      return res.status(400).json({ message: "isActive must be a boolean" });
+    }
+    
+    const currentUserId = (req.session as any).userId;
+    if (req.params.id === currentUserId) {
+      return res.status(400).json({ message: "Cannot deactivate your own account" });
+    }
+    
+    const updated = await lmsStorage.updateAdminUserStatus(req.params.id, isActive);
+    if (!updated) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    
+    // Log the action
+    const admin = await lmsStorage.getAdminUserById(currentUserId);
+    if (admin) {
+      await logAuditAction(
+        admin.id,
+        isActive ? "activate_admin" : "deactivate_admin",
+        "user",
+        req.params.id,
+        { isActive: !isActive },
+        { isActive },
+        req
+      );
+    }
+    
+    res.json(updated);
+  } catch (error) {
+    res.status(500).json({ message: "Failed to update user status" });
+  }
+});
+
+superAdminRouter.delete("/users/:id", async (req: Request, res: Response) => {
+  try {
+    const currentUserId = (req.session as any).userId;
+    if (req.params.id === currentUserId) {
+      return res.status(400).json({ message: "Cannot delete your own account" });
+    }
+    
+    const deleted = await lmsStorage.deleteAdminUser(req.params.id);
+    if (!deleted) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    
+    // Log the action
+    const admin = await lmsStorage.getAdminUserById(currentUserId);
+    if (admin) {
+      await logAuditAction(
+        admin.id,
+        "delete_admin",
+        "user",
+        req.params.id,
+        { email: deleted.email },
+        null,
+        req
+      );
+    }
+    
+    res.json({ message: "User deleted successfully" });
+  } catch (error) {
+    res.status(500).json({ message: "Failed to delete user" });
+  }
+});
+
 // Mount sub-routers on main router
 // IMPORTANT: Admin routes must be mounted FIRST (before "/" routes) 
 // because they use isAuthenticated middleware, not isMemberAuthenticated

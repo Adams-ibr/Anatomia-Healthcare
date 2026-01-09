@@ -25,6 +25,7 @@ import {
   anatomyModels, AnatomyModel, InsertAnatomyModel,
   members, Member,
 } from "@shared/schema";
+import { users, User } from "@shared/models/auth";
 
 export interface ILmsStorage {
   // Course Categories
@@ -171,6 +172,13 @@ export interface ILmsStorage {
   getMemberById(id: string): Promise<Member | undefined>;
   getAllMembers(): Promise<Member[]>;
   updateMemberMembership(id: string, tier: string, expiresAt?: Date | null): Promise<Member | undefined>;
+
+  // Admin Users (Super Admin only)
+  getAllAdminUsers(): Promise<Omit<User, "password">[]>;
+  getAdminUserById(id: string): Promise<Omit<User, "password"> | undefined>;
+  updateAdminUserRole(id: string, role: string): Promise<Omit<User, "password"> | undefined>;
+  updateAdminUserStatus(id: string, isActive: boolean): Promise<Omit<User, "password"> | undefined>;
+  deleteAdminUser(id: string): Promise<Omit<User, "password"> | undefined>;
 }
 
 export class LmsStorage implements ILmsStorage {
@@ -827,6 +835,90 @@ export class LmsStorage implements ILmsStorage {
       .where(eq(members.id, id))
       .returning();
     return updated;
+  }
+
+  // Admin Users (Super Admin only)
+  async getAllAdminUsers(): Promise<Omit<User, "password">[]> {
+    const allUsers = await db.select({
+      id: users.id,
+      email: users.email,
+      firstName: users.firstName,
+      lastName: users.lastName,
+      role: users.role,
+      profileImageUrl: users.profileImageUrl,
+      isActive: users.isActive,
+      createdAt: users.createdAt,
+      updatedAt: users.updatedAt,
+    }).from(users).orderBy(desc(users.createdAt));
+    return allUsers;
+  }
+
+  async getAdminUserById(id: string): Promise<Omit<User, "password"> | undefined> {
+    const [user] = await db.select({
+      id: users.id,
+      email: users.email,
+      firstName: users.firstName,
+      lastName: users.lastName,
+      role: users.role,
+      profileImageUrl: users.profileImageUrl,
+      isActive: users.isActive,
+      createdAt: users.createdAt,
+      updatedAt: users.updatedAt,
+    }).from(users).where(eq(users.id, id));
+    return user;
+  }
+
+  async updateAdminUserRole(id: string, role: string): Promise<Omit<User, "password"> | undefined> {
+    const [updated] = await db.update(users)
+      .set({ role, updatedAt: new Date() })
+      .where(eq(users.id, id))
+      .returning({
+        id: users.id,
+        email: users.email,
+        firstName: users.firstName,
+        lastName: users.lastName,
+        role: users.role,
+        profileImageUrl: users.profileImageUrl,
+        isActive: users.isActive,
+        createdAt: users.createdAt,
+        updatedAt: users.updatedAt,
+      });
+    return updated;
+  }
+
+  async updateAdminUserStatus(id: string, isActive: boolean): Promise<Omit<User, "password"> | undefined> {
+    const [updated] = await db.update(users)
+      .set({ isActive, updatedAt: new Date() })
+      .where(eq(users.id, id))
+      .returning({
+        id: users.id,
+        email: users.email,
+        firstName: users.firstName,
+        lastName: users.lastName,
+        role: users.role,
+        profileImageUrl: users.profileImageUrl,
+        isActive: users.isActive,
+        createdAt: users.createdAt,
+        updatedAt: users.updatedAt,
+      });
+    return updated;
+  }
+
+  async deleteAdminUser(id: string): Promise<Omit<User, "password"> | undefined> {
+    const [deleted] = await db.delete(users)
+      .where(eq(users.id, id))
+      .returning({
+        id: users.id,
+        email: users.email,
+        firstName: users.firstName,
+        lastName: users.lastName,
+        role: users.role,
+        profileImageUrl: users.profileImageUrl,
+        isActive: users.isActive,
+        createdAt: users.createdAt,
+        updatedAt: users.updatedAt,
+      });
+    return deleted;
   }
 }
 
