@@ -9,6 +9,9 @@ export * from "./models/auth";
 // Re-export LMS models
 export * from "./models/lms";
 
+// Re-export interaction models (chat, comments, discussions)
+export * from "./models/interactions";
+
 // Contact Messages
 export const contactMessages = pgTable("contact_messages", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
