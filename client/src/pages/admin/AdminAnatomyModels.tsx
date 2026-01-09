@@ -32,6 +32,8 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Plus, Pencil, Trash2, Atom } from "lucide-react";
+import { ModelUploader } from "@/components/admin/ModelUploader";
+import { ImageUploader } from "@/components/admin/ImageUploader";
 import type { AnatomyModel } from "@shared/schema";
 
 const BODY_SYSTEMS = [
@@ -45,6 +47,8 @@ export default function AdminAnatomyModels() {
   const { toast } = useToast();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingModel, setEditingModel] = useState<AnatomyModel | null>(null);
+  const [modelUrl, setModelUrl] = useState<string>("");
+  const [thumbnailUrl, setThumbnailUrl] = useState<string>("");
 
   const { data: models = [], isLoading } = useQuery<AnatomyModel[]>({
     queryKey: ["/api/lms/admin/anatomy-models"],
@@ -98,12 +102,17 @@ export default function AdminAnatomyModels() {
     const data = {
       title: formData.get("title") as string,
       description: formData.get("description") as string,
-      modelUrl: formData.get("modelUrl") as string,
-      thumbnailUrl: formData.get("thumbnailUrl") as string || null,
+      modelUrl: modelUrl,
+      thumbnailUrl: thumbnailUrl || null,
       bodySystem: formData.get("bodySystem") as string,
       category: formData.get("category") as string,
       isPublished: true,
     };
+
+    if (!data.modelUrl) {
+      toast({ title: "Please upload a 3D model or provide a URL", variant: "destructive" });
+      return;
+    }
 
     if (editingModel) {
       updateMutation.mutate({ id: editingModel.id, data });
@@ -114,11 +123,15 @@ export default function AdminAnatomyModels() {
 
   const openEditDialog = (model: AnatomyModel) => {
     setEditingModel(model);
+    setModelUrl(model.modelUrl || "");
+    setThumbnailUrl(model.thumbnailUrl || "");
     setIsDialogOpen(true);
   };
 
   const openCreateDialog = () => {
     setEditingModel(null);
+    setModelUrl("");
+    setThumbnailUrl("");
     setIsDialogOpen(true);
   };
 
@@ -157,27 +170,18 @@ export default function AdminAnatomyModels() {
                   data-testid="input-description"
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="modelUrl">Model URL (GLB/GLTF)</Label>
-                <Input
-                  id="modelUrl"
-                  name="modelUrl"
-                  defaultValue={editingModel?.modelUrl || ""}
-                  required
-                  placeholder="https://example.com/model.glb"
-                  data-testid="input-model-url"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="thumbnailUrl">Thumbnail URL</Label>
-                <Input
-                  id="thumbnailUrl"
-                  name="thumbnailUrl"
-                  defaultValue={editingModel?.thumbnailUrl || ""}
-                  placeholder="https://example.com/thumbnail.jpg"
-                  data-testid="input-thumbnail-url"
-                />
-              </div>
+              <ModelUploader
+                name="modelUrl"
+                label="3D Model (GLB/GLTF)"
+                defaultValue={modelUrl}
+                onUploadComplete={(path) => setModelUrl(path)}
+              />
+              <ImageUploader
+                name="thumbnailUrl"
+                label="Thumbnail Image"
+                defaultValue={thumbnailUrl}
+                onUploadComplete={(path) => setThumbnailUrl(path)}
+              />
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="bodySystem">Body System</Label>
