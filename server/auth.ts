@@ -25,25 +25,21 @@ export function setupSession(app: Express) {
   // Trust proxy for Replit environment (required for secure cookies behind proxy)
   app.set("trust proxy", 1);
   
-  // Check if we're in production (deployed) or development
-  const isProduction = process.env.NODE_ENV === "production";
-  // Also check for Replit deployment environment
-  const isReplitDeployment = !!process.env.REPLIT_DEPLOYMENT;
-  // Use secure cookies when in production deployment
-  const useSecureCookies = isProduction || isReplitDeployment;
+  // Check if we're in production - use REPLIT_DEPLOYMENT or NODE_ENV
+  // REPLIT_DEPLOYMENT is set by Replit's deployment infrastructure
+  const isProduction = process.env.NODE_ENV === "production" || !!process.env.REPLIT_DEPLOYMENT;
   
-  console.log(`Session config: isProduction=${isProduction}, isReplitDeployment=${isReplitDeployment}, useSecureCookies=${useSecureCookies}`);
+  console.log(`Session config: NODE_ENV=${process.env.NODE_ENV}, REPLIT_DEPLOYMENT=${process.env.REPLIT_DEPLOYMENT}, isProduction=${isProduction}`);
   
-  // For same-origin requests (frontend and backend on same domain), use 'lax' for better compatibility
-  // 'none' is only needed for cross-origin cookies and requires Secure flag
   app.use(session({
     secret: process.env.SESSION_SECRET!,
     store: sessionStore,
     resave: false,
     saveUninitialized: false,
+    name: "anatomia.sid",
     cookie: {
       httpOnly: true,
-      secure: useSecureCookies,
+      secure: isProduction,
       maxAge: sessionTtl,
       sameSite: "lax",
     },

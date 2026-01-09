@@ -52,9 +52,7 @@ async function buildAll() {
     bundle: true,
     format: "cjs",
     outfile: "dist/index.cjs",
-    define: {
-      "process.env.NODE_ENV": '"production"',
-    },
+    // Don't hardcode NODE_ENV - let it be read at runtime for proper session handling
     minify: true,
     external: externals,
     logLevel: "info",
