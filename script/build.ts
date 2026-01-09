@@ -54,7 +54,8 @@ async function buildAll() {
     outfile: "dist/index.cjs",
     // Don't hardcode NODE_ENV - let it be read at runtime for proper session handling
     minify: true,
-    external: externals,
+    // Exclude vite-related files since they're only used in development
+    external: [...externals, "./vite", "./vite.ts", "../vite.config", "../vite.config.ts"],
     logLevel: "info",
   });
 }
