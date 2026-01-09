@@ -41,6 +41,7 @@ const menuItems = [
   { title: "Dashboard", icon: LayoutDashboard, href: "/admin", group: "Management" },
   { title: "Members", icon: Crown, href: "/admin/members", group: "Management" },
   { title: "LMS Courses", icon: GraduationCap, href: "/admin/courses", group: "LMS" },
+  { title: "Categories", icon: Layers, href: "/admin/course-categories", group: "LMS" },
   { title: "Question Bank", icon: Brain, href: "/admin/question-bank", group: "LMS" },
   { title: "Flashcards", icon: Layers, href: "/admin/flashcards", group: "LMS" },
   { title: "3D Models", icon: Atom, href: "/admin/anatomy-models", group: "LMS" },

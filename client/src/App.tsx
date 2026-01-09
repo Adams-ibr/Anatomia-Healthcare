@@ -31,6 +31,7 @@ import AdminDepartments from "@/pages/admin/AdminDepartments";
 import AdminContacts from "@/pages/admin/AdminContacts";
 import AdminNewsletter from "@/pages/admin/AdminNewsletter";
 import AdminCourses from "@/pages/admin/AdminCourses";
+import AdminCourseCategories from "@/pages/admin/AdminCourseCategories";
 import AdminModules from "@/pages/admin/AdminModules";
 import AdminLessons from "@/pages/admin/AdminLessons";
 import AdminQuestionBank from "@/pages/admin/AdminQuestionBank";
@@ -113,6 +114,7 @@ function Router() {
       <Route path="/admin/contacts" component={AdminContacts} />
       <Route path="/admin/newsletter" component={AdminNewsletter} />
       <Route path="/admin/courses" component={AdminCourses} />
+      <Route path="/admin/course-categories" component={AdminCourseCategories} />
       <Route path="/admin/courses/:courseId/modules" component={AdminModules} />
       <Route path="/admin/modules/:moduleId/lessons" component={AdminLessons} />
       <Route path="/admin/question-bank" component={AdminQuestionBank} />
