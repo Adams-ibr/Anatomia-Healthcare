@@ -183,9 +183,14 @@ export function registerAuthRoutes(app: Express) {
 
 // Authentication middleware for admin
 export const isAuthenticated: RequestHandler = async (req, res, next) => {
+  // Debug logging for production troubleshooting
+  const cookieHeader = req.headers.cookie || "";
+  const hasAnatomiaSessionCookie = cookieHeader.includes("anatomia.sid");
+  console.log(`Auth check: path=${req.path}, sessionID=${req.sessionID}, hasCookie=${!!cookieHeader}, hasAnatomiaSession=${hasAnatomiaSessionCookie}`);
+  
   const userId = (req.session as any).userId;
   if (!userId) {
-    console.log(`Admin auth check failed: no userId in session. Session ID: ${req.sessionID}`);
+    console.log(`Admin auth check failed: no userId in session. Session ID: ${req.sessionID}, Session data: ${JSON.stringify(req.session)}`);
     return res.status(401).json({ error: "Unauthorized" });
   }
 
@@ -195,6 +200,7 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
     return res.status(401).json({ error: "Unauthorized" });
   }
 
+  console.log(`Auth check passed: userId=${userId}, role=${user.role}`);
   (req as any).user = user;
   next();
 };
