@@ -2,11 +2,23 @@ import { type Express, type RequestHandler } from "express";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
 import bcrypt from "bcrypt";
+import { z } from "zod";
 import { db } from "./db";
 import { users, members, loginSchema, registerSchema } from "@shared/schema";
 import { eq } from "drizzle-orm";
 
 const SALT_ROUNDS = 12;
+
+const updateProfileSchema = z.object({
+  firstName: z.string().min(1).optional(),
+  lastName: z.string().min(1).optional(),
+  email: z.string().email().optional(),
+});
+
+const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1, "Current password is required"),
+  newPassword: z.string().min(6, "New password must be at least 6 characters"),
+});
 
 export function setupSession(app: Express) {
   const sessionTtl = 7 * 24 * 60 * 60 * 1000; // 1 week
@@ -415,5 +427,94 @@ export function registerMemberRoutes(app: Express) {
       res.clearCookie("connect.sid");
       res.json({ success: true });
     });
+  });
+
+  // Update member profile
+  app.patch("/api/members/me", async (req, res) => {
+    try {
+      const memberId = (req.session as any).memberId;
+      if (!memberId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const result = updateProfileSchema.safeParse(req.body);
+      if (!result.success) {
+        return res.status(400).json({ error: "Invalid input", details: result.error.issues });
+      }
+
+      const { firstName, lastName, email } = result.data;
+      
+      // Check if email is being changed and if it's already taken
+      if (email) {
+        const [existingMember] = await db.select().from(members).where(eq(members.email, email));
+        if (existingMember && existingMember.id !== memberId) {
+          return res.status(409).json({ error: "Email already in use" });
+        }
+      }
+
+      const updateData: Partial<{ firstName: string; lastName: string; email: string }> = {};
+      if (firstName !== undefined) updateData.firstName = firstName;
+      if (lastName !== undefined) updateData.lastName = lastName;
+      if (email !== undefined) updateData.email = email;
+
+      const [updatedMember] = await db
+        .update(members)
+        .set(updateData)
+        .where(eq(members.id, memberId))
+        .returning();
+
+      res.json({
+        id: updatedMember.id,
+        email: updatedMember.email,
+        firstName: updatedMember.firstName,
+        lastName: updatedMember.lastName,
+        membershipTier: updatedMember.membershipTier,
+        membershipExpiresAt: updatedMember.membershipExpiresAt,
+      });
+    } catch (error) {
+      console.error("Error updating profile:", error);
+      res.status(500).json({ error: "Failed to update profile" });
+    }
+  });
+
+  // Change member password
+  app.post("/api/members/change-password", async (req, res) => {
+    try {
+      const memberId = (req.session as any).memberId;
+      if (!memberId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const result = changePasswordSchema.safeParse(req.body);
+      if (!result.success) {
+        return res.status(400).json({ error: "Invalid input", details: result.error.issues });
+      }
+
+      const { currentPassword, newPassword } = result.data;
+
+      const [member] = await db.select().from(members).where(eq(members.id, memberId));
+      if (!member) {
+        return res.status(401).json({ error: "User not found" });
+      }
+
+      // Verify current password
+      const isValid = await bcrypt.compare(currentPassword, member.password);
+      if (!isValid) {
+        return res.status(401).json({ error: "Current password is incorrect" });
+      }
+
+      // Hash new password
+      const hashedPassword = await bcrypt.hash(newPassword, SALT_ROUNDS);
+
+      await db
+        .update(members)
+        .set({ password: hashedPassword })
+        .where(eq(members.id, memberId));
+
+      res.json({ success: true, message: "Password changed successfully" });
+    } catch (error) {
+      console.error("Error changing password:", error);
+      res.status(500).json({ error: "Failed to change password" });
+    }
   });
 }

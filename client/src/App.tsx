@@ -45,6 +45,7 @@ import Anatomy3DViewer from "@/pages/member/Anatomy3DViewer";
 import CoursePlayer from "@/pages/member/CoursePlayer";
 import Subscribe from "@/pages/member/Subscribe";
 import PaymentVerify from "@/pages/member/PaymentVerify";
+import Profile from "@/pages/member/Profile";
 import CourseCatalog from "@/pages/CourseCatalog";
 import Pricing from "@/pages/Pricing";
 
@@ -53,6 +54,7 @@ function StudentRoutes() {
     <StudentLayout>
       <Switch>
         <Route path="/dashboard" component={StudentDashboard} />
+        <Route path="/profile" component={Profile} />
         <Route path="/practice" component={PracticeMode} />
         <Route path="/flashcards" component={FlashcardStudy} />
         <Route path="/anatomy-viewer" component={Anatomy3DViewer} />
@@ -71,6 +73,7 @@ function Router() {
   
   const isStudentRoute = 
     location === "/dashboard" ||
+    location === "/profile" ||
     location === "/practice" ||
     location === "/flashcards" ||
     location === "/anatomy-viewer" ||

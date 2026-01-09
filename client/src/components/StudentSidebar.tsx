@@ -129,15 +129,27 @@ export function StudentSidebar() {
             </p>
           </div>
         </div>
-        <Button 
-          variant="outline" 
-          className="w-full justify-start" 
-          onClick={handleLogout}
-          data-testid="button-logout"
-        >
-          <LogOut className="h-4 w-4 mr-2" />
-          Sign Out
-        </Button>
+        <div className="space-y-2">
+          <Link href="/profile">
+            <Button 
+              variant={location === "/profile" ? "secondary" : "ghost"}
+              className="w-full justify-start" 
+              data-testid="button-profile"
+            >
+              <User className="h-4 w-4 mr-2" />
+              My Profile
+            </Button>
+          </Link>
+          <Button 
+            variant="outline" 
+            className="w-full justify-start" 
+            onClick={handleLogout}
+            data-testid="button-logout"
+          >
+            <LogOut className="h-4 w-4 mr-2" />
+            Sign Out
+          </Button>
+        </div>
       </SidebarFooter>
     </Sidebar>
   );
