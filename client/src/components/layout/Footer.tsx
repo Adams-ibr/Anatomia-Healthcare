@@ -8,7 +8,7 @@ const footerSections = [
     links: [
       { label: "Pricing", href: "/pricing" },
       { label: "3D Atlas", href: "/services" },
-      { label: "Article Library", href: "/blog" },
+      { label: "Articles", href: "/blog" },
       { label: "Courses", href: "/courses" },
     ],
   },
@@ -17,17 +17,13 @@ const footerSections = [
     links: [
       { label: "About Us", href: "/about" },
       { label: "Careers", href: "/careers" },
-      { label: "Press", href: "/about" },
       { label: "Contact", href: "/contact" },
     ],
   },
   {
     title: "Resources",
     links: [
-      { label: "Blog", href: "/blog" },
-      { label: "Help Center", href: "/faq" },
-      { label: "Community", href: "/about" },
-      { label: "Webinars", href: "/blog" },
+      { label: "FAQs", href: "/faq" },
     ],
   },
   {
@@ -35,7 +31,6 @@ const footerSections = [
     links: [
       { label: "Terms of Service", href: "/terms" },
       { label: "Privacy Policy", href: "/privacy" },
-      { label: "Cookie Policy", href: "/privacy" },
       { label: "Sitemap", href: "/sitemap" },
     ],
   },

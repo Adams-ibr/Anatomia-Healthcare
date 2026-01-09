@@ -22,7 +22,7 @@ const navLinks = [
   { label: "Home", href: "/" },
   { label: "3D Atlas", href: "/services" },
   { label: "Articles", href: "/blog" },
-  { label: "Quizzes", href: "/faq" },
+  { label: "FAQs", href: "/faq" },
   { label: "About", href: "/about" },
   { label: "Contact", href: "/contact" },
 ];
