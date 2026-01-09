@@ -27,8 +27,8 @@ export default function UserLogin() {
       }
       return response.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/members/me"] });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["/api/members/me"] });
       toast({ title: "Login successful!" });
       setLocation("/dashboard");
     },

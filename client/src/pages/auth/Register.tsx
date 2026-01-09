@@ -28,8 +28,8 @@ export default function Register() {
       }
       return response.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/members/me"] });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["/api/members/me"] });
       toast({ title: "Account created successfully!" });
       setLocation("/dashboard");
     },

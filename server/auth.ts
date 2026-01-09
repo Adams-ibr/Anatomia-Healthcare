@@ -21,6 +21,9 @@ export function setupSession(app: Express) {
   // Trust proxy for Replit environment (required for secure cookies behind proxy)
   app.set("trust proxy", 1);
   
+  // Detect if running in Replit's HTTPS environment (REPL_SLUG indicates Replit)
+  const isReplitProduction = !!process.env.REPL_SLUG || !!process.env.REPLIT_DEPLOYMENT;
+  
   app.use(session({
     secret: process.env.SESSION_SECRET!,
     store: sessionStore,
@@ -28,9 +31,9 @@ export function setupSession(app: Express) {
     saveUninitialized: false,
     cookie: {
       httpOnly: true,
-      secure: true,
+      secure: isReplitProduction,
       maxAge: sessionTtl,
-      sameSite: "none",
+      sameSite: isReplitProduction ? "none" : "lax",
     },
   }));
 }
