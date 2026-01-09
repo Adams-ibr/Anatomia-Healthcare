@@ -4,6 +4,7 @@ import { useLocation } from "wouter";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { StudentSidebar } from "@/components/StudentSidebar";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { ChatWidget } from "@/components/ChatWidget";
 import { getQueryFn } from "@/lib/queryClient";
 import { Loader2 } from "lucide-react";
 import type { Member, MembershipTier } from "@shared/schema";
@@ -113,6 +114,7 @@ export function StudentLayout({ children }: StudentLayoutProps) {
             </main>
           </div>
         </div>
+        <ChatWidget currentMemberId={member.id} />
       </SidebarProvider>
     </MemberContext.Provider>
   );

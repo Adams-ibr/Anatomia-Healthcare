@@ -1,11 +1,11 @@
 import { type Express, type RequestHandler } from "express";
 import session from "express-session";
-import connectPg from "connect-pg-simple";
 import bcrypt from "bcrypt";
 import { z } from "zod";
 import { db } from "./db";
 import { users, members, loginSchema, registerSchema } from "@shared/schema";
 import { eq } from "drizzle-orm";
+import { sessionStore } from "./session";
 
 const SALT_ROUNDS = 12;
 
@@ -22,13 +22,6 @@ const changePasswordSchema = z.object({
 
 export function setupSession(app: Express) {
   const sessionTtl = 7 * 24 * 60 * 60 * 1000; // 1 week
-  const pgStore = connectPg(session);
-  const sessionStore = new pgStore({
-    conString: process.env.DATABASE_URL,
-    createTableIfMissing: true,
-    ttl: sessionTtl,
-    tableName: "sessions",
-  });
   
   // Trust proxy for Replit environment (required for secure cookies behind proxy)
   app.set("trust proxy", 1);

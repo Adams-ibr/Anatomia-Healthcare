@@ -13,10 +13,12 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { 
   BookOpen, Play, CheckCircle, Clock, ChevronLeft, ChevronRight, 
   FileText, Video, Brain, Layers3, Award, Maximize, Minimize,
-  RotateCcw
+  RotateCcw, MessageCircle
 } from "lucide-react";
 import type { Course, CourseModule, Lesson, LessonProgress, Enrollment, LessonAsset, Quiz } from "@shared/schema";
 import { ModelViewer } from "@/components/ModelViewer";
+import { DiscussionBoard } from "@/components/DiscussionBoard";
+import { useMember } from "@/components/StudentLayout";
 
 type LessonWithProgress = Lesson & { 
   progress?: LessonProgress | null;
@@ -65,8 +67,10 @@ export default function CoursePlayer() {
   const [currentLessonId, setCurrentLessonId] = useState<string | null>(lessonId || null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [timeSpent, setTimeSpent] = useState(0);
+  const [showDiscussions, setShowDiscussions] = useState(false);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const contentRef = useRef<HTMLDivElement>(null);
+  const { member } = useMember();
 
   const { data: course, isLoading: courseLoading } = useQuery<CourseWithContent>({
     queryKey: ["/api/lms/courses", courseId, "content"],
@@ -277,10 +281,28 @@ export default function CoursePlayer() {
             </Accordion>
           </div>
         </ScrollArea>
+        
+        <div className="p-3 border-t">
+          <Button
+            variant={showDiscussions ? "default" : "outline"}
+            className="w-full gap-2"
+            onClick={() => setShowDiscussions(!showDiscussions)}
+            data-testid="button-toggle-discussions"
+          >
+            <MessageCircle className="h-4 w-4" />
+            {showDiscussions ? "Show Lessons" : "Discussions"}
+          </Button>
+        </div>
       </div>
 
       <div className="flex-1 flex flex-col overflow-hidden" ref={contentRef}>
-        {lessonLoading ? (
+        {showDiscussions ? (
+          <div className="flex-1 overflow-auto p-6">
+            <div className="max-w-4xl mx-auto">
+              <DiscussionBoard courseId={courseId!} currentMemberId={member?.id} />
+            </div>
+          </div>
+        ) : lessonLoading ? (
           <div className="flex-1 p-8">
             <Skeleton className="h-96 w-full mb-4" />
             <Skeleton className="h-8 w-64 mb-2" />

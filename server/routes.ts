@@ -22,6 +22,7 @@ import { setupSession, registerAuthRoutes, registerMemberRoutes, isAuthenticated
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 import lmsRoutes from "./lms-routes";
 import paymentRoutes from "./payment-routes";
+import interactionRoutes from "./interaction-routes";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -39,6 +40,9 @@ export async function registerRoutes(
   
   // Payment routes (with member auth middleware)
   app.use("/api/payments", paymentRoutes);
+  
+  // Chat and interaction routes (comments, discussions, messages)
+  app.use("/api/interactions", interactionRoutes);
 
   // Public routes
   app.post("/api/contact", async (req, res) => {
