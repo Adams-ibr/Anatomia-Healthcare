@@ -1,13 +1,16 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -22,6 +25,14 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 import {
   Table,
   TableBody,
@@ -41,15 +52,15 @@ interface FlashcardOption {
   isCorrect: boolean;
 }
 
-interface FlashcardWithOptions extends Omit<Flashcard, 'options'> {
-  options?: FlashcardOption[] | unknown;
-}
+type FlashcardWithOptions = Omit<Flashcard, 'options'> & {
+  options?: FlashcardOption[];
+};
 
 const CARD_TYPES = [
-  { value: "learning", label: "Learning Card", icon: BookOpen, description: "Term and definition flip card" },
+  { value: "learning", label: "Learning Card", icon: BookOpen, description: "Standard front/back card" },
   { value: "question", label: "Question Card", icon: HelpCircle, description: "Multiple choice question" },
-  { value: "fun_fact", label: "Fun Fact", icon: Sparkles, description: "Interesting fact to remember" },
-  { value: "tip", label: "Educational Tip", icon: Lightbulb, description: "Helpful study tip or advice" },
+  { value: "fun_fact", label: "Fun Fact", icon: Sparkles, description: "Interesting medical fact" },
+  { value: "tip", label: "Study Tip", icon: Lightbulb, description: "Helpful study advice" },
 ];
 
 function getCardTypeInfo(cardType: string) {
@@ -68,12 +79,24 @@ const FLASHCARD_JSON_TEMPLATE = [
     cardType: "learning",
     explanation: "Red blood cells contain hemoglobin",
   },
-  {
-    front: "The mitochondria is the powerhouse of the cell",
-    back: "True - it produces ATP through cellular respiration",
-    cardType: "fun_fact",
-  },
 ];
+
+const deckFormSchema = z.object({
+  title: z.string().min(1, "Title is required"),
+  description: z.string().optional(),
+  category: z.string().optional(),
+  isPublished: z.boolean().default(false),
+});
+
+const cardFormSchema = z.object({
+  front: z.string().min(1, "Front text is required"),
+  back: z.string().min(1, "Back text is required"),
+  cardType: z.string().default("learning"),
+  explanation: z.string().optional(),
+});
+
+type DeckFormValues = z.infer<typeof deckFormSchema>;
+type CardFormValues = z.infer<typeof cardFormSchema>;
 
 export default function AdminFlashcards() {
   const { toast } = useToast();
@@ -83,7 +106,6 @@ export default function AdminFlashcards() {
   const [editingDeck, setEditingDeck] = useState<FlashcardDeck | null>(null);
   const [editingCard, setEditingCard] = useState<FlashcardWithOptions | null>(null);
   const [selectedDeck, setSelectedDeck] = useState<FlashcardDeck | null>(null);
-  const [cardType, setCardType] = useState<string>("learning");
   const [cardOptions, setCardOptions] = useState<FlashcardOption[]>([
     { text: "", isCorrect: false },
     { text: "", isCorrect: false },
@@ -91,33 +113,48 @@ export default function AdminFlashcards() {
     { text: "", isCorrect: false },
   ]);
 
+  const deckForm = useForm<DeckFormValues>({
+    resolver: zodResolver(deckFormSchema),
+    defaultValues: {
+      title: "",
+      description: "",
+      category: "",
+      isPublished: false,
+    },
+  });
+
+  const cardForm = useForm<CardFormValues>({
+    resolver: zodResolver(cardFormSchema),
+    defaultValues: {
+      front: "",
+      back: "",
+      cardType: "learning",
+      explanation: "",
+    },
+  });
+
   const { data: decks = [], isLoading: decksLoading } = useQuery<FlashcardDeck[]>({
     queryKey: ["/api/lms/admin/flashcard-decks"],
   });
 
   const { data: cards = [], isLoading: cardsLoading } = useQuery<FlashcardWithOptions[]>({
     queryKey: ["/api/lms/admin/flashcard-decks", selectedDeck?.id, "flashcards"],
-    queryFn: async () => {
-      if (!selectedDeck) return [];
-      const res = await fetch(`/api/lms/admin/flashcard-decks/${selectedDeck.id}`, {
-        credentials: "include",
-      });
-      if (!res.ok) return [];
-      const data = await res.json();
-      return data.flashcards || [];
-    },
     enabled: !!selectedDeck,
   });
 
   const createDeckMutation = useMutation({
-    mutationFn: async (data: Partial<FlashcardDeck>) => {
-      const response = await apiRequest("POST", "/api/lms/admin/flashcard-decks", data);
+    mutationFn: async (data: DeckFormValues) => {
+      const response = await apiRequest("POST", "/api/lms/admin/flashcard-decks", {
+        ...data,
+        description: data.description || null,
+        category: data.category || null,
+      });
       return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/lms/admin/flashcard-decks"] });
       toast({ title: "Deck created successfully" });
-      setIsDeckDialogOpen(false);
+      handleCloseDeckDialog();
     },
     onError: (error: Error) => {
       toast({ title: "Failed to create deck", description: error.message, variant: "destructive" });
@@ -125,14 +162,18 @@ export default function AdminFlashcards() {
   });
 
   const updateDeckMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: Partial<FlashcardDeck> }) => {
-      return apiRequest("PUT", `/api/lms/admin/flashcard-decks/${id}`, data);
+    mutationFn: async ({ id, data }: { id: string; data: DeckFormValues }) => {
+      const response = await apiRequest("PUT", `/api/lms/admin/flashcard-decks/${id}`, {
+        ...data,
+        description: data.description || null,
+        category: data.category || null,
+      });
+      return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/lms/admin/flashcard-decks"] });
       toast({ title: "Deck updated successfully" });
-      setIsDeckDialogOpen(false);
-      setEditingDeck(null);
+      handleCloseDeckDialog();
     },
     onError: (error: Error) => {
       toast({ title: "Failed to update deck", description: error.message, variant: "destructive" });
@@ -141,12 +182,11 @@ export default function AdminFlashcards() {
 
   const deleteDeckMutation = useMutation({
     mutationFn: async (id: string) => {
-      return apiRequest("DELETE", `/api/lms/admin/flashcard-decks/${id}`);
+      await apiRequest("DELETE", `/api/lms/admin/flashcard-decks/${id}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/lms/admin/flashcard-decks"] });
       toast({ title: "Deck deleted successfully" });
-      if (selectedDeck) setSelectedDeck(null);
     },
     onError: (error: Error) => {
       toast({ title: "Failed to delete deck", description: error.message, variant: "destructive" });
@@ -154,52 +194,82 @@ export default function AdminFlashcards() {
   });
 
   const createCardMutation = useMutation({
-    mutationFn: async (data: Partial<FlashcardWithOptions>) => {
-      return apiRequest("POST", `/api/lms/admin/flashcard-decks/${selectedDeck?.id}/flashcards`, data);
+    mutationFn: async (data: CardFormValues) => {
+      const payload: any = {
+        ...data,
+        explanation: data.explanation || null,
+      };
+      if (data.cardType === "question") {
+        payload.options = cardOptions.filter(o => o.text.trim());
+      }
+      const response = await apiRequest("POST", `/api/lms/admin/flashcard-decks/${selectedDeck?.id}/flashcards`, payload);
+      return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/lms/admin/flashcard-decks", selectedDeck?.id, "flashcards"] });
       toast({ title: "Card created successfully" });
-      setIsCardDialogOpen(false);
-      resetCardForm();
+      handleCloseCardDialog();
     },
-    onError: (error: any) => {
-      console.error("Failed to create card:", error);
-      toast({ title: "Failed to create card", variant: "destructive" });
+    onError: (error: Error) => {
+      toast({ title: "Failed to create card", description: error.message, variant: "destructive" });
     },
   });
 
   const updateCardMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: Partial<FlashcardWithOptions> }) => {
-      return apiRequest("PUT", `/api/lms/admin/flashcards/${id}`, data);
+    mutationFn: async ({ id, data }: { id: string; data: CardFormValues }) => {
+      const payload: any = {
+        ...data,
+        explanation: data.explanation || null,
+      };
+      if (data.cardType === "question") {
+        payload.options = cardOptions.filter(o => o.text.trim());
+      }
+      const response = await apiRequest("PUT", `/api/lms/admin/flashcards/${id}`, payload);
+      return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/lms/admin/flashcard-decks", selectedDeck?.id, "flashcards"] });
       toast({ title: "Card updated successfully" });
-      setIsCardDialogOpen(false);
-      setEditingCard(null);
-      resetCardForm();
+      handleCloseCardDialog();
     },
-    onError: () => {
-      toast({ title: "Failed to update card", variant: "destructive" });
+    onError: (error: Error) => {
+      toast({ title: "Failed to update card", description: error.message, variant: "destructive" });
     },
   });
 
   const deleteCardMutation = useMutation({
     mutationFn: async (id: string) => {
-      return apiRequest("DELETE", `/api/lms/admin/flashcards/${id}`);
+      await apiRequest("DELETE", `/api/lms/admin/flashcards/${id}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/lms/admin/flashcard-decks", selectedDeck?.id, "flashcards"] });
       toast({ title: "Card deleted successfully" });
     },
-    onError: () => {
-      toast({ title: "Failed to delete card", variant: "destructive" });
+    onError: (error: Error) => {
+      toast({ title: "Failed to delete card", description: error.message, variant: "destructive" });
     },
   });
 
-  const resetCardForm = () => {
-    setCardType("learning");
+  const handleCloseDeckDialog = () => {
+    setIsDeckDialogOpen(false);
+    setEditingDeck(null);
+    deckForm.reset({
+      title: "",
+      description: "",
+      category: "",
+      isPublished: false,
+    });
+  };
+
+  const handleCloseCardDialog = () => {
+    setIsCardDialogOpen(false);
+    setEditingCard(null);
+    cardForm.reset({
+      front: "",
+      back: "",
+      cardType: "learning",
+      explanation: "",
+    });
     setCardOptions([
       { text: "", isCorrect: false },
       { text: "", isCorrect: false },
@@ -208,83 +278,56 @@ export default function AdminFlashcards() {
     ]);
   };
 
-  const handleDeckSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const formData = new FormData(e.currentTarget);
-    const data = {
-      title: formData.get("title") as string,
-      description: formData.get("description") as string,
-      category: formData.get("category") as string,
-      isPublished: true,
-    };
-
-    if (editingDeck) {
-      updateDeckMutation.mutate({ id: editingDeck.id, data });
+  const handleOpenDeckDialog = (deck?: FlashcardDeck) => {
+    if (deck) {
+      setEditingDeck(deck);
+      deckForm.reset({
+        title: deck.title,
+        description: deck.description || "",
+        category: deck.category || "",
+        isPublished: deck.isPublished ?? false,
+      });
     } else {
-      createDeckMutation.mutate(data);
+      setEditingDeck(null);
+      deckForm.reset({
+        title: "",
+        description: "",
+        category: "",
+        isPublished: false,
+      });
     }
-  };
-
-  const handleCardSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const formData = new FormData(e.currentTarget);
-    
-    const front = formData.get("front") as string;
-    const back = formData.get("back") as string;
-    const explanation = formData.get("explanation") as string;
-    
-    const data: Record<string, any> = {
-      cardType,
-      front,
-      back,
-      explanation: explanation || null,
-    };
-
-    if (cardType === "question") {
-      const validOptions = cardOptions.filter(opt => opt.text.trim());
-      if (validOptions.length < 2) {
-        toast({ title: "Please add at least 2 answer options", variant: "destructive" });
-        return;
-      }
-      if (!validOptions.some(opt => opt.isCorrect)) {
-        toast({ title: "Please mark at least one option as correct", variant: "destructive" });
-        return;
-      }
-      data.options = validOptions;
-      const correctOption = validOptions.find(opt => opt.isCorrect);
-      data.correctAnswer = correctOption?.text || null;
-    }
-
-    console.log("Submitting card data:", data);
-
-    if (editingCard) {
-      updateCardMutation.mutate({ id: editingCard.id, data });
-    } else {
-      createCardMutation.mutate(data);
-    }
-  };
-
-  const openEditDeckDialog = (deck: FlashcardDeck) => {
-    setEditingDeck(deck);
     setIsDeckDialogOpen(true);
   };
 
-  const openCreateDeckDialog = () => {
-    setEditingDeck(null);
-    setIsDeckDialogOpen(true);
-  };
-
-  const openEditCardDialog = (card: FlashcardWithOptions) => {
-    setEditingCard(card);
-    setCardType(card.cardType || "learning");
-    if (card.options && Array.isArray(card.options)) {
-      setCardOptions(card.options.length > 0 ? card.options as FlashcardOption[] : [
-        { text: "", isCorrect: false },
-        { text: "", isCorrect: false },
-        { text: "", isCorrect: false },
-        { text: "", isCorrect: false },
-      ]);
+  const handleOpenCardDialog = (card?: FlashcardWithOptions) => {
+    if (card) {
+      setEditingCard(card);
+      cardForm.reset({
+        front: card.front,
+        back: card.back,
+        cardType: card.cardType || "learning",
+        explanation: card.explanation || "",
+      });
+      if (card.options && card.options.length > 0) {
+        const opts = card.options.map(o => ({ text: o.text, isCorrect: o.isCorrect }));
+        while (opts.length < 4) opts.push({ text: "", isCorrect: false });
+        setCardOptions(opts);
+      } else {
+        setCardOptions([
+          { text: "", isCorrect: false },
+          { text: "", isCorrect: false },
+          { text: "", isCorrect: false },
+          { text: "", isCorrect: false },
+        ]);
+      }
     } else {
+      setEditingCard(null);
+      cardForm.reset({
+        front: "",
+        back: "",
+        cardType: "learning",
+        explanation: "",
+      });
       setCardOptions([
         { text: "", isCorrect: false },
         { text: "", isCorrect: false },
@@ -295,40 +338,23 @@ export default function AdminFlashcards() {
     setIsCardDialogOpen(true);
   };
 
-  const openCreateCardDialog = () => {
-    setEditingCard(null);
-    resetCardForm();
-    setIsCardDialogOpen(true);
-  };
-
-  const updateOption = (index: number, field: keyof FlashcardOption, value: string | boolean) => {
-    setCardOptions(prev => prev.map((opt, i) => 
-      i === index ? { ...opt, [field]: value } : opt
-    ));
-  };
-
-  const addOption = () => {
-    setCardOptions(prev => [...prev, { text: "", isCorrect: false }]);
-  };
-
-  const removeOption = (index: number) => {
-    setCardOptions(prev => prev.filter((_, i) => i !== index));
-  };
-
-  const getCardIcon = (type: string) => {
-    const info = getCardTypeInfo(type);
-    const Icon = info.icon;
-    return <Icon className="h-3 w-3 mr-1" />;
-  };
-
-  const getCardBadgeVariant = (type: string): "default" | "secondary" | "outline" => {
-    switch (type) {
-      case "question": return "default";
-      case "fun_fact": return "outline";
-      case "tip": return "outline";
-      default: return "secondary";
+  const onDeckSubmit = (data: DeckFormValues) => {
+    if (editingDeck) {
+      updateDeckMutation.mutate({ id: editingDeck.id, data });
+    } else {
+      createDeckMutation.mutate(data);
     }
   };
+
+  const onCardSubmit = (data: CardFormValues) => {
+    if (editingCard) {
+      updateCardMutation.mutate({ id: editingCard.id, data });
+    } else {
+      createCardMutation.mutate(data);
+    }
+  };
+
+  const watchCardType = cardForm.watch("cardType");
 
   if (selectedDeck) {
     return (
@@ -344,7 +370,7 @@ export default function AdminFlashcards() {
                 <Upload className="h-4 w-4 mr-2" />
                 Bulk Upload
               </Button>
-              <Button onClick={openCreateCardDialog} data-testid="button-add-card">
+              <Button onClick={() => handleOpenCardDialog()} data-testid="button-add-card">
                 <Plus className="h-4 w-4 mr-2" />
                 Add Card
               </Button>
@@ -357,8 +383,8 @@ export default function AdminFlashcards() {
             <Card>
               <CardContent className="py-12 text-center text-muted-foreground">
                 <Layers className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>No cards in this deck yet</p>
-                <p className="text-sm">Add your first card to get started</p>
+                <p>No flashcards yet</p>
+                <p className="text-sm">Add your first card to this deck</p>
               </CardContent>
             </Card>
           ) : (
@@ -366,194 +392,182 @@ export default function AdminFlashcards() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead>Front</TableHead>
+                    <TableHead>Back</TableHead>
                     <TableHead>Type</TableHead>
-                    <TableHead>Front (Question/Term)</TableHead>
-                    <TableHead>Back (Answer/Definition)</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {cards.map((card) => (
-                    <TableRow key={card.id} data-testid={`row-card-${card.id}`}>
-                      <TableCell>
-                        <Badge variant={getCardBadgeVariant(card.cardType || "learning")}>
-                          {getCardIcon(card.cardType || "learning")}
-                          {getCardTypeInfo(card.cardType || "learning").label}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="max-w-[200px]">
-                        <span className="line-clamp-2">{card.front}</span>
-                      </TableCell>
-                      <TableCell className="max-w-[200px]">
-                        <span className="line-clamp-2">{card.back}</span>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            onClick={() => openEditCardDialog(card)}
-                            data-testid={`button-edit-card-${card.id}`}
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            onClick={() => deleteCardMutation.mutate(card.id)}
-                            data-testid={`button-delete-card-${card.id}`}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {cards.map((card) => {
+                    const typeInfo = getCardTypeInfo(card.cardType || "learning");
+                    const Icon = typeInfo.icon;
+                    return (
+                      <TableRow key={card.id} data-testid={`row-card-${card.id}`}>
+                        <TableCell className="max-w-xs truncate">{card.front}</TableCell>
+                        <TableCell className="max-w-xs truncate">{card.back}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="flex items-center gap-1 w-fit">
+                            <Icon className="h-3 w-3" />
+                            {typeInfo.label}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              onClick={() => handleOpenCardDialog(card)}
+                              data-testid={`button-edit-${card.id}`}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              onClick={() => {
+                                if (confirm("Delete this card?")) {
+                                  deleteCardMutation.mutate(card.id);
+                                }
+                              }}
+                              data-testid={`button-delete-${card.id}`}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </Card>
           )}
 
-          <Dialog open={isCardDialogOpen} onOpenChange={setIsCardDialogOpen}>
-            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <Dialog open={isCardDialogOpen} onOpenChange={(open) => !open && handleCloseCardDialog()}>
+            <DialogContent className="max-w-lg">
               <DialogHeader>
-                <DialogTitle>{editingCard ? "Edit Card" : "Add New Card"}</DialogTitle>
-                <DialogDescription>
-                  Create different types of flashcards for your students
-                </DialogDescription>
+                <DialogTitle>{editingCard ? "Edit Flashcard" : "Add New Flashcard"}</DialogTitle>
+                <DialogDescription>Create a flashcard for students to study</DialogDescription>
               </DialogHeader>
-              <form onSubmit={handleCardSubmit} className="space-y-4">
-                <div className="space-y-2">
-                  <Label>Card Type</Label>
-                  <Select value={cardType} onValueChange={setCardType}>
-                    <SelectTrigger data-testid="select-card-type">
-                      <SelectValue placeholder="Select card type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {CARD_TYPES.map((type) => {
-                        const Icon = type.icon;
-                        return (
-                          <SelectItem key={type.value} value={type.value}>
-                            <div className="flex items-center gap-2">
-                              <Icon className="h-4 w-4" />
-                              <span>{type.label}</span>
-                            </div>
-                          </SelectItem>
-                        );
-                      })}
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-muted-foreground">
-                    {getCardTypeInfo(cardType).description}
-                  </p>
-                </div>
+              <Form {...cardForm}>
+                <form onSubmit={cardForm.handleSubmit(onCardSubmit)} className="space-y-4">
+                  <FormField
+                    control={cardForm.control}
+                    name="cardType"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Card Type</FormLabel>
+                        <Select value={field.value} onValueChange={field.onChange}>
+                          <FormControl>
+                            <SelectTrigger data-testid="select-card-type">
+                              <SelectValue placeholder="Select type" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {CARD_TYPES.map((type) => (
+                              <SelectItem key={type.value} value={type.value}>
+                                <div className="flex items-center gap-2">
+                                  <type.icon className="h-4 w-4" />
+                                  {type.label}
+                                </div>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-                <div className="space-y-2">
-                  <Label htmlFor="front">
-                    {cardType === "question" ? "Question" : 
-                     cardType === "fun_fact" ? "Fun Fact Title" :
-                     cardType === "tip" ? "Tip Title" :
-                     "Term / Front"}
-                  </Label>
-                  <Textarea
-                    id="front"
+                  <FormField
+                    control={cardForm.control}
                     name="front"
-                    defaultValue={editingCard?.front || ""}
-                    required
-                    rows={3}
-                    placeholder={
-                      cardType === "question" ? "Enter your question here..." :
-                      cardType === "fun_fact" ? "Did you know?" :
-                      cardType === "tip" ? "Pro tip:" :
-                      "Enter the term or front of the card..."
-                    }
-                    data-testid="input-front"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>
+                          {watchCardType === "question" ? "Question" : 
+                           watchCardType === "fun_fact" ? "Fact Title" :
+                           watchCardType === "tip" ? "Tip Title" : "Front"}
+                        </FormLabel>
+                        <FormControl>
+                          <Textarea {...field} rows={2} data-testid="input-front" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
-                </div>
 
-                {cardType === "question" && (
-                  <div className="space-y-3">
-                    <Label>Answer Options</Label>
-                    {cardOptions.map((option, index) => (
-                      <div key={index} className="flex items-center gap-3">
-                        <Checkbox
-                          checked={option.isCorrect}
-                          onCheckedChange={(checked) => updateOption(index, "isCorrect", !!checked)}
-                          data-testid={`checkbox-correct-${index}`}
-                        />
-                        <Input
-                          value={option.text}
-                          onChange={(e) => updateOption(index, "text", e.target.value)}
-                          placeholder={`Option ${index + 1}`}
-                          className="flex-1"
-                          data-testid={`input-option-${index}`}
-                        />
-                        {cardOptions.length > 2 && (
-                          <Button
-                            type="button"
-                            size="icon"
-                            variant="ghost"
-                            onClick={() => removeOption(index)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        )}
-                      </div>
-                    ))}
-                    <Button type="button" variant="outline" onClick={addOption} className="w-full">
-                      <Plus className="h-4 w-4 mr-2" />
-                      Add Option
-                    </Button>
-                    <p className="text-xs text-muted-foreground">
-                      Check the box next to the correct answer(s)
-                    </p>
-                  </div>
-                )}
+                  {watchCardType === "question" && (
+                    <div className="space-y-2">
+                      <FormLabel>Answer Options</FormLabel>
+                      {cardOptions.map((option, index) => (
+                        <div key={index} className="flex items-center gap-2">
+                          <Checkbox
+                            checked={option.isCorrect}
+                            onCheckedChange={(checked) => {
+                              const newOptions = [...cardOptions];
+                              newOptions[index].isCorrect = checked === true;
+                              setCardOptions(newOptions);
+                            }}
+                          />
+                          <Input
+                            value={option.text}
+                            onChange={(e) => {
+                              const newOptions = [...cardOptions];
+                              newOptions[index].text = e.target.value;
+                              setCardOptions(newOptions);
+                            }}
+                            placeholder={`Option ${index + 1}`}
+                            data-testid={`input-option-${index}`}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  )}
 
-                <div className="space-y-2">
-                  <Label htmlFor="back">
-                    {cardType === "question" ? "Correct Answer Explanation" : 
-                     cardType === "fun_fact" ? "The Fun Fact" :
-                     cardType === "tip" ? "The Tip" :
-                     "Definition / Back"}
-                  </Label>
-                  <Textarea
-                    id="back"
+                  <FormField
+                    control={cardForm.control}
                     name="back"
-                    defaultValue={editingCard?.back || ""}
-                    required
-                    rows={3}
-                    placeholder={
-                      cardType === "question" ? "Explain why this is the correct answer..." :
-                      cardType === "fun_fact" ? "Share the interesting fact here..." :
-                      cardType === "tip" ? "Provide your helpful tip here..." :
-                      "Enter the definition or back of the card..."
-                    }
-                    data-testid="input-back"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>
+                          {watchCardType === "question" ? "Explanation" : 
+                           watchCardType === "fun_fact" ? "Fact Details" :
+                           watchCardType === "tip" ? "Tip Details" : "Back"}
+                        </FormLabel>
+                        <FormControl>
+                          <Textarea {...field} rows={3} data-testid="input-back" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
-                </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="explanation">Additional Notes (Optional)</Label>
-                  <Textarea
-                    id="explanation"
+                  <FormField
+                    control={cardForm.control}
                     name="explanation"
-                    defaultValue={editingCard?.explanation || ""}
-                    rows={2}
-                    placeholder="Any additional context or explanation..."
-                    data-testid="input-explanation"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Additional Notes (Optional)</FormLabel>
+                        <FormControl>
+                          <Textarea {...field} rows={2} placeholder="Any additional context..." data-testid="input-explanation" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
-                </div>
 
-                <div className="flex justify-end gap-2">
-                  <Button type="button" variant="outline" onClick={() => setIsCardDialogOpen(false)}>
-                    Cancel
-                  </Button>
-                  <Button type="submit" disabled={createCardMutation.isPending || updateCardMutation.isPending}>
-                    {editingCard ? "Update Card" : "Add Card"}
-                  </Button>
-                </div>
-              </form>
+                  <div className="flex justify-end gap-2">
+                    <Button type="button" variant="outline" onClick={handleCloseCardDialog}>
+                      Cancel
+                    </Button>
+                    <Button type="submit" disabled={createCardMutation.isPending || updateCardMutation.isPending}>
+                      {createCardMutation.isPending || updateCardMutation.isPending ? "Saving..." : (editingCard ? "Update Card" : "Add Card")}
+                    </Button>
+                  </div>
+                </form>
+              </Form>
             </DialogContent>
           </Dialog>
 
@@ -561,7 +575,7 @@ export default function AdminFlashcards() {
             open={bulkUploadOpen}
             onOpenChange={setBulkUploadOpen}
             title="Bulk Upload Flashcards"
-            description="Upload multiple flashcards at once using CSV or JSON format. Download the template for the correct format."
+            description="Upload multiple flashcards at once using CSV or JSON format."
             csvTemplate={FLASHCARD_CSV_TEMPLATE}
             jsonTemplate={FLASHCARD_JSON_TEMPLATE}
             templateFileName="flashcards_template"
@@ -574,8 +588,8 @@ export default function AdminFlashcards() {
               }));
               
               const response = await apiRequest(
-                `/api/lms/admin/flashcard-decks/${selectedDeck?.id}/flashcards/bulk-import`,
                 "POST",
+                `/api/lms/admin/flashcard-decks/${selectedDeck?.id}/flashcards/bulk-import`,
                 { items }
               );
               const result = await response.json();
@@ -603,7 +617,7 @@ export default function AdminFlashcards() {
     <AdminLayout title="Flashcard Decks">
       <div className="flex justify-between items-center mb-6">
         <p className="text-muted-foreground">Manage flashcard decks for student study</p>
-        <Button onClick={openCreateDeckDialog} data-testid="button-create-deck">
+        <Button onClick={() => handleOpenDeckDialog()} data-testid="button-create-deck">
           <Plus className="h-4 w-4 mr-2" />
           Create Deck
         </Button>
@@ -652,7 +666,7 @@ export default function AdminFlashcards() {
                       <Button
                         size="icon"
                         variant="ghost"
-                        onClick={() => openEditDeckDialog(deck)}
+                        onClick={() => handleOpenDeckDialog(deck)}
                         data-testid={`button-edit-${deck.id}`}
                       >
                         <Pencil className="h-4 w-4" />
@@ -660,7 +674,11 @@ export default function AdminFlashcards() {
                       <Button
                         size="icon"
                         variant="ghost"
-                        onClick={() => deleteDeckMutation.mutate(deck.id)}
+                        onClick={() => {
+                          if (confirm("Delete this deck and all its cards?")) {
+                            deleteDeckMutation.mutate(deck.id);
+                          }
+                        }}
                         data-testid={`button-delete-${deck.id}`}
                       >
                         <Trash2 className="h-4 w-4" />
@@ -674,53 +692,80 @@ export default function AdminFlashcards() {
         </Card>
       )}
 
-      <Dialog open={isDeckDialogOpen} onOpenChange={setIsDeckDialogOpen}>
+      <Dialog open={isDeckDialogOpen} onOpenChange={(open) => !open && handleCloseDeckDialog()}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{editingDeck ? "Edit Deck" : "Create New Deck"}</DialogTitle>
-            <DialogDescription>
-              Create a deck to organize your flashcards
-            </DialogDescription>
+            <DialogDescription>Create a deck to organize your flashcards</DialogDescription>
           </DialogHeader>
-          <form onSubmit={handleDeckSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="title">Title</Label>
-              <Input
-                id="title"
+          <Form {...deckForm}>
+            <form onSubmit={deckForm.handleSubmit(onDeckSubmit)} className="space-y-4">
+              <FormField
+                control={deckForm.control}
                 name="title"
-                defaultValue={editingDeck?.title || ""}
-                required
-                data-testid="input-title"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Title</FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="e.g., Anatomy Basics" data-testid="input-title" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="description">Description</Label>
-              <Textarea
-                id="description"
+
+              <FormField
+                control={deckForm.control}
                 name="description"
-                defaultValue={editingDeck?.description || ""}
-                data-testid="input-description"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Description</FormLabel>
+                    <FormControl>
+                      <Textarea {...field} placeholder="Brief description of this deck..." data-testid="input-description" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="category">Category</Label>
-              <Input
-                id="category"
+
+              <FormField
+                control={deckForm.control}
                 name="category"
-                defaultValue={editingDeck?.category || ""}
-                placeholder="e.g., Anatomy, Physiology, Pharmacology"
-                data-testid="input-category"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Category</FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="e.g., Anatomy, Physiology, Pharmacology" data-testid="input-category" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
-            </div>
-            <div className="flex justify-end gap-2">
-              <Button type="button" variant="outline" onClick={() => setIsDeckDialogOpen(false)}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled={createDeckMutation.isPending || updateDeckMutation.isPending}>
-                {editingDeck ? "Update" : "Create"}
-              </Button>
-            </div>
-          </form>
+
+              <FormField
+                control={deckForm.control}
+                name="isPublished"
+                render={({ field }) => (
+                  <FormItem className="flex items-center gap-2">
+                    <FormControl>
+                      <Switch checked={field.value} onCheckedChange={field.onChange} />
+                    </FormControl>
+                    <FormLabel className="!mt-0">Published</FormLabel>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <div className="flex justify-end gap-2">
+                <Button type="button" variant="outline" onClick={handleCloseDeckDialog}>
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={createDeckMutation.isPending || updateDeckMutation.isPending}>
+                  {createDeckMutation.isPending || updateDeckMutation.isPending ? "Saving..." : (editingDeck ? "Update" : "Create")}
+                </Button>
+              </div>
+            </form>
+          </Form>
         </DialogContent>
       </Dialog>
     </AdminLayout>
