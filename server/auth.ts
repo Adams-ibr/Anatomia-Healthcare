@@ -34,6 +34,8 @@ export function setupSession(app: Express) {
   
   console.log(`Session config: isProduction=${isProduction}, isReplitDeployment=${isReplitDeployment}, useSecureCookies=${useSecureCookies}`);
   
+  // For same-origin requests (frontend and backend on same domain), use 'lax' for better compatibility
+  // 'none' is only needed for cross-origin cookies and requires Secure flag
   app.use(session({
     secret: process.env.SESSION_SECRET!,
     store: sessionStore,
@@ -43,7 +45,7 @@ export function setupSession(app: Express) {
       httpOnly: true,
       secure: useSecureCookies,
       maxAge: sessionTtl,
-      sameSite: useSecureCookies ? "none" : "lax",
+      sameSite: "lax",
     },
   }));
 }
