@@ -1629,10 +1629,12 @@ superAdminRouter.get("/audit-logs", async (req: Request, res: Response) => {
 });
 
 // Mount sub-routers on main router
+// IMPORTANT: Admin routes must be mounted FIRST (before "/" routes) 
+// because they use isAuthenticated middleware, not isMemberAuthenticated
+router.use("/admin", adminRouter);
+router.use("/admin", superAdminRouter);
 router.use("/", publicRouter);
 router.use("/", memberRouter);
 router.use("/", subscriberRouter); // Routes requiring active subscription
-router.use("/admin", adminRouter);
-router.use("/admin", superAdminRouter);
 
 export default router;
