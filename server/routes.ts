@@ -497,12 +497,20 @@ export async function registerRoutes(
 
   app.patch("/api/admin/departments/:id", isAuthenticated, async (req, res) => {
     try {
-      const updateData = { ...req.body };
-      if (req.body.name) {
-        updateData.slug = req.body.name.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
+      const updateSchema = insertDepartmentSchema.partial();
+      const result = updateSchema.safeParse(req.body);
+      if (!result.success) {
+        return res.status(400).json({ error: "Invalid department data", details: result.error.issues });
+      }
+      const updateData: Record<string, unknown> = { ...result.data };
+      if (result.data.name) {
+        updateData.slug = result.data.name.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
       }
       updateData.updatedAt = new Date();
       const [department] = await db.update(departments).set(updateData).where(eq(departments.id, req.params.id)).returning();
+      if (!department) {
+        return res.status(404).json({ error: "Department not found" });
+      }
       res.json(department);
     } catch (error) {
       console.error("Error updating department:", error);
