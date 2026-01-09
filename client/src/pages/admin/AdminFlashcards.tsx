@@ -90,15 +90,16 @@ export default function AdminFlashcards() {
 
   const createDeckMutation = useMutation({
     mutationFn: async (data: Partial<FlashcardDeck>) => {
-      return apiRequest("POST", "/api/lms/admin/flashcard-decks", data);
+      const response = await apiRequest("POST", "/api/lms/admin/flashcard-decks", data);
+      return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/lms/admin/flashcard-decks"] });
       toast({ title: "Deck created successfully" });
       setIsDeckDialogOpen(false);
     },
-    onError: () => {
-      toast({ title: "Failed to create deck", variant: "destructive" });
+    onError: (error: Error) => {
+      toast({ title: "Failed to create deck", description: error.message, variant: "destructive" });
     },
   });
 
@@ -112,8 +113,8 @@ export default function AdminFlashcards() {
       setIsDeckDialogOpen(false);
       setEditingDeck(null);
     },
-    onError: () => {
-      toast({ title: "Failed to update deck", variant: "destructive" });
+    onError: (error: Error) => {
+      toast({ title: "Failed to update deck", description: error.message, variant: "destructive" });
     },
   });
 
@@ -126,8 +127,8 @@ export default function AdminFlashcards() {
       toast({ title: "Deck deleted successfully" });
       if (selectedDeck) setSelectedDeck(null);
     },
-    onError: () => {
-      toast({ title: "Failed to delete deck", variant: "destructive" });
+    onError: (error: Error) => {
+      toast({ title: "Failed to delete deck", description: error.message, variant: "destructive" });
     },
   });
 
