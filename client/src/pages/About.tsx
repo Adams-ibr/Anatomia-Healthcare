@@ -1,9 +1,12 @@
 import { Link } from "wouter";
 import { motion, useReducedMotion } from "framer-motion";
+import { useQuery } from "@tanstack/react-query";
 import { Layout } from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Skeleton } from "@/components/ui/skeleton";
 import { AnimatedSection, StaggerContainer, AnimatedItem } from "@/components/AnimatedSection";
 import { PageTransition } from "@/components/PageTransition";
 import { fadeInUp, staggerContainer } from "@/lib/motion";
@@ -16,10 +19,9 @@ import {
   Lightbulb,
   ArrowRight
 } from "lucide-react";
+import type { TeamMember } from "@shared/schema";
 
 import heroAnatomyImg from "@assets/stock_images/3d_human_anatomy_mus_873f0c5b.jpg";
-import doctorImg from "@assets/stock_images/doctor_professional__26ea132c.jpg";
-import studentsImg from "@assets/stock_images/medical_students_stu_234d9069.jpg";
 
 const stats = [
   { value: "5M+", label: "Active Users" },
@@ -46,18 +48,15 @@ const values = [
   },
 ];
 
-const team = [
-  { name: "Dr. Sarah Jenks", role: "Chief Editor", description: "Former surgeon with 15 years of experience in clinical anatomy education.", image: doctorImg },
-  { name: "Mark Dee", role: "Lead Illustrator", description: "Award-winning medical illustrator specializing in 3D visualization.", image: studentsImg },
-  { name: "James Wilson", role: "CTO", description: "Tech visionary ensuring our platform runs smoothly for millions of users.", image: doctorImg },
-  { name: "Emily Chen", role: "Head of Community", description: "Connecting students and educators to foster a global learning network.", image: studentsImg },
-];
-
 export default function About() {
   const prefersReducedMotion = useReducedMotion();
   const statsRef = useInViewAnimation({ threshold: 0.2 });
   const valuesRef = useInViewAnimation({ threshold: 0.1 });
   const teamRef = useInViewAnimation({ threshold: 0.1 });
+
+  const { data: teamMembers = [], isLoading: isLoadingTeam } = useQuery<TeamMember[]>({
+    queryKey: ["/api/team"],
+  });
 
   return (
     <Layout>
@@ -225,28 +224,46 @@ export default function About() {
             </motion.div>
 
             <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              {team.map((member, index) => (
-                <motion.div key={member.name} variants={fadeInUp} custom={index}>
-                  <Card className="overflow-hidden h-full">
+              {isLoadingTeam ? (
+                Array.from({ length: 4 }).map((_, i) => (
+                  <Card key={i} className="overflow-hidden h-full">
                     <CardContent className="p-0">
-                      <div className="aspect-square overflow-hidden">
-                        <img 
-                          src={member.image} 
-                          alt={member.name}
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                      <div className="p-4 text-center">
-                        <h3 className="font-semibold text-foreground" data-testid={`text-team-${member.name.toLowerCase().replace(/\s/g, '-')}`}>
-                          {member.name}
-                        </h3>
-                        <p className="text-sm text-primary mb-2">{member.role}</p>
-                        <p className="text-xs text-muted-foreground">{member.description}</p>
+                      <Skeleton className="aspect-square" />
+                      <div className="p-4 space-y-2">
+                        <Skeleton className="h-5 w-3/4 mx-auto" />
+                        <Skeleton className="h-4 w-1/2 mx-auto" />
+                        <Skeleton className="h-3 w-full" />
                       </div>
                     </CardContent>
                   </Card>
-                </motion.div>
-              ))}
+                ))
+              ) : (
+                teamMembers.map((member, index) => (
+                  <motion.div key={member.id} variants={fadeInUp} custom={index}>
+                    <Link href={`/team/${member.slug}`}>
+                      <Card className="overflow-hidden h-full hover-elevate cursor-pointer">
+                        <CardContent className="p-0">
+                          <div className="aspect-square overflow-hidden bg-muted">
+                            <Avatar className="w-full h-full rounded-none">
+                              <AvatarImage src={member.imageUrl || undefined} alt={member.name} className="object-cover" />
+                              <AvatarFallback className="rounded-none text-4xl">
+                                {member.name.split(" ").map(n => n[0]).join("")}
+                              </AvatarFallback>
+                            </Avatar>
+                          </div>
+                          <div className="p-4 text-center">
+                            <h3 className="font-semibold text-foreground" data-testid={`text-team-${member.name.toLowerCase().replace(/\s/g, '-')}`}>
+                              {member.name}
+                            </h3>
+                            <p className="text-sm text-primary mb-2">{member.role}</p>
+                            <p className="text-xs text-muted-foreground line-clamp-2">{member.description}</p>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </Link>
+                  </motion.div>
+                ))
+              )}
             </div>
           </div>
         </motion.section>

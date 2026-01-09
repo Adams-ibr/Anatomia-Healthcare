@@ -114,6 +114,19 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/team/:slug", async (req, res) => {
+    try {
+      const [member] = await db.select().from(teamMembers).where(eq(teamMembers.slug, req.params.slug));
+      if (!member) {
+        return res.status(404).json({ error: "Team member not found" });
+      }
+      res.json(member);
+    } catch (error) {
+      console.error("Error fetching team member:", error);
+      res.status(500).json({ error: "Failed to fetch team member" });
+    }
+  });
+
   app.get("/api/products", async (req, res) => {
     try {
       const allProducts = await db.select().from(products).where(eq(products.isActive, true)).orderBy(products.order);

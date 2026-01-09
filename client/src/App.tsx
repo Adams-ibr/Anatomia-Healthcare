@@ -9,6 +9,7 @@ import { StudentLayout } from "@/components/StudentLayout";
 import { Preloader } from "@/components/Preloader";
 import Home from "@/pages/Home";
 import About from "@/pages/About";
+import TeamMember from "@/pages/TeamMember";
 import Blog from "@/pages/Blog";
 import SingleBlog from "@/pages/SingleBlog";
 import Career from "@/pages/Career";
@@ -90,6 +91,7 @@ function Router() {
     <Switch>
       <Route path="/" component={Home} />
       <Route path="/about" component={About} />
+      <Route path="/team/:slug" component={TeamMember} />
       <Route path="/blog" component={Blog} />
       <Route path="/blog/:slug" component={SingleBlog} />
       <Route path="/careers" component={Career} />
