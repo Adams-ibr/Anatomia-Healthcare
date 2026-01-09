@@ -1,13 +1,14 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ModelViewer } from "@/components/ModelViewer";
+import { TierGate } from "@/components/TierGate";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Search, Box, ChevronLeft, Filter } from "lucide-react";
+import { Search, Box, ChevronLeft, Filter, MousePointer2, Move3D, RotateCcw } from "lucide-react";
 import type { AnatomyModel } from "@shared/schema";
 
 const BODY_SYSTEMS = [
@@ -65,84 +66,149 @@ export default function Anatomy3DViewer() {
     return matchesSearch && matchesBodySystem && matchesCategory;
   });
 
+  const defaultTourSteps = [
+    {
+      title: "Welcome to 3D Anatomy",
+      description: "Use this interactive viewer to explore anatomical structures in detail.",
+      cameraOrbit: "0deg 75deg 105%",
+    },
+    {
+      title: "Rotate the Model",
+      description: "Click and drag anywhere on the model to rotate it and view from different angles.",
+      cameraOrbit: "45deg 60deg 100%",
+    },
+    {
+      title: "Zoom In and Out",
+      description: "Use the scroll wheel or the zoom buttons to get closer or further away from the model.",
+      cameraOrbit: "0deg 75deg 80%",
+    },
+    {
+      title: "Pan the View",
+      description: "Right-click and drag to pan the model, or use the pan mode button for touch devices.",
+      cameraOrbit: "-30deg 90deg 110%",
+    },
+    {
+      title: "Explore Annotations",
+      description: "Click the info button to see labeled parts of the anatomy. Click any part to learn more about it.",
+      cameraOrbit: "0deg 75deg 105%",
+    },
+  ];
+
   if (selectedModel) {
     return (
-      <div className="container mx-auto py-8 px-4">
-            <Button
-              variant="ghost"
-              onClick={() => setSelectedModel(null)}
-              className="mb-6"
-              data-testid="button-back-to-models"
-            >
-              <ChevronLeft className="h-4 w-4 mr-2" />
-              Back to Models
-            </Button>
+      <TierGate requiredTier="silver">
+        <div className="container mx-auto py-8 px-4">
+          <Button
+            variant="ghost"
+            onClick={() => setSelectedModel(null)}
+            className="mb-6"
+            data-testid="button-back-to-models"
+          >
+            <ChevronLeft className="h-4 w-4 mr-2" />
+            Back to Models
+          </Button>
 
-            <div className="grid lg:grid-cols-3 gap-8">
-              <div className="lg:col-span-2">
-                <ModelViewer
-                  src={selectedModel.modelUrl}
-                  title={selectedModel.title}
-                  description={selectedModel.description || ""}
-                  tags={selectedModel.tags || []}
-                  annotations={(selectedModel.annotations as any) || []}
-                  showControls
-                  autoRotate
-                  className="h-full"
-                />
-              </div>
-
-              <div className="space-y-6">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>{selectedModel.title}</CardTitle>
-                    <CardDescription>
-                      {selectedModel.bodySystem && (
-                        <Badge variant="secondary" className="mr-2">
-                          {selectedModel.bodySystem}
-                        </Badge>
-                      )}
-                      <Badge variant="outline">{selectedModel.category}</Badge>
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    {selectedModel.description && (
-                      <div>
-                        <h4 className="font-medium mb-2">Description</h4>
-                        <p className="text-sm text-muted-foreground">
-                          {selectedModel.description}
-                        </p>
-                      </div>
-                    )}
-
-                    {selectedModel.tags && selectedModel.tags.length > 0 && (
-                      <div>
-                        <h4 className="font-medium mb-2">Tags</h4>
-                        <div className="flex flex-wrap gap-1">
-                          {selectedModel.tags.map((tag) => (
-                            <Badge key={tag} variant="secondary" className="text-xs">
-                              {tag}
-                            </Badge>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-base">Controls</CardTitle>
-                  </CardHeader>
-                  <CardContent className="text-sm text-muted-foreground space-y-2">
-                    <p>Rotate: Click and drag</p>
-                    <p>Zoom: Scroll or pinch</p>
-                    <p>Pan: Right-click and drag</p>
-                  </CardContent>
-                </Card>
-              </div>
+          <div className="grid lg:grid-cols-3 gap-8">
+            <div className="lg:col-span-2">
+              <ModelViewer
+                src={selectedModel.modelUrl}
+                title={selectedModel.title}
+                description={selectedModel.description || ""}
+                tags={selectedModel.tags || []}
+                annotations={(selectedModel.annotations as any) || []}
+                showControls
+                autoRotate
+                enableClickSelection
+                tourSteps={defaultTourSteps}
+                className="h-full"
+              />
             </div>
-      </div>
+
+            <div className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>{selectedModel.title}</CardTitle>
+                  <CardDescription>
+                    {selectedModel.bodySystem && (
+                      <Badge variant="secondary" className="mr-2">
+                        {selectedModel.bodySystem}
+                      </Badge>
+                    )}
+                    <Badge variant="outline">{selectedModel.category}</Badge>
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {selectedModel.description && (
+                    <div>
+                      <h4 className="font-medium mb-2">Description</h4>
+                      <p className="text-sm text-muted-foreground">
+                        {selectedModel.description}
+                      </p>
+                    </div>
+                  )}
+
+                  {selectedModel.tags && selectedModel.tags.length > 0 && (
+                    <div>
+                      <h4 className="font-medium mb-2">Tags</h4>
+                      <div className="flex flex-wrap gap-1">
+                        {selectedModel.tags.map((tag) => (
+                          <Badge key={tag} variant="secondary" className="text-xs">
+                            {tag}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Interaction Controls</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="flex items-center gap-3 text-sm">
+                    <div className="p-2 rounded-md bg-muted">
+                      <RotateCcw className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <p className="font-medium">Rotate</p>
+                      <p className="text-muted-foreground text-xs">Click and drag on the model</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 text-sm">
+                    <div className="p-2 rounded-md bg-muted">
+                      <Search className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <p className="font-medium">Zoom</p>
+                      <p className="text-muted-foreground text-xs">Scroll wheel or pinch gesture</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 text-sm">
+                    <div className="p-2 rounded-md bg-muted">
+                      <Move3D className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <p className="font-medium">Pan</p>
+                      <p className="text-muted-foreground text-xs">Right-click and drag</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 text-sm">
+                    <div className="p-2 rounded-md bg-muted">
+                      <MousePointer2 className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <p className="font-medium">Select Part</p>
+                      <p className="text-muted-foreground text-xs">Click on any part for details</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </div>
+      </TierGate>
     );
   }
 
