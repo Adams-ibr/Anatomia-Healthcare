@@ -352,6 +352,7 @@ export const questionBankOptions = pgTable("question_bank_options", {
   questionId: varchar("question_id").notNull().references(() => questionBank.id, { onDelete: "cascade" }),
   optionText: text("option_text").notNull(),
   isCorrect: boolean("is_correct").default(false),
+  explanation: text("explanation"),
   order: integer("order").default(0),
 });
 

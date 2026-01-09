@@ -175,7 +175,7 @@ export function registerAuthRoutes(app: Express) {
         console.error("Error destroying session:", err);
         return res.status(500).json({ error: "Failed to logout" });
       }
-      res.clearCookie("connect.sid");
+      res.clearCookie("anatomia.sid");
       res.json({ success: true });
     });
   });
@@ -429,7 +429,7 @@ export function registerMemberRoutes(app: Express) {
         console.error("Error destroying session:", err);
         return res.status(500).json({ error: "Failed to logout" });
       }
-      res.clearCookie("connect.sid");
+      res.clearCookie("anatomia.sid");
       res.json({ success: true });
     });
   });

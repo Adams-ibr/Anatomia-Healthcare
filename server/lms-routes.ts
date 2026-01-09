@@ -95,7 +95,7 @@ publicRouter.get("/courses/categories", async (req: Request, res: Response) => {
       }
     } else {
       const courses = await lmsStorage.getPublishedCourses();
-      const derivedCategories = [...new Set(courses.map(c => c.category).filter(Boolean))];
+      const derivedCategories = Array.from(new Set(courses.map(c => c.category).filter(Boolean)));
       if (format === "full") {
         res.json(derivedCategories.map(name => ({ id: name, name, slug: name.toLowerCase().replace(/\s+/g, '-') })));
       } else {
@@ -990,7 +990,7 @@ adminRouter.delete("/courses/:courseId/prerequisites/:prerequisiteId", async (re
       user?.id || null,
       "remove_prerequisite",
       "course_prerequisite",
-      null,
+      prerequisiteId,
       { courseId, prerequisiteId },
       null,
       req
