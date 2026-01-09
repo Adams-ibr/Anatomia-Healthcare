@@ -10,13 +10,15 @@ import {
   products, 
   faqItems, 
   careers,
+  departments,
   insertContactMessageSchema, 
   insertNewsletterSubscriptionSchema,
   insertArticleSchema,
   insertTeamMemberSchema,
   insertProductSchema,
   insertFaqItemSchema,
-  insertCareerSchema
+  insertCareerSchema,
+  insertDepartmentSchema
 } from "@shared/schema";
 import { setupSession, registerAuthRoutes, registerMemberRoutes, isAuthenticated, isMemberAuthenticated } from "./auth";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
@@ -451,6 +453,81 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error deleting career:", error);
       res.status(500).json({ error: "Failed to delete career" });
+    }
+  });
+
+  // Department Management Routes
+  app.get("/api/admin/departments", isAuthenticated, async (req, res) => {
+    try {
+      const allDepartments = await db.select().from(departments).orderBy(departments.order);
+      res.json(allDepartments);
+    } catch (error) {
+      console.error("Error fetching departments:", error);
+      res.status(500).json({ error: "Failed to fetch departments" });
+    }
+  });
+
+  app.get("/api/admin/departments/:id", isAuthenticated, async (req, res) => {
+    try {
+      const [department] = await db.select().from(departments).where(eq(departments.id, req.params.id));
+      if (!department) {
+        return res.status(404).json({ error: "Department not found" });
+      }
+      res.json(department);
+    } catch (error) {
+      console.error("Error fetching department:", error);
+      res.status(500).json({ error: "Failed to fetch department" });
+    }
+  });
+
+  app.post("/api/admin/departments", isAuthenticated, async (req, res) => {
+    try {
+      const slug = req.body.name?.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "") || "";
+      const result = insertDepartmentSchema.safeParse({ ...req.body, slug });
+      if (!result.success) {
+        return res.status(400).json({ error: "Invalid department data", details: result.error.issues });
+      }
+      const [department] = await db.insert(departments).values(result.data).returning();
+      res.status(201).json(department);
+    } catch (error) {
+      console.error("Error creating department:", error);
+      res.status(500).json({ error: "Failed to create department" });
+    }
+  });
+
+  app.patch("/api/admin/departments/:id", isAuthenticated, async (req, res) => {
+    try {
+      const updateData = { ...req.body };
+      if (req.body.name) {
+        updateData.slug = req.body.name.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
+      }
+      updateData.updatedAt = new Date();
+      const [department] = await db.update(departments).set(updateData).where(eq(departments.id, req.params.id)).returning();
+      res.json(department);
+    } catch (error) {
+      console.error("Error updating department:", error);
+      res.status(500).json({ error: "Failed to update department" });
+    }
+  });
+
+  app.delete("/api/admin/departments/:id", isAuthenticated, async (req, res) => {
+    try {
+      await db.delete(departments).where(eq(departments.id, req.params.id));
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting department:", error);
+      res.status(500).json({ error: "Failed to delete department" });
+    }
+  });
+
+  // Public departments endpoint
+  app.get("/api/departments", async (req, res) => {
+    try {
+      const activeDepartments = await db.select().from(departments).where(eq(departments.isActive, true)).orderBy(departments.order);
+      res.json(activeDepartments);
+    } catch (error) {
+      console.error("Error fetching departments:", error);
+      res.status(500).json({ error: "Failed to fetch departments" });
     }
   });
 

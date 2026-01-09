@@ -16,7 +16,8 @@ import {
   Layers,
   Atom,
   Crown,
-  Heart
+  Heart,
+  Building2
 } from "lucide-react";
 import {
   Sidebar,
@@ -48,6 +49,7 @@ const menuItems = [
   { title: "Products", icon: Package, href: "/admin/products", group: "Content" },
   { title: "FAQ", icon: HelpCircle, href: "/admin/faq", group: "Content" },
   { title: "Careers", icon: Briefcase, href: "/admin/careers", group: "Content" },
+  { title: "Departments", icon: Building2, href: "/admin/departments", group: "Content" },
   { title: "Messages", icon: Mail, href: "/admin/contacts", group: "Management" },
   { title: "Newsletter", icon: Newspaper, href: "/admin/newsletter", group: "Management" },
 ];

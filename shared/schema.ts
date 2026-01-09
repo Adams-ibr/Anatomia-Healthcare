@@ -162,3 +162,27 @@ export const insertCareerSchema = createInsertSchema(careers).omit({
 
 export type InsertCareer = z.infer<typeof insertCareerSchema>;
 export type Career = typeof careers.$inferSelect;
+
+// Departments
+export const departments = pgTable("departments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  slug: text("slug").notNull().unique(),
+  description: text("description"),
+  headId: varchar("head_id"),
+  imageUrl: text("image_url"),
+  color: text("color"),
+  order: integer("order").default(0),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertDepartmentSchema = createInsertSchema(departments).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertDepartment = z.infer<typeof insertDepartmentSchema>;
+export type Department = typeof departments.$inferSelect;
