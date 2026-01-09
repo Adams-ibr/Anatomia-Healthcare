@@ -52,11 +52,14 @@ async function buildAll() {
     bundle: true,
     format: "cjs",
     outfile: "dist/index.cjs",
-    // Don't hardcode NODE_ENV - let it be read at runtime for proper session handling
     minify: true,
-    // Exclude vite-related files since they're only used in development
-    external: [...externals, "./vite", "./vite.ts", "../vite.config", "../vite.config.ts"],
+    external: externals,
     logLevel: "info",
+    // Define process.env.NODE_ENV at build time for dead code elimination
+    // This removes the vite import from production bundle entirely
+    define: {
+      "process.env.NODE_ENV": '"production"',
+    },
   });
 }
 
