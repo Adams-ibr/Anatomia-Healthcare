@@ -45,20 +45,26 @@ const contactInfo = [
   {
     icon: Mail,
     title: "Email",
-    primary: "support@anatomia.com",
+    primary: "info@anatomia.co",
     secondary: "Response time: Within 24 hours"
   },
   {
     icon: Phone,
-    title: "Phone",
-    primary: "+1 (555) 123-ANAT",
-    secondary: "Mon-Fri 9am-5pm EST"
+    title: "Hotline",
+    primary: "(234) 903 636 3709",
+    secondary: "Mon-Fri 9am-5pm WAT"
   },
   {
     icon: MapPin,
-    title: "Address",
-    primary: "123 Medical Plaza, Science District",
-    secondary: "New York, NY 10001"
+    title: "Head Office",
+    primary: "No. 237 Dorayi Babba, Rijiyar zaki",
+    secondary: "Along Gwarzo Road"
+  },
+  {
+    icon: MapPin,
+    title: "Branch Office",
+    primary: "BRAIN office, New BMS, B wing Science complex",
+    secondary: "Northwest University Kano, Main campus"
   },
 ];
 

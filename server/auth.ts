@@ -434,20 +434,11 @@ export function registerMemberRoutes(app: Express) {
         return res.status(400).json({ error: "Invalid input", details: result.error.issues });
       }
 
-      const { firstName, lastName, email } = result.data;
-      
-      // Check if email is being changed and if it's already taken
-      if (email) {
-        const [existingMember] = await db.select().from(members).where(eq(members.email, email));
-        if (existingMember && existingMember.id !== memberId) {
-          return res.status(409).json({ error: "Email already in use" });
-        }
-      }
+      const { firstName, lastName } = result.data;
 
-      const updateData: Partial<{ firstName: string; lastName: string; email: string }> = {};
+      const updateData: Partial<{ firstName: string; lastName: string }> = {};
       if (firstName !== undefined) updateData.firstName = firstName;
       if (lastName !== undefined) updateData.lastName = lastName;
-      if (email !== undefined) updateData.email = email;
 
       const [updatedMember] = await db
         .update(members)
