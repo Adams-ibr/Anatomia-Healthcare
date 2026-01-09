@@ -1678,7 +1678,7 @@ subscriberRouter.post("/flashcards/:flashcardId/review", async (req: Request, re
 // Get all members with their membership info
 adminRouter.get("/members", async (req: Request, res: Response) => {
   try {
-    const allMembers = await lmsStorage.getAllMembers();
+    const allMembers = await lmsStorage.getAllMembersForAdmin();
     res.json(allMembers);
   } catch (error) {
     res.status(500).json({ message: "Failed to fetch members" });
@@ -1725,6 +1725,67 @@ adminRouter.patch("/members/:id/membership", async (req: Request, res: Response)
   }
 });
 
+// Update member status (active/inactive)
+adminRouter.patch("/members/:id/status", async (req: Request, res: Response) => {
+  try {
+    const { isActive } = req.body;
+    const admin = (req as any).user;
+    
+    if (typeof isActive !== "boolean") {
+      return res.status(400).json({ message: "isActive must be a boolean" });
+    }
+    
+    const oldMember = await lmsStorage.getMemberById(req.params.id);
+    if (!oldMember) {
+      return res.status(404).json({ message: "Member not found" });
+    }
+    
+    const updated = await lmsStorage.updateMemberStatus(req.params.id, isActive);
+    
+    await logAuditAction(
+      admin.id,
+      isActive ? "activate_member" : "deactivate_member",
+      "member",
+      req.params.id,
+      { isActive: oldMember.isActive },
+      { isActive },
+      req
+    );
+    
+    res.json(updated);
+  } catch (error) {
+    res.status(500).json({ message: "Failed to update member status" });
+  }
+});
+
+// Delete member
+adminRouter.delete("/members/:id", async (req: Request, res: Response) => {
+  try {
+    const admin = (req as any).user;
+    
+    const member = await lmsStorage.getMemberById(req.params.id);
+    if (!member) {
+      return res.status(404).json({ message: "Member not found" });
+    }
+    
+    const deleted = await lmsStorage.deleteMember(req.params.id);
+    
+    await logAuditAction(
+      admin.id,
+      "delete_member",
+      "member",
+      req.params.id,
+      { email: member.email },
+      null,
+      req
+    );
+    
+    res.json({ message: "Member deleted successfully" });
+  } catch (error) {
+    res.status(500).json({ message: "Failed to delete member" });
+  }
+});
+
 // Audit Logs (Super Admin only)
 const superAdminRouter = Router();
 superAdminRouter.use(isSuperAdmin);
@@ -1747,6 +1808,48 @@ superAdminRouter.get("/users", async (req: Request, res: Response) => {
     res.json(adminUsers);
   } catch (error) {
     res.status(500).json({ message: "Failed to fetch admin users" });
+  }
+});
+
+superAdminRouter.post("/users", async (req: Request, res: Response) => {
+  try {
+    const { email, password, role, firstName, lastName } = req.body;
+    const { adminRoles } = await import("@shared/models/auth");
+    
+    if (!email || !password) {
+      return res.status(400).json({ message: "Email and password are required" });
+    }
+    
+    if (!role || !adminRoles.includes(role)) {
+      return res.status(400).json({ message: "Invalid role. Must be one of: " + adminRoles.join(", ") });
+    }
+    
+    if (password.length < 6) {
+      return res.status(400).json({ message: "Password must be at least 6 characters" });
+    }
+    
+    const created = await lmsStorage.createAdminUser(email, password, role, firstName, lastName);
+    
+    const currentUserId = (req.session as any).userId;
+    const admin = await lmsStorage.getAdminUserById(currentUserId);
+    if (admin) {
+      await logAuditAction(
+        admin.id,
+        "create_admin",
+        "user",
+        created.id,
+        null,
+        { email, role, firstName, lastName },
+        req
+      );
+    }
+    
+    res.status(201).json(created);
+  } catch (error: any) {
+    if (error?.constraint === "users_email_unique" || error?.code === "23505") {
+      return res.status(400).json({ message: "Email already exists" });
+    }
+    res.status(500).json({ message: "Failed to create admin user" });
   }
 });
 

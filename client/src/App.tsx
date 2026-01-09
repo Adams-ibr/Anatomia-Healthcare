@@ -39,6 +39,7 @@ import AdminFlashcards from "@/pages/admin/AdminFlashcards";
 import AdminAnatomyModels from "@/pages/admin/AdminAnatomyModels";
 import AdminMembers from "@/pages/admin/AdminMembers";
 import AdminUsers from "@/pages/admin/AdminUsers";
+import AdminUserManagement from "@/pages/admin/AdminUserManagement";
 import Login from "@/pages/admin/Login";
 import Register from "@/pages/auth/Register";
 import UserLogin from "@/pages/auth/UserLogin";
@@ -123,6 +124,7 @@ function Router() {
       <Route path="/admin/anatomy-models" component={AdminAnatomyModels} />
       <Route path="/admin/members" component={AdminMembers} />
       <Route path="/admin/users" component={AdminUsers} />
+      <Route path="/admin/user-management" component={AdminUserManagement} />
       <Route path="/admin/login" component={Login} />
       <Route path="/register" component={Register} />
       <Route path="/login" component={UserLogin} />

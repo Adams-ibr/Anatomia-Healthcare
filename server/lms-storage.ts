@@ -1,5 +1,6 @@
 import { db } from "./db";
 import { eq, and, desc, asc } from "drizzle-orm";
+import bcrypt from "bcrypt";
 import {
   courseCategories, CourseCategory, InsertCourseCategory,
   courses, Course, InsertCourse,
@@ -170,8 +171,10 @@ export interface ILmsStorage {
 
   // Members (for certificate generation and admin management)
   getMemberById(id: string): Promise<Member | undefined>;
-  getAllMembers(): Promise<Member[]>;
-  updateMemberMembership(id: string, tier: string, expiresAt?: Date | null): Promise<Member | undefined>;
+  getAllMembersForAdmin(): Promise<Omit<Member, "password">[]>;
+  updateMemberMembership(id: string, tier: string, expiresAt?: Date | null): Promise<Omit<Member, "password"> | undefined>;
+  updateMemberStatus(id: string, isActive: boolean): Promise<Omit<Member, "password"> | undefined>;
+  deleteMember(id: string): Promise<Omit<Member, "password"> | undefined>;
 
   // Admin Users (Super Admin only)
   getAllAdminUsers(): Promise<Omit<User, "password">[]>;
@@ -179,6 +182,7 @@ export interface ILmsStorage {
   updateAdminUserRole(id: string, role: string): Promise<Omit<User, "password"> | undefined>;
   updateAdminUserStatus(id: string, isActive: boolean): Promise<Omit<User, "password"> | undefined>;
   deleteAdminUser(id: string): Promise<Omit<User, "password"> | undefined>;
+  createAdminUser(email: string, password: string, role: string, firstName?: string, lastName?: string): Promise<Omit<User, "password">>;
 }
 
 export class LmsStorage implements ILmsStorage {
@@ -821,11 +825,22 @@ export class LmsStorage implements ILmsStorage {
     return member;
   }
 
-  async getAllMembers(): Promise<Member[]> {
-    return db.select().from(members).orderBy(desc(members.createdAt));
+  async getAllMembersForAdmin(): Promise<Omit<Member, "password">[]> {
+    const allMembers = await db.select({
+      id: members.id,
+      email: members.email,
+      firstName: members.firstName,
+      lastName: members.lastName,
+      membershipTier: members.membershipTier,
+      membershipExpiresAt: members.membershipExpiresAt,
+      isActive: members.isActive,
+      createdAt: members.createdAt,
+      updatedAt: members.updatedAt,
+    }).from(members).orderBy(desc(members.createdAt));
+    return allMembers;
   }
 
-  async updateMemberMembership(id: string, tier: string, expiresAt?: Date | null): Promise<Member | undefined> {
+  async updateMemberMembership(id: string, tier: string, expiresAt?: Date | null): Promise<Omit<Member, "password"> | undefined> {
     const [updated] = await db.update(members)
       .set({ 
         membershipTier: tier, 
@@ -833,8 +848,53 @@ export class LmsStorage implements ILmsStorage {
         updatedAt: new Date() 
       })
       .where(eq(members.id, id))
-      .returning();
+      .returning({
+        id: members.id,
+        email: members.email,
+        firstName: members.firstName,
+        lastName: members.lastName,
+        membershipTier: members.membershipTier,
+        membershipExpiresAt: members.membershipExpiresAt,
+        isActive: members.isActive,
+        createdAt: members.createdAt,
+        updatedAt: members.updatedAt,
+      });
     return updated;
+  }
+
+  async updateMemberStatus(id: string, isActive: boolean): Promise<Omit<Member, "password"> | undefined> {
+    const [updated] = await db.update(members)
+      .set({ isActive, updatedAt: new Date() })
+      .where(eq(members.id, id))
+      .returning({
+        id: members.id,
+        email: members.email,
+        firstName: members.firstName,
+        lastName: members.lastName,
+        membershipTier: members.membershipTier,
+        membershipExpiresAt: members.membershipExpiresAt,
+        isActive: members.isActive,
+        createdAt: members.createdAt,
+        updatedAt: members.updatedAt,
+      });
+    return updated;
+  }
+
+  async deleteMember(id: string): Promise<Omit<Member, "password"> | undefined> {
+    const [deleted] = await db.delete(members)
+      .where(eq(members.id, id))
+      .returning({
+        id: members.id,
+        email: members.email,
+        firstName: members.firstName,
+        lastName: members.lastName,
+        membershipTier: members.membershipTier,
+        membershipExpiresAt: members.membershipExpiresAt,
+        isActive: members.isActive,
+        createdAt: members.createdAt,
+        updatedAt: members.updatedAt,
+      });
+    return deleted;
   }
 
   // Admin Users (Super Admin only)
@@ -919,6 +979,31 @@ export class LmsStorage implements ILmsStorage {
         updatedAt: users.updatedAt,
       });
     return deleted;
+  }
+
+  async createAdminUser(email: string, password: string, role: string, firstName?: string, lastName?: string): Promise<Omit<User, "password">> {
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const [created] = await db.insert(users)
+      .values({
+        email,
+        password: hashedPassword,
+        role,
+        firstName: firstName || null,
+        lastName: lastName || null,
+        isActive: true,
+      })
+      .returning({
+        id: users.id,
+        email: users.email,
+        firstName: users.firstName,
+        lastName: users.lastName,
+        role: users.role,
+        profileImageUrl: users.profileImageUrl,
+        isActive: users.isActive,
+        createdAt: users.createdAt,
+        updatedAt: users.updatedAt,
+      });
+    return created;
   }
 }
 

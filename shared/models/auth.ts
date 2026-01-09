@@ -76,6 +76,7 @@ export const members = pgTable("members", {
   lastName: varchar("last_name"),
   membershipTier: varchar("membership_tier").notNull().default("bronze"),
   membershipExpiresAt: timestamp("membership_expires_at"),
+  isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
