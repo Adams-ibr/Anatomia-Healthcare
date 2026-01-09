@@ -35,6 +35,7 @@ import {
   Crown
 } from "lucide-react";
 import { AdminLayout } from "@/components/admin/AdminLayout";
+import { ImageUploader } from "@/components/admin/ImageUploader";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import type { Course } from "@shared/schema";
@@ -49,6 +50,7 @@ export default function AdminCourses() {
     slug: "",
     description: "",
     shortDescription: "",
+    thumbnailUrl: "",
     category: "anatomy",
     level: "beginner",
     duration: "",
@@ -114,6 +116,7 @@ export default function AdminCourses() {
       slug: "",
       description: "",
       shortDescription: "",
+      thumbnailUrl: "",
       category: "anatomy",
       level: "beginner",
       duration: "",
@@ -133,6 +136,7 @@ export default function AdminCourses() {
       slug: course.slug,
       description: course.description,
       shortDescription: course.shortDescription || "",
+      thumbnailUrl: course.thumbnailUrl || "",
       category: course.category,
       level: course.level,
       duration: course.duration || "",
@@ -229,6 +233,12 @@ export default function AdminCourses() {
                     data-testid="input-course-description"
                   />
                 </div>
+                <ImageUploader
+                  name="thumbnailUrl"
+                  label="Course Thumbnail"
+                  defaultValue={formData.thumbnailUrl}
+                  onUploadComplete={(path) => setFormData({ ...formData, thumbnailUrl: path })}
+                />
                 <div className="grid grid-cols-2 gap-4">
                   <div className="grid gap-2">
                     <Label htmlFor="category">Category</Label>

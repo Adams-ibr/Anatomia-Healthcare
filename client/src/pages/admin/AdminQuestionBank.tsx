@@ -31,8 +31,9 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Edit, Trash2, HelpCircle, Tag, Filter, Search } from "lucide-react";
+import { Plus, Edit, Trash2, HelpCircle, Tag, Filter, Search, Upload } from "lucide-react";
 import { AdminLayout } from "@/components/admin/AdminLayout";
+import { BulkUploadDialog } from "@/components/admin/BulkUploadDialog";
 import type { QuestionTopic, QuestionBankItem } from "@shared/schema";
 
 interface QuestionBankItemWithOptions extends QuestionBankItem {
@@ -45,11 +46,32 @@ interface QuestionBankItemWithOptions extends QuestionBankItem {
   }>;
 }
 
+const QUESTION_CSV_TEMPLATE = `question,questionType,difficulty,points,option1,option1Correct,option2,option2Correct,option3,option3Correct,option4,option4Correct,explanation
+"What is the largest bone in the human body?",multiple_choice,easy,1,"Femur",true,"Tibia",false,"Humerus",false,"Pelvis",false,"The femur is the longest and strongest bone."
+"The heart has four chambers",true_false,easy,1,"True",true,"False",false,"","","","","The heart has two atria and two ventricles."`;
+
+const QUESTION_JSON_TEMPLATE = [
+  {
+    question: "What is the largest bone in the human body?",
+    questionType: "multiple_choice",
+    difficulty: "easy",
+    points: 1,
+    explanation: "The femur is the longest and strongest bone.",
+    options: [
+      { optionText: "Femur", isCorrect: true },
+      { optionText: "Tibia", isCorrect: false },
+      { optionText: "Humerus", isCorrect: false },
+      { optionText: "Pelvis", isCorrect: false },
+    ],
+  },
+];
+
 export default function AdminQuestionBank() {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("questions");
   const [questionDialogOpen, setQuestionDialogOpen] = useState(false);
   const [topicDialogOpen, setTopicDialogOpen] = useState(false);
+  const [bulkUploadOpen, setBulkUploadOpen] = useState(false);
   const [editingQuestion, setEditingQuestion] = useState<QuestionBankItemWithOptions | null>(null);
   const [editingTopic, setEditingTopic] = useState<QuestionTopic | null>(null);
   const [filterTopic, setFilterTopic] = useState<string>("all");
@@ -337,17 +359,27 @@ export default function AdminQuestionBank() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between gap-4">
               <CardTitle>All Questions</CardTitle>
-              <Button
-                onClick={() => {
-                  setEditingQuestion(null);
-                  resetQuestionForm();
-                  setQuestionDialogOpen(true);
-                }}
-                data-testid="button-add-question"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Add Question
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setBulkUploadOpen(true)}
+                  data-testid="button-bulk-upload"
+                >
+                  <Upload className="w-4 h-4 mr-2" />
+                  Bulk Upload
+                </Button>
+                <Button
+                  onClick={() => {
+                    setEditingQuestion(null);
+                    resetQuestionForm();
+                    setQuestionDialogOpen(true);
+                  }}
+                  data-testid="button-add-question"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Question
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
               <div className="flex flex-wrap items-center gap-4 mb-4">
@@ -766,6 +798,55 @@ export default function AdminQuestionBank() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <BulkUploadDialog
+        open={bulkUploadOpen}
+        onOpenChange={setBulkUploadOpen}
+        title="Bulk Upload Questions"
+        description="Upload multiple questions at once using CSV or JSON format. Download the template for the correct format."
+        csvTemplate={QUESTION_CSV_TEMPLATE}
+        jsonTemplate={QUESTION_JSON_TEMPLATE}
+        templateFileName="question_bank_template"
+        onUpload={async (data) => {
+          const items = data.map((row: any) => {
+            if (row.options) {
+              return row;
+            }
+            const options = [];
+            for (let i = 1; i <= 4; i++) {
+              const text = row[`option${i}`];
+              if (text) {
+                options.push({
+                  optionText: text,
+                  isCorrect: row[`option${i}Correct`] === true || row[`option${i}Correct`] === "true",
+                });
+              }
+            }
+            return {
+              question: row.question,
+              questionType: row.questionType || "multiple_choice",
+              difficulty: row.difficulty || "medium",
+              points: row.points || 1,
+              explanation: row.explanation || "",
+              options,
+            };
+          });
+          
+          const response = await apiRequest("/api/lms/admin/question-bank/bulk-import", "POST", { items });
+          const result = await response.json();
+          
+          if (result.failed > 0) {
+            toast({
+              title: `Imported ${result.imported} questions with ${result.failed} errors`,
+              variant: "destructive",
+            });
+          } else {
+            toast({ title: `Successfully imported ${result.imported} questions` });
+          }
+          
+          queryClient.invalidateQueries({ queryKey: ["/api/lms/admin/question-bank"] });
+        }}
+      />
       </div>
     </AdminLayout>
   );

@@ -1186,6 +1186,66 @@ adminRouter.delete("/question-bank/:id", isContentAdmin, async (req: Request, re
   }
 });
 
+// Bulk import question bank items
+adminRouter.post("/question-bank/bulk-import", isContentAdmin, async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    const { items } = req.body;
+    
+    if (!Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({ message: "Items array is required" });
+    }
+    
+    const results: any[] = [];
+    const errors: any[] = [];
+    
+    for (let i = 0; i < items.length; i++) {
+      try {
+        const item = items[i];
+        const question = await lmsStorage.createQuestionBankItem({
+          question: item.question,
+          questionType: item.questionType || "multiple_choice",
+          topicId: item.topicId || null,
+          difficulty: item.difficulty || "medium",
+          explanation: item.explanation || null,
+          points: item.points || 1,
+          tags: item.tags || [],
+          isActive: true,
+        });
+        
+        // Create options if provided
+        if (item.options && Array.isArray(item.options)) {
+          for (let j = 0; j < item.options.length; j++) {
+            const opt = item.options[j];
+            await lmsStorage.createQuestionBankOption({
+              questionId: question.id,
+              optionText: opt.optionText || opt.text || "",
+              isCorrect: opt.isCorrect || false,
+              explanation: opt.explanation || null,
+              order: j,
+            });
+          }
+        }
+        
+        results.push({ index: i, success: true, id: question.id });
+      } catch (err: any) {
+        errors.push({ index: i, success: false, error: err.message });
+      }
+    }
+    
+    await logAuditAction(user?.id, "bulk_import_questions", "question_bank", undefined, null, { count: results.length }, req);
+    
+    res.json({
+      imported: results.length,
+      failed: errors.length,
+      results,
+      errors,
+    });
+  } catch (error: any) {
+    res.status(400).json({ message: error.message || "Failed to bulk import questions" });
+  }
+});
+
 // ============ FLASHCARD ROUTES ============
 
 // Get all flashcard decks
@@ -1276,6 +1336,58 @@ adminRouter.post("/flashcard-decks/:deckId/flashcards", isContentAdmin, async (r
     res.status(201).json(flashcard);
   } catch (error: any) {
     res.status(400).json({ message: error.message || "Failed to create flashcard" });
+  }
+});
+
+// Bulk import flashcards to a deck
+adminRouter.post("/flashcard-decks/:deckId/flashcards/bulk-import", isContentAdmin, async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    const { deckId } = req.params;
+    const { items } = req.body;
+    
+    if (!Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({ message: "Items array is required" });
+    }
+    
+    // Verify deck exists
+    const deck = await lmsStorage.getFlashcardDeckById(deckId);
+    if (!deck) {
+      return res.status(404).json({ message: "Deck not found" });
+    }
+    
+    const results: any[] = [];
+    const errors: any[] = [];
+    
+    for (let i = 0; i < items.length; i++) {
+      try {
+        const item = items[i];
+        const flashcard = await lmsStorage.createFlashcard({
+          deckId,
+          front: item.front,
+          back: item.back,
+          cardType: item.cardType || "learning",
+          explanation: item.explanation || null,
+          correctAnswer: item.correctAnswer || null,
+          options: item.options || null,
+        });
+        
+        results.push({ index: i, success: true, id: flashcard.id });
+      } catch (err: any) {
+        errors.push({ index: i, success: false, error: err.message });
+      }
+    }
+    
+    await logAuditAction(user?.id, "bulk_import_flashcards", "flashcard_deck", deckId, null, { count: results.length }, req);
+    
+    res.json({
+      imported: results.length,
+      failed: errors.length,
+      results,
+      errors,
+    });
+  } catch (error: any) {
+    res.status(400).json({ message: error.message || "Failed to bulk import flashcards" });
   }
 });
 

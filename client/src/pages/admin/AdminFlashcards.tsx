@@ -32,7 +32,8 @@ import {
 } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Plus, Pencil, Trash2, Layers, ArrowLeft, BookOpen, HelpCircle, Lightbulb, Sparkles } from "lucide-react";
+import { Plus, Pencil, Trash2, Layers, ArrowLeft, BookOpen, HelpCircle, Lightbulb, Sparkles, Upload } from "lucide-react";
+import { BulkUploadDialog } from "@/components/admin/BulkUploadDialog";
 import type { FlashcardDeck, Flashcard } from "@shared/schema";
 
 interface FlashcardOption {
@@ -55,10 +56,30 @@ function getCardTypeInfo(cardType: string) {
   return CARD_TYPES.find(t => t.value === cardType) || CARD_TYPES[0];
 }
 
+const FLASHCARD_CSV_TEMPLATE = `front,back,cardType,explanation
+"What is the function of hemoglobin?","To carry oxygen from the lungs to the tissues",learning,"Red blood cells contain hemoglobin"
+"The mitochondria is the powerhouse of the cell",true,fun_fact,""
+"Always review flashcards before sleep for better retention","Studies show sleep helps consolidate memory",tip,""`;
+
+const FLASHCARD_JSON_TEMPLATE = [
+  {
+    front: "What is the function of hemoglobin?",
+    back: "To carry oxygen from the lungs to the tissues",
+    cardType: "learning",
+    explanation: "Red blood cells contain hemoglobin",
+  },
+  {
+    front: "The mitochondria is the powerhouse of the cell",
+    back: "True - it produces ATP through cellular respiration",
+    cardType: "fun_fact",
+  },
+];
+
 export default function AdminFlashcards() {
   const { toast } = useToast();
   const [isDeckDialogOpen, setIsDeckDialogOpen] = useState(false);
   const [isCardDialogOpen, setIsCardDialogOpen] = useState(false);
+  const [bulkUploadOpen, setBulkUploadOpen] = useState(false);
   const [editingDeck, setEditingDeck] = useState<FlashcardDeck | null>(null);
   const [editingCard, setEditingCard] = useState<FlashcardWithOptions | null>(null);
   const [selectedDeck, setSelectedDeck] = useState<FlashcardDeck | null>(null);
@@ -318,10 +339,16 @@ export default function AdminFlashcards() {
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back to Decks
             </Button>
-            <Button onClick={openCreateCardDialog} data-testid="button-add-card">
-              <Plus className="h-4 w-4 mr-2" />
-              Add Card
-            </Button>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setBulkUploadOpen(true)} data-testid="button-bulk-upload">
+                <Upload className="h-4 w-4 mr-2" />
+                Bulk Upload
+              </Button>
+              <Button onClick={openCreateCardDialog} data-testid="button-add-card">
+                <Plus className="h-4 w-4 mr-2" />
+                Add Card
+              </Button>
+            </div>
           </div>
 
           {cardsLoading ? (
@@ -529,6 +556,44 @@ export default function AdminFlashcards() {
               </form>
             </DialogContent>
           </Dialog>
+
+          <BulkUploadDialog
+            open={bulkUploadOpen}
+            onOpenChange={setBulkUploadOpen}
+            title="Bulk Upload Flashcards"
+            description="Upload multiple flashcards at once using CSV or JSON format. Download the template for the correct format."
+            csvTemplate={FLASHCARD_CSV_TEMPLATE}
+            jsonTemplate={FLASHCARD_JSON_TEMPLATE}
+            templateFileName="flashcards_template"
+            onUpload={async (data) => {
+              const items = data.map((row: any) => ({
+                front: row.front,
+                back: row.back,
+                cardType: row.cardType || "learning",
+                explanation: row.explanation || null,
+              }));
+              
+              const response = await apiRequest(
+                `/api/lms/admin/flashcard-decks/${selectedDeck?.id}/flashcards/bulk-import`,
+                "POST",
+                { items }
+              );
+              const result = await response.json();
+              
+              if (result.failed > 0) {
+                toast({
+                  title: `Imported ${result.imported} flashcards with ${result.failed} errors`,
+                  variant: "destructive",
+                });
+              } else {
+                toast({ title: `Successfully imported ${result.imported} flashcards` });
+              }
+              
+              queryClient.invalidateQueries({ 
+                queryKey: ["/api/lms/admin/flashcard-decks", selectedDeck?.id, "flashcards"] 
+              });
+            }}
+          />
         </div>
       </AdminLayout>
     );
