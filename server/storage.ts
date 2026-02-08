@@ -1,10 +1,10 @@
-import { 
-  type User, 
+import {
+  type User,
   type InsertUser,
   type ContactMessage,
   type InsertContactMessage,
   type NewsletterSubscription,
-  type InsertNewsletterSubscription 
+  type InsertNewsletterSubscription
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -12,10 +12,10 @@ export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
-  
+
   createContactMessage(message: InsertContactMessage): Promise<ContactMessage>;
   getContactMessages(): Promise<ContactMessage[]>;
-  
+
   createNewsletterSubscription(subscription: InsertNewsletterSubscription): Promise<NewsletterSubscription>;
   getNewsletterSubscriptionByEmail(email: string): Promise<NewsletterSubscription | undefined>;
   getNewsletterSubscriptions(): Promise<NewsletterSubscription[]>;
@@ -44,14 +44,16 @@ export class MemStorage implements IStorage {
 
   async createUser(insertUser: InsertUser): Promise<User> {
     const id = randomUUID();
-    const user: User = { 
-      ...insertUser, 
+    const user: User = {
+      ...insertUser,
       id,
       createdAt: new Date(),
       updatedAt: new Date(),
       firstName: insertUser.firstName || null,
       lastName: insertUser.lastName || null,
       profileImageUrl: insertUser.profileImageUrl || null,
+      role: insertUser.role || "content_admin",
+      isActive: insertUser.isActive ?? true,
     };
     this.users.set(id, user);
     return user;
@@ -59,8 +61,8 @@ export class MemStorage implements IStorage {
 
   async createContactMessage(insertMessage: InsertContactMessage): Promise<ContactMessage> {
     const id = randomUUID();
-    const message: ContactMessage = { 
-      ...insertMessage, 
+    const message: ContactMessage = {
+      ...insertMessage,
       id,
       createdAt: new Date(),
       isRead: false,
@@ -75,8 +77,8 @@ export class MemStorage implements IStorage {
 
   async createNewsletterSubscription(insertSubscription: InsertNewsletterSubscription): Promise<NewsletterSubscription> {
     const id = randomUUID();
-    const subscription: NewsletterSubscription = { 
-      ...insertSubscription, 
+    const subscription: NewsletterSubscription = {
+      ...insertSubscription,
       id,
       createdAt: new Date(),
     };

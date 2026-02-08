@@ -1,7 +1,7 @@
 import { Link } from "wouter";
 import { motion, useReducedMotion } from "framer-motion";
 import { Layout } from "@/components/layout/Layout";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -15,9 +15,9 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { 
-  GraduationCap, 
-  Globe, 
+import {
+  GraduationCap,
+  Globe,
   Lightbulb,
   MapPin,
   Clock,
@@ -105,9 +105,9 @@ export default function Career() {
                 animate="visible"
                 variants={staggerContainer}
               >
-                <motion.h1 
+                <motion.h1
                   variants={fadeInUp}
-                  className="text-4xl md:text-5xl font-bold text-foreground mb-6" 
+                  className="text-4xl md:text-5xl font-bold text-foreground mb-6"
                   data-testid="text-career-hero-title"
                 >
                   Build the Future of Medical Education
@@ -121,7 +121,7 @@ export default function Career() {
                   </Button>
                 </motion.div>
               </motion.div>
-              <motion.div 
+              <motion.div
                 className="relative"
                 initial={prefersReducedMotion ? false : { opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
@@ -138,7 +138,7 @@ export default function Career() {
           </div>
         </section>
 
-        <motion.section 
+        <motion.section
           className="py-16 bg-card"
           ref={valuesRef.ref}
           initial={prefersReducedMotion ? false : "hidden"}
@@ -206,7 +206,7 @@ export default function Career() {
           </div>
         </section>
 
-        <motion.section 
+        <motion.section
           className="py-16 bg-card"
           ref={openingsRef.ref}
           initial={prefersReducedMotion ? false : "hidden"}
@@ -214,7 +214,7 @@ export default function Career() {
           variants={staggerContainer}
         >
           <div className="max-w-7xl mx-auto px-4 sm:px-6">
-            <motion.div 
+            <motion.div
               className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8"
               variants={fadeInUp}
             >
@@ -267,15 +267,15 @@ export default function Career() {
 
             <motion.div className="text-center mt-8" variants={fadeInUp}>
               <Link href="/careers">
-                <Button variant="link" className="gap-2" data-testid="link-archived-positions">
+                <a className={buttonVariants({ variant: "link", className: "gap-2" })} data-testid="link-archived-positions">
                   View archived positions <ChevronRight className="w-4 h-4" />
-                </Button>
+                </a>
               </Link>
             </motion.div>
           </div>
         </motion.section>
 
-        <motion.section 
+        <motion.section
           className="py-16"
           initial={prefersReducedMotion ? false : { opacity: 0 }}
           whileInView={{ opacity: 1 }}
