@@ -15,17 +15,17 @@ import {
 } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { 
-  LayoutDashboard, 
-  BookOpen, 
-  Brain, 
-  Layers3, 
+import {
+  LayoutDashboard,
+  BookOpen,
+  Brain,
+  Layers3,
   Atom,
   LogOut,
   User,
   GraduationCap
 } from "lucide-react";
-import logoIcon from "@assets/Secondary_Color@3x_1767829263550.png";
+import logoIcon from "@assets/logo.png";
 import type { Member } from "@shared/schema";
 
 const menuItems = [
@@ -58,15 +58,15 @@ const menuItems = [
 
 export function StudentSidebar() {
   const [location] = useLocation();
-  
+
   const { data: member } = useQuery<Member>({
     queryKey: ["/api/members/me"],
   });
 
   const handleLogout = async () => {
-    await fetch("/api/members/logout", { 
+    await fetch("/api/members/logout", {
       method: "POST",
-      credentials: "include" 
+      credentials: "include"
     });
     // Clear the React Query cache to prevent stale auth data
     queryClient.clear();
@@ -88,7 +88,7 @@ export function StudentSidebar() {
           <span className="text-lg font-semibold">Anatomia</span>
         </Link>
       </SidebarHeader>
-      
+
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupLabel>Learning</SidebarGroupLabel>
@@ -96,8 +96,8 @@ export function StudentSidebar() {
             <SidebarMenu>
               {menuItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton 
-                    asChild 
+                  <SidebarMenuButton
+                    asChild
                     isActive={location === item.url}
                     data-testid={`sidebar-link-${item.title.toLowerCase().replace(/\s+/g, '-')}`}
                   >
@@ -112,7 +112,7 @@ export function StudentSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-      
+
       <SidebarFooter className="p-4">
         <div className="flex items-center gap-3 mb-3">
           <Avatar className="h-9 w-9">
@@ -120,7 +120,7 @@ export function StudentSidebar() {
           </Avatar>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium truncate">
-              {member?.firstName && member?.lastName 
+              {member?.firstName && member?.lastName
                 ? `${member.firstName} ${member.lastName}`
                 : member?.email || "Student"}
             </p>
@@ -131,18 +131,18 @@ export function StudentSidebar() {
         </div>
         <div className="space-y-2">
           <Link href="/profile">
-            <Button 
+            <Button
               variant={location === "/profile" ? "secondary" : "ghost"}
-              className="w-full justify-start" 
+              className="w-full justify-start"
               data-testid="button-profile"
             >
               <User className="h-4 w-4 mr-2" />
               My Profile
             </Button>
           </Link>
-          <Button 
-            variant="outline" 
-            className="w-full justify-start" 
+          <Button
+            variant="outline"
+            className="w-full justify-start"
             onClick={handleLogout}
             data-testid="button-logout"
           >

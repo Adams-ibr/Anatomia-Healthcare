@@ -4,9 +4,13 @@ import {
   type ContactMessage,
   type InsertContactMessage,
   type NewsletterSubscription,
-  type InsertNewsletterSubscription
+  type InsertNewsletterSubscription,
+  users,
+  contactMessages,
+  newsletterSubscriptions
 } from "@shared/schema";
-import { randomUUID } from "crypto";
+import { db } from "./db";
+import { eq } from "drizzle-orm";
 
 export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
@@ -21,80 +25,44 @@ export interface IStorage {
   getNewsletterSubscriptions(): Promise<NewsletterSubscription[]>;
 }
 
-export class MemStorage implements IStorage {
-  private users: Map<string, User>;
-  private contactMessages: Map<string, ContactMessage>;
-  private newsletterSubscriptions: Map<string, NewsletterSubscription>;
-
-  constructor() {
-    this.users = new Map();
-    this.contactMessages = new Map();
-    this.newsletterSubscriptions = new Map();
-  }
-
+export class DatabaseStorage implements IStorage {
   async getUser(id: string): Promise<User | undefined> {
-    return this.users.get(id);
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user;
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.email === username,
-    );
+    const [user] = await db.select().from(users).where(eq(users.email, username));
+    return user;
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
-    const id = randomUUID();
-    const user: User = {
-      ...insertUser,
-      id,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      firstName: insertUser.firstName || null,
-      lastName: insertUser.lastName || null,
-      profileImageUrl: insertUser.profileImageUrl || null,
-      role: insertUser.role || "content_admin",
-      isActive: insertUser.isActive ?? true,
-    };
-    this.users.set(id, user);
+    const [user] = await db.insert(users).values(insertUser).returning();
     return user;
   }
 
   async createContactMessage(insertMessage: InsertContactMessage): Promise<ContactMessage> {
-    const id = randomUUID();
-    const message: ContactMessage = {
-      ...insertMessage,
-      id,
-      createdAt: new Date(),
-      isRead: false,
-    };
-    this.contactMessages.set(id, message);
+    const [message] = await db.insert(contactMessages).values(insertMessage).returning();
     return message;
   }
 
   async getContactMessages(): Promise<ContactMessage[]> {
-    return Array.from(this.contactMessages.values());
+    return db.select().from(contactMessages);
   }
 
   async createNewsletterSubscription(insertSubscription: InsertNewsletterSubscription): Promise<NewsletterSubscription> {
-    const id = randomUUID();
-    const subscription: NewsletterSubscription = {
-      ...insertSubscription,
-      id,
-      createdAt: new Date(),
-    };
-    this.newsletterSubscriptions.set(id, subscription);
+    const [subscription] = await db.insert(newsletterSubscriptions).values(insertSubscription).returning();
     return subscription;
   }
 
   async getNewsletterSubscriptionByEmail(email: string): Promise<NewsletterSubscription | undefined> {
-    return Array.from(this.newsletterSubscriptions.values()).find(
-      (sub) => sub.email === email,
-    );
+    const [subscription] = await db.select().from(newsletterSubscriptions).where(eq(newsletterSubscriptions.email, email));
+    return subscription;
   }
 
   async getNewsletterSubscriptions(): Promise<NewsletterSubscription[]> {
-    return Array.from(this.newsletterSubscriptions.values());
+    return db.select().from(newsletterSubscriptions);
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();

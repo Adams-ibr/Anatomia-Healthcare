@@ -1,7 +1,7 @@
 import { Link, useLocation } from "wouter";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { Search, Menu, X, User, LogOut, LayoutDashboard } from "lucide-react";
-import logoIcon from "@assets/Secondary_Color@3x_1767829263550.png";
+import logoIcon from "@assets/logo.png";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -56,9 +56,9 @@ export function Navbar() {
   const isLoggedIn = !!member;
 
   const handleLogout = async () => {
-    await fetch("/api/members/logout", { 
+    await fetch("/api/members/logout", {
       method: "POST",
-      credentials: "include" 
+      credentials: "include"
     });
     // Clear the React Query cache to prevent stale auth data
     queryClient.clear();
@@ -108,11 +108,10 @@ export function Navbar() {
                   <Button
                     variant="ghost"
                     size="sm"
-                    className={`text-sm font-medium ${
-                      location === link.href 
-                        ? "text-primary" 
+                    className={`text-sm font-medium ${location === link.href
+                        ? "text-primary"
                         : "text-muted-foreground"
-                    }`}
+                      }`}
                     data-testid={`link-nav-${link.label.toLowerCase().replace(/\s/g, '-')}`}
                   >
                     {link.label}
@@ -122,7 +121,7 @@ export function Navbar() {
             ))}
           </nav>
 
-          <motion.div 
+          <motion.div
             className="flex items-center gap-2"
             initial={prefersReducedMotion ? false : { opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
@@ -178,7 +177,7 @@ export function Navbar() {
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem 
+                    <DropdownMenuItem
                       onClick={handleLogout}
                       className="flex items-center gap-2 cursor-pointer text-destructive"
                       data-testid="button-logout"
@@ -220,11 +219,10 @@ export function Navbar() {
                   <Link key={link.href} href={link.href} onClick={() => setMobileMenuOpen(false)}>
                     <Button
                       variant="ghost"
-                      className={`w-full justify-start ${
-                        location === link.href 
-                          ? "text-primary bg-primary/5" 
+                      className={`w-full justify-start ${location === link.href
+                          ? "text-primary bg-primary/5"
                           : "text-muted-foreground"
-                      }`}
+                        }`}
                       data-testid={`link-mobile-${link.label.toLowerCase().replace(/\s/g, '-')}`}
                     >
                       {link.label}
@@ -240,7 +238,7 @@ export function Navbar() {
                         </Avatar>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium truncate">
-                            {member?.firstName && member?.lastName 
+                            {member?.firstName && member?.lastName
                               ? `${member.firstName} ${member.lastName}`
                               : member?.email || "Student"}
                           </p>
@@ -252,9 +250,9 @@ export function Navbar() {
                           Dashboard
                         </Button>
                       </Link>
-                      <Button 
-                        variant="outline" 
-                        className="w-full justify-start gap-2 text-destructive" 
+                      <Button
+                        variant="outline"
+                        className="w-full justify-start gap-2 text-destructive"
                         size="sm"
                         onClick={handleLogout}
                         data-testid="button-logout-mobile"
@@ -299,11 +297,10 @@ export function Navbar() {
                       <Link href={link.href} onClick={() => setMobileMenuOpen(false)}>
                         <Button
                           variant="ghost"
-                          className={`w-full justify-start ${
-                            location === link.href 
-                              ? "text-primary bg-primary/5" 
+                          className={`w-full justify-start ${location === link.href
+                              ? "text-primary bg-primary/5"
                               : "text-muted-foreground"
-                          }`}
+                            }`}
                           data-testid={`link-mobile-${link.label.toLowerCase().replace(/\s/g, '-')}`}
                         >
                           {link.label}
@@ -325,7 +322,7 @@ export function Navbar() {
                           </Avatar>
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium truncate">
-                              {member?.firstName && member?.lastName 
+                              {member?.firstName && member?.lastName
                                 ? `${member.firstName} ${member.lastName}`
                                 : member?.email || "Student"}
                             </p>
@@ -337,9 +334,9 @@ export function Navbar() {
                             Dashboard
                           </Button>
                         </Link>
-                        <Button 
-                          variant="outline" 
-                          className="w-full justify-start gap-2 text-destructive" 
+                        <Button
+                          variant="outline"
+                          className="w-full justify-start gap-2 text-destructive"
                           size="sm"
                           onClick={handleLogout}
                           data-testid="button-logout-mobile-anim"
