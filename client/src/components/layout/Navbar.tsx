@@ -90,8 +90,7 @@ export function Navbar() {
             transition={{ duration: 0.3 }}
           >
             <Link href="/" className="flex items-center gap-2 shrink-0">
-              <img src={logoIcon} alt="Anatomia" className="h-6 w-6" />
-              <span className="text-xl font-bold text-foreground" data-testid="text-logo">Anatomia</span>
+              <img src={logoIcon} alt="Anatomia" className="h-10 w-auto object-contain" />
             </Link>
           </motion.div>
 
@@ -109,8 +108,8 @@ export function Navbar() {
                     variant="ghost"
                     size="sm"
                     className={`text-sm font-medium ${location === link.href
-                        ? "text-primary"
-                        : "text-muted-foreground"
+                      ? "text-primary"
+                      : "text-muted-foreground"
                       }`}
                     data-testid={`link-nav-${link.label.toLowerCase().replace(/\s/g, '-')}`}
                   >
@@ -220,8 +219,8 @@ export function Navbar() {
                     <Button
                       variant="ghost"
                       className={`w-full justify-start ${location === link.href
-                          ? "text-primary bg-primary/5"
-                          : "text-muted-foreground"
+                        ? "text-primary bg-primary/5"
+                        : "text-muted-foreground"
                         }`}
                       data-testid={`link-mobile-${link.label.toLowerCase().replace(/\s/g, '-')}`}
                     >
@@ -298,8 +297,8 @@ export function Navbar() {
                         <Button
                           variant="ghost"
                           className={`w-full justify-start ${location === link.href
-                              ? "text-primary bg-primary/5"
-                              : "text-muted-foreground"
+                            ? "text-primary bg-primary/5"
+                            : "text-muted-foreground"
                             }`}
                           data-testid={`link-mobile-${link.label.toLowerCase().replace(/\s/g, '-')}`}
                         >

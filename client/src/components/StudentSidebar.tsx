@@ -83,9 +83,8 @@ export function StudentSidebar() {
   return (
     <Sidebar>
       <SidebarHeader className="p-4">
-        <Link href="/dashboard" className="flex items-center gap-2">
-          <img src={logoIcon} alt="Anatomia" className="h-6 w-6" />
-          <span className="text-lg font-semibold">Anatomia</span>
+        <Link href="/dashboard" className="flex items-center gap-2 px-2">
+          <img src={logoIcon} alt="Anatomia" className="h-8 w-auto object-contain" />
         </Link>
       </SidebarHeader>
 
