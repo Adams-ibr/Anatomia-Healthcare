@@ -1,17 +1,17 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { db } from "./db";
-import { eq, desc } from "drizzle-orm";
-import { 
-  contactMessages, 
-  newsletterSubscriptions, 
-  articles, 
-  teamMembers, 
-  products, 
-  faqItems, 
+import { eq, desc, sql } from "drizzle-orm";
+import {
+  contactMessages,
+  newsletterSubscriptions,
+  articles,
+  teamMembers,
+  products,
+  faqItems,
   careers,
   departments,
-  insertContactMessageSchema, 
+  insertContactMessageSchema,
   insertNewsletterSubscriptionSchema,
   insertArticleSchema,
   insertTeamMemberSchema,
@@ -30,21 +30,32 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
-  
+
   // Set up session and auth routes FIRST
   setupSession(app);
   registerAuthRoutes(app);
   registerMemberRoutes(app);
   registerObjectStorageRoutes(app);
-  
+
   // LMS routes
   app.use("/api/lms", lmsRoutes);
-  
+
   // Payment routes (with member auth middleware)
   app.use("/api/payments", paymentRoutes);
-  
+
   // Chat and interaction routes (comments, discussions, messages)
   app.use("/api/interactions", interactionRoutes);
+
+  // Debug route for DB connection
+  app.get("/api/health-db", async (req, res) => {
+    try {
+      const result = await db.execute(sql`SELECT NOW() as time`);
+      res.json({ status: "ok", time: result.rows[0].time });
+    } catch (error) {
+      console.error("Health check failed:", error);
+      res.status(500).json({ status: "error", message: error instanceof Error ? error.message : "Unknown error" });
+    }
+  });
 
   // Public routes
   app.post("/api/contact", async (req, res) => {
@@ -53,7 +64,7 @@ export async function registerRoutes(
       if (!result.success) {
         return res.status(400).json({ error: "Invalid contact form data", details: result.error.issues });
       }
-      
+
       const [message] = await db.insert(contactMessages).values(result.data).returning();
       res.status(201).json({ success: true, message: "Message sent successfully", id: message.id });
     } catch (error) {
@@ -68,12 +79,12 @@ export async function registerRoutes(
       if (!result.success) {
         return res.status(400).json({ error: "Invalid email address", details: result.error.issues });
       }
-      
+
       const [existing] = await db.select().from(newsletterSubscriptions).where(eq(newsletterSubscriptions.email, result.data.email));
       if (existing) {
         return res.status(409).json({ error: "Email already subscribed" });
       }
-      
+
       const [subscription] = await db.insert(newsletterSubscriptions).values(result.data).returning();
       res.status(201).json({ success: true, message: "Subscribed successfully", id: subscription.id });
     } catch (error) {
@@ -166,7 +177,7 @@ export async function registerRoutes(
       const [newsletterCount] = await db.select({ count: newsletterSubscriptions.id }).from(newsletterSubscriptions);
       const [articleCount] = await db.select({ count: articles.id }).from(articles);
       const [productCount] = await db.select({ count: products.id }).from(products);
-      
+
       res.json({
         contacts: contactCount?.count || 0,
         subscribers: newsletterCount?.count || 0,
