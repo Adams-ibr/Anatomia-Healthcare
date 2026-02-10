@@ -32,18 +32,27 @@ async function loginFn(data: { email: string; password: string }): Promise<User>
   });
 
   if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || "Login failed");
+    const text = await response.text();
+    try {
+      const error = JSON.parse(text);
+      throw new Error(error.error || error.message || "Login failed");
+    } catch (e) {
+      if (e instanceof Error && e.message !== "Login failed" && !e.message.startsWith("Unexpected token")) {
+        throw e; // rethrow if it was the error from JSON.parse we just created
+      }
+      // If parsing failed, or if it was a plain error throw
+      throw new Error(text || `Login failed: ${response.status} ${response.statusText}`);
+    }
   }
 
   return response.json();
 }
 
-async function registerFn(data: { 
-  email: string; 
-  password: string; 
-  firstName?: string; 
-  lastName?: string; 
+async function registerFn(data: {
+  email: string;
+  password: string;
+  firstName?: string;
+  lastName?: string;
 }): Promise<User> {
   const response = await fetch("/api/auth/register", {
     method: "POST",
@@ -53,8 +62,13 @@ async function registerFn(data: {
   });
 
   if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || "Registration failed");
+    const text = await response.text();
+    try {
+      const error = JSON.parse(text);
+      throw new Error(error.error || error.message || "Registration failed");
+    } catch {
+      throw new Error(text || `Registration failed: ${response.status} ${response.statusText}`);
+    }
   }
 
   return response.json();
@@ -73,7 +87,7 @@ async function logoutFn(): Promise<void> {
 
 export function useAuth() {
   const queryClient = useQueryClient();
-  
+
   const { data: user, isLoading } = useQuery<User | null>({
     queryKey: ["/api/auth/user"],
     queryFn: fetchUser,
