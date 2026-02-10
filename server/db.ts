@@ -10,8 +10,8 @@ if (!process.env.DATABASE_URL) {
 
 // Configure SSL for production (e.g. Vercel + Supabase)
 // Supabase Transaction Pooler (port 6543) requires explicit SSL handling in many environments
-const sslConfig = process.env.NODE_ENV === "production" \
-  ?{ rejectUnauthorized: false } \
+const sslConfig = process.env.NODE_ENV === "production"
+  ? { rejectUnauthorized: false }
   : undefined;
 
 export const pool = new pg.Pool({
