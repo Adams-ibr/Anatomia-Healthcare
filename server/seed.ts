@@ -1,5 +1,5 @@
 import { db } from "./db";
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 import {
   users,
   members,
@@ -135,7 +135,7 @@ async function seedDatabase() {
         { name: "Embryology", slug: "embryology", description: "Study of developmental anatomy", iconName: "Baby", order: 4 },
         { name: "Clinical Anatomy", slug: "clinical-anatomy", description: "Applied anatomy for clinical practice", iconName: "Stethoscope", order: 5 },
       ]).returning();
-      
+
       insertedCategories.forEach(cat => {
         categoryMap[cat.name] = cat.id;
       });

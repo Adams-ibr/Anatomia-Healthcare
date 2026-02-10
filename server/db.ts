@@ -1,22 +1,13 @@
-import { drizzle } from "drizzle-orm/node-postgres";
-import pg from "pg";
-import * as schema from "../shared/schema";
+import { createClient } from "@supabase/supabase-js";
 
-if (!process.env.DATABASE_URL) {
+if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
   throw new Error(
-    "DATABASE_URL must be set. Did you forget to provision a database?",
+    "SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set.",
   );
 }
 
-// Configure SSL for production (e.g. Vercel + Supabase)
-// Supabase Transaction Pooler (port 6543) requires explicit SSL handling in many environments
-const sslConfig = process.env.NODE_ENV === "production"
-  ? { rejectUnauthorized: false }
-  : undefined;
-
-export const pool = new pg.Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: sslConfig,
-});
-
-export const db = drizzle(pool, { schema });
+// Create a single supabase client for interacting with your database
+export const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);

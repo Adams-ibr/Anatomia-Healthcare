@@ -1,6 +1,6 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
-import { db } from "./db";
+import { supabase } from "./db";
 import { eq, desc, sql } from "drizzle-orm";
 import {
   contactMessages,
@@ -47,8 +47,9 @@ export async function registerRoutes(
   // Debug route for DB connection
   app.get("/api/health-db", async (req, res) => {
     try {
-      const result = await db.execute(sql`SELECT NOW() as time`);
-      res.json({ status: "ok", time: result.rows[0].time });
+      const { data, error } = await supabase.from("contact_messages").select("created_at").limit(1);
+      if (error) throw error;
+      res.json({ status: "ok", time: new Date().toISOString() });
     } catch (error) {
       console.error("Health check failed:", error);
       res.status(500).json({ status: "error", message: error instanceof Error ? error.message : "Unknown error" });
@@ -63,7 +64,15 @@ export async function registerRoutes(
         return res.status(400).json({ error: "Invalid contact form data", details: result.error.issues });
       }
 
-      const [message] = await db.insert(contactMessages).values(result.data).returning();
+      const { data: message, error: createError } = await supabase
+        .from("contact_messages")
+        .insert(result.data)
+        .select()
+        .single();
+
+      if (createError || !message) {
+        throw createError || new Error("Failed to create message");
+      }
       res.status(201).json({ success: true, message: "Message sent successfully", id: message.id });
     } catch (error) {
       console.error("Error creating contact message:", error);
@@ -78,12 +87,25 @@ export async function registerRoutes(
         return res.status(400).json({ error: "Invalid email address", details: result.error.issues });
       }
 
-      const [existing] = await db.select().from(newsletterSubscriptions).where(eq(newsletterSubscriptions.email, result.data.email));
+      const { data: existing } = await supabase
+        .from("newsletter_subscriptions")
+        .select()
+        .eq("email", result.data.email)
+        .single();
+
       if (existing) {
         return res.status(409).json({ error: "Email already subscribed" });
       }
 
-      const [subscription] = await db.insert(newsletterSubscriptions).values(result.data).returning();
+      const { data: subscription, error: createError } = await supabase
+        .from("newsletter_subscriptions")
+        .insert(result.data)
+        .select()
+        .single();
+
+      if (createError || !subscription) {
+        throw createError || new Error("Failed to subscribe");
+      }
       res.status(201).json({ success: true, message: "Subscribed successfully", id: subscription.id });
     } catch (error) {
       console.error("Error creating newsletter subscription:", error);
@@ -94,7 +116,17 @@ export async function registerRoutes(
   // Public API for frontend pages
   app.get("/api/articles", async (req, res) => {
     try {
-      const allArticles = await db.select().from(articles).where(eq(articles.isPublished, true)).orderBy(desc(articles.createdAt));
+      const { data: allArticles, error } = await supabase
+        .from("articles")
+        .select(`
+          id, title, slug, excerpt, content, category, author,
+          imageUrl:image_url, readTime:read_time, isFeatured:is_featured,
+          isPublished:is_published, createdAt:created_at, updatedAt:updated_at
+        `)
+        .eq("is_published", true)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
       res.json(allArticles);
     } catch (error) {
       console.error("Error fetching articles:", error);
@@ -104,8 +136,17 @@ export async function registerRoutes(
 
   app.get("/api/articles/:slug", async (req, res) => {
     try {
-      const [article] = await db.select().from(articles).where(eq(articles.slug, req.params.slug));
-      if (!article) {
+      const { data: article, error } = await supabase
+        .from("articles")
+        .select(`
+          id, title, slug, excerpt, content, category, author,
+          imageUrl:image_url, readTime:read_time, isFeatured:is_featured,
+          isPublished:is_published, createdAt:created_at, updatedAt:updated_at
+        `)
+        .eq("slug", req.params.slug)
+        .single();
+
+      if (error || !article) {
         return res.status(404).json({ error: "Article not found" });
       }
       res.json(article);
@@ -117,7 +158,18 @@ export async function registerRoutes(
 
   app.get("/api/team", async (req, res) => {
     try {
-      const team = await db.select().from(teamMembers).where(eq(teamMembers.isActive, true)).orderBy(teamMembers.order);
+      const { data: team, error } = await supabase
+        .from("team_members")
+        .select(`
+          id, name, slug, role, description, bio, imageUrl:image_url,
+          email, linkedinUrl:linkedin_url, twitterUrl:twitter_url,
+          facebookUrl:facebook_url, instagramUrl:instagram_url,
+          order, isActive:is_active, createdAt:created_at
+        `)
+        .eq("is_active", true)
+        .order("order", { ascending: true });
+
+      if (error) throw error;
       res.json(team);
     } catch (error) {
       console.error("Error fetching team:", error);
@@ -127,8 +179,18 @@ export async function registerRoutes(
 
   app.get("/api/team/:slug", async (req, res) => {
     try {
-      const [member] = await db.select().from(teamMembers).where(eq(teamMembers.slug, req.params.slug));
-      if (!member) {
+      const { data: member, error } = await supabase
+        .from("team_members")
+        .select(`
+          id, name, slug, role, description, bio, imageUrl:image_url,
+          email, linkedinUrl:linkedin_url, twitterUrl:twitter_url,
+          facebookUrl:facebook_url, instagramUrl:instagram_url,
+          order, isActive:is_active, createdAt:created_at
+        `)
+        .eq("slug", req.params.slug)
+        .single();
+
+      if (error || !member) {
         return res.status(404).json({ error: "Team member not found" });
       }
       res.json(member);
@@ -140,7 +202,17 @@ export async function registerRoutes(
 
   app.get("/api/products", async (req, res) => {
     try {
-      const allProducts = await db.select().from(products).where(eq(products.isActive, true)).orderBy(products.order);
+      const { data: allProducts, error } = await supabase
+        .from("products")
+        .select(`
+          id, title, category, description, price, imageUrl:image_url,
+          badge, badgeColor:badge_color, isActive:is_active, order,
+          createdAt:created_at
+        `)
+        .eq("is_active", true)
+        .order("order", { ascending: true });
+
+      if (error) throw error;
       res.json(allProducts);
     } catch (error) {
       console.error("Error fetching products:", error);
@@ -150,7 +222,16 @@ export async function registerRoutes(
 
   app.get("/api/faq", async (req, res) => {
     try {
-      const faqs = await db.select().from(faqItems).where(eq(faqItems.isActive, true)).orderBy(faqItems.order);
+      const { data: faqs, error } = await supabase
+        .from("faq_items")
+        .select(`
+          id, question, answer, category, order,
+          isActive:is_active, createdAt:created_at
+        `)
+        .eq("is_active", true)
+        .order("order", { ascending: true });
+
+      if (error) throw error;
       res.json(faqs);
     } catch (error) {
       console.error("Error fetching FAQs:", error);
@@ -160,7 +241,16 @@ export async function registerRoutes(
 
   app.get("/api/careers", async (req, res) => {
     try {
-      const allCareers = await db.select().from(careers).where(eq(careers.isActive, true)).orderBy(desc(careers.createdAt));
+      const { data: allCareers, error } = await supabase
+        .from("careers")
+        .select(`
+          id, title, department, location, type, description, requirements,
+          isActive:is_active, createdAt:created_at
+        `)
+        .eq("is_active", true)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
       res.json(allCareers);
     } catch (error) {
       console.error("Error fetching careers:", error);
@@ -171,16 +261,16 @@ export async function registerRoutes(
   // Admin routes (protected)
   app.get("/api/admin/stats", isAuthenticated, async (req, res) => {
     try {
-      const [contactCount] = await db.select({ count: contactMessages.id }).from(contactMessages);
-      const [newsletterCount] = await db.select({ count: newsletterSubscriptions.id }).from(newsletterSubscriptions);
-      const [articleCount] = await db.select({ count: articles.id }).from(articles);
-      const [productCount] = await db.select({ count: products.id }).from(products);
+      const { count: contactCount } = await supabase.from("contact_messages").select("*", { count: "exact", head: true });
+      const { count: newsletterCount } = await supabase.from("newsletter_subscriptions").select("*", { count: "exact", head: true });
+      const { count: articleCount } = await supabase.from("articles").select("*", { count: "exact", head: true });
+      const { count: productCount } = await supabase.from("products").select("*", { count: "exact", head: true });
 
       res.json({
-        contacts: contactCount?.count || 0,
-        subscribers: newsletterCount?.count || 0,
-        articles: articleCount?.count || 0,
-        products: productCount?.count || 0,
+        contacts: contactCount || 0,
+        subscribers: newsletterCount || 0,
+        articles: articleCount || 0,
+        products: productCount || 0,
       });
     } catch (error) {
       console.error("Error fetching stats:", error);
@@ -191,7 +281,12 @@ export async function registerRoutes(
   // Admin Contact Messages
   app.get("/api/admin/contacts", isAuthenticated, async (req, res) => {
     try {
-      const messages = await db.select().from(contactMessages).orderBy(desc(contactMessages.createdAt));
+      const { data: messages, error } = await supabase
+        .from("contact_messages")
+        .select()
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
       res.json(messages);
     } catch (error) {
       console.error("Error fetching contacts:", error);
@@ -201,7 +296,14 @@ export async function registerRoutes(
 
   app.patch("/api/admin/contacts/:id/read", isAuthenticated, async (req, res) => {
     try {
-      const [updated] = await db.update(contactMessages).set({ isRead: true }).where(eq(contactMessages.id, req.params.id)).returning();
+      const { data: updated, error } = await supabase
+        .from("contact_messages")
+        .update({ is_read: true })
+        .eq("id", req.params.id)
+        .select()
+        .single();
+
+      if (error) throw error;
       res.json(updated);
     } catch (error) {
       console.error("Error updating contact:", error);
@@ -211,7 +313,8 @@ export async function registerRoutes(
 
   app.delete("/api/admin/contacts/:id", isAuthenticated, async (req, res) => {
     try {
-      await db.delete(contactMessages).where(eq(contactMessages.id, req.params.id));
+      const { error } = await supabase.from("contact_messages").delete().eq("id", req.params.id);
+      if (error) throw error;
       res.json({ success: true });
     } catch (error) {
       console.error("Error deleting contact:", error);
@@ -222,7 +325,12 @@ export async function registerRoutes(
   // Admin Newsletter
   app.get("/api/admin/newsletter", isAuthenticated, async (req, res) => {
     try {
-      const subscriptions = await db.select().from(newsletterSubscriptions).orderBy(desc(newsletterSubscriptions.createdAt));
+      const { data: subscriptions, error } = await supabase
+        .from("newsletter_subscriptions")
+        .select()
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
       res.json(subscriptions);
     } catch (error) {
       console.error("Error fetching subscriptions:", error);
@@ -232,7 +340,8 @@ export async function registerRoutes(
 
   app.delete("/api/admin/newsletter/:id", isAuthenticated, async (req, res) => {
     try {
-      await db.delete(newsletterSubscriptions).where(eq(newsletterSubscriptions.id, req.params.id));
+      const { error } = await supabase.from("newsletter_subscriptions").delete().eq("id", req.params.id);
+      if (error) throw error;
       res.json({ success: true });
     } catch (error) {
       console.error("Error deleting subscription:", error);
@@ -257,7 +366,17 @@ export async function registerRoutes(
       if (!result.success) {
         return res.status(400).json({ error: "Invalid article data", details: result.error.issues });
       }
-      const [article] = await db.insert(articles).values(result.data).returning();
+      const { data: article, error } = await supabase
+        .from("articles")
+        .insert(result.data)
+        .select(`
+          id, title, slug, excerpt, content, category, author,
+          imageUrl:image_url, readTime:read_time, isFeatured:is_featured,
+          isPublished:is_published, createdAt:created_at, updatedAt:updated_at
+        `)
+        .single();
+
+      if (error) throw error;
       res.status(201).json(article);
     } catch (error) {
       console.error("Error creating article:", error);
@@ -267,7 +386,18 @@ export async function registerRoutes(
 
   app.patch("/api/admin/articles/:id", isAuthenticated, async (req, res) => {
     try {
-      const [article] = await db.update(articles).set({ ...req.body, updatedAt: new Date() }).where(eq(articles.id, req.params.id)).returning();
+      const { data: article, error } = await supabase
+        .from("articles")
+        .update({ ...req.body, updated_at: new Date() })
+        .eq("id", req.params.id)
+        .select(`
+          id, title, slug, excerpt, content, category, author,
+          imageUrl:image_url, readTime:read_time, isFeatured:is_featured,
+          isPublished:is_published, createdAt:created_at, updatedAt:updated_at
+        `)
+        .single();
+
+      if (error) throw error;
       res.json(article);
     } catch (error) {
       console.error("Error updating article:", error);
@@ -277,7 +407,8 @@ export async function registerRoutes(
 
   app.delete("/api/admin/articles/:id", isAuthenticated, async (req, res) => {
     try {
-      await db.delete(articles).where(eq(articles.id, req.params.id));
+      const { error } = await supabase.from("articles").delete().eq("id", req.params.id);
+      if (error) throw error;
       res.json({ success: true });
     } catch (error) {
       console.error("Error deleting article:", error);
@@ -302,7 +433,18 @@ export async function registerRoutes(
       if (!result.success) {
         return res.status(400).json({ error: "Invalid team member data", details: result.error.issues });
       }
-      const [member] = await db.insert(teamMembers).values(result.data).returning();
+      const { data: member, error } = await supabase
+        .from("team_members")
+        .insert(result.data)
+        .select(`
+          id, name, slug, role, description, bio, imageUrl:image_url,
+          email, linkedinUrl:linkedin_url, twitterUrl:twitter_url,
+          facebookUrl:facebook_url, instagramUrl:instagram_url,
+          order, isActive:is_active, createdAt:created_at
+        `)
+        .single();
+
+      if (error) throw error;
       res.status(201).json(member);
     } catch (error) {
       console.error("Error creating team member:", error);
@@ -312,7 +454,19 @@ export async function registerRoutes(
 
   app.patch("/api/admin/team/:id", isAuthenticated, async (req, res) => {
     try {
-      const [member] = await db.update(teamMembers).set(req.body).where(eq(teamMembers.id, req.params.id)).returning();
+      const { data: member, error } = await supabase
+        .from("team_members")
+        .update(req.body)
+        .eq("id", req.params.id)
+        .select(`
+          id, name, slug, role, description, bio, imageUrl:image_url,
+          email, linkedinUrl:linkedin_url, twitterUrl:twitter_url,
+          facebookUrl:facebook_url, instagramUrl:instagram_url,
+          order, isActive:is_active, createdAt:created_at
+        `)
+        .single();
+
+      if (error) throw error;
       res.json(member);
     } catch (error) {
       console.error("Error updating team member:", error);
@@ -322,7 +476,8 @@ export async function registerRoutes(
 
   app.delete("/api/admin/team/:id", isAuthenticated, async (req, res) => {
     try {
-      await db.delete(teamMembers).where(eq(teamMembers.id, req.params.id));
+      const { error } = await supabase.from("team_members").delete().eq("id", req.params.id);
+      if (error) throw error;
       res.json({ success: true });
     } catch (error) {
       console.error("Error deleting team member:", error);
@@ -347,7 +502,17 @@ export async function registerRoutes(
       if (!result.success) {
         return res.status(400).json({ error: "Invalid product data", details: result.error.issues });
       }
-      const [product] = await db.insert(products).values(result.data).returning();
+      const { data: product, error } = await supabase
+        .from("products")
+        .insert(result.data)
+        .select(`
+          id, title, category, description, price, imageUrl:image_url,
+          badge, badgeColor:badge_color, isActive:is_active, order,
+          createdAt:created_at
+        `)
+        .single();
+
+      if (error) throw error;
       res.status(201).json(product);
     } catch (error) {
       console.error("Error creating product:", error);
@@ -357,7 +522,18 @@ export async function registerRoutes(
 
   app.patch("/api/admin/products/:id", isAuthenticated, async (req, res) => {
     try {
-      const [product] = await db.update(products).set(req.body).where(eq(products.id, req.params.id)).returning();
+      const { data: product, error } = await supabase
+        .from("products")
+        .update(req.body)
+        .eq("id", req.params.id)
+        .select(`
+          id, title, category, description, price, imageUrl:image_url,
+          badge, badgeColor:badge_color, isActive:is_active, order,
+          createdAt:created_at
+        `)
+        .single();
+
+      if (error) throw error;
       res.json(product);
     } catch (error) {
       console.error("Error updating product:", error);
@@ -367,7 +543,8 @@ export async function registerRoutes(
 
   app.delete("/api/admin/products/:id", isAuthenticated, async (req, res) => {
     try {
-      await db.delete(products).where(eq(products.id, req.params.id));
+      const { error } = await supabase.from("products").delete().eq("id", req.params.id);
+      if (error) throw error;
       res.json({ success: true });
     } catch (error) {
       console.error("Error deleting product:", error);
@@ -392,7 +569,16 @@ export async function registerRoutes(
       if (!result.success) {
         return res.status(400).json({ error: "Invalid FAQ data", details: result.error.issues });
       }
-      const [faq] = await db.insert(faqItems).values(result.data).returning();
+      const { data: faq, error } = await supabase
+        .from("faq_items")
+        .insert(result.data)
+        .select(`
+          id, question, answer, category, order,
+          isActive:is_active, createdAt:created_at
+        `)
+        .single();
+
+      if (error) throw error;
       res.status(201).json(faq);
     } catch (error) {
       console.error("Error creating FAQ:", error);
@@ -402,7 +588,17 @@ export async function registerRoutes(
 
   app.patch("/api/admin/faq/:id", isAuthenticated, async (req, res) => {
     try {
-      const [faq] = await db.update(faqItems).set(req.body).where(eq(faqItems.id, req.params.id)).returning();
+      const { data: faq, error } = await supabase
+        .from("faq_items")
+        .update(req.body)
+        .eq("id", req.params.id)
+        .select(`
+          id, question, answer, category, order,
+          isActive:is_active, createdAt:created_at
+        `)
+        .single();
+
+      if (error) throw error;
       res.json(faq);
     } catch (error) {
       console.error("Error updating FAQ:", error);
@@ -412,7 +608,8 @@ export async function registerRoutes(
 
   app.delete("/api/admin/faq/:id", isAuthenticated, async (req, res) => {
     try {
-      await db.delete(faqItems).where(eq(faqItems.id, req.params.id));
+      const { error } = await supabase.from("faq_items").delete().eq("id", req.params.id);
+      if (error) throw error;
       res.json({ success: true });
     } catch (error) {
       console.error("Error deleting FAQ:", error);
@@ -437,7 +634,16 @@ export async function registerRoutes(
       if (!result.success) {
         return res.status(400).json({ error: "Invalid career data", details: result.error.issues });
       }
-      const [career] = await db.insert(careers).values(result.data).returning();
+      const { data: career, error } = await supabase
+        .from("careers")
+        .insert(result.data)
+        .select(`
+          id, title, department, location, type, description, requirements,
+          isActive:is_active, createdAt:created_at
+        `)
+        .single();
+
+      if (error) throw error;
       res.status(201).json(career);
     } catch (error) {
       console.error("Error creating career:", error);
@@ -447,7 +653,17 @@ export async function registerRoutes(
 
   app.patch("/api/admin/careers/:id", isAuthenticated, async (req, res) => {
     try {
-      const [career] = await db.update(careers).set(req.body).where(eq(careers.id, req.params.id)).returning();
+      const { data: career, error } = await supabase
+        .from("careers")
+        .update(req.body)
+        .eq("id", req.params.id)
+        .select(`
+          id, title, department, location, type, description, requirements,
+          isActive:is_active, createdAt:created_at
+        `)
+        .single();
+
+      if (error) throw error;
       res.json(career);
     } catch (error) {
       console.error("Error updating career:", error);
@@ -457,7 +673,8 @@ export async function registerRoutes(
 
   app.delete("/api/admin/careers/:id", isAuthenticated, async (req, res) => {
     try {
-      await db.delete(careers).where(eq(careers.id, req.params.id));
+      const { error } = await supabase.from("careers").delete().eq("id", req.params.id);
+      if (error) throw error;
       res.json({ success: true });
     } catch (error) {
       console.error("Error deleting career:", error);
@@ -468,7 +685,15 @@ export async function registerRoutes(
   // Department Management Routes
   app.get("/api/admin/departments", isAuthenticated, async (req, res) => {
     try {
-      const allDepartments = await db.select().from(departments).orderBy(departments.order);
+      const { data: allDepartments, error } = await supabase
+        .from("departments")
+        .select(`
+          id, name, slug, description, headId:head_id, imageUrl:image_url,
+          color, order, isActive:is_active, createdAt:created_at, updatedAt:updated_at
+        `)
+        .order("order", { ascending: true });
+
+      if (error) throw error;
       res.json(allDepartments);
     } catch (error) {
       console.error("Error fetching departments:", error);
@@ -478,8 +703,16 @@ export async function registerRoutes(
 
   app.get("/api/admin/departments/:id", isAuthenticated, async (req, res) => {
     try {
-      const [department] = await db.select().from(departments).where(eq(departments.id, req.params.id));
-      if (!department) {
+      const { data: department, error } = await supabase
+        .from("departments")
+        .select(`
+          id, name, slug, description, headId:head_id, imageUrl:image_url,
+          color, order, isActive:is_active, createdAt:created_at, updatedAt:updated_at
+        `)
+        .eq("id", req.params.id)
+        .single();
+
+      if (error || !department) {
         return res.status(404).json({ error: "Department not found" });
       }
       res.json(department);
@@ -496,7 +729,16 @@ export async function registerRoutes(
       if (!result.success) {
         return res.status(400).json({ error: "Invalid department data", details: result.error.issues });
       }
-      const [department] = await db.insert(departments).values(result.data).returning();
+      const { data: department, error } = await supabase
+        .from("departments")
+        .insert(result.data)
+        .select(`
+          id, name, slug, description, headId:head_id, imageUrl:image_url,
+          color, order, isActive:is_active, createdAt:created_at, updatedAt:updated_at
+        `)
+        .single();
+
+      if (error) throw error;
       res.status(201).json(department);
     } catch (error) {
       console.error("Error creating department:", error);
@@ -515,8 +757,19 @@ export async function registerRoutes(
       if (result.data.name) {
         updateData.slug = result.data.name.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
       }
-      updateData.updatedAt = new Date();
-      const [department] = await db.update(departments).set(updateData).where(eq(departments.id, req.params.id)).returning();
+      updateData.updated_at = new Date();
+
+      const { data: department, error } = await supabase
+        .from("departments")
+        .update(updateData)
+        .eq("id", req.params.id)
+        .select(`
+          id, name, slug, description, headId:head_id, imageUrl:image_url,
+          color, order, isActive:is_active, createdAt:created_at, updatedAt:updated_at
+        `)
+        .single();
+
+      if (error) throw error;
       if (!department) {
         return res.status(404).json({ error: "Department not found" });
       }
@@ -529,7 +782,8 @@ export async function registerRoutes(
 
   app.delete("/api/admin/departments/:id", isAuthenticated, async (req, res) => {
     try {
-      await db.delete(departments).where(eq(departments.id, req.params.id));
+      const { error } = await supabase.from("departments").delete().eq("id", req.params.id);
+      if (error) throw error;
       res.json({ success: true });
     } catch (error) {
       console.error("Error deleting department:", error);
@@ -540,7 +794,16 @@ export async function registerRoutes(
   // Public departments endpoint
   app.get("/api/departments", async (req, res) => {
     try {
-      const activeDepartments = await db.select().from(departments).where(eq(departments.isActive, true)).orderBy(departments.order);
+      const { data: activeDepartments, error } = await supabase
+        .from("departments")
+        .select(`
+          id, name, slug, description, headId:head_id, imageUrl:image_url,
+          color, order, isActive:is_active, createdAt:created_at, updatedAt:updated_at
+        `)
+        .eq("is_active", true)
+        .order("order", { ascending: true });
+
+      if (error) throw error;
       res.json(activeDepartments);
     } catch (error) {
       console.error("Error fetching departments:", error);

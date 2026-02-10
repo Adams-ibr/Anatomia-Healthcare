@@ -1,28 +1,17 @@
-import { db } from "./db";
-import { eq, and, desc, or, sql } from "drizzle-orm";
+import { supabase } from "./db";
 import {
-  conversations,
-  conversationParticipants,
-  messages,
-  comments,
-  discussions,
-  discussionReplies,
-  likes,
-  members,
-  type Conversation,
-  type InsertConversation,
-  type ConversationParticipant,
-  type InsertConversationParticipant,
-  type Message,
-  type InsertMessage,
-  type Comment,
-  type InsertComment,
-  type Discussion,
-  type InsertDiscussion,
-  type DiscussionReply,
-  type InsertDiscussionReply,
-  type Like,
-  type InsertLike,
+  Conversation,
+  InsertConversation,
+  ConversationParticipant,
+  InsertConversationParticipant,
+  Message,
+  InsertMessage,
+  Comment,
+  InsertComment,
+  Discussion,
+  InsertDiscussion,
+  DiscussionReply,
+  InsertDiscussionReply,
 } from "../shared/schema";
 
 export interface ConversationWithDetails extends Conversation {
@@ -65,85 +54,132 @@ export interface DiscussionReplyWithMember extends DiscussionReply {
 
 class InteractionStorage {
   async createConversation(data: InsertConversation): Promise<Conversation> {
-    const [conversation] = await db.insert(conversations).values(data).returning();
+    const { data: conversation, error } = await supabase
+      .from("conversations")
+      .insert(data)
+      .select("id, type, createdAt:created_at, updatedAt:updated_at")
+      .single();
+
+    if (error) throw error;
     return conversation;
   }
 
   async getConversationById(id: string): Promise<Conversation | undefined> {
-    const [conversation] = await db.select().from(conversations).where(eq(conversations.id, id));
-    return conversation;
+    const { data, error } = await supabase
+      .from("conversations")
+      .select("id, type, createdAt:created_at, updatedAt:updated_at")
+      .eq("id", id)
+      .single();
+
+    if (error) return undefined;
+    return data;
   }
 
   async isMemberInConversation(conversationId: string, memberId: string): Promise<boolean> {
-    const [participant] = await db
-      .select()
-      .from(conversationParticipants)
-      .where(
-        and(
-          eq(conversationParticipants.conversationId, conversationId),
-          eq(conversationParticipants.memberId, memberId)
-        )
-      );
-    return !!participant;
+    const { data, error } = await supabase
+      .from("conversation_participants")
+      .select("id")
+      .eq("conversation_id", conversationId)
+      .eq("member_id", memberId)
+      .single();
+
+    return !!data;
   }
 
   async addParticipant(data: InsertConversationParticipant): Promise<ConversationParticipant> {
-    const [participant] = await db.insert(conversationParticipants).values(data).returning();
+    const { data: participant, error } = await supabase
+      .from("conversation_participants")
+      .insert({
+        conversation_id: data.conversationId,
+        member_id: data.memberId,
+        last_read_at: data.lastReadAt,
+        joined_at: data.joinedAt
+      })
+      .select("id, conversationId:conversation_id, memberId:member_id, lastReadAt:last_read_at, joinedAt:joined_at")
+      .single();
+
+    if (error) throw error;
     return participant;
   }
 
   async getConversationsByMemberId(memberId: string): Promise<ConversationWithDetails[]> {
-    const participantRows = await db
-      .select()
-      .from(conversationParticipants)
-      .where(eq(conversationParticipants.memberId, memberId));
+    // 1. Get all conversations for member
+    const { data: participantRows, error } = await supabase
+      .from("conversation_participants")
+      .select("conversation_id, last_read_at")
+      .eq("member_id", memberId);
 
-    const conversationIds = participantRows.map((p) => p.conversationId);
-    if (conversationIds.length === 0) return [];
+    if (error || !participantRows || participantRows.length === 0) return [];
 
     const result: ConversationWithDetails[] = [];
 
-    for (const convId of conversationIds) {
-      const [conv] = await db.select().from(conversations).where(eq(conversations.id, convId));
+    for (const p of participantRows) {
+      const convId = p.conversation_id;
+
+      // Get conversation details
+      const { data: conv } = await supabase
+        .from("conversations")
+        .select("id, type, createdAt:created_at, updatedAt:updated_at")
+        .eq("id", convId)
+        .single();
+
       if (!conv) continue;
 
-      const allParticipants = await db
-        .select({
-          id: conversationParticipants.id,
-          memberId: conversationParticipants.memberId,
-          firstName: members.firstName,
-          lastName: members.lastName,
-        })
-        .from(conversationParticipants)
-        .innerJoin(members, eq(conversationParticipants.memberId, members.id))
-        .where(eq(conversationParticipants.conversationId, convId));
+      // Get all participants
+      const { data: participants } = await supabase
+        .from("conversation_participants")
+        .select(`
+          id, memberId:member_id
+        `)
+        .eq("conversation_id", convId);
 
-      const [lastMessage] = await db
-        .select()
-        .from(messages)
-        .where(eq(messages.conversationId, convId))
-        .orderBy(desc(messages.createdAt))
-        .limit(1);
+      // Manual Join: Fetch Member Details
+      const participantMemberIds = (participants || []).map((p: any) => p.memberId);
+      let membersMap = new Map();
 
-      const currentParticipant = participantRows.find((p) => p.conversationId === convId);
+      if (participantMemberIds.length > 0) {
+        const { data: members } = await supabase
+          .from("members")
+          .select("id, first_name, last_name")
+          .in("id", participantMemberIds);
+
+        if (members) {
+          members.forEach((m: any) => membersMap.set(m.id, m));
+        }
+      }
+
+      const formattedParticipants = (participants || []).map((p: any) => ({
+        id: p.id,
+        memberId: p.memberId,
+        firstName: membersMap.get(p.memberId)?.first_name || null,
+        lastName: membersMap.get(p.memberId)?.last_name || null
+      }));
+
+      // Get last message
+      const { data: lastMessage } = await supabase
+        .from("messages")
+        .select("id, conversationId:conversation_id, senderId:sender_id, content, isEdited:is_edited, isDeleted:is_deleted, createdAt:created_at, updatedAt:updated_at")
+        .eq("conversation_id", convId)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .single();
+
+      // Count unread messages
       let unreadCount = 0;
-      if (currentParticipant?.lastReadAt) {
-        const unreadMessages = await db
-          .select()
-          .from(messages)
-          .where(
-            and(
-              eq(messages.conversationId, convId),
-              sql`${messages.createdAt} > ${currentParticipant.lastReadAt}`
-            )
-          );
-        unreadCount = unreadMessages.length;
+      if (p.last_read_at) {
+        const { count } = await supabase
+          .from("messages")
+          .select("*", { count: "exact", head: true })
+          .eq("conversation_id", convId)
+          .gt("created_at", p.last_read_at);
+
+        unreadCount = count || 0;
       }
 
       result.push({
         ...conv,
-        participants: allParticipants,
-        lastMessage,
+        participants: formattedParticipants,
+        lastMessage: lastMessage || undefined,
         unreadCount,
       });
     }
@@ -156,86 +192,154 @@ class InteractionStorage {
   }
 
   async getOrCreateDirectConversation(member1Id: string, member2Id: string): Promise<Conversation> {
-    const member1Convs = await db
-      .select()
-      .from(conversationParticipants)
-      .where(eq(conversationParticipants.memberId, member1Id));
+    // 1. Get all conversations for member1
+    const { data: member1Convs } = await supabase
+      .from("conversation_participants")
+      .select("conversation_id")
+      .eq("member_id", member1Id);
 
-    for (const p1 of member1Convs) {
-      const [conv] = await db
-        .select()
-        .from(conversations)
-        .where(and(eq(conversations.id, p1.conversationId), eq(conversations.type, "direct")));
+    if (member1Convs) {
+      for (const p1 of member1Convs) {
+        // Check if this convo is 'direct'
+        const { data: conv } = await supabase
+          .from("conversations")
+          .select("*")
+          .eq("id", p1.conversation_id)
+          .eq("type", "direct")
+          .single();
 
-      if (conv) {
-        const participants = await db
-          .select()
-          .from(conversationParticipants)
-          .where(eq(conversationParticipants.conversationId, conv.id));
+        if (conv) {
+          // Check if member2 is also a participant
+          const { data: participants } = await supabase
+            .from("conversation_participants")
+            .select("member_id")
+            .eq("conversation_id", conv.id);
 
-        if (participants.length === 2 && participants.some((p) => p.memberId === member2Id)) {
-          return conv;
+          if (participants && participants.length === 2 && participants.some((p: any) => p.member_id === member2Id)) {
+            // Found existing direct conversation
+            return {
+              id: conv.id,
+              type: conv.type,
+              createdAt: conv.created_at,
+              updatedAt: conv.updated_at
+            };
+          }
         }
       }
     }
 
-    const [newConv] = await db.insert(conversations).values({ type: "direct" }).returning();
+    // Create new conversation
+    const { data: newConv, error } = await supabase
+      .from("conversations")
+      .insert({ type: "direct" })
+      .select("id, type, createdAt:created_at, updatedAt:updated_at")
+      .single();
 
-    await db.insert(conversationParticipants).values([
-      { conversationId: newConv.id, memberId: member1Id },
-      { conversationId: newConv.id, memberId: member2Id },
+    if (error) throw error;
+
+    // Add participants
+    await supabase.from("conversation_participants").insert([
+      { conversation_id: newConv.id, member_id: member1Id },
+      { conversation_id: newConv.id, member_id: member2Id },
     ]);
 
     return newConv;
   }
 
   async createMessage(data: InsertMessage): Promise<Message> {
-    const [message] = await db.insert(messages).values(data).returning();
-    await db
-      .update(conversations)
-      .set({ updatedAt: new Date() })
-      .where(eq(conversations.id, data.conversationId));
+    const { data: message, error } = await supabase
+      .from("messages")
+      .insert({
+        conversation_id: data.conversationId,
+        sender_id: data.senderId,
+        content: data.content,
+        is_edited: false,
+        is_deleted: false
+      })
+      .select("id, conversationId:conversation_id, senderId:sender_id, content, isEdited:is_edited, isDeleted:is_deleted, createdAt:created_at, updatedAt:updated_at")
+      .single();
+
+    if (error) throw error;
+
+    // Update conversation updatedAt
+    await supabase
+      .from("conversations")
+      .update({ updated_at: new Date() })
+      .eq("id", data.conversationId);
+
     return message;
   }
 
   async getMessagesByConversationId(conversationId: string, limit = 50, offset = 0): Promise<MessageWithSender[]> {
-    const result = await db
-      .select({
-        id: messages.id,
-        conversationId: messages.conversationId,
-        senderId: messages.senderId,
-        content: messages.content,
-        isEdited: messages.isEdited,
-        isDeleted: messages.isDeleted,
-        createdAt: messages.createdAt,
-        updatedAt: messages.updatedAt,
-        senderFirstName: members.firstName,
-        senderLastName: members.lastName,
-      })
-      .from(messages)
-      .innerJoin(members, eq(messages.senderId, members.id))
-      .where(and(eq(messages.conversationId, conversationId), eq(messages.isDeleted, false)))
-      .orderBy(desc(messages.createdAt))
-      .limit(limit)
-      .offset(offset);
+    const { data, error } = await supabase
+      .from("messages")
+      .select(`
+        id, conversationId:conversation_id, senderId:sender_id, content,
+        isEdited:is_edited, isDeleted:is_deleted, createdAt:created_at, updatedAt:updated_at
+      `)
+      .eq("conversation_id", conversationId)
+      .eq("is_deleted", false)
+      .order("created_at", { ascending: false })
+      .range(offset, offset + limit - 1);
 
-    return result.reverse();
+    if (error) throw error;
+    if (!data || data.length === 0) return [];
+
+    // Manual Join: Fetch Senders
+    const senderIds = [...new Set(data.map((m: any) => m.senderId))];
+    let sendersMap = new Map();
+
+    if (senderIds.length > 0) {
+      const { data: senders } = await supabase
+        .from("members")
+        .select("id, first_name, last_name")
+        .in("id", senderIds);
+
+      if (senders) {
+        senders.forEach((s: any) => sendersMap.set(s.id, s));
+      }
+    }
+
+    const messages = data.map((m: any) => ({
+      id: m.id,
+      conversationId: m.conversationId,
+      senderId: m.senderId,
+      content: m.content,
+      isEdited: m.isEdited,
+      isDeleted: m.isDeleted,
+      createdAt: m.createdAt,
+      updatedAt: m.updatedAt,
+      senderFirstName: sendersMap.get(m.senderId)?.first_name || null,
+      senderLastName: sendersMap.get(m.senderId)?.last_name || null
+    }));
+
+    return messages.reverse();
   }
 
   async markConversationAsRead(conversationId: string, memberId: string): Promise<void> {
-    await db
-      .update(conversationParticipants)
-      .set({ lastReadAt: new Date() })
-      .where(
-        and(
-          eq(conversationParticipants.conversationId, conversationId),
-          eq(conversationParticipants.memberId, memberId)
-        )
-      );
+    await supabase
+      .from("conversation_participants")
+      .update({ last_read_at: new Date() })
+      .eq("conversation_id", conversationId)
+      .eq("member_id", memberId);
   }
 
   async createComment(data: InsertComment): Promise<Comment> {
-    const [comment] = await db.insert(comments).values(data).returning();
+    const { data: comment, error } = await supabase
+      .from("comments")
+      .insert({
+        commentable_type: data.commentableType,
+        commentable_id: data.commentableId,
+        member_id: data.memberId,
+        content: data.content,
+        parent_id: data.parentId,
+        is_edited: false,
+        is_deleted: false
+      })
+      .select("id, commentableType:commentable_type, commentableId:commentable_id, memberId:member_id, content, parentId:parent_id, isEdited:is_edited, isDeleted:is_deleted, createdAt:created_at, updatedAt:updated_at")
+      .single();
+
+    if (error) throw error;
     return comment;
   }
 
@@ -244,31 +348,48 @@ class InteractionStorage {
     commentableId: string,
     currentMemberId?: string
   ): Promise<CommentWithMember[]> {
-    const result = await db
-      .select({
-        id: comments.id,
-        commentableType: comments.commentableType,
-        commentableId: comments.commentableId,
-        memberId: comments.memberId,
-        content: comments.content,
-        parentId: comments.parentId,
-        isEdited: comments.isEdited,
-        isDeleted: comments.isDeleted,
-        createdAt: comments.createdAt,
-        updatedAt: comments.updatedAt,
-        memberFirstName: members.firstName,
-        memberLastName: members.lastName,
-      })
-      .from(comments)
-      .innerJoin(members, eq(comments.memberId, members.id))
-      .where(
-        and(
-          eq(comments.commentableType, commentableType),
-          eq(comments.commentableId, commentableId),
-          eq(comments.isDeleted, false)
-        )
-      )
-      .orderBy(comments.createdAt);
+    const { data: commentsData, error } = await supabase
+      .from("comments")
+      .select(`
+        id, commentableType:commentable_type, commentableId:commentable_id, 
+        memberId:member_id, content, parentId:parent_id, 
+        isEdited:is_edited, isDeleted:is_deleted, 
+        createdAt:created_at, updatedAt:updated_at
+      `)
+      .eq("commentable_type", commentableType)
+      .eq("commentable_id", commentableId)
+      .eq("is_deleted", false)
+      .order("created_at", { ascending: true });
+
+    if (error) throw error;
+
+    // Manual Join for Members
+    const memberIds = [...new Set((commentsData || []).map((c: any) => c.memberId))];
+    let membersMap = new Map();
+    if (memberIds.length > 0) {
+      const { data: members } = await supabase
+        .from("members")
+        .select("id, first_name, last_name")
+        .in("id", memberIds);
+      if (members) {
+        members.forEach((m: any) => membersMap.set(m.id, m));
+      }
+    }
+
+    const result = (commentsData || []).map((c: any) => ({
+      id: c.id,
+      commentableType: c.commentableType,
+      commentableId: c.commentableId,
+      memberId: c.memberId,
+      content: c.content,
+      parentId: c.parentId,
+      isEdited: c.isEdited,
+      isDeleted: c.isDeleted,
+      createdAt: c.createdAt,
+      updatedAt: c.updatedAt,
+      memberFirstName: membersMap.get(c.memberId)?.first_name || null,
+      memberLastName: membersMap.get(c.memberId)?.last_name || null
+    }));
 
     const topLevel = result.filter((c) => !c.parentId);
     const replies = result.filter((c) => c.parentId);
@@ -305,210 +426,320 @@ class InteractionStorage {
   }
 
   async updateComment(id: string, content: string): Promise<Comment | undefined> {
-    const [updated] = await db
-      .update(comments)
-      .set({ content, isEdited: true, updatedAt: new Date() })
-      .where(eq(comments.id, id))
-      .returning();
-    return updated;
+    const { data, error } = await supabase
+      .from("comments")
+      .update({ content, is_edited: true, updated_at: new Date() })
+      .eq("id", id)
+      .select("id, commentableType:commentable_type, commentableId:commentable_id, memberId:member_id, content, parentId:parent_id, isEdited:is_edited, isDeleted:is_deleted, createdAt:created_at, updatedAt:updated_at")
+      .single();
+
+    if (error) return undefined;
+    return data;
   }
 
   async deleteComment(id: string): Promise<void> {
-    await db.update(comments).set({ isDeleted: true }).where(eq(comments.id, id));
+    await supabase.from("comments").update({ is_deleted: true }).eq("id", id);
   }
 
   async createDiscussion(data: InsertDiscussion): Promise<Discussion> {
-    const [discussion] = await db.insert(discussions).values(data).returning();
+    const { data: discussion, error } = await supabase
+      .from("discussions")
+      .insert({
+        title: data.title,
+        content: data.content,
+        course_id: data.courseId,
+        lesson_id: data.lessonId,
+        member_id: data.memberId,
+        is_pinned: data.isPinned || false,
+        is_locked: data.isLocked || false,
+        view_count: "0"
+      })
+      .select("id, title, content, courseId:course_id, lessonId:lesson_id, memberId:member_id, isPinned:is_pinned, isLocked:is_locked, viewCount:view_count, createdAt:created_at, updatedAt:updated_at")
+      .single();
+
+    if (error) throw error;
     return discussion;
   }
 
   async getDiscussionById(id: string): Promise<DiscussionWithDetails | undefined> {
-    const [result] = await db
-      .select({
-        id: discussions.id,
-        title: discussions.title,
-        content: discussions.content,
-        courseId: discussions.courseId,
-        lessonId: discussions.lessonId,
-        memberId: discussions.memberId,
-        isPinned: discussions.isPinned,
-        isLocked: discussions.isLocked,
-        viewCount: discussions.viewCount,
-        createdAt: discussions.createdAt,
-        updatedAt: discussions.updatedAt,
-        memberFirstName: members.firstName,
-        memberLastName: members.lastName,
-      })
-      .from(discussions)
-      .innerJoin(members, eq(discussions.memberId, members.id))
-      .where(eq(discussions.id, id));
+    // 1. Get discussion
+    const { data, error } = await supabase
+      .from("discussions")
+      .select(`
+        id, title, content, courseId:course_id, lessonId:lesson_id, 
+        memberId:member_id, isPinned:is_pinned, isLocked:is_locked, 
+        viewCount:view_count, createdAt:created_at, updatedAt:updated_at
+      `)
+      .eq("id", id)
+      .single();
 
-    if (!result) return undefined;
+    if (error || !data) return undefined;
 
-    const replies = await db
-      .select()
-      .from(discussionReplies)
-      .where(eq(discussionReplies.discussionId, id));
+    // Manual Join for Member
+    let memberFirstName = null;
+    let memberLastName = null;
+    if (data.memberId) {
+      const { data: member } = await supabase
+        .from("members")
+        .select("first_name, last_name")
+        .eq("id", data.memberId)
+        .single();
+      if (member) {
+        memberFirstName = member.first_name;
+        memberLastName = member.last_name;
+      }
+    }
+
+    if (error || !data) return undefined;
+
+    // 2. Get reply count
+    const { count } = await supabase
+      .from("discussion_replies")
+      .select("*", { count: "exact", head: true })
+      .eq("discussion_id", id);
 
     return {
-      ...result,
-      replyCount: replies.length,
+      id: data.id,
+      title: data.title,
+      content: data.content,
+      courseId: data.courseId,
+      lessonId: data.lessonId,
+      memberId: data.memberId,
+      isPinned: data.isPinned,
+      isLocked: data.isLocked,
+      viewCount: data.viewCount,
+      createdAt: data.createdAt,
+      updatedAt: data.updatedAt,
+      memberFirstName: memberFirstName,
+      memberLastName: memberLastName,
+      replyCount: count || 0,
     };
   }
 
   async getDiscussionsByCourse(courseId: string): Promise<DiscussionWithDetails[]> {
-    const result = await db
-      .select({
-        id: discussions.id,
-        title: discussions.title,
-        content: discussions.content,
-        courseId: discussions.courseId,
-        lessonId: discussions.lessonId,
-        memberId: discussions.memberId,
-        isPinned: discussions.isPinned,
-        isLocked: discussions.isLocked,
-        viewCount: discussions.viewCount,
-        createdAt: discussions.createdAt,
-        updatedAt: discussions.updatedAt,
-        memberFirstName: members.firstName,
-        memberLastName: members.lastName,
-      })
-      .from(discussions)
-      .innerJoin(members, eq(discussions.memberId, members.id))
-      .where(eq(discussions.courseId, courseId))
-      .orderBy(desc(discussions.isPinned), desc(discussions.createdAt));
+    const { data, error } = await supabase
+      .from("discussions")
+      .select(`
+        id, title, content, courseId:course_id, lessonId:lesson_id, 
+        memberId:member_id, isPinned:is_pinned, isLocked:is_locked, 
+        viewCount:view_count, createdAt:created_at, updatedAt:updated_at
+      `)
+      .eq("course_id", courseId)
+      .order("is_pinned", { ascending: false })
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
+
+    // Manual Join Logic for Discussions List
+    // We need members for each discussion
+    const memberIds = [...new Set((data || []).map((d: any) => d.memberId))];
+    let membersMap = new Map();
+    if (memberIds.length > 0) {
+      const { data: members } = await supabase
+        .from("members")
+        .select("id, first_name, last_name")
+        .in("id", memberIds);
+      if (members) members.forEach((m: any) => membersMap.set(m.id, m));
+    }
 
     return Promise.all(
-      result.map(async (d) => {
-        const replies = await db
-          .select()
-          .from(discussionReplies)
-          .where(eq(discussionReplies.discussionId, d.id));
+      (data || []).map(async (d: any) => {
+        // Get reply count and last activity
+        const { count } = await supabase
+          .from("discussion_replies")
+          .select("*", { count: "exact", head: true })
+          .eq("discussion_id", d.id);
 
-        const [lastReply] = await db
-          .select()
-          .from(discussionReplies)
-          .where(eq(discussionReplies.discussionId, d.id))
-          .orderBy(desc(discussionReplies.createdAt))
-          .limit(1);
+        const { data: lastReply } = await supabase
+          .from("discussion_replies")
+          .select("created_at")
+          .eq("discussion_id", d.id)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .single();
 
         return {
-          ...d,
-          replyCount: replies.length,
-          lastActivityAt: lastReply?.createdAt || d.createdAt,
+          id: d.id,
+          title: d.title,
+          content: d.content,
+          courseId: d.courseId,
+          lessonId: d.lessonId,
+          memberId: d.memberId,
+          isPinned: d.isPinned,
+          isLocked: d.isLocked,
+          viewCount: d.viewCount,
+          createdAt: d.createdAt,
+          updatedAt: d.updatedAt,
+          memberFirstName: membersMap.get(d.memberId)?.first_name || null,
+          memberLastName: membersMap.get(d.memberId)?.last_name || null,
+          replyCount: count || 0,
+          lastActivityAt: lastReply?.created_at || d.createdAt,
         };
       })
     );
   }
 
   async incrementDiscussionViews(id: string): Promise<void> {
-    const [disc] = await db.select().from(discussions).where(eq(discussions.id, id));
-    if (disc) {
-      const currentViews = parseInt(disc.viewCount || "0", 10);
-      await db
-        .update(discussions)
-        .set({ viewCount: String(currentViews + 1) })
-        .where(eq(discussions.id, id));
+    const { data } = await supabase
+      .from("discussions")
+      .select("view_count")
+      .eq("id", id)
+      .single();
+
+    if (data) {
+      const currentViews = parseInt(data.view_count || "0", 10);
+      await supabase
+        .from("discussions")
+        .update({ view_count: String(currentViews + 1) })
+        .eq("id", id);
     }
   }
 
   async createDiscussionReply(data: InsertDiscussionReply): Promise<DiscussionReply> {
-    const [reply] = await db.insert(discussionReplies).values(data).returning();
-    await db.update(discussions).set({ updatedAt: new Date() }).where(eq(discussions.id, data.discussionId));
+    const { data: reply, error } = await supabase
+      .from("discussion_replies")
+      .insert({
+        discussion_id: data.discussionId,
+        member_id: data.memberId,
+        content: data.content,
+        parent_id: data.parentId,
+        is_edited: false,
+        is_deleted: false
+      })
+      .select("id, discussionId:discussion_id, memberId:member_id, content, parentId:parent_id, isEdited:is_edited, isDeleted:is_deleted, createdAt:created_at, updatedAt:updated_at")
+      .single();
+
+    if (error) throw error;
+
+    // Update discussion updatedAt
+    await supabase
+      .from("discussions")
+      .update({ updated_at: new Date() })
+      .eq("id", data.discussionId);
+
     return reply;
   }
 
   async getDiscussionReplies(discussionId: string, currentMemberId?: string): Promise<DiscussionReplyWithMember[]> {
-    const result = await db
-      .select({
-        id: discussionReplies.id,
-        discussionId: discussionReplies.discussionId,
-        memberId: discussionReplies.memberId,
-        content: discussionReplies.content,
-        parentId: discussionReplies.parentId,
-        isEdited: discussionReplies.isEdited,
-        isDeleted: discussionReplies.isDeleted,
-        createdAt: discussionReplies.createdAt,
-        updatedAt: discussionReplies.updatedAt,
-        memberFirstName: members.firstName,
-        memberLastName: members.lastName,
-      })
-      .from(discussionReplies)
-      .innerJoin(members, eq(discussionReplies.memberId, members.id))
-      .where(and(eq(discussionReplies.discussionId, discussionId), eq(discussionReplies.isDeleted, false)))
-      .orderBy(discussionReplies.createdAt);
+    const { data: replies, error } = await supabase
+      .from("discussion_replies")
+      .select(`
+        id, discussionId:discussion_id, memberId:member_id, 
+        content, parentId:parent_id, isEdited:is_edited, 
+        isDeleted:is_deleted, createdAt:created_at, updatedAt:updated_at
+      `)
+      .eq("discussion_id", discussionId)
+      .eq("is_deleted", false)
+      .order("created_at", { ascending: true });
+
+    if (error) throw error;
+
+    // Manual Join for Members
+    const memberIds = [...new Set((replies || []).map((r: any) => r.memberId))];
+    let membersMap = new Map();
+    if (memberIds.length > 0) {
+      const { data: members } = await supabase.from("members").select("id, first_name, last_name").in("id", memberIds);
+      if (members) members.forEach((m: any) => membersMap.set(m.id, m));
+    }
 
     return Promise.all(
-      result.map(async (reply) => {
+      (replies || []).map(async (reply: any) => {
         const likesCount = await this.getLikesCount("discussion_reply", reply.id);
         const isLiked = currentMemberId
           ? await this.hasLiked("discussion_reply", reply.id, currentMemberId)
           : false;
-        return { ...reply, likesCount, isLikedByCurrentUser: isLiked };
+
+        return {
+          id: reply.id,
+          discussionId: reply.discussionId,
+          memberId: reply.memberId,
+          content: reply.content,
+          parentId: reply.parentId,
+          isEdited: reply.isEdited,
+          isDeleted: reply.isDeleted,
+          createdAt: reply.createdAt,
+          updatedAt: reply.updatedAt,
+          memberFirstName: membersMap.get(reply.memberId)?.first_name || null,
+          memberLastName: membersMap.get(reply.memberId)?.last_name || null,
+          likesCount,
+          isLikedByCurrentUser: isLiked
+        };
       })
     );
   }
 
   async toggleLike(likeableType: string, likeableId: string, memberId: string): Promise<boolean> {
-    const existing = await db
-      .select()
-      .from(likes)
-      .where(
-        and(
-          eq(likes.likeableType, likeableType),
-          eq(likes.likeableId, likeableId),
-          eq(likes.memberId, memberId)
-        )
-      );
+    // Check if exists
+    const { data: existing } = await supabase
+      .from("likes")
+      .select("id")
+      .eq("likeable_type", likeableType)
+      .eq("likeable_id", likeableId)
+      .eq("member_id", memberId)
+      .single();
 
-    if (existing.length > 0) {
-      await db.delete(likes).where(eq(likes.id, existing[0].id));
+    if (existing) {
+      await supabase.from("likes").delete().eq("id", existing.id);
       return false;
     } else {
-      await db.insert(likes).values({ likeableType, likeableId, memberId });
+      await supabase
+        .from("likes")
+        .insert({
+          likeable_type: likeableType,
+          likeable_id: likeableId,
+          member_id: memberId
+        });
       return true;
     }
   }
 
   async getLikesCount(likeableType: string, likeableId: string): Promise<number> {
-    const result = await db
-      .select()
-      .from(likes)
-      .where(and(eq(likes.likeableType, likeableType), eq(likes.likeableId, likeableId)));
-    return result.length;
+    const { count } = await supabase
+      .from("likes")
+      .select("*", { count: "exact", head: true })
+      .eq("likeable_type", likeableType)
+      .eq("likeable_id", likeableId);
+    return count || 0;
   }
 
   async hasLiked(likeableType: string, likeableId: string, memberId: string): Promise<boolean> {
-    const result = await db
-      .select()
-      .from(likes)
-      .where(
-        and(
-          eq(likes.likeableType, likeableType),
-          eq(likes.likeableId, likeableId),
-          eq(likes.memberId, memberId)
-        )
-      );
-    return result.length > 0;
+    const { count } = await supabase
+      .from("likes")
+      .select("*", { count: "exact", head: true })
+      .eq("likeable_type", likeableType)
+      .eq("likeable_id", likeableId)
+      .eq("member_id", memberId);
+    return (count || 0) > 0;
   }
 
   async searchMembers(query: string, excludeMemberId?: string): Promise<Array<{ id: string; firstName: string | null; lastName: string | null; email: string }>> {
-    const allMembers = await db.select().from(members);
-    const searchLower = query.toLowerCase();
+    let sqlQuery = supabase
+      .from("members")
+      .select("id, first_name, last_name, email");
 
-    return allMembers
-      .filter((m) => {
-        if (excludeMemberId && m.id === excludeMemberId) return false;
-        const fullName = `${m.firstName || ""} ${m.lastName || ""}`.toLowerCase();
-        return fullName.includes(searchLower) || m.email.toLowerCase().includes(searchLower);
-      })
-      .slice(0, 10)
-      .map((m) => ({
-        id: m.id,
-        firstName: m.firstName,
-        lastName: m.lastName,
-        email: m.email,
-      }));
+    // Use ilike for case insensitive search on email and names
+    // Note: Supabase/PostgREST uses simpler operator chaining.
+    // 'or' filter: "column.op.val,column2.op.val"
+    const searchPattern = query;
+    // We cannot use params inside the string easily like that with Supabase JS client 'or()' method directly if it expects properly formatted string.
+    // .or(`first_name.ilike.%${query}%,last_name.ilike.%${query}%,email.ilike.%${query}%`)
+
+    sqlQuery = sqlQuery.or(`first_name.ilike.%${query}%,last_name.ilike.%${query}%,email.ilike.%${query}%`);
+
+    if (excludeMemberId) {
+      sqlQuery = sqlQuery.neq("id", excludeMemberId);
+    }
+
+    const { data, error } = await sqlQuery.limit(10);
+
+    if (error) throw error;
+
+    return (data || []).map((m: any) => ({
+      id: m.id,
+      firstName: m.first_name,
+      lastName: m.last_name,
+      email: m.email,
+    }));
   }
 }
 

@@ -1,10 +1,9 @@
 import { type Express, type RequestHandler } from "express";
 import session from "express-session";
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 import { z } from "zod";
-import { db } from "./db";
-import { users, members, loginSchema, registerSchema } from "../shared/schema";
-import { eq } from "drizzle-orm";
+import { supabase } from "./db";
+import { users, members, loginSchema, registerSchema, type User, type Member } from "../shared/schema";
 import { sessionStore } from "./session";
 
 const SALT_ROUNDS = 12;
@@ -57,7 +56,12 @@ export function registerAuthRoutes(app: Express) {
       const { email, password, firstName, lastName } = result.data;
 
       // Check if user already exists
-      const [existingUser] = await db.select().from(users).where(eq(users.email, email));
+      const { data: existingUser } = await supabase
+        .from("users")
+        .select()
+        .eq("email", email)
+        .single();
+
       if (existingUser) {
         return res.status(409).json({ error: "Email already registered" });
       }
@@ -66,12 +70,23 @@ export function registerAuthRoutes(app: Express) {
       const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
 
       // Create user
-      const [newUser] = await db.insert(users).values({
-        email,
-        password: hashedPassword,
-        firstName: firstName || null,
-        lastName: lastName || null,
-      }).returning();
+      const { data: newUser, error: createError } = await supabase
+        .from("users")
+        .insert({
+          email,
+          password: hashedPassword,
+          first_name: firstName || null,
+          last_name: lastName || null,
+          role: "content_admin", // Default role
+          is_active: true,
+        })
+        .select()
+        .single();
+
+      if (createError || !newUser) {
+        console.error("Error creating user:", createError);
+        return res.status(500).json({ error: "Failed to register user" });
+      }
 
       // Set session and save it explicitly
       (req.session as any).userId = newUser.id;
@@ -83,8 +98,8 @@ export function registerAuthRoutes(app: Express) {
         res.status(201).json({
           id: newUser.id,
           email: newUser.email,
-          firstName: newUser.firstName,
-          lastName: newUser.lastName,
+          firstName: newUser.first_name,
+          lastName: newUser.last_name,
         });
       });
     } catch (error) {
@@ -105,7 +120,12 @@ export function registerAuthRoutes(app: Express) {
       console.log(`Admin login attempt for: ${email}`);
 
       // Find user
-      const [user] = await db.select().from(users).where(eq(users.email, email));
+      const { data: user } = await supabase
+        .from("users")
+        .select()
+        .eq("email", email)
+        .single();
+
       if (!user) {
         console.log(`Admin login failed: user not found for ${email}`);
         return res.status(401).json({ error: "Invalid email or password" });
@@ -131,8 +151,8 @@ export function registerAuthRoutes(app: Express) {
         res.json({
           id: user.id,
           email: user.email,
-          firstName: user.firstName,
-          lastName: user.lastName,
+          firstName: user.first_name,
+          lastName: user.last_name,
           role: user.role,
         });
       });
@@ -150,7 +170,12 @@ export function registerAuthRoutes(app: Express) {
         return res.status(401).json({ error: "Not authenticated" });
       }
 
-      const [user] = await db.select().from(users).where(eq(users.id, userId));
+      const { data: user } = await supabase
+        .from("users")
+        .select()
+        .eq("id", userId)
+        .single();
+
       if (!user) {
         return res.status(401).json({ error: "User not found" });
       }
@@ -158,8 +183,8 @@ export function registerAuthRoutes(app: Express) {
       res.json({
         id: user.id,
         email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
+        firstName: user.first_name,
+        lastName: user.last_name,
       });
     } catch (error) {
       console.error("Error fetching user:", error);
@@ -187,7 +212,7 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
     return res.status(401).json({ error: "Unauthorized" });
   }
 
-  const [user] = await db.select().from(users).where(eq(users.id, userId));
+  const { data: user } = await supabase.from("users").select().eq("id", userId).single();
   if (!user) {
     return res.status(401).json({ error: "Unauthorized" });
   }
@@ -203,7 +228,7 @@ export const isMemberAuthenticated: RequestHandler = async (req, res, next) => {
     return res.status(401).json({ error: "Unauthorized" });
   }
 
-  const [member] = await db.select().from(members).where(eq(members.id, memberId));
+  const { data: member } = await supabase.from("members").select().eq("id", memberId).single();
   if (!member) {
     return res.status(401).json({ error: "Unauthorized" });
   }
@@ -213,12 +238,12 @@ export const isMemberAuthenticated: RequestHandler = async (req, res, next) => {
 };
 
 // Check if member has active subscription (non-bronze tier with valid expiry)
-function hasActiveSubscription(member: typeof members.$inferSelect): boolean {
-  if (!member.membershipTier || member.membershipTier === "bronze") {
+function hasActiveSubscription(member: any): boolean {
+  if (!member.membership_tier || member.membership_tier === "bronze") {
     return false;
   }
-  if (member.membershipExpiresAt) {
-    return new Date(member.membershipExpiresAt) > new Date();
+  if (member.membership_expires_at) {
+    return new Date(member.membership_expires_at) > new Date();
   }
   return true;
 }
@@ -230,7 +255,7 @@ export const requireActiveMembership: RequestHandler = async (req, res, next) =>
     return res.status(401).json({ error: "Unauthorized" });
   }
 
-  const [member] = await db.select().from(members).where(eq(members.id, memberId));
+  const { data: member } = await supabase.from("members").select().eq("id", memberId).single();
   if (!member) {
     return res.status(401).json({ error: "Unauthorized" });
   }
@@ -251,7 +276,7 @@ export const requireRole = (...allowedRoles: string[]): RequestHandler => {
       return res.status(401).json({ error: "Unauthorized" });
     }
 
-    const [user] = await db.select().from(users).where(eq(users.id, userId));
+    const { data: user } = await supabase.from("users").select().eq("id", userId).single();
     if (!user) {
       return res.status(401).json({ error: "Unauthorized" });
     }
@@ -272,7 +297,7 @@ export const isSuperAdmin: RequestHandler = async (req, res, next) => {
     return res.status(401).json({ error: "Unauthorized" });
   }
 
-  const [user] = await db.select().from(users).where(eq(users.id, userId));
+  const { data: user } = await supabase.from("users").select().eq("id", userId).single();
   if (!user || user.role !== "super_admin") {
     return res.status(403).json({ error: "Forbidden - Super Admin access required" });
   }
@@ -288,7 +313,7 @@ export const isContentAdmin: RequestHandler = async (req, res, next) => {
     return res.status(401).json({ error: "Unauthorized" });
   }
 
-  const [user] = await db.select().from(users).where(eq(users.id, userId));
+  const { data: user } = await supabase.from("users").select().eq("id", userId).single();
   if (!user || !["super_admin", "content_admin"].includes(user.role)) {
     return res.status(403).json({ error: "Forbidden - Content Admin access required" });
   }
@@ -310,7 +335,12 @@ export function registerMemberRoutes(app: Express) {
       const { email, password, firstName, lastName } = result.data;
 
       // Check if member already exists
-      const [existingMember] = await db.select().from(members).where(eq(members.email, email));
+      const { data: existingMember } = await supabase
+        .from("members")
+        .select()
+        .eq("email", email)
+        .single();
+
       if (existingMember) {
         return res.status(409).json({ error: "Email already registered" });
       }
@@ -319,12 +349,22 @@ export function registerMemberRoutes(app: Express) {
       const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
 
       // Create member
-      const [newMember] = await db.insert(members).values({
-        email,
-        password: hashedPassword,
-        firstName: firstName || null,
-        lastName: lastName || null,
-      }).returning();
+      const { data: newMember, error: createError } = await supabase
+        .from("members")
+        .insert({
+          email,
+          password: hashedPassword,
+          first_name: firstName || null,
+          last_name: lastName || null,
+          membership_tier: "bronze",
+        })
+        .select()
+        .single();
+
+      if (createError || !newMember) {
+        console.error("Error creating member:", createError);
+        return res.status(500).json({ error: "Failed to register" });
+      }
 
       // Set session and save it explicitly
       (req.session as any).memberId = newMember.id;
@@ -336,10 +376,10 @@ export function registerMemberRoutes(app: Express) {
         res.status(201).json({
           id: newMember.id,
           email: newMember.email,
-          firstName: newMember.firstName,
-          lastName: newMember.lastName,
-          membershipTier: newMember.membershipTier,
-          membershipExpiresAt: newMember.membershipExpiresAt,
+          firstName: newMember.first_name,
+          lastName: newMember.last_name,
+          membershipTier: newMember.membership_tier,
+          membershipExpiresAt: newMember.membership_expires_at,
         });
       });
     } catch (error) {
@@ -359,7 +399,12 @@ export function registerMemberRoutes(app: Express) {
       const { email, password } = result.data;
 
       // Find member
-      const [member] = await db.select().from(members).where(eq(members.email, email));
+      const { data: member } = await supabase
+        .from("members")
+        .select()
+        .eq("email", email)
+        .single();
+
       if (!member) {
         return res.status(401).json({ error: "Invalid email or password" });
       }
@@ -380,10 +425,10 @@ export function registerMemberRoutes(app: Express) {
         res.json({
           id: member.id,
           email: member.email,
-          firstName: member.firstName,
-          lastName: member.lastName,
-          membershipTier: member.membershipTier,
-          membershipExpiresAt: member.membershipExpiresAt,
+          firstName: member.first_name,
+          lastName: member.last_name,
+          membershipTier: member.membership_tier,
+          membershipExpiresAt: member.membership_expires_at,
         });
       });
     } catch (error) {
@@ -400,7 +445,7 @@ export function registerMemberRoutes(app: Express) {
         return res.status(401).json({ error: "Not authenticated" });
       }
 
-      const [member] = await db.select().from(members).where(eq(members.id, memberId));
+      const { data: member } = await supabase.from("members").select().eq("id", memberId).single();
       if (!member) {
         return res.status(401).json({ error: "User not found" });
       }
@@ -408,10 +453,10 @@ export function registerMemberRoutes(app: Express) {
       res.json({
         id: member.id,
         email: member.email,
-        firstName: member.firstName,
-        lastName: member.lastName,
-        membershipTier: member.membershipTier,
-        membershipExpiresAt: member.membershipExpiresAt,
+        firstName: member.first_name,
+        lastName: member.last_name,
+        membershipTier: member.membership_tier,
+        membershipExpiresAt: member.membership_expires_at,
       });
     } catch (error) {
       console.error("Error fetching member:", error);
@@ -446,23 +491,28 @@ export function registerMemberRoutes(app: Express) {
 
       const { firstName, lastName } = result.data;
 
-      const updateData: Partial<{ firstName: string; lastName: string }> = {};
-      if (firstName !== undefined) updateData.firstName = firstName;
-      if (lastName !== undefined) updateData.lastName = lastName;
+      const updateData: any = {};
+      if (firstName !== undefined) updateData.first_name = firstName;
+      if (lastName !== undefined) updateData.last_name = lastName;
 
-      const [updatedMember] = await db
-        .update(members)
-        .set(updateData)
-        .where(eq(members.id, memberId))
-        .returning();
+      const { data: updatedMember, error: updateError } = await supabase
+        .from("members")
+        .update(updateData)
+        .eq("id", memberId)
+        .select()
+        .single();
+
+      if (updateError || !updatedMember) {
+        throw updateError || new Error("Failed to update");
+      }
 
       res.json({
         id: updatedMember.id,
         email: updatedMember.email,
-        firstName: updatedMember.firstName,
-        lastName: updatedMember.lastName,
-        membershipTier: updatedMember.membershipTier,
-        membershipExpiresAt: updatedMember.membershipExpiresAt,
+        firstName: updatedMember.first_name,
+        lastName: updatedMember.last_name,
+        membershipTier: updatedMember.membership_tier,
+        membershipExpiresAt: updatedMember.membership_expires_at,
       });
     } catch (error) {
       console.error("Error updating profile:", error);
@@ -485,7 +535,7 @@ export function registerMemberRoutes(app: Express) {
 
       const { currentPassword, newPassword } = result.data;
 
-      const [member] = await db.select().from(members).where(eq(members.id, memberId));
+      const { data: member } = await supabase.from("members").select().eq("id", memberId).single();
       if (!member) {
         return res.status(401).json({ error: "User not found" });
       }
@@ -499,10 +549,10 @@ export function registerMemberRoutes(app: Express) {
       // Hash new password
       const hashedPassword = await bcrypt.hash(newPassword, SALT_ROUNDS);
 
-      await db
-        .update(members)
-        .set({ password: hashedPassword })
-        .where(eq(members.id, memberId));
+      await supabase
+        .from("members")
+        .update({ password: hashedPassword })
+        .eq("id", memberId);
 
       res.json({ success: true, message: "Password changed successfully" });
     } catch (error) {

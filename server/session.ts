@@ -1,16 +1,11 @@
 import session from "express-session";
-import connectPg from "connect-pg-simple";
+import MemoryStore from "memorystore";
 
-import { pool } from "./db";
-
+const SessionStore = MemoryStore(session);
 const sessionTtl = 7 * 24 * 60 * 60 * 1000; // 1 week
-const pgStore = connectPg(session);
 
-export const sessionStore = new pgStore({
-  pool, // Use the shared pool
-  createTableIfMissing: true,
-  ttl: sessionTtl,
-  tableName: "sessions",
+export const sessionStore = new SessionStore({
+  checkPeriod: 86400000, // prune expired entries every 24h
 });
 
 export function getSessionAsync(sid: string): Promise<any | null> {

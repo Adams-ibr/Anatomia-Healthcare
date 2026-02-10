@@ -1,7 +1,6 @@
 import { Router, Request, Response } from "express";
-import { db } from "./db";
-import { paymentTransactions, members } from "../shared/schema";
-import { eq } from "drizzle-orm";
+import { supabase } from "./db";
+import { PaymentTransaction, InsertPaymentTransaction } from "../shared/schema";
 import crypto from "crypto";
 import { isMemberAuthenticated } from "./auth";
 
@@ -42,48 +41,51 @@ async function createTransaction(
   reference: string,
   amount?: number,
   durationMonths?: number
-) {
+): Promise<PaymentTransaction> {
   const finalAmount = amount || MEMBERSHIP_PRICES[tier];
   if (!finalAmount) throw new Error("Invalid membership tier or pricing");
 
-  const [transaction] = await db
-    .insert(paymentTransactions)
-    .values({
-      memberId,
+  const { data, error } = await supabase
+    .from("payment_transactions")
+    .insert({
+      member_id: memberId,
       amount: finalAmount,
       currency: "NGN",
-      membershipTier: tier,
-      durationMonths: durationMonths || 1,
-      paymentProvider: provider,
-      providerReference: reference,
+      membership_tier: tier,
+      duration_months: durationMonths || 1,
+      payment_provider: provider,
+      provider_reference: reference,
       status: "pending",
     })
-    .returning();
+    .select("id, memberId:member_id, amount, currency, status, paymentProvider:payment_provider, providerReference:provider_reference, providerTransactionId:provider_transaction_id, membershipTier:membership_tier, durationMonths:duration_months, createdAt:created_at, updatedAt:updated_at")
+    .single();
 
-  return transaction;
+  if (error) throw error;
+  return data;
 }
 
 async function updateMembershipTier(memberId: string, tier: string, durationMonths: number = 1) {
-  const [member] = await db
-    .select()
-    .from(members)
-    .where(eq(members.id, memberId));
+  const { data: member } = await supabase
+    .from("members")
+    .select("membership_expires_at")
+    .eq("id", memberId)
+    .single();
 
   let expiresAt = new Date();
 
-  if (member?.membershipExpiresAt && new Date(member.membershipExpiresAt) > new Date()) {
-    expiresAt = new Date(member.membershipExpiresAt);
+  if (member?.membership_expires_at && new Date(member.membership_expires_at) > new Date()) {
+    expiresAt = new Date(member.membership_expires_at);
   }
 
   expiresAt.setMonth(expiresAt.getMonth() + durationMonths);
 
-  await db
-    .update(members)
-    .set({
-      membershipTier: tier,
-      membershipExpiresAt: expiresAt,
+  await supabase
+    .from("members")
+    .update({
+      membership_tier: tier,
+      membership_expires_at: expiresAt,
     })
-    .where(eq(members.id, memberId));
+    .eq("id", memberId);
 }
 
 router.post("/initialize-paystack", isMemberAuthenticated, async (req: Request, res: Response) => {
@@ -217,7 +219,8 @@ router.post("/initialize-flutterwave", isMemberAuthenticated, async (req: Reques
         redirect_url: `${process.env.APP_URL || req.headers.origin}/payment/verify`,
         customer: {
           email: member.email,
-          name: `${member.firstName || ""} ${member.lastName || ""}`.trim() || member.email,
+          // Use snake_case properties from Supabase member object
+          name: `${member.first_name || ""} ${member.last_name || ""}`.trim() || member.email,
         },
         meta: {
           member_id: member.id,
@@ -272,10 +275,11 @@ router.get("/verify-paystack/:reference", async (req: Request, res: Response) =>
       return res.status(400).json({ error: "Payment verification failed", status: data.data?.status });
     }
 
-    const [transaction] = await db
-      .select()
-      .from(paymentTransactions)
-      .where(eq(paymentTransactions.providerReference, reference));
+    const { data: transaction } = await supabase
+      .from("payment_transactions")
+      .select("id, memberId:member_id, amount, currency, status, paymentProvider:payment_provider, providerReference:provider_reference, providerTransactionId:provider_transaction_id, membershipTier:membership_tier, durationMonths:duration_months, createdAt:created_at, updatedAt:updated_at")
+      .eq("provider_reference", reference)
+      .single();
 
     if (!transaction) {
       return res.status(404).json({ error: "Transaction not found" });
@@ -285,16 +289,16 @@ router.get("/verify-paystack/:reference", async (req: Request, res: Response) =>
       return res.json({ message: "Payment already verified", status: "success" });
     }
 
-    await db
-      .update(paymentTransactions)
-      .set({
+    await supabase
+      .from("payment_transactions")
+      .update({
         status: "success",
-        providerTransactionId: String(data.data.id),
-        updatedAt: new Date(),
+        provider_transaction_id: String(data.data.id),
+        updated_at: new Date(),
       })
-      .where(eq(paymentTransactions.id, transaction.id));
+      .eq("id", transaction.id);
 
-    await updateMembershipTier(transaction.memberId, transaction.membershipTier, transaction.durationMonths);
+    await updateMembershipTier(transaction.memberId, transaction.membershipTier, transaction.durationMonths || 1);
 
     res.json({ message: "Payment verified successfully", status: "success" });
   } catch (error) {
@@ -327,10 +331,11 @@ router.get("/verify-flutterwave/:reference", async (req: Request, res: Response)
       return res.status(400).json({ error: "Payment verification failed", status: data.data?.status });
     }
 
-    const [transaction] = await db
-      .select()
-      .from(paymentTransactions)
-      .where(eq(paymentTransactions.providerReference, reference));
+    const { data: transaction } = await supabase
+      .from("payment_transactions")
+      .select("id, memberId:member_id, amount, currency, status, paymentProvider:payment_provider, providerReference:provider_reference, providerTransactionId:provider_transaction_id, membershipTier:membership_tier, durationMonths:duration_months, createdAt:created_at, updatedAt:updated_at")
+      .eq("provider_reference", reference)
+      .single();
 
     if (!transaction) {
       return res.status(404).json({ error: "Transaction not found" });
@@ -340,16 +345,16 @@ router.get("/verify-flutterwave/:reference", async (req: Request, res: Response)
       return res.json({ message: "Payment already verified", status: "success" });
     }
 
-    await db
-      .update(paymentTransactions)
-      .set({
+    await supabase
+      .from("payment_transactions")
+      .update({
         status: "success",
-        providerTransactionId: String(data.data.id),
-        updatedAt: new Date(),
+        provider_transaction_id: String(data.data.id),
+        updated_at: new Date(),
       })
-      .where(eq(paymentTransactions.id, transaction.id));
+      .eq("id", transaction.id);
 
-    await updateMembershipTier(transaction.memberId, transaction.membershipTier, transaction.durationMonths);
+    await updateMembershipTier(transaction.memberId, transaction.membershipTier, transaction.durationMonths || 1);
 
     res.json({ message: "Payment verified successfully", status: "success" });
   } catch (error) {
@@ -379,22 +384,23 @@ router.post("/webhook/paystack", async (req: Request, res: Response) => {
     if (event === "charge.success") {
       const reference = data.reference;
 
-      const [transaction] = await db
-        .select()
-        .from(paymentTransactions)
-        .where(eq(paymentTransactions.providerReference, reference));
+      const { data: transaction } = await supabase
+        .from("payment_transactions")
+        .select("id, memberId:member_id, amount, currency, status, paymentProvider:payment_provider, providerReference:provider_reference, providerTransactionId:provider_transaction_id, membershipTier:membership_tier, durationMonths:duration_months, createdAt:created_at, updatedAt:updated_at")
+        .eq("provider_reference", reference)
+        .single();
 
       if (transaction && transaction.status !== "success") {
-        await db
-          .update(paymentTransactions)
-          .set({
+        await supabase
+          .from("payment_transactions")
+          .update({
             status: "success",
-            providerTransactionId: String(data.id),
-            updatedAt: new Date(),
+            provider_transaction_id: String(data.id),
+            updated_at: new Date(),
           })
-          .where(eq(paymentTransactions.id, transaction.id));
+          .eq("id", transaction.id);
 
-        await updateMembershipTier(transaction.memberId, transaction.membershipTier, transaction.durationMonths);
+        await updateMembershipTier(transaction.memberId, transaction.membershipTier, transaction.durationMonths || 1);
       }
     }
 
@@ -418,22 +424,23 @@ router.post("/webhook/flutterwave", async (req: Request, res: Response) => {
     if (event === "charge.completed" && data.status === "successful") {
       const reference = data.tx_ref;
 
-      const [transaction] = await db
-        .select()
-        .from(paymentTransactions)
-        .where(eq(paymentTransactions.providerReference, reference));
+      const { data: transaction } = await supabase
+        .from("payment_transactions")
+        .select("id, memberId:member_id, amount, currency, status, paymentProvider:payment_provider, providerReference:provider_reference, providerTransactionId:provider_transaction_id, membershipTier:membership_tier, durationMonths:duration_months, createdAt:created_at, updatedAt:updated_at")
+        .eq("provider_reference", reference)
+        .single();
 
       if (transaction && transaction.status !== "success") {
-        await db
-          .update(paymentTransactions)
-          .set({
+        await supabase
+          .from("payment_transactions")
+          .update({
             status: "success",
-            providerTransactionId: String(data.id),
-            updatedAt: new Date(),
+            provider_transaction_id: String(data.id),
+            updated_at: new Date(),
           })
-          .where(eq(paymentTransactions.id, transaction.id));
+          .eq("id", transaction.id);
 
-        await updateMembershipTier(transaction.memberId, transaction.membershipTier, transaction.durationMonths);
+        await updateMembershipTier(transaction.memberId, transaction.membershipTier, transaction.durationMonths || 1);
       }
     }
 
@@ -451,11 +458,13 @@ router.get("/transactions", isMemberAuthenticated, async (req: Request, res: Res
       return res.status(401).json({ error: "Not authenticated" });
     }
 
-    const transactions = await db
-      .select()
-      .from(paymentTransactions)
-      .where(eq(paymentTransactions.memberId, member.id))
-      .orderBy(paymentTransactions.createdAt);
+    const { data: transactions, error } = await supabase
+      .from("payment_transactions")
+      .select("id, memberId:member_id, amount, currency, status, paymentProvider:payment_provider, providerReference:provider_reference, providerTransactionId:provider_transaction_id, membershipTier:membership_tier, durationMonths:duration_months, createdAt:created_at, updatedAt:updated_at")
+      .eq("member_id", member.id)
+      .order("created_at", { ascending: true });
+
+    if (error) throw error;
 
     res.json(transactions);
   } catch (error) {

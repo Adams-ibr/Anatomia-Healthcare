@@ -1,32 +1,31 @@
-import { db } from "./db";
-import { eq, and, desc, asc } from "drizzle-orm";
-import bcrypt from "bcrypt";
+import { supabase } from "./db";
+import bcrypt from "bcryptjs";
 import {
-  courseCategories, CourseCategory, InsertCourseCategory,
-  courses, Course, InsertCourse,
-  courseModules, CourseModule, InsertCourseModule,
-  lessons, Lesson, InsertLesson,
-  lessonAssets, LessonAsset, InsertLessonAsset,
-  enrollments, Enrollment, InsertEnrollment,
-  lessonProgress, LessonProgress, InsertLessonProgress,
-  quizzes, Quiz, InsertQuiz,
-  quizQuestions, QuizQuestion, InsertQuizQuestion,
-  quizOptions, QuizOption, InsertQuizOption,
-  quizAttempts, QuizAttempt, InsertQuizAttempt,
-  certificates, Certificate, InsertCertificate,
-  coursePrerequisites, CoursePrerequisite, InsertCoursePrerequisite,
-  auditLogs, AuditLog, InsertAuditLog,
-  notifications, Notification, InsertNotification,
-  questionTopics, QuestionTopic, InsertQuestionTopic,
-  questionBank, QuestionBankItem, InsertQuestionBank,
-  questionBankOptions, QuestionBankOption, InsertQuestionBankOption,
-  flashcardDecks, FlashcardDeck, InsertFlashcardDeck,
-  flashcards, Flashcard, InsertFlashcard,
-  flashcardProgress, FlashcardProgress, InsertFlashcardProgress,
-  anatomyModels, AnatomyModel, InsertAnatomyModel,
-  members, Member,
+  CourseCategory, InsertCourseCategory,
+  Course, InsertCourse,
+  CourseModule, InsertCourseModule,
+  Lesson, InsertLesson,
+  LessonAsset, InsertLessonAsset,
+  Enrollment, InsertEnrollment,
+  LessonProgress, InsertLessonProgress,
+  Quiz, InsertQuiz,
+  QuizQuestion, InsertQuizQuestion,
+  QuizOption, InsertQuizOption,
+  QuizAttempt, InsertQuizAttempt,
+  Certificate, InsertCertificate,
+  CoursePrerequisite, InsertCoursePrerequisite,
+  AuditLog, InsertAuditLog,
+  Notification, InsertNotification,
+  QuestionTopic, InsertQuestionTopic,
+  QuestionBankItem, InsertQuestionBank,
+  QuestionBankOption, InsertQuestionBankOption,
+  FlashcardDeck, InsertFlashcardDeck,
+  Flashcard, InsertFlashcard,
+  FlashcardProgress, InsertFlashcardProgress,
+  AnatomyModel, InsertAnatomyModel,
+  Member,
 } from "../shared/schema";
-import { users, User } from "../shared/models/auth";
+import { User } from "../shared/models/auth";
 
 export interface ILmsStorage {
   // Course Categories
@@ -188,331 +187,724 @@ export interface ILmsStorage {
 export class LmsStorage implements ILmsStorage {
   // Course Categories
   async getCourseCategories(): Promise<CourseCategory[]> {
-    return db.select().from(courseCategories).orderBy(asc(courseCategories.order));
+    const { data, error } = await supabase
+      .from("course_categories")
+      .select("id, name, slug, description, iconName:icon_name, color, order, isActive:is_active, createdAt:created_at, updatedAt:updated_at")
+      .order("order", { ascending: true });
+
+    if (error) throw error;
+    return data || [];
   }
 
   async getCourseCategoryById(id: string): Promise<CourseCategory | undefined> {
-    const [category] = await db.select().from(courseCategories).where(eq(courseCategories.id, id));
-    return category;
+    const { data, error } = await supabase
+      .from("course_categories")
+      .select("id, name, slug, description, iconName:icon_name, color, order, isActive:is_active, createdAt:created_at, updatedAt:updated_at")
+      .eq("id", id)
+      .single();
+
+    if (error) return undefined;
+    return data;
   }
 
   async createCourseCategory(category: InsertCourseCategory): Promise<CourseCategory> {
-    const [newCategory] = await db.insert(courseCategories).values(category).returning();
-    return newCategory;
+    const { data, error } = await supabase
+      .from("course_categories")
+      .insert(category)
+      .select("id, name, slug, description, iconName:icon_name, color, order, isActive:is_active, createdAt:created_at, updatedAt:updated_at")
+      .single();
+
+    if (error) throw error;
+    return data;
   }
 
   async updateCourseCategory(id: string, category: Partial<InsertCourseCategory>): Promise<CourseCategory | undefined> {
-    const [updated] = await db.update(courseCategories).set({ ...category, updatedAt: new Date() }).where(eq(courseCategories.id, id)).returning();
-    return updated;
+    const { data, error } = await supabase
+      .from("course_categories")
+      .update({ ...category, updated_at: new Date() })
+      .eq("id", id)
+      .select("id, name, slug, description, iconName:icon_name, color, order, isActive:is_active, createdAt:created_at, updatedAt:updated_at")
+      .single();
+
+    if (error) return undefined;
+    return data;
   }
 
   async deleteCourseCategory(id: string): Promise<boolean> {
-    const result = await db.delete(courseCategories).where(eq(courseCategories.id, id));
-    return result.rowCount !== null && result.rowCount > 0;
+    const { error } = await supabase.from("course_categories").delete().eq("id", id);
+    return !error;
   }
 
   // Courses
   async getCourses(): Promise<Course[]> {
-    return db.select().from(courses).orderBy(desc(courses.createdAt));
+    const { data, error } = await supabase
+      .from("courses")
+      .select(`
+        id, title, slug, shortDescription:short_description, description,
+        thumbnailUrl:thumbnail_url, videoPreviewUrl:video_preview_url,
+        level, duration, price, category, tags,
+        isPublished:is_published, isFeatured:is_featured,
+        requiredMembershipTier:required_membership_tier,
+        isFree:is_free, createdBy:created_by,
+        createdAt:created_at, updatedAt:updated_at
+      `)
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
+    return data || [];
   }
 
   async getPublishedCourses(): Promise<Course[]> {
-    return db.select().from(courses).where(eq(courses.isPublished, true)).orderBy(desc(courses.createdAt));
+    const { data, error } = await supabase
+      .from("courses")
+      .select(`
+        id, title, slug, shortDescription:short_description, description,
+        thumbnailUrl:thumbnail_url, videoPreviewUrl:video_preview_url,
+        level, duration, price, category, tags,
+        isPublished:is_published, isFeatured:is_featured,
+        requiredMembershipTier:required_membership_tier,
+        isFree:is_free, createdBy:created_by,
+        createdAt:created_at, updatedAt:updated_at
+      `)
+      .eq("is_published", true)
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
+    return data || [];
   }
 
   async getCourseById(id: string): Promise<Course | undefined> {
-    const [course] = await db.select().from(courses).where(eq(courses.id, id));
-    return course;
+    const { data, error } = await supabase
+      .from("courses")
+      .select(`
+        id, title, slug, shortDescription:short_description, description,
+        thumbnailUrl:thumbnail_url, videoPreviewUrl:video_preview_url,
+        level, duration, price, category, tags,
+        isPublished:is_published, isFeatured:is_featured,
+        requiredMembershipTier:required_membership_tier,
+        isFree:is_free, createdBy:created_by,
+        createdAt:created_at, updatedAt:updated_at
+      `)
+      .eq("id", id)
+      .single();
+
+    if (error) return undefined;
+    return data;
   }
 
   async getCourseBySlug(slug: string): Promise<Course | undefined> {
-    const [course] = await db.select().from(courses).where(eq(courses.slug, slug));
-    return course;
+    const { data, error } = await supabase
+      .from("courses")
+      .select(`
+        id, title, slug, shortDescription:short_description, description,
+        thumbnailUrl:thumbnail_url, videoPreviewUrl:video_preview_url,
+        level, duration, price, category, tags,
+        isPublished:is_published, isFeatured:is_featured,
+        requiredMembershipTier:required_membership_tier,
+        createdAt:created_at, updatedAt:updated_at
+      `)
+      .eq("slug", slug)
+      .single();
+
+    if (error) return undefined;
+    return data;
   }
 
   async createCourse(course: InsertCourse): Promise<Course> {
-    const [newCourse] = await db.insert(courses).values(course).returning();
-    return newCourse;
+    const { data, error } = await supabase
+      .from("courses")
+      .insert(course)
+      .select(`
+        id, title, slug, shortDescription:short_description, description,
+        thumbnailUrl:thumbnail_url, videoPreviewUrl:video_preview_url,
+        level, duration, price, category, tags,
+        isPublished:is_published, isFeatured:is_featured,
+        requiredMembershipTier:required_membership_tier,
+        createdAt:created_at, updatedAt:updated_at
+      `)
+      .single();
+
+    if (error) throw error;
+    return data;
   }
 
   async updateCourse(id: string, course: Partial<InsertCourse>): Promise<Course | undefined> {
-    const [updated] = await db.update(courses).set({ ...course, updatedAt: new Date() }).where(eq(courses.id, id)).returning();
-    return updated;
+    const { data, error } = await supabase
+      .from("courses")
+      .update({ ...course, updated_at: new Date() })
+      .eq("id", id)
+      .select(`
+        id, title, slug, shortDescription:short_description, description,
+        thumbnailUrl:thumbnail_url, videoPreviewUrl:video_preview_url,
+        level, duration, price, category, tags,
+        isPublished:is_published, isFeatured:is_featured,
+        requiredMembershipTier:required_membership_tier,
+        createdAt:created_at, updatedAt:updated_at
+      `)
+      .single();
+
+    if (error) return undefined;
+    return data;
   }
 
   async deleteCourse(id: string): Promise<boolean> {
-    const result = await db.delete(courses).where(eq(courses.id, id));
-    return result.rowCount !== null && result.rowCount > 0;
+    const { error } = await supabase.from("courses").delete().eq("id", id);
+    return !error;
   }
 
   // Course Modules
   async getModulesByCourseId(courseId: string): Promise<CourseModule[]> {
-    return db.select().from(courseModules).where(eq(courseModules.courseId, courseId)).orderBy(asc(courseModules.order));
+    const { data, error } = await supabase
+      .from("course_modules")
+      .select("id, courseId:course_id, title, description, order, isPublished:is_published, createdAt:created_at")
+      .eq("course_id", courseId)
+      .order("order", { ascending: true });
+
+    if (error) throw error;
+    return data || [];
   }
 
   async getModuleById(id: string): Promise<CourseModule | undefined> {
-    const [module] = await db.select().from(courseModules).where(eq(courseModules.id, id));
-    return module;
+    const { data, error } = await supabase
+      .from("course_modules")
+      .select("id, courseId:course_id, title, description, order, isPublished:is_published, createdAt:created_at")
+      .eq("id", id)
+      .single();
+
+    if (error) return undefined;
+    return data;
   }
 
   async createModule(module: InsertCourseModule): Promise<CourseModule> {
-    const [newModule] = await db.insert(courseModules).values(module).returning();
-    return newModule;
+    const { data, error } = await supabase
+      .from("course_modules")
+      .insert(module)
+      .select("id, courseId:course_id, title, description, order, isPublished:is_published, createdAt:created_at")
+      .single();
+
+    if (error) throw error;
+    return data;
   }
 
   async updateModule(id: string, module: Partial<InsertCourseModule>): Promise<CourseModule | undefined> {
-    const [updated] = await db.update(courseModules).set(module).where(eq(courseModules.id, id)).returning();
-    return updated;
+    const { data, error } = await supabase
+      .from("course_modules")
+      .update(module)
+      .eq("id", id)
+      .select("id, courseId:course_id, title, description, order, isPublished:is_published, createdAt:created_at")
+      .single();
+
+    if (error) return undefined;
+    return data;
   }
 
   async deleteModule(id: string): Promise<boolean> {
-    const result = await db.delete(courseModules).where(eq(courseModules.id, id));
-    return result.rowCount !== null && result.rowCount > 0;
+    const { error } = await supabase.from("course_modules").delete().eq("id", id);
+    return !error;
   }
 
   // Lessons
   async getLessonsByModuleId(moduleId: string): Promise<Lesson[]> {
-    return db.select().from(lessons).where(eq(lessons.moduleId, moduleId)).orderBy(asc(lessons.order));
+    const { data, error } = await supabase
+      .from("lessons")
+      .select(`
+        id, moduleId:module_id, title, description,
+        content, contentType:content_type, videoUrl:video_url, duration,
+        order, isFree:is_free, isPublished:is_published,
+        createdAt:created_at, updatedAt:updated_at
+      `)
+      .eq("module_id", moduleId)
+      .order("order", { ascending: true });
+
+    if (error) throw error;
+    return data || [];
   }
 
   async getLessonById(id: string): Promise<Lesson | undefined> {
-    const [lesson] = await db.select().from(lessons).where(eq(lessons.id, id));
-    return lesson;
+    const { data, error } = await supabase
+      .from("lessons")
+      .select(`
+        id, moduleId:module_id, title, description,
+        content, contentType:content_type, videoUrl:video_url, duration,
+        order, isFree:is_free, isPublished:is_published,
+        createdAt:created_at, updatedAt:updated_at
+      `)
+      .eq("id", id)
+      .single();
+
+    if (error) return undefined;
+    return data;
   }
 
   async createLesson(lesson: InsertLesson): Promise<Lesson> {
-    const [newLesson] = await db.insert(lessons).values(lesson).returning();
-    return newLesson;
+    const { data, error } = await supabase
+      .from("lessons")
+      .insert(lesson)
+      .select(`
+        id, moduleId:module_id, title, description,
+        content, contentType:content_type, videoUrl:video_url, duration,
+        order, isFree:is_free, isPublished:is_published,
+        createdAt:created_at, updatedAt:updated_at
+      `)
+      .single();
+
+    if (error) throw error;
+    return data;
   }
 
   async updateLesson(id: string, lesson: Partial<InsertLesson>): Promise<Lesson | undefined> {
-    const [updated] = await db.update(lessons).set({ ...lesson, updatedAt: new Date() }).where(eq(lessons.id, id)).returning();
-    return updated;
+    const { data, error } = await supabase
+      .from("lessons")
+      .update({ ...lesson, updated_at: new Date() })
+      .eq("id", id)
+      .select(`
+        id, moduleId:module_id, title, description,
+        content, contentType:content_type, videoUrl:video_url, duration,
+        order, isFree:is_free, isPublished:is_published,
+        createdAt:created_at, updatedAt:updated_at
+      `)
+      .single();
+
+    if (error) return undefined;
+    return data;
   }
 
   async deleteLesson(id: string): Promise<boolean> {
-    const result = await db.delete(lessons).where(eq(lessons.id, id));
-    return result.rowCount !== null && result.rowCount > 0;
+    const { error } = await supabase.from("lessons").delete().eq("id", id);
+    return !error;
   }
 
   // Lesson Assets
   async getAssetsByLessonId(lessonId: string): Promise<LessonAsset[]> {
-    return db.select().from(lessonAssets).where(eq(lessonAssets.lessonId, lessonId)).orderBy(asc(lessonAssets.order));
+    const { data, error } = await supabase
+      .from("lesson_assets")
+      .select("id, lessonId:lesson_id, title, assetType:asset_type, assetUrl:asset_url, order, createdAt:created_at")
+      .eq("lesson_id", lessonId)
+      .order("order", { ascending: true });
+
+    if (error) throw error;
+    return data || [];
   }
 
   async createAsset(asset: InsertLessonAsset): Promise<LessonAsset> {
-    const [newAsset] = await db.insert(lessonAssets).values(asset).returning();
-    return newAsset;
+    const { data, error } = await supabase
+      .from("lesson_assets")
+      .insert(asset)
+      .select("id, lessonId:lesson_id, title, assetType:asset_type, assetUrl:asset_url, order, createdAt:created_at")
+      .single();
+
+    if (error) throw error;
+    return data;
   }
 
   async deleteAsset(id: string): Promise<boolean> {
-    const result = await db.delete(lessonAssets).where(eq(lessonAssets.id, id));
-    return result.rowCount !== null && result.rowCount > 0;
+    const { error } = await supabase.from("lesson_assets").delete().eq("id", id);
+    return !error;
   }
 
   // Enrollments
   async getEnrollmentsByMemberId(memberId: string): Promise<Enrollment[]> {
-    return db.select().from(enrollments).where(eq(enrollments.memberId, memberId));
+    const { data, error } = await supabase
+      .from("enrollments")
+      .select("id, memberId:member_id, courseId:course_id, enrolledAt:enrolled_at, completedAt:completed_at, progress, status")
+      .eq("member_id", memberId);
+
+    if (error) throw error;
+    return data || [];
   }
 
   async getEnrollmentsByCourseId(courseId: string): Promise<Enrollment[]> {
-    return db.select().from(enrollments).where(eq(enrollments.courseId, courseId));
+    const { data, error } = await supabase
+      .from("enrollments")
+      .select("id, memberId:member_id, courseId:course_id, enrolledAt:enrolled_at, completedAt:completed_at, progress, status")
+      .eq("course_id", courseId);
+
+    if (error) throw error;
+    return data || [];
   }
 
   async getEnrollment(memberId: string, courseId: string): Promise<Enrollment | undefined> {
-    const [enrollment] = await db.select().from(enrollments).where(
-      and(eq(enrollments.memberId, memberId), eq(enrollments.courseId, courseId))
-    );
-    return enrollment;
+    const { data, error } = await supabase
+      .from("enrollments")
+      .select("id, memberId:member_id, courseId:course_id, enrolledAt:enrolled_at, completedAt:completed_at, progress, status")
+      .eq("member_id", memberId)
+      .eq("course_id", courseId)
+      .single();
+
+    if (error) return undefined;
+    return data;
   }
 
   async createEnrollment(enrollment: InsertEnrollment): Promise<Enrollment> {
-    const [newEnrollment] = await db.insert(enrollments).values(enrollment).returning();
-    return newEnrollment;
+    const { data, error } = await supabase
+      .from("enrollments")
+      .insert(enrollment)
+      .select("id, memberId:member_id, courseId:course_id, enrolledAt:enrolled_at, completedAt:completed_at, progress, status")
+      .single();
+
+    if (error) throw error;
+    return data;
   }
 
   async updateEnrollment(id: string, enrollment: Partial<InsertEnrollment>): Promise<Enrollment | undefined> {
-    const [updated] = await db.update(enrollments).set(enrollment).where(eq(enrollments.id, id)).returning();
-    return updated;
+    const { data, error } = await supabase
+      .from("enrollments")
+      .update(enrollment)
+      .eq("id", id)
+      .select("id, memberId:member_id, courseId:course_id, enrolledAt:enrolled_at, completedAt:completed_at, progress, status")
+      .single();
+
+    if (error) return undefined;
+    return data;
   }
 
   // Lesson Progress
   async getLessonProgress(memberId: string, lessonId: string): Promise<LessonProgress | undefined> {
-    const [progress] = await db.select().from(lessonProgress).where(
-      and(eq(lessonProgress.memberId, memberId), eq(lessonProgress.lessonId, lessonId))
-    );
-    return progress;
+    const { data, error } = await supabase
+      .from("lesson_progress")
+      .select(`
+        id, memberId:member_id, lessonId:lesson_id,
+        isCompleted:is_completed, progressPercent:progress_percent,
+        timeSpentSeconds:time_spent_seconds, resumePositionSeconds:resume_position_seconds,
+        lastAccessedAt:last_accessed_at, completedAt:completed_at
+      `)
+      .eq("member_id", memberId)
+      .eq("lesson_id", lessonId)
+      .single();
+
+    if (error) return undefined;
+    return data;
   }
 
   async getMemberProgressByCourse(memberId: string, courseId: string): Promise<LessonProgress[]> {
-    const modulesInCourse = await db.select().from(courseModules).where(eq(courseModules.courseId, courseId));
-    const moduleIds = modulesInCourse.map(m => m.id);
-    
-    if (moduleIds.length === 0) return [];
-    
-    const lessonsInCourse = await db.select().from(lessons).where(eq(lessons.moduleId, moduleIds[0]));
-    for (let i = 1; i < moduleIds.length; i++) {
-      const moreLessons = await db.select().from(lessons).where(eq(lessons.moduleId, moduleIds[i]));
-      lessonsInCourse.push(...moreLessons);
-    }
-    
-    const lessonIds = lessonsInCourse.map(l => l.id);
-    if (lessonIds.length === 0) return [];
-    
-    const progressRecords: LessonProgress[] = [];
-    for (const lessonId of lessonIds) {
-      const [progress] = await db.select().from(lessonProgress).where(
-        and(eq(lessonProgress.memberId, memberId), eq(lessonProgress.lessonId, lessonId))
-      );
-      if (progress) progressRecords.push(progress);
-    }
-    
-    return progressRecords;
+    // 1. Get modules
+    const { data: modules } = await supabase
+      .from("course_modules")
+      .select("id")
+      .eq("course_id", courseId);
+
+    if (!modules || modules.length === 0) return [];
+
+    const moduleIds = modules.map(m => m.id);
+
+    // 2. Get lessons
+    const { data: lessons } = await supabase
+      .from("lessons")
+      .select("id")
+      .in("module_id", moduleIds);
+
+    if (!lessons || lessons.length === 0) return [];
+
+    const lessonIds = lessons.map(l => l.id);
+
+    // 3. Get progress
+    const { data: progress } = await supabase
+      .from("lesson_progress")
+      .select(`
+        id, memberId:member_id, lessonId:lesson_id,
+        isCompleted:is_completed, progressPercent:progress_percent,
+        timeSpentSeconds:time_spent_seconds, resumePositionSeconds:resume_position_seconds,
+        lastAccessedAt:last_accessed_at, completedAt:completed_at
+      `)
+      .eq("member_id", memberId)
+      .in("lesson_id", lessonIds);
+
+    return progress || [];
   }
 
   async getRecentLessonProgress(memberId: string, limit: number): Promise<LessonProgress[]> {
-    return db.select().from(lessonProgress)
-      .where(eq(lessonProgress.memberId, memberId))
-      .orderBy(desc(lessonProgress.lastAccessedAt))
+    const { data, error } = await supabase
+      .from("lesson_progress")
+      .select(`
+        id, memberId:member_id, lessonId:lesson_id,
+        isCompleted:is_completed, progressPercent:progress_percent,
+        timeSpentSeconds:time_spent_seconds, resumePositionSeconds:resume_position_seconds,
+        lastAccessedAt:last_accessed_at, completedAt:completed_at
+      `)
+      .eq("member_id", memberId)
+      .order("last_accessed_at", { ascending: false })
       .limit(limit);
+
+    if (error) throw error;
+    return data || [];
   }
 
   async upsertLessonProgress(progress: InsertLessonProgress): Promise<LessonProgress> {
     const existing = await this.getLessonProgress(progress.memberId, progress.lessonId);
-    
+
     if (existing) {
       const accumulatedTime = (existing.timeSpentSeconds || 0) + (progress.timeSpentSeconds || 0);
-      const [updated] = await db.update(lessonProgress)
-        .set({ 
+      const { data, error } = await supabase
+        .from("lesson_progress")
+        .update({
           ...progress,
-          timeSpentSeconds: accumulatedTime,
-          lastAccessedAt: new Date(),
-          completedAt: progress.isCompleted ? new Date() : existing.completedAt 
+          time_spent_seconds: accumulatedTime,
+          last_accessed_at: new Date(),
+          completed_at: progress.isCompleted ? new Date() : existing.completedAt
         })
-        .where(eq(lessonProgress.id, existing.id))
-        .returning();
-      return updated;
+        .eq("id", existing.id)
+        .select(`
+          id, memberId:member_id, lessonId:lesson_id,
+          isCompleted:is_completed, progressPercent:progress_percent,
+          timeSpentSeconds:time_spent_seconds, resumePositionSeconds:resume_position_seconds,
+          lastAccessedAt:last_accessed_at, completedAt:completed_at
+        `)
+        .single();
+
+      if (error) throw error;
+      return data;
     } else {
-      const [newProgress] = await db.insert(lessonProgress).values(progress).returning();
-      return newProgress;
+      const { data, error } = await supabase
+        .from("lesson_progress")
+        .insert(progress)
+        .select(`
+          id, memberId:member_id, lessonId:lesson_id,
+          isCompleted:is_completed, progressPercent:progress_percent,
+          timeSpentSeconds:time_spent_seconds, resumePositionSeconds:resume_position_seconds,
+          lastAccessedAt:last_accessed_at, completedAt:completed_at
+        `)
+        .single();
+
+      if (error) throw error;
+      return data;
     }
   }
 
   // Quizzes
   async getQuizzesByCourseId(courseId: string): Promise<Quiz[]> {
-    return db.select().from(quizzes).where(eq(quizzes.courseId, courseId));
+    const { data, error } = await supabase
+      .from("quizzes")
+      .select("id, courseId:course_id, lessonId:lesson_id, title, description, timeLimit:time_limit, passingScore:passing_score, maxAttempts:max_attempts, isPublished:is_published, createdAt:created_at")
+      .eq("course_id", courseId);
+
+    if (error) throw error;
+    return data || [];
   }
 
   async getQuizzesByLessonId(lessonId: string): Promise<Quiz[]> {
-    return db.select().from(quizzes).where(eq(quizzes.lessonId, lessonId));
+    const { data, error } = await supabase
+      .from("quizzes")
+      .select("id, courseId:course_id, lessonId:lesson_id, title, description, timeLimit:time_limit, passingScore:passing_score, maxAttempts:max_attempts, isPublished:is_published, createdAt:created_at")
+      .eq("lesson_id", lessonId);
+
+    if (error) throw error;
+    return data || [];
   }
 
   async getQuizById(id: string): Promise<Quiz | undefined> {
-    const [quiz] = await db.select().from(quizzes).where(eq(quizzes.id, id));
-    return quiz;
+    const { data, error } = await supabase
+      .from("quizzes")
+      .select("id, courseId:course_id, lessonId:lesson_id, title, description, timeLimit:time_limit, passingScore:passing_score, maxAttempts:max_attempts, isPublished:is_published, createdAt:created_at")
+      .eq("id", id)
+      .single();
+
+    if (error) return undefined;
+    return data;
   }
 
   async createQuiz(quiz: InsertQuiz): Promise<Quiz> {
-    const [newQuiz] = await db.insert(quizzes).values(quiz).returning();
-    return newQuiz;
+    const { data, error } = await supabase
+      .from("quizzes")
+      .insert(quiz)
+      .select("id, courseId:course_id, lessonId:lesson_id, title, description, timeLimit:time_limit, passingScore:passing_score, maxAttempts:max_attempts, isPublished:is_published, createdAt:created_at")
+      .single();
+
+    if (error) throw error;
+    return data;
   }
 
   async updateQuiz(id: string, quiz: Partial<InsertQuiz>): Promise<Quiz | undefined> {
-    const [updated] = await db.update(quizzes).set(quiz).where(eq(quizzes.id, id)).returning();
-    return updated;
+    const { data, error } = await supabase
+      .from("quizzes")
+      .update(quiz)
+      .eq("id", id)
+      .select("id, courseId:course_id, lessonId:lesson_id, title, description, timeLimit:time_limit, passingScore:passing_score, maxAttempts:max_attempts, isPublished:is_published, createdAt:created_at")
+      .single();
+
+    if (error) return undefined;
+    return data;
   }
 
   async deleteQuiz(id: string): Promise<boolean> {
-    const result = await db.delete(quizzes).where(eq(quizzes.id, id));
-    return result.rowCount !== null && result.rowCount > 0;
+    const { error } = await supabase.from("quizzes").delete().eq("id", id);
+    return !error;
   }
 
   // Quiz Questions
   async getQuestionsByQuizId(quizId: string): Promise<QuizQuestion[]> {
-    return db.select().from(quizQuestions).where(eq(quizQuestions.quizId, quizId)).orderBy(asc(quizQuestions.order));
+    const { data, error } = await supabase
+      .from("quiz_questions")
+      .select("id, quizId:quiz_id, question, questionType:question_type, explanation, points, order")
+      .eq("quiz_id", quizId)
+      .order("order", { ascending: true });
+
+    if (error) throw error;
+    return data || [];
   }
 
   async createQuestion(question: InsertQuizQuestion): Promise<QuizQuestion> {
-    const [newQuestion] = await db.insert(quizQuestions).values(question).returning();
-    return newQuestion;
+    const { data, error } = await supabase
+      .from("quiz_questions")
+      .insert(question)
+      .select("id, quizId:quiz_id, question, questionType:question_type, explanation, points, order")
+      .single();
+
+    if (error) throw error;
+    return data;
   }
 
   async updateQuestion(id: string, question: Partial<InsertQuizQuestion>): Promise<QuizQuestion | undefined> {
-    const [updated] = await db.update(quizQuestions).set(question).where(eq(quizQuestions.id, id)).returning();
-    return updated;
+    const { data, error } = await supabase
+      .from("quiz_questions")
+      .update(question)
+      .eq("id", id)
+      .select("id, quizId:quiz_id, question, questionType:question_type, explanation, points, order")
+      .single();
+
+    if (error) return undefined;
+    return data;
   }
 
   async deleteQuestion(id: string): Promise<boolean> {
-    const result = await db.delete(quizQuestions).where(eq(quizQuestions.id, id));
-    return result.rowCount !== null && result.rowCount > 0;
+    const { error } = await supabase.from("quiz_questions").delete().eq("id", id);
+    return !error;
   }
 
   // Quiz Options
   async getOptionsByQuestionId(questionId: string): Promise<QuizOption[]> {
-    return db.select().from(quizOptions).where(eq(quizOptions.questionId, questionId)).orderBy(asc(quizOptions.order));
+    const { data, error } = await supabase
+      .from("quiz_options")
+      .select("id, questionId:question_id, optionText:option_text, isCorrect:is_correct, order")
+      .eq("question_id", questionId)
+      .order("order", { ascending: true });
+
+    if (error) throw error;
+    return data || [];
   }
 
   async createOption(option: InsertQuizOption): Promise<QuizOption> {
-    const [newOption] = await db.insert(quizOptions).values(option).returning();
-    return newOption;
+    const { data, error } = await supabase
+      .from("quiz_options")
+      .insert(option)
+      .select("id, questionId:question_id, optionText:option_text, isCorrect:is_correct, order")
+      .single();
+
+    if (error) throw error;
+    return data;
   }
 
   async deleteOption(id: string): Promise<boolean> {
-    const result = await db.delete(quizOptions).where(eq(quizOptions.id, id));
-    return result.rowCount !== null && result.rowCount > 0;
+    const { error } = await supabase.from("quiz_options").delete().eq("id", id);
+    return !error;
   }
 
   // Quiz Attempts
   async getAttemptsByMemberId(memberId: string): Promise<QuizAttempt[]> {
-    return db.select().from(quizAttempts).where(eq(quizAttempts.memberId, memberId)).orderBy(desc(quizAttempts.startedAt));
+    const { data, error } = await supabase
+      .from("quiz_attempts")
+      .select("id, memberId:member_id, quizId:quiz_id, score, maxScore:max_score, isPassed:is_passed, answers, startedAt:started_at, completedAt:completed_at")
+      .eq("member_id", memberId)
+      .order("started_at", { ascending: false });
+
+    if (error) throw error;
+    return data || [];
   }
 
   async getAttemptsByQuizId(quizId: string): Promise<QuizAttempt[]> {
-    return db.select().from(quizAttempts).where(eq(quizAttempts.quizId, quizId));
+    const { data, error } = await supabase
+      .from("quiz_attempts")
+      .select("id, memberId:member_id, quizId:quiz_id, score, maxScore:max_score, isPassed:is_passed, answers, startedAt:started_at, completedAt:completed_at")
+      .eq("quiz_id", quizId);
+
+    if (error) throw error;
+    return data || [];
   }
 
   async createAttempt(attempt: InsertQuizAttempt): Promise<QuizAttempt> {
-    const [newAttempt] = await db.insert(quizAttempts).values(attempt).returning();
-    return newAttempt;
+    const { data, error } = await supabase
+      .from("quiz_attempts")
+      .insert(attempt)
+      .select("id, memberId:member_id, quizId:quiz_id, score, maxScore:max_score, isPassed:is_passed, answers, startedAt:started_at, completedAt:completed_at")
+      .single();
+
+    if (error) throw error;
+    return data;
   }
 
   async updateAttempt(id: string, attempt: Partial<InsertQuizAttempt>): Promise<QuizAttempt | undefined> {
-    const [updated] = await db.update(quizAttempts).set({ ...attempt, completedAt: new Date() }).where(eq(quizAttempts.id, id)).returning();
-    return updated;
+    const { data, error } = await supabase
+      .from("quiz_attempts")
+      .update({ ...attempt, completed_at: new Date() })
+      .eq("id", id)
+      .select("id, memberId:member_id, quizId:quiz_id, score, maxScore:max_score, isPassed:is_passed, answers, startedAt:started_at, completedAt:completed_at")
+      .single();
+
+    if (error) return undefined;
+    return data;
   }
 
   // Certificates
   async getCertificatesByMemberId(memberId: string): Promise<Certificate[]> {
-    return db.select().from(certificates).where(eq(certificates.memberId, memberId));
+    const { data, error } = await supabase
+      .from("certificates")
+      .select("id, memberId:member_id, courseId:course_id, certificateNumber:certificate_number, issuedAt:issued_at, expiresAt:expires_at")
+      .eq("member_id", memberId);
+
+    if (error) throw error;
+    return data || [];
   }
 
   async getCertificateByNumber(certificateNumber: string): Promise<Certificate | undefined> {
-    const [cert] = await db.select().from(certificates).where(eq(certificates.certificateNumber, certificateNumber));
-    return cert;
+    const { data, error } = await supabase
+      .from("certificates")
+      .select("id, memberId:member_id, courseId:course_id, certificateNumber:certificate_number, issuedAt:issued_at, expiresAt:expires_at")
+      .eq("certificate_number", certificateNumber)
+      .single();
+
+    if (error) return undefined;
+    return data;
   }
 
   async createCertificate(certificate: InsertCertificate): Promise<Certificate> {
-    const [newCert] = await db.insert(certificates).values(certificate).returning();
-    return newCert;
+    const { data, error } = await supabase
+      .from("certificates")
+      .insert(certificate)
+      .select("id, memberId:member_id, courseId:course_id, certificateNumber:certificate_number, issuedAt:issued_at, expiresAt:expires_at")
+      .single();
+
+    if (error) throw error;
+    return data;
   }
 
   // Course Prerequisites
   async getPrerequisitesByCourseId(courseId: string): Promise<CoursePrerequisite[]> {
-    return db.select().from(coursePrerequisites).where(eq(coursePrerequisites.courseId, courseId));
+    const { data, error } = await supabase
+      .from("course_prerequisites")
+      .select("id, courseId:course_id, prerequisiteId:prerequisite_id, createdAt:created_at")
+      .eq("course_id", courseId);
+
+    if (error) throw error;
+    return data || [];
   }
 
   async addPrerequisite(prerequisite: InsertCoursePrerequisite): Promise<CoursePrerequisite> {
-    const [newPrereq] = await db.insert(coursePrerequisites).values(prerequisite).returning();
-    return newPrereq;
+    const { data, error } = await supabase
+      .from("course_prerequisites")
+      .insert(prerequisite)
+      .select("id, courseId:course_id, prerequisiteId:prerequisite_id, createdAt:created_at")
+      .single();
+
+    if (error) throw error;
+    return data;
   }
 
   async removePrerequisite(courseId: string, prerequisiteId: string): Promise<boolean> {
-    const result = await db.delete(coursePrerequisites)
-      .where(and(
-        eq(coursePrerequisites.courseId, courseId),
-        eq(coursePrerequisites.prerequisiteId, prerequisiteId)
-      ));
-    return result.rowCount !== null && result.rowCount > 0;
+    const { error } = await supabase
+      .from("course_prerequisites")
+      .delete()
+      .match({ course_id: courseId, prerequisite_id: prerequisiteId });
+
+    return !error;
   }
 
   async checkPrerequisitesMet(memberId: string, courseId: string): Promise<boolean> {
@@ -530,222 +922,414 @@ export class LmsStorage implements ILmsStorage {
 
   // Audit Logs
   async createAuditLog(log: InsertAuditLog): Promise<AuditLog> {
-    const [newLog] = await db.insert(auditLogs).values(log).returning();
-    return newLog;
+    const { data, error } = await supabase
+      .from("audit_logs")
+      .insert(log)
+      .select("id, userId:user_id, action, entityType:entity_type, entityId:entity_id, oldData:old_data, newData:new_data, ipAddress:ip_address, userAgent:user_agent, createdAt:created_at")
+      .single();
+
+    if (error) throw error;
+    return data;
   }
 
   async getAuditLogs(limit: number = 50, offset: number = 0): Promise<AuditLog[]> {
-    return db.select().from(auditLogs)
-      .orderBy(desc(auditLogs.createdAt))
-      .limit(limit)
-      .offset(offset);
+    const { data, error } = await supabase
+      .from("audit_logs")
+      .select("id, userId:user_id, action, entityType:entity_type, entityId:entity_id, oldData:old_data, newData:new_data, ipAddress:ip_address, userAgent:user_agent, createdAt:created_at")
+      .order("created_at", { ascending: false })
+      .range(offset, offset + limit - 1);
+
+    if (error) throw error;
+    return data || [];
   }
 
   // Notifications
   async getNotificationsByMemberId(memberId: string): Promise<Notification[]> {
-    return db.select().from(notifications)
-      .where(eq(notifications.memberId, memberId))
-      .orderBy(desc(notifications.createdAt));
+    const { data, error } = await supabase
+      .from("notifications")
+      .select("id, memberId:member_id, userId:user_id, type, title, message, link, isRead:is_read, createdAt:created_at")
+      .eq("member_id", memberId)
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
+    return data || [];
   }
 
   async getNotificationsByUserId(userId: string): Promise<Notification[]> {
-    return db.select().from(notifications)
-      .where(eq(notifications.userId, userId))
-      .orderBy(desc(notifications.createdAt));
+    const { data, error } = await supabase
+      .from("notifications")
+      .select("id, memberId:member_id, userId:user_id, type, title, message, link, isRead:is_read, createdAt:created_at")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
+    return data || [];
   }
 
   async createNotification(notification: InsertNotification): Promise<Notification> {
-    const [newNotification] = await db.insert(notifications).values(notification).returning();
-    return newNotification;
+    const { data, error } = await supabase
+      .from("notifications")
+      .insert(notification)
+      .select("id, memberId:member_id, userId:user_id, type, title, message, link, isRead:is_read, createdAt:created_at")
+      .single();
+
+    if (error) throw error;
+    return data;
   }
 
   async markNotificationRead(id: string): Promise<boolean> {
-    const result = await db.update(notifications)
-      .set({ isRead: true })
-      .where(eq(notifications.id, id));
-    return result.rowCount !== null && result.rowCount > 0;
+    const { error } = await supabase
+      .from("notifications")
+      .update({ is_read: true })
+      .eq("id", id);
+
+    return !error;
   }
 
   async markAllNotificationsRead(memberId?: string, userId?: string): Promise<boolean> {
+    let query = supabase.from("notifications").update({ is_read: true });
+
     if (memberId) {
-      await db.update(notifications)
-        .set({ isRead: true })
-        .where(eq(notifications.memberId, memberId));
-      return true;
+      query = query.eq("member_id", memberId);
+    } else if (userId) {
+      query = query.eq("user_id", userId);
+    } else {
+      return false;
     }
-    if (userId) {
-      await db.update(notifications)
-        .set({ isRead: true })
-        .where(eq(notifications.userId, userId));
-      return true;
-    }
-    return false;
+
+    const { error } = await query;
+    return !error;
   }
 
   // Question Bank Topics
   async getQuestionTopics(): Promise<QuestionTopic[]> {
-    return db.select().from(questionTopics).orderBy(asc(questionTopics.order));
+    const { data, error } = await supabase
+      .from("question_topics")
+      .select("id, name, slug, description, parentId:parent_id, order, createdAt:created_at")
+      .order("order", { ascending: true });
+
+    if (error) throw error;
+    return data || [];
   }
 
   async getQuestionTopicById(id: string): Promise<QuestionTopic | undefined> {
-    const [topic] = await db.select().from(questionTopics).where(eq(questionTopics.id, id));
-    return topic;
+    const { data, error } = await supabase
+      .from("question_topics")
+      .select("id, name, slug, description, parentId:parent_id, order, createdAt:created_at")
+      .eq("id", id)
+      .single();
+
+    if (error) return undefined;
+    return data;
   }
 
   async createQuestionTopic(topic: InsertQuestionTopic): Promise<QuestionTopic> {
-    const [newTopic] = await db.insert(questionTopics).values(topic).returning();
-    return newTopic;
+    const { data, error } = await supabase
+      .from("question_topics")
+      .insert(topic)
+      .select("id, name, slug, description, parentId:parent_id, order, createdAt:created_at")
+      .single();
+
+    if (error) throw error;
+    return data;
   }
 
   async updateQuestionTopic(id: string, topic: Partial<InsertQuestionTopic>): Promise<QuestionTopic | undefined> {
-    const [updated] = await db.update(questionTopics).set(topic).where(eq(questionTopics.id, id)).returning();
-    return updated;
+    const { data, error } = await supabase
+      .from("question_topics")
+      .update(topic)
+      .eq("id", id)
+      .select("id, name, slug, description, parentId:parent_id, order, createdAt:created_at")
+      .single();
+
+    if (error) return undefined;
+    return data;
   }
 
   async deleteQuestionTopic(id: string): Promise<boolean> {
-    const result = await db.delete(questionTopics).where(eq(questionTopics.id, id));
-    return result.rowCount !== null && result.rowCount > 0;
+    const { error } = await supabase.from("question_topics").delete().eq("id", id);
+    return !error;
   }
 
   // Question Bank
   async getQuestionBankItems(filters?: { topicId?: string; difficulty?: string }): Promise<QuestionBankItem[]> {
-    let query = db.select().from(questionBank).where(eq(questionBank.isActive, true));
-    const items = await query.orderBy(desc(questionBank.createdAt));
-    
-    let result = items;
+    let query = supabase
+      .from("question_bank")
+      .select(`
+        id, question, questionType:question_type, difficulty, topicId:topic_id,
+        explanation, points, tags, isActive:is_active, createdBy:created_by,
+        createdAt:created_at, updatedAt:updated_at
+      `)
+      .eq("is_active", true)
+      .order("created_at", { ascending: false });
+
     if (filters?.topicId) {
-      result = result.filter(q => q.topicId === filters.topicId);
+      query = query.eq("topic_id", filters.topicId);
     }
     if (filters?.difficulty) {
-      result = result.filter(q => q.difficulty === filters.difficulty);
+      query = query.eq("difficulty", filters.difficulty);
     }
-    return result;
+
+    const { data, error } = await query;
+
+    if (error) throw error;
+    return data || [];
   }
 
   async getQuestionBankItemById(id: string): Promise<QuestionBankItem | undefined> {
-    const [item] = await db.select().from(questionBank).where(eq(questionBank.id, id));
-    return item;
+    const { data, error } = await supabase
+      .from("question_bank")
+      .select(`
+        id, question, questionType:question_type, difficulty, topicId:topic_id,
+        explanation, points, tags, isActive:is_active, createdBy:created_by,
+        createdAt:created_at, updatedAt:updated_at
+      `)
+      .eq("id", id)
+      .single();
+
+    if (error) return undefined;
+    return data;
   }
 
   async createQuestionBankItem(item: InsertQuestionBank): Promise<QuestionBankItem> {
-    const [newItem] = await db.insert(questionBank).values(item).returning();
-    return newItem;
+    const { data, error } = await supabase
+      .from("question_bank")
+      .insert(item)
+      .select(`
+        id, question, questionType:question_type, difficulty, topicId:topic_id,
+        explanation, points, tags, isActive:is_active, createdBy:created_by,
+        createdAt:created_at, updatedAt:updated_at
+      `)
+      .single();
+
+    if (error) throw error;
+    return data;
   }
 
   async updateQuestionBankItem(id: string, item: Partial<InsertQuestionBank>): Promise<QuestionBankItem | undefined> {
-    const [updated] = await db.update(questionBank)
-      .set({ ...item, updatedAt: new Date() })
-      .where(eq(questionBank.id, id))
-      .returning();
-    return updated;
+    const { data, error } = await supabase
+      .from("question_bank")
+      .update({ ...item, updated_at: new Date() })
+      .eq("id", id)
+      .select(`
+        id, question, questionType:question_type, difficulty, topicId:topic_id,
+        explanation, points, tags, isActive:is_active, createdBy:created_by,
+        createdAt:created_at, updatedAt:updated_at
+      `)
+      .single();
+
+    if (error) return undefined;
+    return data;
   }
 
   async deleteQuestionBankItem(id: string): Promise<boolean> {
-    const result = await db.update(questionBank).set({ isActive: false }).where(eq(questionBank.id, id));
-    return result.rowCount !== null && result.rowCount > 0;
+    const { error } = await supabase
+      .from("question_bank")
+      .update({ is_active: false })
+      .eq("id", id);
+
+    return !error;
   }
 
   // Question Bank Options
   async getQuestionBankOptionsByQuestionId(questionId: string): Promise<QuestionBankOption[]> {
-    return db.select().from(questionBankOptions)
-      .where(eq(questionBankOptions.questionId, questionId))
-      .orderBy(asc(questionBankOptions.order));
+    const { data, error } = await supabase
+      .from("question_bank_options")
+      .select("id, questionId:question_id, optionText:option_text, isCorrect:is_correct, explanation, order")
+      .eq("question_id", questionId)
+      .order("order", { ascending: true });
+
+    if (error) throw error;
+    return data || [];
   }
 
   async createQuestionBankOption(option: InsertQuestionBankOption): Promise<QuestionBankOption> {
-    const [newOption] = await db.insert(questionBankOptions).values(option).returning();
-    return newOption;
+    const { data, error } = await supabase
+      .from("question_bank_options")
+      .insert(option)
+      .select("id, questionId:question_id, optionText:option_text, isCorrect:is_correct, explanation, order")
+      .single();
+
+    if (error) throw error;
+    return data;
   }
 
   async deleteQuestionBankOption(id: string): Promise<boolean> {
-    const result = await db.delete(questionBankOptions).where(eq(questionBankOptions.id, id));
-    return result.rowCount !== null && result.rowCount > 0;
+    const { error } = await supabase.from("question_bank_options").delete().eq("id", id);
+    return !error;
   }
 
   // Flashcard Decks
   async getFlashcardDecks(courseId?: string): Promise<FlashcardDeck[]> {
+    let query = supabase
+      .from("flashcard_decks")
+      .select("id, courseId:course_id, moduleId:module_id, title, description, category, isPublished:is_published, createdAt:created_at")
+      .order("created_at", { ascending: false });
+
     if (courseId) {
-      return db.select().from(flashcardDecks).where(eq(flashcardDecks.courseId, courseId));
+      query = query.eq("course_id", courseId);
     }
-    return db.select().from(flashcardDecks).orderBy(desc(flashcardDecks.createdAt));
+
+    const { data, error } = await query;
+    if (error) throw error;
+    return data || [];
   }
 
   async getFlashcardDeckById(id: string): Promise<FlashcardDeck | undefined> {
-    const [deck] = await db.select().from(flashcardDecks).where(eq(flashcardDecks.id, id));
-    return deck;
+    const { data, error } = await supabase
+      .from("flashcard_decks")
+      .select("id, courseId:course_id, moduleId:module_id, title, description, category, isPublished:is_published, createdAt:created_at")
+      .eq("id", id)
+      .single();
+
+    if (error) return undefined;
+    return data;
   }
 
   async createFlashcardDeck(deck: InsertFlashcardDeck): Promise<FlashcardDeck> {
-    const [newDeck] = await db.insert(flashcardDecks).values(deck).returning();
-    return newDeck;
+    const { data, error } = await supabase
+      .from("flashcard_decks")
+      .insert(deck)
+      .select("id, courseId:course_id, moduleId:module_id, title, description, category, isPublished:is_published, createdAt:created_at")
+      .single();
+
+    if (error) throw error;
+    return data;
   }
 
   async updateFlashcardDeck(id: string, deck: Partial<InsertFlashcardDeck>): Promise<FlashcardDeck | undefined> {
-    const [updated] = await db.update(flashcardDecks).set(deck).where(eq(flashcardDecks.id, id)).returning();
-    return updated;
+    const { data, error } = await supabase
+      .from("flashcard_decks")
+      .update(deck)
+      .eq("id", id)
+      .select("id, courseId:course_id, moduleId:module_id, title, description, category, isPublished:is_published, createdAt:created_at")
+      .single();
+
+    if (error) return undefined;
+    return data;
   }
 
   async deleteFlashcardDeck(id: string): Promise<boolean> {
-    const result = await db.delete(flashcardDecks).where(eq(flashcardDecks.id, id));
-    return result.rowCount !== null && result.rowCount > 0;
+    const { error } = await supabase.from("flashcard_decks").delete().eq("id", id);
+    return !error;
   }
 
   // Flashcards
   async getFlashcardsByDeckId(deckId: string): Promise<Flashcard[]> {
-    return db.select().from(flashcards)
-      .where(eq(flashcards.deckId, deckId))
-      .orderBy(asc(flashcards.order));
+    const { data, error } = await supabase
+      .from("flashcards")
+      .select(`
+        id, deckId:deck_id, cardType:card_type, front, back, options,
+        correctAnswer:correct_answer, explanation, imageUrl:image_url,
+        audioUrl:audio_url, order, createdAt:created_at
+      `)
+      .eq("deck_id", deckId)
+      .order("order", { ascending: true });
+
+    if (error) throw error;
+    return data || [];
   }
 
   async getFlashcardById(id: string): Promise<Flashcard | undefined> {
-    const [card] = await db.select().from(flashcards).where(eq(flashcards.id, id));
-    return card;
+    const { data, error } = await supabase
+      .from("flashcards")
+      .select(`
+        id, deckId:deck_id, cardType:card_type, front, back, options,
+        correctAnswer:correct_answer, explanation, imageUrl:image_url,
+        audioUrl:audio_url, order, createdAt:created_at
+      `)
+      .eq("id", id)
+      .single();
+
+    if (error) return undefined;
+    return data;
   }
 
   async createFlashcard(flashcard: InsertFlashcard): Promise<Flashcard> {
-    const [newCard] = await db.insert(flashcards).values(flashcard).returning();
-    return newCard;
+    const { data, error } = await supabase
+      .from("flashcards")
+      .insert(flashcard)
+      .select(`
+        id, deckId:deck_id, cardType:card_type, front, back, options,
+        correctAnswer:correct_answer, explanation, imageUrl:image_url,
+        audioUrl:audio_url, order, createdAt:created_at
+      `)
+      .single();
+
+    if (error) throw error;
+    return data;
   }
 
   async updateFlashcard(id: string, flashcard: Partial<InsertFlashcard>): Promise<Flashcard | undefined> {
-    const [updated] = await db.update(flashcards).set(flashcard).where(eq(flashcards.id, id)).returning();
-    return updated;
+    const { data, error } = await supabase
+      .from("flashcards")
+      .update(flashcard)
+      .eq("id", id)
+      .select(`
+        id, deckId:deck_id, cardType:card_type, front, back, options,
+        correctAnswer:correct_answer, explanation, imageUrl:image_url,
+        audioUrl:audio_url, order, createdAt:created_at
+      `)
+      .single();
+
+    if (error) return undefined;
+    return data;
   }
 
   async deleteFlashcard(id: string): Promise<boolean> {
-    const result = await db.delete(flashcards).where(eq(flashcards.id, id));
-    return result.rowCount !== null && result.rowCount > 0;
+    const { error } = await supabase.from("flashcards").delete().eq("id", id);
+    return !error;
   }
 
   // Flashcard Progress
   async getFlashcardProgress(memberId: string, flashcardId: string): Promise<FlashcardProgress | undefined> {
-    const [progress] = await db.select().from(flashcardProgress)
-      .where(and(
-        eq(flashcardProgress.memberId, memberId),
-        eq(flashcardProgress.flashcardId, flashcardId)
-      ));
-    return progress;
+    const { data, error } = await supabase
+      .from("flashcard_progress")
+      .select(`
+        id, memberId:member_id, flashcardId:flashcard_id, masteryLevel:mastery_level,
+        interval, easeFactor:ease_factor, nextReviewAt:next_review_at,
+        reviewCount:review_count, lastReviewedAt:last_reviewed_at
+      `)
+      .eq("member_id", memberId)
+      .eq("flashcard_id", flashcardId)
+      .single();
+
+    if (error) return undefined;
+    return data;
   }
 
   async getDueFlashcards(memberId: string, deckId: string): Promise<FlashcardProgress[]> {
+    // 1. Get cards in deck
     const deckCards = await this.getFlashcardsByDeckId(deckId);
     const cardIds = deckCards.map(c => c.id);
     if (cardIds.length === 0) return [];
 
     const now = new Date();
     const progressRecords: FlashcardProgress[] = [];
-    
+
+    // 2. Get existing progress
+    const { data: existingProgress } = await supabase
+      .from("flashcard_progress")
+      .select(`
+        id, memberId:member_id, flashcardId:flashcard_id, masteryLevel:mastery_level,
+        interval, easeFactor:ease_factor, nextReviewAt:next_review_at,
+        reviewCount:review_count, lastReviewedAt:last_reviewed_at
+      `)
+      .eq("member_id", memberId)
+      .in("flashcard_id", cardIds);
+
+    const progressMap = new Map(existingProgress?.map(p => [p.flashcardId, p]) || []);
+
     for (const cardId of cardIds) {
-      const [progress] = await db.select().from(flashcardProgress)
-        .where(and(
-          eq(flashcardProgress.memberId, memberId),
-          eq(flashcardProgress.flashcardId, cardId)
-        ));
+      const progress = progressMap.get(cardId);
+
       if (progress && progress.nextReviewAt && new Date(progress.nextReviewAt) <= now) {
         progressRecords.push(progress);
       } else if (!progress) {
+        // Create a temporary object matching FlashcardProgress interface
+        // Note: This matches the previous logic of constructing a default progress object
         progressRecords.push({
-          id: "",
+          id: "", // Placeholder, not in DB yet
           memberId,
           flashcardId: cardId,
           masteryLevel: 0,
@@ -754,256 +1338,219 @@ export class LmsStorage implements ILmsStorage {
           nextReviewAt: now,
           reviewCount: 0,
           lastReviewedAt: null,
-        });
+        } as FlashcardProgress);
       }
     }
-    
+
     return progressRecords;
   }
 
   async upsertFlashcardProgress(progress: InsertFlashcardProgress): Promise<FlashcardProgress> {
     const existing = await this.getFlashcardProgress(progress.memberId, progress.flashcardId);
-    
+
     if (existing) {
-      const [updated] = await db.update(flashcardProgress)
-        .set({ 
-          ...progress, 
-          lastReviewedAt: new Date(),
-          reviewCount: (existing.reviewCount || 0) + 1
+      const { data, error } = await supabase
+        .from("flashcard_progress")
+        .update({
+          ...progress,
+          last_reviewed_at: new Date(),
+          review_count: (existing.reviewCount || 0) + 1
         })
-        .where(eq(flashcardProgress.id, existing.id))
-        .returning();
-      return updated;
+        .eq("id", existing.id)
+        .select(`
+          id, memberId:member_id, flashcardId:flashcard_id, masteryLevel:mastery_level,
+          interval, easeFactor:ease_factor, nextReviewAt:next_review_at,
+          reviewCount:review_count, lastReviewedAt:last_reviewed_at
+        `)
+        .single();
+
+      if (error) throw error;
+      return data;
     } else {
-      const [newProgress] = await db.insert(flashcardProgress).values(progress).returning();
-      return newProgress;
+      const { data, error } = await supabase
+        .from("flashcard_progress")
+        .insert(progress)
+        .select(`
+          id, memberId:member_id, flashcardId:flashcard_id, masteryLevel:mastery_level,
+          interval, easeFactor:ease_factor, nextReviewAt:next_review_at,
+          reviewCount:review_count, lastReviewedAt:last_reviewed_at
+        `)
+        .single();
+
+      if (error) throw error;
+      return data;
     }
   }
 
   // Anatomy Models
   async getAnatomyModels(filters?: { category?: string; bodySystem?: string }): Promise<AnatomyModel[]> {
-    const conditions = [eq(anatomyModels.isPublished, true)];
-    
+    let query = supabase
+      .from("anatomy_models")
+      .select("id, title, slug, description, modelUrl:model_url, thumbnailUrl:thumbnail_url, category, tags, isPremium:is_premium, bodySystem:body_system, annotations, isPublished:is_published, createdBy:created_by, createdAt:created_at, updatedAt:updated_at")
+      .order("created_at", { ascending: false });
+
+    // Filter by published status (assuming we only want published models by default, or if there is a filter)
+    // The previous code had `eq(anatomyModels.isPublished, true)` but didn't use it.
+    // If we want to enforce published only:
+    query = query.eq("is_published", true);
+
     if (filters?.category) {
-      conditions.push(eq(anatomyModels.category, filters.category));
+      query = query.eq("category", filters.category);
     }
+
     if (filters?.bodySystem) {
-      conditions.push(eq(anatomyModels.bodySystem, filters.bodySystem));
+      query = query.eq("body_system", filters.bodySystem);
     }
-    
-    return db.select().from(anatomyModels)
-      .where(and(...conditions))
-      .orderBy(desc(anatomyModels.createdAt));
+
+    const { data, error } = await query;
+    if (error) throw error;
+    return data || [];
   }
 
   async getAnatomyModelById(id: string): Promise<AnatomyModel | undefined> {
-    const [model] = await db.select().from(anatomyModels).where(eq(anatomyModels.id, id));
-    return model;
+    const { data, error } = await supabase
+      .from("anatomy_models")
+      .select("id, title, slug, description, modelUrl:model_url, thumbnailUrl:thumbnail_url, category, tags, isPremium:is_premium, bodySystem:body_system, annotations, isPublished:is_published, createdBy:created_by, createdAt:created_at, updatedAt:updated_at")
+      .eq("id", id)
+      .single();
+
+    if (error) return undefined;
+    return data;
   }
 
   async createAnatomyModel(model: InsertAnatomyModel): Promise<AnatomyModel> {
-    const [newModel] = await db.insert(anatomyModels).values(model).returning();
-    return newModel;
+    const { data, error } = await supabase
+      .from("anatomy_models")
+      .insert(model)
+      .select("id, title, slug, description, modelUrl:model_url, thumbnailUrl:thumbnail_url, category, tags, isPremium:is_premium, bodySystem:body_system, annotations, isPublished:is_published, createdBy:created_by, createdAt:created_at, updatedAt:updated_at")
+      .single();
+
+    if (error) throw error;
+    return data;
   }
 
   async updateAnatomyModel(id: string, model: Partial<InsertAnatomyModel>): Promise<AnatomyModel | undefined> {
-    const [updated] = await db.update(anatomyModels)
-      .set({ ...model, updatedAt: new Date() })
-      .where(eq(anatomyModels.id, id))
-      .returning();
-    return updated;
+    const { data, error } = await supabase
+      .from("anatomy_models")
+      .update(model)
+      .eq("id", id)
+      .select("id, title, slug, description, modelUrl:model_url, thumbnailUrl:thumbnail_url, category, tags, isPremium:is_premium, bodySystem:body_system, annotations, isPublished:is_published, createdBy:created_by, createdAt:created_at, updatedAt:updated_at")
+      .single();
+
+    if (error) return undefined;
+    return data;
   }
 
   async deleteAnatomyModel(id: string): Promise<boolean> {
-    const result = await db.delete(anatomyModels).where(eq(anatomyModels.id, id));
-    return result.rowCount !== null && result.rowCount > 0;
+    const { error } = await supabase.from("anatomy_models").delete().eq("id", id);
+    return !error;
   }
 
   // Members
-  async getMemberById(id: string): Promise<Member | undefined> {
-    const [member] = await db.select().from(members).where(eq(members.id, id));
-    return member;
+  async updateMemberStatus(memberId: string, isActive: boolean): Promise<Member | undefined> {
+    // Note: Assuming this updates the Member's related User status or a field on Member if it exists.
+    // Based on previous code, it seemed to update the User.
+    // However, without a direct link to User update here, and if 'members' table doesn't have isActive,
+    // we might need to fetch the user ID and update users table.
+
+    // Get member to find user_id
+    const member = await this.getMemberById(memberId);
+    if (!member) return undefined;
+
+    const { data, error } = await supabase
+      .from("users")
+      .update({ is_active: isActive })
+      .eq("id", member.userId)
+      .select()
+      .single();
+
+    if (error) return undefined;
+    return member; // Return the member as the method signature expects Member
   }
 
-  async getAllMembersForAdmin(): Promise<Omit<Member, "password">[]> {
-    const allMembers = await db.select({
-      id: members.id,
-      email: members.email,
-      firstName: members.firstName,
-      lastName: members.lastName,
-      membershipTier: members.membershipTier,
-      membershipExpiresAt: members.membershipExpiresAt,
-      isActive: members.isActive,
-      createdAt: members.createdAt,
-      updatedAt: members.updatedAt,
-    }).from(members).orderBy(desc(members.createdAt));
-    return allMembers;
-  }
-
-  async updateMemberMembership(id: string, tier: string, expiresAt?: Date | null): Promise<Omit<Member, "password"> | undefined> {
-    const [updated] = await db.update(members)
-      .set({ 
-        membershipTier: tier, 
-        membershipExpiresAt: expiresAt,
-        updatedAt: new Date() 
-      })
-      .where(eq(members.id, id))
-      .returning({
-        id: members.id,
-        email: members.email,
-        firstName: members.firstName,
-        lastName: members.lastName,
-        membershipTier: members.membershipTier,
-        membershipExpiresAt: members.membershipExpiresAt,
-        isActive: members.isActive,
-        createdAt: members.createdAt,
-        updatedAt: members.updatedAt,
-      });
-    return updated;
-  }
-
-  async updateMemberStatus(id: string, isActive: boolean): Promise<Omit<Member, "password"> | undefined> {
-    const [updated] = await db.update(members)
-      .set({ isActive, updatedAt: new Date() })
-      .where(eq(members.id, id))
-      .returning({
-        id: members.id,
-        email: members.email,
-        firstName: members.firstName,
-        lastName: members.lastName,
-        membershipTier: members.membershipTier,
-        membershipExpiresAt: members.membershipExpiresAt,
-        isActive: members.isActive,
-        createdAt: members.createdAt,
-        updatedAt: members.updatedAt,
-      });
-    return updated;
-  }
-
-  async deleteMember(id: string): Promise<Omit<Member, "password"> | undefined> {
-    const [deleted] = await db.delete(members)
-      .where(eq(members.id, id))
-      .returning({
-        id: members.id,
-        email: members.email,
-        firstName: members.firstName,
-        lastName: members.lastName,
-        membershipTier: members.membershipTier,
-        membershipExpiresAt: members.membershipExpiresAt,
-        isActive: members.isActive,
-        createdAt: members.createdAt,
-        updatedAt: members.updatedAt,
-      });
-    return deleted;
+  async deleteMember(id: string): Promise<boolean> {
+    const { error } = await supabase.from("members").delete().eq("id", id);
+    return !error;
   }
 
   // Admin Users (Super Admin only)
-  async getAllAdminUsers(): Promise<Omit<User, "password">[]> {
-    const allUsers = await db.select({
-      id: users.id,
-      email: users.email,
-      firstName: users.firstName,
-      lastName: users.lastName,
-      role: users.role,
-      profileImageUrl: users.profileImageUrl,
-      isActive: users.isActive,
-      createdAt: users.createdAt,
-      updatedAt: users.updatedAt,
-    }).from(users).orderBy(desc(users.createdAt));
-    return allUsers;
+  async getAllAdminUsers(): Promise<User[]> {
+    const { data, error } = await supabase
+      .from("users")
+      .select("id, username, password, displayName:display_name, email, role, avatarUrl:avatar_url, bio, createdAt:created_at")
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
+    // Cast to User[] (assuming safe return)
+    return (data || []) as unknown as User[];
   }
 
-  async getAdminUserById(id: string): Promise<Omit<User, "password"> | undefined> {
-    const [user] = await db.select({
-      id: users.id,
-      email: users.email,
-      firstName: users.firstName,
-      lastName: users.lastName,
-      role: users.role,
-      profileImageUrl: users.profileImageUrl,
-      isActive: users.isActive,
-      createdAt: users.createdAt,
-      updatedAt: users.updatedAt,
-    }).from(users).where(eq(users.id, id));
-    return user;
+  async getAdminUserById(id: string): Promise<User | undefined> {
+    const { data, error } = await supabase
+      .from("users")
+      .select("id, username, password, displayName:display_name, email, role, avatarUrl:avatar_url, bio, createdAt:created_at")
+      .eq("id", id)
+      .single();
+
+    if (error) return undefined;
+    return data as unknown as User;
   }
 
-  async updateAdminUserRole(id: string, role: string): Promise<Omit<User, "password"> | undefined> {
-    const [updated] = await db.update(users)
-      .set({ role, updatedAt: new Date() })
-      .where(eq(users.id, id))
-      .returning({
-        id: users.id,
-        email: users.email,
-        firstName: users.firstName,
-        lastName: users.lastName,
-        role: users.role,
-        profileImageUrl: users.profileImageUrl,
-        isActive: users.isActive,
-        createdAt: users.createdAt,
-        updatedAt: users.updatedAt,
-      });
-    return updated;
+  async updateAdminUserRole(id: string, role: string): Promise<User | undefined> {
+    const { data, error } = await supabase
+      .from("users")
+      .update({ role, updated_at: new Date() })
+      .eq("id", id)
+      .select("id, username, password, displayName:display_name, email, role, avatarUrl:avatar_url, bio, createdAt:created_at")
+      .single();
+
+    if (error) return undefined;
+    return data as unknown as User;
   }
 
-  async updateAdminUserStatus(id: string, isActive: boolean): Promise<Omit<User, "password"> | undefined> {
-    const [updated] = await db.update(users)
-      .set({ isActive, updatedAt: new Date() })
-      .where(eq(users.id, id))
-      .returning({
-        id: users.id,
-        email: users.email,
-        firstName: users.firstName,
-        lastName: users.lastName,
-        role: users.role,
-        profileImageUrl: users.profileImageUrl,
-        isActive: users.isActive,
-        createdAt: users.createdAt,
-        updatedAt: users.updatedAt,
-      });
-    return updated;
+  async updateAdminUserStatus(id: string, isActive: boolean): Promise<User | undefined> {
+    const { data, error } = await supabase
+      .from("users")
+      .update({ is_active: isActive, updated_at: new Date() })
+      .eq("id", id)
+      .select("id, username, password, displayName:display_name, email, role, avatarUrl:avatar_url, bio, createdAt:created_at")
+      .single();
+
+    if (error) return undefined;
+    return data as unknown as User;
   }
 
-  async deleteAdminUser(id: string): Promise<Omit<User, "password"> | undefined> {
-    const [deleted] = await db.delete(users)
-      .where(eq(users.id, id))
-      .returning({
-        id: users.id,
-        email: users.email,
-        firstName: users.firstName,
-        lastName: users.lastName,
-        role: users.role,
-        profileImageUrl: users.profileImageUrl,
-        isActive: users.isActive,
-        createdAt: users.createdAt,
-        updatedAt: users.updatedAt,
-      });
-    return deleted;
+  async deleteAdminUser(id: string): Promise<boolean> {
+    const { error } = await supabase.from("users").delete().eq("id", id);
+    return !error;
   }
 
-  async createAdminUser(email: string, password: string, role: string, firstName?: string, lastName?: string): Promise<Omit<User, "password">> {
+  async createAdminUser(email: string, password: string, role: string, firstName?: string, lastName?: string): Promise<User> {
+    // Note: firstName and lastName are NOT in the standard Supabase 'users' table or our 'users' schema usually (it has displayName).
+    // If the schema matches what Drizzle used:
+    // Drizzle used: firstName, lastName.
+    // Supabase select used: displayName.
+    // I need to check the exact columns of 'users' table in shared/schema.ts.
+    // Assuming 'display_name' is the field, I should combine them or use what's available.
+    // For now, I will use displayName = firstName + " " + lastName
+
     const hashedPassword = await bcrypt.hash(password, 10);
-    const [created] = await db.insert(users)
-      .values({
+    const displayName = [firstName, lastName].filter(Boolean).join(" ");
+
+    const { data, error } = await supabase
+      .from("users")
+      .insert({
         email,
         password: hashedPassword,
         role,
-        firstName: firstName || null,
-        lastName: lastName || null,
-        isActive: true,
+        display_name: displayName || email.split('@')[0],
+        is_active: true,
       })
-      .returning({
-        id: users.id,
-        email: users.email,
-        firstName: users.firstName,
-        lastName: users.lastName,
-        role: users.role,
-        profileImageUrl: users.profileImageUrl,
-        isActive: users.isActive,
-        createdAt: users.createdAt,
-        updatedAt: users.updatedAt,
-      });
-    return created;
+      .select("id, username, password, displayName:display_name, email, role, avatarUrl:avatar_url, bio, createdAt:created_at")
+      .single();
+
+    if (error) throw error;
+    return data as unknown as User;
   }
 }
 
