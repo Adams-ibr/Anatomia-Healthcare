@@ -21,16 +21,15 @@ const changePasswordSchema = z.object({
 
 export function setupSession(app: Express) {
   const sessionTtl = 7 * 24 * 60 * 60 * 1000; // 1 week
-  
+
   // Trust proxy for Replit environment (required for secure cookies behind proxy)
   app.set("trust proxy", 1);
-  
-  // Check if we're in production - use REPLIT_DEPLOYMENT or NODE_ENV
-  // REPLIT_DEPLOYMENT is set by Replit's deployment infrastructure
-  const isProduction = process.env.NODE_ENV === "production" || !!process.env.REPLIT_DEPLOYMENT;
-  
-  console.log(`Session config: NODE_ENV=${process.env.NODE_ENV}, REPLIT_DEPLOYMENT=${process.env.REPLIT_DEPLOYMENT}, isProduction=${isProduction}`);
-  
+
+  // Check if we're in production
+  const isProduction = process.env.NODE_ENV === "production";
+
+  console.log(`Session config: NODE_ENV=${process.env.NODE_ENV}, isProduction=${isProduction}`);
+
   app.use(session({
     secret: process.env.SESSION_SECRET!,
     store: sessionStore,
@@ -122,7 +121,7 @@ export function registerAuthRoutes(app: Express) {
       // Set session and save it explicitly
       (req.session as any).userId = user.id;
       console.log(`Admin login: setting userId in session: ${user.id}`);
-      
+
       req.session.save((err) => {
         if (err) {
           console.error("Error saving admin session:", err);

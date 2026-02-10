@@ -70,11 +70,11 @@ async function updateMembershipTier(memberId: string, tier: string, durationMont
     .where(eq(members.id, memberId));
 
   let expiresAt = new Date();
-  
+
   if (member?.membershipExpiresAt && new Date(member.membershipExpiresAt) > new Date()) {
     expiresAt = new Date(member.membershipExpiresAt);
   }
-  
+
   expiresAt.setMonth(expiresAt.getMonth() + durationMonths);
 
   await db
@@ -94,7 +94,7 @@ router.post("/initialize-paystack", isMemberAuthenticated, async (req: Request, 
     }
 
     const { period, audience, tier } = req.body;
-    
+
     let amount: number;
     let durationMonths: number;
     let planDescription: string;
@@ -108,7 +108,7 @@ router.post("/initialize-paystack", isMemberAuthenticated, async (req: Request, 
       amount = pricing.amount;
       durationMonths = pricing.durationMonths;
       planDescription = `${audience === "professional" ? "Professional" : "Student"} - ${period}`;
-    } 
+    }
     // Legacy tier-based pricing
     else if (tier && MEMBERSHIP_PRICES[tier]) {
       amount = MEMBERSHIP_PRICES[tier];
@@ -135,7 +135,7 @@ router.post("/initialize-paystack", isMemberAuthenticated, async (req: Request, 
         email: member.email,
         amount,
         reference,
-        callback_url: `${process.env.REPLIT_DEV_DOMAIN || req.headers.origin}/payment/verify`,
+        callback_url: `${process.env.APP_URL || req.headers.origin}/payment/verify`,
         metadata: {
           member_id: member.id,
           period: period || null,
@@ -172,7 +172,7 @@ router.post("/initialize-flutterwave", isMemberAuthenticated, async (req: Reques
     }
 
     const { period, audience, tier } = req.body;
-    
+
     let amountKobo: number;
     let durationMonths: number;
     let planDescription: string;
@@ -186,7 +186,7 @@ router.post("/initialize-flutterwave", isMemberAuthenticated, async (req: Reques
       amountKobo = pricing.amount;
       durationMonths = pricing.durationMonths;
       planDescription = `${audience === "professional" ? "Professional" : "Student"} - ${period}`;
-    } 
+    }
     // Legacy tier-based pricing
     else if (tier && MEMBERSHIP_PRICES[tier]) {
       amountKobo = MEMBERSHIP_PRICES[tier];
@@ -214,7 +214,7 @@ router.post("/initialize-flutterwave", isMemberAuthenticated, async (req: Reques
         tx_ref: reference,
         amount,
         currency: "NGN",
-        redirect_url: `${process.env.REPLIT_DEV_DOMAIN || req.headers.origin}/payment/verify`,
+        redirect_url: `${process.env.APP_URL || req.headers.origin}/payment/verify`,
         customer: {
           email: member.email,
           name: `${member.firstName || ""} ${member.lastName || ""}`.trim() || member.email,
