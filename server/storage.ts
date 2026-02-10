@@ -8,7 +8,7 @@ import {
   users,
   contactMessages,
   newsletterSubscriptions
-} from "@shared/schema";
+} from "../shared/schema";
 import { db } from "./db";
 import { eq } from "drizzle-orm";
 

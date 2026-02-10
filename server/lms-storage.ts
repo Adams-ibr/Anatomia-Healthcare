@@ -25,8 +25,8 @@ import {
   flashcardProgress, FlashcardProgress, InsertFlashcardProgress,
   anatomyModels, AnatomyModel, InsertAnatomyModel,
   members, Member,
-} from "@shared/schema";
-import { users, User } from "@shared/models/auth";
+} from "../shared/schema";
+import { users, User } from "../shared/models/auth";
 
 export interface ILmsStorage {
   // Course Categories

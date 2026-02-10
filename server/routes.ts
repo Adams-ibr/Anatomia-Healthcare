@@ -19,7 +19,7 @@ import {
   insertFaqItemSchema,
   insertCareerSchema,
   insertDepartmentSchema
-} from "@shared/schema";
+} from "../shared/schema";
 import { setupSession, registerAuthRoutes, registerMemberRoutes, isAuthenticated, isMemberAuthenticated } from "./auth";
 import lmsRoutes from "./lms-routes";
 import paymentRoutes from "./payment-routes";

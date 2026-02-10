@@ -11,7 +11,7 @@ import {
   courses,
   courseModules,
   lessons,
-} from "@shared/schema";
+} from "../shared/schema";
 
 const SALT_ROUNDS = 12;
 

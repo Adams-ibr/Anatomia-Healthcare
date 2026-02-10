@@ -3,7 +3,7 @@ import session from "express-session";
 import bcrypt from "bcrypt";
 import { z } from "zod";
 import { db } from "./db";
-import { users, members, loginSchema, registerSchema } from "@shared/schema";
+import { users, members, loginSchema, registerSchema } from "../shared/schema";
 import { eq } from "drizzle-orm";
 import { sessionStore } from "./session";
 

@@ -13,7 +13,7 @@ import {
   insertQuizQuestionSchema,
   insertQuizOptionSchema,
   insertCoursePrerequisiteSchema,
-} from "@shared/schema";
+} from "../shared/schema";
 
 const router = Router();
 
@@ -217,7 +217,7 @@ subscriberRouter.post("/enrollments", async (req: Request, res: Response) => {
     }
 
     // Check membership tier requirement
-    const { membershipTierHierarchy } = await import("@shared/models/auth");
+    const { membershipTierHierarchy } = await import("../shared/models/auth");
     const memberTier = member.membershipTier || "bronze";
     const requiredTier = course.requiredMembershipTier || "bronze";
     const memberTierLevel = membershipTierHierarchy[memberTier as keyof typeof membershipTierHierarchy] ?? 0;
@@ -1692,7 +1692,7 @@ adminRouter.patch("/members/:id/membership", async (req: Request, res: Response)
     const admin = (req as any).user;
     
     // Validate tier
-    const { membershipTiers } = await import("@shared/models/auth");
+    const { membershipTiers } = await import("../shared/models/auth");
     if (!membershipTiers.includes(tier)) {
       return res.status(400).json({ message: "Invalid membership tier" });
     }
@@ -1814,7 +1814,7 @@ superAdminRouter.get("/users", async (req: Request, res: Response) => {
 superAdminRouter.post("/users", async (req: Request, res: Response) => {
   try {
     const { email, password, role, firstName, lastName } = req.body;
-    const { adminRoles } = await import("@shared/models/auth");
+    const { adminRoles } = await import("../shared/models/auth");
     
     if (!email || !password) {
       return res.status(400).json({ message: "Email and password are required" });
@@ -1856,7 +1856,7 @@ superAdminRouter.post("/users", async (req: Request, res: Response) => {
 superAdminRouter.patch("/users/:id/role", async (req: Request, res: Response) => {
   try {
     const { role } = req.body;
-    const { adminRoles } = await import("@shared/models/auth");
+    const { adminRoles } = await import("../shared/models/auth");
     
     if (!role || !adminRoles.includes(role)) {
       return res.status(400).json({ message: "Invalid role. Must be one of: " + adminRoles.join(", ") });

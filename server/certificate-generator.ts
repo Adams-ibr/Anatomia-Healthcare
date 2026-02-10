@@ -1,5 +1,5 @@
 import PDFDocument from "pdfkit";
-import type { Certificate, Course, Member } from "@shared/schema";
+import type { Certificate, Course, Member } from "../shared/schema";
 
 interface CertificateData {
   certificate: Certificate;

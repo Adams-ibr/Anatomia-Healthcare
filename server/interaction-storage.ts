@@ -23,7 +23,7 @@ import {
   type InsertDiscussionReply,
   type Like,
   type InsertLike,
-} from "@shared/schema";
+} from "../shared/schema";
 
 export interface ConversationWithDetails extends Conversation {
   participants: Array<{

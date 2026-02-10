@@ -1,6 +1,6 @@
 import { Router, Request, Response } from "express";
 import { db } from "./db";
-import { paymentTransactions, members } from "@shared/schema";
+import { paymentTransactions, members } from "../shared/schema";
 import { eq } from "drizzle-orm";
 import crypto from "crypto";
 import { isMemberAuthenticated } from "./auth";
