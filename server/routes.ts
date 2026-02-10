@@ -21,7 +21,6 @@ import {
   insertDepartmentSchema
 } from "@shared/schema";
 import { setupSession, registerAuthRoutes, registerMemberRoutes, isAuthenticated, isMemberAuthenticated } from "./auth";
-import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 import lmsRoutes from "./lms-routes";
 import paymentRoutes from "./payment-routes";
 import interactionRoutes from "./interaction-routes";
@@ -35,7 +34,6 @@ export async function registerRoutes(
   setupSession(app);
   registerAuthRoutes(app);
   registerMemberRoutes(app);
-  registerObjectStorageRoutes(app);
 
   // LMS routes
   app.use("/api/lms", lmsRoutes);
