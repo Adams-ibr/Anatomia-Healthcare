@@ -1,35 +1,91 @@
 import session from "express-session";
-import connectPgSimple from "connect-pg-simple";
-import MemoryStore from "memorystore";
-import pg from "pg";
+import { supabase } from "./db";
+import { Store } from "express-session";
 
-const PgSession = connectPgSimple(session);
-const MemStore = MemoryStore(session);
+/**
+ * Custom session store backed by Supabase.
+ * Uses the existing Supabase client — no pg Pool needed.
+ * Requires a "sessions" table with columns: sid (text PK), sess (jsonb), expire (timestamptz).
+ */
+class SupabaseSessionStore extends Store {
+  constructor() {
+    super();
+  }
 
-const sessionTtl = 7 * 24 * 60 * 60 * 1000; // 1 week
+  async get(sid: string, callback: (err: any, session?: session.SessionData | null) => void) {
+    try {
+      const { data, error } = await supabase
+        .from("sessions")
+        .select("sess")
+        .eq("sid", sid)
+        .single();
 
-// Detect if we have a database URL for persistent sessions
-const hasDbUrl = !!process.env.DATABASE_URL;
+      if (error || !data) {
+        return callback(null, null);
+      }
 
-if (!hasDbUrl) {
-  console.warn("WARNING: DATABASE_URL not found. Using MemoryStore for sessions. detailed: This will not work correctly in serverless environments (Vercel) as sessions will be lost between requests.");
+      // Check if session has expired
+      callback(null, data.sess as session.SessionData);
+    } catch (err) {
+      callback(err);
+    }
+  }
+
+  async set(sid: string, sessionData: session.SessionData, callback?: (err?: any) => void) {
+    try {
+      const maxAge = sessionData.cookie?.maxAge || 7 * 24 * 60 * 60 * 1000;
+      const expire = new Date(Date.now() + maxAge).toISOString();
+
+      const { error } = await supabase
+        .from("sessions")
+        .upsert(
+          { sid, sess: sessionData, expire },
+          { onConflict: "sid" }
+        );
+
+      if (error) {
+        console.error("Session set error:", error);
+      }
+      callback?.(error || undefined);
+    } catch (err) {
+      callback?.(err);
+    }
+  }
+
+  async destroy(sid: string, callback?: (err?: any) => void) {
+    try {
+      const { error } = await supabase
+        .from("sessions")
+        .delete()
+        .eq("sid", sid);
+
+      callback?.(error || undefined);
+    } catch (err) {
+      callback?.(err);
+    }
+  }
+
+  async touch(sid: string, sessionData: session.SessionData, callback?: (err?: any) => void) {
+    try {
+      const maxAge = sessionData.cookie?.maxAge || 7 * 24 * 60 * 60 * 1000;
+      const expire = new Date(Date.now() + maxAge).toISOString();
+
+      const { error } = await supabase
+        .from("sessions")
+        .update({ expire })
+        .eq("sid", sid);
+
+      callback?.(error || undefined);
+    } catch (err) {
+      callback?.(err);
+    }
+  }
 }
 
-export const sessionStore = hasDbUrl
-  ? new PgSession({
-    conObject: {
-      connectionString: process.env.DATABASE_URL,
-      ssl: { rejectUnauthorized: false }, // Required for Supabase/Neon
-    },
-    createTableIfMissing: true,
-    tableName: "sessions",
-  })
-  : new MemStore({
-    checkPeriod: 86400000,
-  });
+export const sessionStore = new SupabaseSessionStore();
 
 export function getSessionAsync(sid: string): Promise<any | null> {
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     sessionStore.get(sid, (err, session) => {
       if (err) {
         console.error("Session retrieval error:", err);
