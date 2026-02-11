@@ -352,7 +352,16 @@ export async function registerRoutes(
   // Admin Articles CRUD
   app.get("/api/admin/articles", isAuthenticated, async (req, res) => {
     try {
-      const allArticles = await db.select().from(articles).orderBy(desc(articles.createdAt));
+      const { data: allArticles, error } = await supabase
+        .from("articles")
+        .select(`
+          id, title, slug, excerpt, content, category, author,
+          imageUrl:image_url, readTime:read_time, isFeatured:is_featured,
+          isPublished:is_published, createdAt:created_at, updatedAt:updated_at
+        `)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
       res.json(allArticles);
     } catch (error) {
       console.error("Error fetching articles:", error);
@@ -419,7 +428,17 @@ export async function registerRoutes(
   // Admin Team CRUD
   app.get("/api/admin/team", isAuthenticated, async (req, res) => {
     try {
-      const team = await db.select().from(teamMembers).orderBy(teamMembers.order);
+      const { data: team, error } = await supabase
+        .from("team_members")
+        .select(`
+          id, name, slug, role, description, bio, imageUrl:image_url,
+          email, linkedinUrl:linkedin_url, twitterUrl:twitter_url,
+          facebookUrl:facebook_url, instagramUrl:instagram_url,
+          order, isActive:is_active, createdAt:created_at
+        `)
+        .order("order", { ascending: true });
+
+      if (error) throw error;
       res.json(team);
     } catch (error) {
       console.error("Error fetching team:", error);
@@ -488,7 +507,16 @@ export async function registerRoutes(
   // Admin Products CRUD
   app.get("/api/admin/products", isAuthenticated, async (req, res) => {
     try {
-      const allProducts = await db.select().from(products).orderBy(products.order);
+      const { data: allProducts, error } = await supabase
+        .from("products")
+        .select(`
+          id, title, category, description, price, imageUrl:image_url,
+          badge, badgeColor:badge_color, isActive:is_active, order,
+          createdAt:created_at
+        `)
+        .order("order", { ascending: true });
+
+      if (error) throw error;
       res.json(allProducts);
     } catch (error) {
       console.error("Error fetching products:", error);
@@ -555,7 +583,15 @@ export async function registerRoutes(
   // Admin FAQ CRUD
   app.get("/api/admin/faq", isAuthenticated, async (req, res) => {
     try {
-      const faqs = await db.select().from(faqItems).orderBy(faqItems.order);
+      const { data: faqs, error } = await supabase
+        .from("faq_items")
+        .select(`
+          id, question, answer, category, order,
+          isActive:is_active, createdAt:created_at
+        `)
+        .order("order", { ascending: true });
+
+      if (error) throw error;
       res.json(faqs);
     } catch (error) {
       console.error("Error fetching FAQs:", error);
@@ -620,7 +656,15 @@ export async function registerRoutes(
   // Admin Careers CRUD
   app.get("/api/admin/careers", isAuthenticated, async (req, res) => {
     try {
-      const allCareers = await db.select().from(careers).orderBy(desc(careers.createdAt));
+      const { data: allCareers, error } = await supabase
+        .from("careers")
+        .select(`
+          id, title, department, location, type, description, requirements,
+          isActive:is_active, createdAt:created_at
+        `)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
       res.json(allCareers);
     } catch (error) {
       console.error("Error fetching careers:", error);
