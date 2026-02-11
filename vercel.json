@@ -6,6 +6,10 @@
             "use": "@vercel/node"
         },
         {
+            "src": "api/debug-env.ts",
+            "use": "@vercel/node"
+        },
+        {
             "src": "package.json",
             "use": "@vercel/static-build",
             "config": {
@@ -17,6 +21,10 @@
         {
             "src": "/api/test",
             "dest": "/api/test.ts"
+        },
+        {
+            "src": "/api/debug-env",
+            "dest": "/api/debug-env.ts"
         },
         {
             "src": "/api/(.*)",
