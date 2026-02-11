@@ -165,18 +165,25 @@ export function registerAuthRoutes(app: Express) {
   // Get current user
   app.get("/api/auth/user", async (req, res) => {
     try {
+      console.log("[Auth] Checking session for user:", (req.session as any)?.userId);
       const userId = (req.session as any).userId;
       if (!userId) {
         return res.status(401).json({ error: "Not authenticated" });
       }
 
-      const { data: user } = await supabase
+      const { data: user, error } = await supabase
         .from("users")
         .select()
         .eq("id", userId)
         .single();
 
+      if (error) {
+        console.error("[Auth] Database error fetching user:", error);
+        throw error;
+      }
+
       if (!user) {
+        console.warn("[Auth] Session active but user not found in DB:", userId);
         return res.status(401).json({ error: "User not found" });
       }
 
@@ -187,21 +194,26 @@ export function registerAuthRoutes(app: Express) {
         lastName: user.last_name,
       });
     } catch (error) {
-      console.error("Error fetching user:", error);
-      res.status(500).json({ error: "Failed to fetch user" });
+      console.error("[Auth] Detailed error fetching user:", error);
+      res.status(500).json({ error: "Failed to fetch user", details: error instanceof Error ? error.message : String(error) });
     }
   });
 
   // Logout
   app.post("/api/auth/logout", (req, res) => {
-    req.session.destroy((err) => {
-      if (err) {
-        console.error("Error destroying session:", err);
-        return res.status(500).json({ error: "Failed to logout" });
-      }
-      res.clearCookie("anatomia.sid");
-      res.json({ success: true });
-    });
+    try {
+      req.session.destroy((err) => {
+        if (err) {
+          console.error("Error destroying session:", err);
+          return res.status(500).json({ error: "Failed to logout" });
+        }
+        res.clearCookie("anatomia.sid");
+        res.json({ success: true });
+      });
+    } catch (error) {
+      console.error("Error in logout handler:", error);
+      res.status(500).json({ error: "Internal logout error" });
+    }
   });
 }
 
