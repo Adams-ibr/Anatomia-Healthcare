@@ -27,6 +27,11 @@ function ensureRoutes() {
 
 // Export a handler that waits for routes to be registered before handling requests
 export default async function handler(req: any, res: any) {
-    await ensureRoutes();
+    try {
+        await ensureRoutes();
+    } catch (err) {
+        console.error("Error setting up routes:", err);
+        return res.status(500).json({ error: "Internal Server Error during startup" });
+    }
     return app(req, res);
 }
