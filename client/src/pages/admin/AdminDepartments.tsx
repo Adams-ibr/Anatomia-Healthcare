@@ -16,6 +16,15 @@ import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import type { Department, TeamMember } from "@shared/schema";
 
+const slugify = (text: string) => {
+  return text
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, "-")
+    .replace(/[^\w-]+/g, "")
+    .replace(/--+/g, "-");
+};
+
 const DEPARTMENT_COLORS = [
   { value: "blue", label: "Blue", className: "bg-blue-500" },
   { value: "green", label: "Green", className: "bg-green-500" },
@@ -54,7 +63,7 @@ export default function AdminDepartments() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: (data: Partial<Department> & { id: string }) => 
+    mutationFn: (data: Partial<Department> & { id: string }) =>
       apiRequest("PATCH", `/api/admin/departments/${data.id}`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/departments"] });
@@ -95,8 +104,10 @@ export default function AdminDepartments() {
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
+    const name = formData.get("name") as string;
     const data = {
-      name: formData.get("name") as string,
+      name,
+      slug: (formData.get("slug") as string) || slugify(name),
       description: formData.get("description") as string || null,
       headId: selectedHeadId || null,
       imageUrl: formData.get("imageUrl") as string || null,
@@ -139,23 +150,35 @@ export default function AdminDepartments() {
               <DialogTitle>{editingDepartment ? "Edit Department" : "New Department"}</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="name">Name</Label>
-                <Input 
-                  id="name" 
-                  name="name" 
-                  defaultValue={editingDepartment?.name || ""} 
-                  required 
-                  data-testid="input-department-name" 
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="name">Name</Label>
+                  <Input
+                    id="name"
+                    name="name"
+                    defaultValue={editingDepartment?.name || ""}
+                    required
+                    data-testid="input-department-name"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="slug">Slug</Label>
+                  <Input
+                    id="slug"
+                    name="slug"
+                    defaultValue={editingDepartment?.slug || ""}
+                    placeholder="auto-generated-if-empty"
+                    data-testid="input-department-slug"
+                  />
+                </div>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="description">Description</Label>
-                <Textarea 
-                  id="description" 
-                  name="description" 
-                  defaultValue={editingDepartment?.description || ""} 
-                  data-testid="input-department-description" 
+                <Textarea
+                  id="description"
+                  name="description"
+                  defaultValue={editingDepartment?.description || ""}
+                  data-testid="input-department-description"
                 />
               </div>
               <div className="space-y-2">
@@ -182,36 +205,35 @@ export default function AdminDepartments() {
                       key={color.value}
                       type="button"
                       onClick={() => setSelectedColor(color.value)}
-                      className={`w-8 h-8 rounded-full ${color.className} ${
-                        selectedColor === color.value ? "ring-2 ring-offset-2 ring-foreground" : ""
-                      }`}
+                      className={`w-8 h-8 rounded-full ${color.className} ${selectedColor === color.value ? "ring-2 ring-offset-2 ring-foreground" : ""
+                        }`}
                       title={color.label}
                       data-testid={`color-${color.value}`}
                     />
                   ))}
                 </div>
               </div>
-              <ImageUploader 
-                key={editingDepartment?.id || "new"} 
-                name="imageUrl" 
-                label="Department Image" 
-                defaultValue={editingDepartment?.imageUrl} 
+              <ImageUploader
+                key={editingDepartment?.id || "new"}
+                name="imageUrl"
+                label="Department Image"
+                defaultValue={editingDepartment?.imageUrl}
               />
               <div className="space-y-2">
                 <Label htmlFor="order">Order</Label>
-                <Input 
-                  id="order" 
-                  name="order" 
-                  type="number" 
-                  defaultValue={editingDepartment?.order || 0} 
-                  data-testid="input-department-order" 
+                <Input
+                  id="order"
+                  name="order"
+                  type="number"
+                  defaultValue={editingDepartment?.order || 0}
+                  data-testid="input-department-order"
                 />
               </div>
               <div className="flex items-center gap-2">
-                <Switch 
-                  id="isActive" 
-                  name="isActive" 
-                  defaultChecked={editingDepartment?.isActive ?? true} 
+                <Switch
+                  id="isActive"
+                  name="isActive"
+                  defaultChecked={editingDepartment?.isActive ?? true}
                 />
                 <Label htmlFor="isActive">Active</Label>
               </div>
@@ -219,9 +241,9 @@ export default function AdminDepartments() {
                 <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
                   Cancel
                 </Button>
-                <Button 
-                  type="submit" 
-                  disabled={createMutation.isPending || updateMutation.isPending} 
+                <Button
+                  type="submit"
+                  disabled={createMutation.isPending || updateMutation.isPending}
                   data-testid="button-save-department"
                 >
                   {editingDepartment ? "Update" : "Create"}
@@ -237,9 +259,9 @@ export default function AdminDepartments() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {departments?.map((department) => (
-            <Card 
-              key={department.id} 
-              className={!department.isActive ? "opacity-60" : ""} 
+            <Card
+              key={department.id}
+              className={!department.isActive ? "opacity-60" : ""}
               data-testid={`department-${department.id}`}
             >
               <CardContent className="pt-4">
@@ -258,17 +280,17 @@ export default function AdminDepartments() {
                     </div>
                   </div>
                   <div className="flex gap-1">
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
+                    <Button
+                      variant="ghost"
+                      size="icon"
                       onClick={() => handleOpenDialog(department)}
                       data-testid={`button-edit-${department.id}`}
                     >
                       <Pencil className="h-4 w-4" />
                     </Button>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
+                    <Button
+                      variant="ghost"
+                      size="icon"
                       onClick={() => deleteMutation.mutate(department.id)}
                       data-testid={`button-delete-${department.id}`}
                     >

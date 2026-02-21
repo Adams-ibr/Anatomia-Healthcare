@@ -14,6 +14,15 @@ import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import type { TeamMember } from "@shared/schema";
 
+const slugify = (text: string) => {
+  return text
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, "-")
+    .replace(/[^\w-]+/g, "")
+    .replace(/--+/g, "-");
+};
+
 export default function AdminTeam() {
   const { toast } = useToast();
   const [editingMember, setEditingMember] = useState<TeamMember | null>(null);
@@ -34,7 +43,7 @@ export default function AdminTeam() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: (data: Partial<TeamMember> & { id: string }) => 
+    mutationFn: (data: Partial<TeamMember> & { id: string }) =>
       apiRequest("PATCH", `/api/admin/team/${data.id}`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/team"] });
@@ -57,8 +66,10 @@ export default function AdminTeam() {
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
+    const name = formData.get("name") as string;
     const data = {
-      name: formData.get("name") as string,
+      name,
+      slug: (formData.get("slug") as string) || slugify(name),
       role: formData.get("role") as string,
       description: formData.get("description") as string,
       imageUrl: formData.get("imageUrl") as string || null,
@@ -89,9 +100,15 @@ export default function AdminTeam() {
               <DialogTitle>{editingMember ? "Edit Team Member" : "New Team Member"}</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="name">Name</Label>
-                <Input id="name" name="name" defaultValue={editingMember?.name || ""} required data-testid="input-name" />
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="name">Name</Label>
+                  <Input id="name" name="name" defaultValue={editingMember?.name || ""} required data-testid="input-name" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="slug">Slug</Label>
+                  <Input id="slug" name="slug" defaultValue={editingMember?.slug || ""} placeholder="auto-generated-if-empty" data-testid="input-slug" />
+                </div>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="role">Role</Label>
@@ -101,11 +118,11 @@ export default function AdminTeam() {
                 <Label htmlFor="description">Description</Label>
                 <Textarea id="description" name="description" defaultValue={editingMember?.description || ""} required data-testid="input-description" />
               </div>
-              <ImageUploader 
-                key={editingMember?.id || "new"} 
-                name="imageUrl" 
-                label="Profile Photo" 
-                defaultValue={editingMember?.imageUrl} 
+              <ImageUploader
+                key={editingMember?.id || "new"}
+                name="imageUrl"
+                label="Profile Photo"
+                defaultValue={editingMember?.imageUrl}
               />
               <div className="space-y-2">
                 <Label htmlFor="order">Order</Label>
@@ -139,17 +156,17 @@ export default function AdminTeam() {
                     <p className="text-sm text-muted-foreground">{member.role}</p>
                   </div>
                   <div className="flex gap-1">
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
+                    <Button
+                      variant="ghost"
+                      size="icon"
                       onClick={() => { setEditingMember(member); setIsDialogOpen(true); }}
                       data-testid={`button-edit-${member.id}`}
                     >
                       <Pencil className="h-4 w-4" />
                     </Button>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
+                    <Button
+                      variant="ghost"
+                      size="icon"
                       onClick={() => deleteMutation.mutate(member.id)}
                       data-testid={`button-delete-${member.id}`}
                     >
