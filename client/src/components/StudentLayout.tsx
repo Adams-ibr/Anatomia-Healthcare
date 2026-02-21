@@ -48,7 +48,7 @@ function checkSubscriptionActive(member: Member): boolean {
 
 export function StudentLayout({ children }: StudentLayoutProps) {
   const [, setLocation] = useLocation();
-  
+
   const { data: member, isLoading, isFetched } = useQuery<Member | null>({
     queryKey: ["/api/members/me"],
     queryFn: getQueryFn({ on401: "returnNull" }),
@@ -84,7 +84,7 @@ export function StudentLayout({ children }: StudentLayoutProps) {
   }
 
   const isActive = checkSubscriptionActive(member);
-  
+
   const hasMinimumTier = (requiredTier: MembershipTier): boolean => {
     const memberTier = (member.membershipTier || "bronze") as MembershipTier;
     if (!isActive && memberTier !== "bronze") {
@@ -114,8 +114,8 @@ export function StudentLayout({ children }: StudentLayoutProps) {
             </main>
           </div>
         </div>
-        <ChatWidget currentMemberId={member.id} />
       </SidebarProvider>
+      <ChatWidget currentMemberId={member.id} />
     </MemberContext.Provider>
   );
 }

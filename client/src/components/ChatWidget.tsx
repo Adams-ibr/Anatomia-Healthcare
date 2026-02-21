@@ -206,7 +206,7 @@ export function ChatWidget({ currentMemberId }: ChatWidgetProps) {
       <Button
         onClick={() => setIsOpen(true)}
         size="icon"
-        className="fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-lg z-[9999]"
+        className="fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-lg z-[10000] !fixed"
         data-testid="button-open-chat"
       >
         <MessageCircle className="h-6 w-6" />
@@ -223,7 +223,7 @@ export function ChatWidget({ currentMemberId }: ChatWidgetProps) {
   }
 
   return (
-    <Card className="fixed bottom-6 right-6 w-80 md:w-96 h-[500px] shadow-2xl z-[9999] flex flex-col overflow-hidden">
+    <Card className="fixed bottom-6 right-6 w-80 md:w-96 h-[500px] shadow-2xl z-[10000] flex flex-col overflow-hidden !fixed">
       <CardHeader className="flex flex-row items-center justify-between p-3 border-b">
         <div className="flex items-center gap-2">
           {(activeConversation || showNewChat) && (
