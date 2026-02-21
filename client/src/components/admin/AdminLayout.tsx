@@ -67,9 +67,8 @@ function AdminSidebar() {
   return (
     <Sidebar>
       <SidebarHeader className="p-4 border-b">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center justify-center py-2 h-14">
           <img src={logoIcon} alt="Anatomia" className="h-8 w-auto object-contain" />
-          <span className="font-semibold text-lg">Anatomia Admin</span>
         </div>
       </SidebarHeader>
       <SidebarContent>
