@@ -27,6 +27,10 @@ const navLinks = [
   { label: "Contact", href: "/contact" },
 ];
 
+const memberNavLinks = [
+  { label: "My Courses", href: "/dashboard" },
+];
+
 const navItemVariants = {
   hidden: { opacity: 0, y: -10 },
   visible: { opacity: 1, y: 0 },
@@ -95,7 +99,7 @@ export function Navbar() {
           </motion.div>
 
           <nav className="hidden lg:flex items-center gap-1">
-            {navLinks.map((link, index) => (
+            {[...navLinks, ...(isLoggedIn ? memberNavLinks : [])].map((link, index) => (
               <motion.div
                 key={link.href}
                 initial={prefersReducedMotion ? false : "hidden"}
@@ -286,7 +290,7 @@ export function Navbar() {
                 transition={{ duration: 0.2 }}
               >
                 <nav className="flex flex-col gap-1">
-                  {navLinks.map((link, index) => (
+                  {[...navLinks, ...(isLoggedIn ? memberNavLinks : [])].map((link, index) => (
                     <motion.div
                       key={link.href}
                       initial={{ opacity: 0, x: -10 }}
