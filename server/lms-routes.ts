@@ -1282,6 +1282,16 @@ adminRouter.get("/flashcard-decks/:id", async (req: Request, res: Response) => {
   }
 });
 
+// Get flashcards by deck ID (admin only)
+adminRouter.get("/flashcard-decks/:deckId/flashcards", async (req: Request, res: Response) => {
+  try {
+    const flashcards = await lmsStorage.getFlashcardsByDeckId(req.params.deckId);
+    res.json(flashcards);
+  } catch (error) {
+    res.status(500).json({ message: "Failed to fetch flashcards" });
+  }
+});
+
 // Create flashcard deck
 adminRouter.post("/flashcard-decks", isContentAdmin, async (req: Request, res: Response) => {
   try {
@@ -1973,8 +1983,16 @@ superAdminRouter.delete("/users/:id", async (req: Request, res: Response) => {
 // Mount sub-routers on main router
 // IMPORTANT: Admin routes must be mounted FIRST (before "/" routes) 
 // because they use isAuthenticated middleware, not isMemberAuthenticated
+// Use isContentAdmin for all admin routes to be safe, though adminRouter.use(isAuthenticated) 
+// is already applied at the top for userId check.
 router.use("/admin", adminRouter);
 router.use("/admin", superAdminRouter);
+
+// Catch-all for any unmatched /admin routes to prevent fall-through to memberRouter
+router.use("/admin", (req: Request, res: Response) => {
+  res.status(404).json({ message: `Admin route not found: ${req.method} ${req.originalUrl}` });
+});
+
 router.use("/", publicRouter);
 router.use("/", memberRouter);
 
