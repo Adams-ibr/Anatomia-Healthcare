@@ -130,7 +130,7 @@ export default function Home() {
               className="w-full h-full object-cover opacity-50"
             >
               <source
-                src="https://assets.mixkit.co/videos/preview/mixkit-dna-molecule-rotating-loop-30372-large.mp4"
+                src="/hero-bg.mp4"
                 type="video/mp4"
               />
               Your browser does not support the video tag.
