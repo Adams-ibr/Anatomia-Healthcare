@@ -130,7 +130,7 @@ export default function Home() {
               className="w-full h-full object-cover opacity-50"
             >
               <source
-                src="/hero-bg.mp4"
+                src="https://cdn.coverr.co/videos/coverr-dna-cell-structure-9261/1080p.mp4"
                 type="video/mp4"
               />
               Your browser does not support the video tag.
