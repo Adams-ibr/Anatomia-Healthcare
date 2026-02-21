@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { Link } from "wouter";
 import { motion, useReducedMotion } from "framer-motion";
 import { Layout } from "@/components/layout/Layout";
@@ -116,25 +117,31 @@ export default function Home() {
   const trustedRef = useInViewAnimation({ threshold: 0.2 });
   const featuresRef = useInViewAnimation({ threshold: 0.1 });
 
+  const backgroundImages = [heroAnatomyImg, torsoImg, brainImg, heartImg, skullImg, armImg];
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentImageIndex((prev) => (prev + 1) % backgroundImages.length);
+    }, 4500);
+    return () => clearInterval(timer);
+  }, []);
+
   return (
     <Layout>
       <PageTransition>
         <section className="relative min-h-[90vh] flex items-center justify-center overflow-hidden bg-slate-950">
-          {/* Video Background */}
-          <div className="absolute inset-0 z-0">
-            <video
-              autoPlay
-              loop
-              muted
-              playsInline
-              className="w-full h-full object-cover opacity-50"
-            >
-              <source
-                src="https://cdn.coverr.co/videos/coverr-dna-cell-structure-9261/1080p.mp4"
-                type="video/mp4"
+          {/* Image Slideshow Background */}
+          <div className="absolute inset-0 z-0 bg-slate-950">
+            {backgroundImages.map((img, index) => (
+              <img
+                key={img}
+                src={img}
+                alt="Anatomy Background"
+                className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ease-in-out ${index === currentImageIndex ? "opacity-30" : "opacity-0"
+                  }`}
               />
-              Your browser does not support the video tag.
-            </video>
+            ))}
             {/* Overlay Gradient for depth and legibility */}
             <div className="absolute inset-0 bg-gradient-to-b from-slate-950/60 via-slate-950/80 to-slate-950" />
           </div>
