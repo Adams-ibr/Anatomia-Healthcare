@@ -1,6 +1,6 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
-import { supabase } from "./db";
+import { supabase, toSnakeCase } from "./db";
 import { eq, desc, sql } from "drizzle-orm";
 import {
   contactMessages,
@@ -413,7 +413,7 @@ export async function registerRoutes(
       }
       const { data: article, error } = await supabase
         .from("articles")
-        .insert(result.data)
+        .insert(toSnakeCase(result.data))
         .select(`
           id, title, slug, excerpt, content, category, author,
           imageUrl:image_url, readTime:read_time, isFeatured:is_featured,
@@ -433,7 +433,7 @@ export async function registerRoutes(
     try {
       const { data: article, error } = await supabase
         .from("articles")
-        .update({ ...req.body, updated_at: new Date() })
+        .update({ ...toSnakeCase(req.body), updated_at: new Date() })
         .eq("id", req.params.id)
         .select(`
           id, title, slug, excerpt, content, category, author,
@@ -490,7 +490,7 @@ export async function registerRoutes(
       }
       const { data: member, error } = await supabase
         .from("team_members")
-        .insert(result.data)
+        .insert(toSnakeCase(result.data))
         .select(`
           id, name, slug, role, description, bio, imageUrl:image_url,
           email, linkedinUrl:linkedin_url, twitterUrl:twitter_url,
@@ -511,7 +511,7 @@ export async function registerRoutes(
     try {
       const { data: member, error } = await supabase
         .from("team_members")
-        .update(req.body)
+        .update(toSnakeCase(req.body))
         .eq("id", req.params.id)
         .select(`
           id, name, slug, role, description, bio, imageUrl:image_url,
@@ -568,7 +568,7 @@ export async function registerRoutes(
       }
       const { data: product, error } = await supabase
         .from("products")
-        .insert(result.data)
+        .insert(toSnakeCase(result.data))
         .select(`
           id, title, category, description, price, imageUrl:image_url,
           badge, badgeColor:badge_color, isActive:is_active, order,
@@ -588,7 +588,7 @@ export async function registerRoutes(
     try {
       const { data: product, error } = await supabase
         .from("products")
-        .update(req.body)
+        .update(toSnakeCase(req.body))
         .eq("id", req.params.id)
         .select(`
           id, title, category, description, price, imageUrl:image_url,
@@ -643,7 +643,7 @@ export async function registerRoutes(
       }
       const { data: faq, error } = await supabase
         .from("faq_items")
-        .insert(result.data)
+        .insert(toSnakeCase(result.data))
         .select(`
           id, question, answer, category, order,
           isActive:is_active, createdAt:created_at
@@ -662,7 +662,7 @@ export async function registerRoutes(
     try {
       const { data: faq, error } = await supabase
         .from("faq_items")
-        .update(req.body)
+        .update(toSnakeCase(req.body))
         .eq("id", req.params.id)
         .select(`
           id, question, answer, category, order,
@@ -716,7 +716,7 @@ export async function registerRoutes(
       }
       const { data: career, error } = await supabase
         .from("careers")
-        .insert(result.data)
+        .insert(toSnakeCase(result.data))
         .select(`
           id, title, department, location, type, description, requirements,
           isActive:is_active, createdAt:created_at
@@ -735,7 +735,7 @@ export async function registerRoutes(
     try {
       const { data: career, error } = await supabase
         .from("careers")
-        .update(req.body)
+        .update(toSnakeCase(req.body))
         .eq("id", req.params.id)
         .select(`
           id, title, department, location, type, description, requirements,
@@ -811,7 +811,7 @@ export async function registerRoutes(
       }
       const { data: department, error } = await supabase
         .from("departments")
-        .insert(result.data)
+        .insert(toSnakeCase(result.data))
         .select(`
           id, name, slug, description, headId:head_id, imageUrl:image_url,
           color, order, isActive:is_active, createdAt:created_at, updatedAt:updated_at
@@ -841,7 +841,7 @@ export async function registerRoutes(
 
       const { data: department, error } = await supabase
         .from("departments")
-        .update(updateData)
+        .update(toSnakeCase(updateData))
         .eq("id", req.params.id)
         .select(`
           id, name, slug, description, headId:head_id, imageUrl:image_url,

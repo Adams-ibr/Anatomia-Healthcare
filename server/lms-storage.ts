@@ -1,15 +1,4 @@
-import { supabase } from "./db";
-
-// Helper to convert camelCase object keys to snake_case for Supabase
-function toSnakeCase(obj: any): any {
-  if (!obj || typeof obj !== 'object' || Array.isArray(obj) || obj instanceof Date) return obj;
-  const result: any = {};
-  for (const [key, value] of Object.entries(obj)) {
-    const snakeKey = key.replace(/[A-Z]/g, (letter) => "_" + letter.toLowerCase());
-    result[snakeKey] = value;
-  }
-  return result;
-}
+import { supabase, toSnakeCase } from "./db";
 
 import bcrypt from "bcryptjs";
 import {
