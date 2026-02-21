@@ -421,19 +421,23 @@ export async function registerRoutes(
         `)
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error("Supabase error creating article:", error);
+        return res.status(500).json({ error: "Failed to create article", details: error });
+      }
       res.status(201).json(article);
     } catch (error) {
-      console.error("Error creating article:", error);
-      res.status(500).json({ error: "Failed to create article" });
+      console.error("Unexpected error creating article:", error);
+      res.status(500).json({ error: "An unexpected error occurred" });
     }
   });
 
   app.patch("/api/admin/articles/:id", isAuthenticated, async (req, res) => {
     try {
+      const { id, createdAt, updatedAt, ...updateData } = req.body;
       const { data: article, error } = await supabase
         .from("articles")
-        .update({ ...toSnakeCase(req.body), updated_at: new Date() })
+        .update({ ...toSnakeCase(updateData), updated_at: new Date() })
         .eq("id", req.params.id)
         .select(`
           id, title, slug, excerpt, content, category, author,
@@ -442,11 +446,14 @@ export async function registerRoutes(
         `)
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error("Supabase error updating article:", error);
+        return res.status(500).json({ error: "Failed to update article", details: error });
+      }
       res.json(article);
     } catch (error) {
-      console.error("Error updating article:", error);
-      res.status(500).json({ error: "Failed to update article" });
+      console.error("Unexpected error updating article:", error);
+      res.status(500).json({ error: "An unexpected error occurred" });
     }
   });
 
@@ -499,19 +506,23 @@ export async function registerRoutes(
         `)
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error("Supabase error creating team member:", error);
+        return res.status(500).json({ error: "Failed to create team member", details: error });
+      }
       res.status(201).json(member);
     } catch (error) {
-      console.error("Error creating team member:", error);
-      res.status(500).json({ error: "Failed to create team member" });
+      console.error("Unexpected error creating team member:", error);
+      res.status(500).json({ error: "An unexpected error occurred" });
     }
   });
 
   app.patch("/api/admin/team/:id", isAuthenticated, async (req, res) => {
     try {
+      const { id, createdAt, ...updateData } = req.body;
       const { data: member, error } = await supabase
         .from("team_members")
-        .update(toSnakeCase(req.body))
+        .update(toSnakeCase(updateData))
         .eq("id", req.params.id)
         .select(`
           id, name, slug, role, description, bio, imageUrl:image_url,
@@ -521,11 +532,14 @@ export async function registerRoutes(
         `)
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error("Supabase error updating team member:", error);
+        return res.status(500).json({ error: "Failed to update team member", details: error });
+      }
       res.json(member);
     } catch (error) {
-      console.error("Error updating team member:", error);
-      res.status(500).json({ error: "Failed to update team member" });
+      console.error("Unexpected error updating team member:", error);
+      res.status(500).json({ error: "An unexpected error occurred" });
     }
   });
 
@@ -576,19 +590,23 @@ export async function registerRoutes(
         `)
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error("Supabase error creating product:", error);
+        return res.status(500).json({ error: "Failed to create product", details: error });
+      }
       res.status(201).json(product);
     } catch (error) {
-      console.error("Error creating product:", error);
-      res.status(500).json({ error: "Failed to create product" });
+      console.error("Unexpected error creating product:", error);
+      res.status(500).json({ error: "An unexpected error occurred" });
     }
   });
 
   app.patch("/api/admin/products/:id", isAuthenticated, async (req, res) => {
     try {
+      const { id, createdAt, ...updateData } = req.body;
       const { data: product, error } = await supabase
         .from("products")
-        .update(toSnakeCase(req.body))
+        .update(toSnakeCase(updateData))
         .eq("id", req.params.id)
         .select(`
           id, title, category, description, price, imageUrl:image_url,
@@ -597,11 +615,14 @@ export async function registerRoutes(
         `)
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error("Supabase error updating product:", error);
+        return res.status(500).json({ error: "Failed to update product", details: error });
+      }
       res.json(product);
     } catch (error) {
-      console.error("Error updating product:", error);
-      res.status(500).json({ error: "Failed to update product" });
+      console.error("Unexpected error updating product:", error);
+      res.status(500).json({ error: "An unexpected error occurred" });
     }
   });
 
@@ -650,19 +671,23 @@ export async function registerRoutes(
         `)
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error("Supabase error creating FAQ item:", error);
+        return res.status(500).json({ error: "Failed to create FAQ item", details: error });
+      }
       res.status(201).json(faq);
     } catch (error) {
-      console.error("Error creating FAQ:", error);
-      res.status(500).json({ error: "Failed to create FAQ" });
+      console.error("Unexpected error creating FAQ item:", error);
+      res.status(500).json({ error: "An unexpected error occurred" });
     }
   });
 
   app.patch("/api/admin/faq/:id", isAuthenticated, async (req, res) => {
     try {
+      const { id, createdAt, ...updateData } = req.body;
       const { data: faq, error } = await supabase
         .from("faq_items")
-        .update(toSnakeCase(req.body))
+        .update(toSnakeCase(updateData))
         .eq("id", req.params.id)
         .select(`
           id, question, answer, category, order,
@@ -670,11 +695,14 @@ export async function registerRoutes(
         `)
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error("Supabase error updating FAQ item:", error);
+        return res.status(500).json({ error: "Failed to update FAQ item", details: error });
+      }
       res.json(faq);
     } catch (error) {
-      console.error("Error updating FAQ:", error);
-      res.status(500).json({ error: "Failed to update FAQ" });
+      console.error("Unexpected error updating FAQ item:", error);
+      res.status(500).json({ error: "An unexpected error occurred" });
     }
   });
 
@@ -723,19 +751,23 @@ export async function registerRoutes(
         `)
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error("Supabase error creating career:", error);
+        return res.status(500).json({ error: "Failed to create career", details: error });
+      }
       res.status(201).json(career);
     } catch (error) {
-      console.error("Error creating career:", error);
-      res.status(500).json({ error: "Failed to create career" });
+      console.error("Unexpected error creating career:", error);
+      res.status(500).json({ error: "An unexpected error occurred" });
     }
   });
 
   app.patch("/api/admin/careers/:id", isAuthenticated, async (req, res) => {
     try {
+      const { id, createdAt, ...updateData } = req.body;
       const { data: career, error } = await supabase
         .from("careers")
-        .update(toSnakeCase(req.body))
+        .update(toSnakeCase(updateData))
         .eq("id", req.params.id)
         .select(`
           id, title, department, location, type, description, requirements,
@@ -743,11 +775,14 @@ export async function registerRoutes(
         `)
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error("Supabase error updating career:", error);
+        return res.status(500).json({ error: "Failed to update career", details: error });
+      }
       res.json(career);
     } catch (error) {
-      console.error("Error updating career:", error);
-      res.status(500).json({ error: "Failed to update career" });
+      console.error("Unexpected error updating career:", error);
+      res.status(500).json({ error: "An unexpected error occurred" });
     }
   });
 
@@ -818,11 +853,14 @@ export async function registerRoutes(
         `)
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error("Supabase error creating department:", error);
+        return res.status(500).json({ error: "Failed to create department", details: error });
+      }
       res.status(201).json(department);
     } catch (error) {
-      console.error("Error creating department:", error);
-      res.status(500).json({ error: "Failed to create department" });
+      console.error("Unexpected error creating department:", error);
+      res.status(500).json({ error: "An unexpected error occurred" });
     }
   });
 
@@ -833,9 +871,12 @@ export async function registerRoutes(
       if (!result.success) {
         return res.status(400).json({ error: "Invalid department data", details: result.error.issues });
       }
-      const updateData: Record<string, unknown> = { ...result.data };
-      if (result.data.name) {
-        updateData.slug = result.data.name.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
+      // Sanitize req.body and add slug/updated_at logic
+      const { id, createdAt, updatedAt, ...sanitizedUpdateData } = req.body;
+      const updateData: Record<string, unknown> = { ...sanitizedUpdateData };
+
+      if (updateData.name) { // Use updateData.name instead of result.data.name
+        updateData.slug = (updateData.name as string).toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
       }
       updateData.updated_at = new Date();
 
@@ -849,14 +890,17 @@ export async function registerRoutes(
         `)
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error("Supabase error updating department:", error);
+        return res.status(500).json({ error: "Failed to update department", details: error });
+      }
       if (!department) {
         return res.status(404).json({ error: "Department not found" });
       }
       res.json(department);
     } catch (error) {
-      console.error("Error updating department:", error);
-      res.status(500).json({ error: "Failed to update department" });
+      console.error("Unexpected error updating department:", error);
+      res.status(500).json({ error: "An unexpected error occurred" });
     }
   });
 
