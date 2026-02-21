@@ -8,10 +8,10 @@ import { AnimatedSection, StaggerContainer, AnimatedItem } from "@/components/An
 import { PageTransition } from "@/components/PageTransition";
 import { fadeInUp, fadeInLeft, fadeInRight, staggerContainer } from "@/lib/motion";
 import { useInViewAnimation } from "@/hooks/use-in-view-animation";
-import { 
-  GraduationCap, 
-  Building2, 
-  FlaskConical, 
+import {
+  GraduationCap,
+  Building2,
+  FlaskConical,
   Stethoscope,
   RotateCcw,
   Layers,
@@ -64,21 +64,21 @@ const model3DItems = [
 ];
 
 const articles = [
-  { 
-    category: "NERVES", 
-    title: "The Brachial Plexus Explained", 
+  {
+    category: "NERVES",
+    title: "The Brachial Plexus Explained",
     readTime: "5 min read",
     image: brainImg
   },
-  { 
-    category: "VASCULAR", 
-    title: "Circle of Willis: Anatomy & Function", 
+  {
+    category: "VASCULAR",
+    title: "Circle of Willis: Anatomy & Function",
     readTime: "4 min read",
     image: heartImg
   },
-  { 
-    category: "JOINTS", 
-    title: "Cruciate Ligaments of the Knee", 
+  {
+    category: "JOINTS",
+    title: "Cruciate Ligaments of the Knee",
     readTime: "6 min read",
     image: legImg
   },
@@ -92,7 +92,7 @@ const cadavericFeatures = [
 
 function AnimatedCard({ children, index }: { children: React.ReactNode; index: number }) {
   const prefersReducedMotion = useReducedMotion();
-  
+
   if (prefersReducedMotion) {
     return <>{children}</>;
   }
@@ -119,77 +119,121 @@ export default function Home() {
   return (
     <Layout>
       <PageTransition>
-        <section className="relative overflow-hidden bg-gradient-to-br from-primary/5 via-background to-primary/10 py-16 md:py-24">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6">
+        <section className="relative min-h-[90vh] flex items-center overflow-hidden">
+          {/* Video Background */}
+          <div className="absolute inset-0 z-0">
+            <video
+              autoPlay
+              loop
+              muted
+              playsInline
+              className="w-full h-full object-cover grayscale-[0.2] brightness-[0.7]"
+              poster={heroAnatomyImg}
+            >
+              <source
+                src="https://assets.mixkit.co/videos/preview/mixkit-human-skeleton-rotation-animation-43180-large.mp4"
+                type="video/mp4"
+              />
+              Your browser does not support the video tag.
+            </video>
+            {/* Overlay Gradient */}
+            <div className="absolute inset-0 bg-gradient-to-r from-background via-background/80 to-transparent" />
+          </div>
+
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 relative z-10 w-full">
             <div className="grid lg:grid-cols-2 gap-12 items-center">
               <motion.div
                 initial={prefersReducedMotion ? false : "hidden"}
                 animate="visible"
                 variants={staggerContainer}
+                className="max-w-2xl"
               >
-                <motion.p 
+                <motion.div
                   variants={fadeInUp}
-                  className="text-sm font-medium text-primary mb-2" 
-                  data-testid="text-trusted"
+                  className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 backdrop-blur-md mb-6"
                 >
-                  TRUSTED BY 500,000+ STUDENTS
-                </motion.p>
-                <motion.h1 
+                  <span className="flex h-2 w-2 rounded-full bg-primary animate-pulse" />
+                  <span className="text-xs font-bold tracking-wider text-primary uppercase">
+                    Trusted by 500,000+ Students
+                  </span>
+                </motion.div>
+
+                <motion.h1
                   variants={fadeInUp}
-                  className="text-4xl md:text-5xl lg:text-6xl font-bold text-foreground leading-tight mb-6" 
+                  className="text-5xl md:text-6xl lg:text-7xl font-extrabold text-foreground leading-[1.1] mb-6"
                   data-testid="text-hero-title"
                 >
-                  Master Human<br />
-                  <span className="text-primary">Anatomy</span>
+                  Experience <span className="text-primary italic">Anatomy</span> like never before.
                 </motion.h1>
-                <motion.p 
+
+                <motion.p
                   variants={fadeInUp}
-                  className="text-lg text-muted-foreground mb-8 max-w-lg" 
+                  className="text-xl text-muted-foreground mb-10 max-w-lg leading-relaxed"
                   data-testid="text-hero-description"
                 >
-                  The comprehensive guide for students and professionals. Access detailed interactive 3D models, high-yield articles, and quizzes to ace your exams.
+                  The world's most comprehensive 3D interactive atlas for medical students and professionals. Master the human body with stunning detail and accuracy.
                 </motion.p>
-                <motion.div variants={fadeInUp} className="flex flex-wrap gap-3">
+
+                <motion.div variants={fadeInUp} className="flex flex-wrap gap-4">
                   <Link href="/services">
-                    <Button size="lg" data-testid="button-start-learning">
+                    <Button size="lg" className="h-14 px-8 text-lg rounded-xl shadow-xl shadow-primary/20 hover:shadow-primary/40 transition-all font-bold" data-testid="button-start-learning">
                       Start Learning Free
                     </Button>
                   </Link>
                   <Link href="/services">
-                    <Button size="lg" variant="outline" data-testid="button-browse-atlas">
+                    <Button size="lg" variant="outline" className="h-14 px-8 text-lg rounded-xl border-2 backdrop-blur-sm bg-white/5 hover:bg-white/10 transition-all font-bold" data-testid="button-browse-atlas">
                       Browse Atlas
                     </Button>
                   </Link>
                 </motion.div>
+
+                {/* Quick Stats/Features floating tags */}
+                <motion.div variants={fadeInUp} className="mt-12 flex items-center gap-6 pt-8 border-t border-border/50">
+                  <div className="flex flex-col">
+                    <span className="text-2xl font-bold">1,200+</span>
+                    <span className="text-xs text-muted-foreground uppercase tracking-widest">3D Models</span>
+                  </div>
+                  <div className="h-8 w-[1px] bg-border" />
+                  <div className="flex flex-col">
+                    <span className="text-2xl font-bold">500k+</span>
+                    <span className="text-xs text-muted-foreground uppercase tracking-widest">Active Users</span>
+                  </div>
+                  <div className="h-8 w-[1px] bg-border" />
+                  <div className="flex flex-col">
+                    <span className="text-2xl font-bold">4.9/5</span>
+                    <span className="text-xs text-muted-foreground uppercase tracking-widest">User Rating</span>
+                  </div>
+                </motion.div>
               </motion.div>
-              <motion.div 
-                className="relative"
-                initial={prefersReducedMotion ? false : { opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.6, delay: 0.3 }}
+
+              <motion.div
+                className="hidden lg:block relative"
+                initial={prefersReducedMotion ? false : { opacity: 0, x: 50 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.8, delay: 0.5 }}
               >
-                <div className="aspect-square max-w-md mx-auto rounded-2xl overflow-hidden shadow-xl relative">
-                  <img 
-                    src={heroAnatomyImg} 
-                    alt="3D Human Anatomy Model" 
-                    className="w-full h-full object-cover"
-                    data-testid="img-hero-anatomy"
-                  />
-                  <motion.div 
-                    className="absolute top-4 left-4 bg-white/90 dark:bg-black/90 backdrop-blur-sm rounded-lg px-3 py-2"
-                    initial={prefersReducedMotion ? false : { opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.8 }}
-                  >
-                    <p className="text-xs font-medium text-primary">Interactive View</p>
-                  </motion.div>
+                {/* Modern visual element - floating card */}
+                <div className="relative z-10 p-4 border border-white/20 rounded-[2rem] bg-white/5 backdrop-blur-xl shadow-2xl">
+                  <div className="aspect-[4/5] rounded-[1.5rem] overflow-hidden">
+                    <img
+                      src={heroAnatomyImg}
+                      alt="3D Human Anatomy"
+                      className="w-full h-full object-cover grayscale-[0.3] hover:grayscale-0 transition-all duration-700"
+                    />
+                  </div>
+                  <div className="absolute -bottom-6 -left-6 p-6 rounded-2xl bg-white dark:bg-card border border-border shadow-2xl max-w-[200px] animate-bounce-subtle">
+                    <p className="text-sm font-bold mb-1 italic">Real-time Rendering</p>
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-tighter">Powered by 3D Engine V2.0</p>
+                  </div>
                 </div>
+                {/* Decorative background shapes */}
+                <div className="absolute -z-10 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[120%] h-[120%] bg-primary/20 blur-[120px] rounded-full" />
               </motion.div>
             </div>
           </div>
         </section>
 
-        <motion.section 
+        <motion.section
           className="py-8 border-b border-border bg-card/50"
           ref={trustedRef.ref}
           initial={prefersReducedMotion ? false : "hidden"}
@@ -199,8 +243,8 @@ export default function Home() {
           <div className="max-w-7xl mx-auto px-4 sm:px-6">
             <div className="flex flex-wrap justify-center gap-8 md:gap-16">
               {trustedBy.map((item, i) => (
-                <motion.div 
-                  key={item.label} 
+                <motion.div
+                  key={item.label}
                   className="flex items-center gap-2 text-muted-foreground"
                   variants={fadeInUp}
                 >
@@ -229,8 +273,8 @@ export default function Home() {
                     <Card className="group cursor-pointer transition-all duration-300 hover:shadow-lg hover:-translate-y-1 overflow-hidden">
                       <CardContent className="p-0">
                         <div className="aspect-square relative overflow-hidden">
-                          <img 
-                            src={region.image} 
+                          <img
+                            src={region.image}
                             alt={region.title}
                             className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                           />
@@ -264,9 +308,9 @@ export default function Home() {
                 <motion.div variants={fadeInUp}>
                   <Badge variant="outline" className="mb-4">NEW FEATURE</Badge>
                 </motion.div>
-                <motion.h2 
+                <motion.h2
                   variants={fadeInUp}
-                  className="text-3xl md:text-4xl font-bold text-foreground mb-4" 
+                  className="text-3xl md:text-4xl font-bold text-foreground mb-4"
                   data-testid="text-3d-title"
                 >
                   Interactive<br />3D Models
@@ -296,8 +340,8 @@ export default function Home() {
                 {model3DItems.map((item, index) => (
                   <AnimatedItem key={item.label}>
                     <Card className="aspect-square overflow-hidden relative group">
-                      <img 
-                        src={item.image} 
+                      <img
+                        src={item.image}
                         alt={item.label}
                         className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                       />
@@ -320,8 +364,8 @@ export default function Home() {
               <div className="order-2 lg:order-1">
                 <div className="grid grid-cols-2 gap-4">
                   <Card className="aspect-square overflow-hidden relative group">
-                    <img 
-                      src={torsoImg} 
+                    <img
+                      src={torsoImg}
                       alt="Cadaveric Dissection"
                       className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                     />
@@ -331,8 +375,8 @@ export default function Home() {
                     </div>
                   </Card>
                   <Card className="aspect-square overflow-hidden relative group">
-                    <img 
-                      src={armImg} 
+                    <img
+                      src={armImg}
                       alt="Upper Limb Dissection"
                       className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                     />
@@ -342,8 +386,8 @@ export default function Home() {
                     </div>
                   </Card>
                   <Card className="aspect-square overflow-hidden relative group">
-                    <img 
-                      src={legImg} 
+                    <img
+                      src={legImg}
                       alt="Lower Limb Dissection"
                       className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                     />
@@ -353,8 +397,8 @@ export default function Home() {
                     </div>
                   </Card>
                   <Card className="aspect-square overflow-hidden relative group">
-                    <img 
-                      src={skullImg} 
+                    <img
+                      src={skullImg}
                       alt="Head & Neck Dissection"
                       className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                     />
@@ -412,8 +456,8 @@ export default function Home() {
                     <Card className="group cursor-pointer transition-all duration-300 hover:shadow-lg overflow-hidden">
                       <CardContent className="p-0">
                         <div className="h-40 overflow-hidden">
-                          <img 
-                            src={article.image} 
+                          <img
+                            src={article.image}
                             alt={article.title}
                             className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                           />
@@ -437,7 +481,7 @@ export default function Home() {
           </div>
         </section>
 
-        <motion.section 
+        <motion.section
           className="py-16 md:py-24 bg-primary text-primary-foreground"
           initial={prefersReducedMotion ? false : { opacity: 0 }}
           whileInView={{ opacity: 1 }}

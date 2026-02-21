@@ -1,13 +1,13 @@
 import { useAuth } from "@/hooks/use-auth";
 import { useLocation, Link } from "wouter";
-import { 
-  LayoutDashboard, 
-  FileText, 
-  Users, 
-  Package, 
-  HelpCircle, 
-  Briefcase, 
-  Mail, 
+import {
+  LayoutDashboard,
+  FileText,
+  Users,
+  Package,
+  HelpCircle,
+  Briefcase,
+  Mail,
   Newspaper,
   LogOut,
   ExternalLink,
@@ -18,6 +18,7 @@ import {
   Heart,
   Building2
 } from "lucide-react";
+import logoIcon from "@assets/logo.png";
 import {
   Sidebar,
   SidebarContent,
@@ -34,7 +35,6 @@ import {
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ThemeToggle } from "@/components/ThemeToggle";
 
 const menuItems = [
   { title: "Dashboard", icon: LayoutDashboard, href: "/admin", group: "Management" },
@@ -68,7 +68,7 @@ function AdminSidebar() {
     <Sidebar>
       <SidebarHeader className="p-4 border-b">
         <div className="flex items-center gap-2">
-          <Heart className="h-6 w-6 text-primary fill-primary" />
+          <img src={logoIcon} alt="Anatomia" className="h-8 w-auto object-contain" />
           <span className="font-semibold text-lg">Anatomia Admin</span>
         </div>
       </SidebarHeader>
@@ -79,7 +79,7 @@ function AdminSidebar() {
             <SidebarGroupContent>
               <SidebarMenu>
                 {items.map((item) => {
-                  const isActive = location === item.href || 
+                  const isActive = location === item.href ||
                     (item.href !== "/admin" && location.startsWith(item.href));
                   return (
                     <SidebarMenuItem key={item.href}>
@@ -167,7 +167,6 @@ export function AdminLayout({ children, title }: AdminLayoutProps) {
             <SidebarTrigger data-testid="button-sidebar-toggle" />
             {title && <h1 className="text-lg font-semibold">{title}</h1>}
             <div className="ml-auto flex items-center gap-3">
-              <ThemeToggle />
               <span className="text-sm text-muted-foreground">
                 {user.firstName || user.email}
               </span>

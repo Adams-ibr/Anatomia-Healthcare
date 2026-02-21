@@ -3,7 +3,6 @@ import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { StudentSidebar } from "@/components/StudentSidebar";
-import { ThemeToggle } from "@/components/ThemeToggle";
 import { ChatWidget } from "@/components/ChatWidget";
 import { getQueryFn } from "@/lib/queryClient";
 import { Loader2 } from "lucide-react";
@@ -107,7 +106,6 @@ export function StudentLayout({ children }: StudentLayoutProps) {
           <div className="flex flex-col flex-1 overflow-hidden">
             <header className="flex items-center justify-between gap-2 p-3 border-b bg-background sticky top-0 z-50">
               <SidebarTrigger data-testid="button-sidebar-toggle" />
-              <ThemeToggle />
             </header>
             <main className="flex-1 overflow-auto">
               {children}

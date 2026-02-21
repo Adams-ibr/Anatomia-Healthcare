@@ -1,6 +1,7 @@
 import { Link } from "wouter";
 import { Globe, Mail, Phone } from "lucide-react";
 import { SiX, SiLinkedin, SiInstagram } from "react-icons/si";
+import logoIcon from "@assets/logo.png";
 
 const footerSections = [
   {
@@ -43,11 +44,7 @@ export function Footer() {
         <div className="grid grid-cols-2 md:grid-cols-6 gap-8">
           <div className="col-span-2">
             <Link href="/" className="flex items-center gap-2 mb-4">
-              <div className="w-8 h-8 bg-primary rounded-md flex items-center justify-center">
-                <svg viewBox="0 0 24 24" className="w-5 h-5 text-primary-foreground" fill="currentColor">
-                  <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
-                </svg>
-              </div>
+              <img src={logoIcon} alt="Anatomia" className="h-10 w-auto object-contain" />
               <span className="text-xl font-bold text-foreground">Anatomia</span>
             </Link>
             <p className="text-sm text-muted-foreground mb-4 max-w-xs">
@@ -72,7 +69,7 @@ export function Footer() {
               <ul className="space-y-2">
                 {section.links.map((link) => (
                   <li key={link.label}>
-                    <Link 
+                    <Link
                       href={link.href}
                       className="text-sm text-muted-foreground hover:text-primary transition-colors"
                       data-testid={`link-footer-${link.label.toLowerCase().replace(/\s/g, '-')}`}

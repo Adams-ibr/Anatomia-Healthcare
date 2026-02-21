@@ -4,7 +4,6 @@ import { Search, Menu, X, User, LogOut, LayoutDashboard } from "lucide-react";
 import logoIcon from "@assets/logo.png";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ThemeToggle } from "@/components/ThemeToggle";
 import { useState, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getQueryFn, queryClient } from "@/lib/queryClient";
@@ -151,7 +150,6 @@ export function Navbar() {
               <Search className="w-5 h-5" />
             </Button>
 
-            <ThemeToggle />
 
             <div className="hidden sm:flex items-center gap-2">
               {isLoggedIn ? (
