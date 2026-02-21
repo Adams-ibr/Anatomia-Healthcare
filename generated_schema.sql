@@ -507,6 +507,39 @@ CREATE INDEX IF NOT EXISTS "idx_messages_conversation" ON messages(conversation_
 CREATE INDEX IF NOT EXISTS "idx_messages_sender" ON messages(sender_id);
 CREATE INDEX IF NOT EXISTS "idx_messages_created" ON messages(created_at);
 
+-- Membership Plans
+CREATE TABLE IF NOT EXISTS membership_plans (
+  id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+  name VARCHAR NOT NULL UNIQUE,
+  description TEXT,
+  access_level INTEGER DEFAULT 1,
+  is_active BOOLEAN DEFAULT true,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Plan Pricing
+CREATE TABLE IF NOT EXISTS plan_pricing (
+  id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+  plan_id VARCHAR NOT NULL REFERENCES membership_plans(id) ON DELETE CASCADE,
+  user_type VARCHAR NOT NULL,
+  monthly_price INTEGER NOT NULL,
+  yearly_price INTEGER,
+  currency VARCHAR DEFAULT 'NGN',
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Feature Access
+CREATE TABLE IF NOT EXISTS feature_access (
+  id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+  plan_id VARCHAR NOT NULL REFERENCES membership_plans(id) ON DELETE CASCADE,
+  feature_key VARCHAR NOT NULL,
+  is_enabled BOOLEAN DEFAULT true,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+
 -- Comments
 CREATE TABLE IF NOT EXISTS comments (
   id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),

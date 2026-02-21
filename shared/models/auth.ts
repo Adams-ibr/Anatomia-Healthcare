@@ -74,6 +74,7 @@ export const members = pgTable("members", {
   password: varchar("password").notNull(),
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),
+  userType: varchar("user_type", { enum: ["student", "professional"] }).notNull().default("student"),
   membershipTier: varchar("membership_tier").notNull().default("bronze"),
   membershipExpiresAt: timestamp("membership_expires_at"),
   isActive: boolean("is_active").default(true),

@@ -280,6 +280,39 @@ export const requireActiveMembership: RequestHandler = async (req, res, next) =>
   next();
 };
 
+// Dynamic Feature Access control middleware
+export const requireFeatureAccess = (featureKey: string): RequestHandler => {
+  return async (req, res, next) => {
+    const memberId = (req.session as any).memberId;
+    if (!memberId) return res.status(401).json({ error: "Unauthorized" });
+
+    const { data: member } = await supabase.from("members").select().eq("id", memberId).single();
+    if (!member) return res.status(401).json({ error: "Unauthorized" });
+
+    // Determine current effective tier (fall back to Bronze if expired)
+    const isActiveTier = member.membership_tier && member.membership_tier.toLowerCase() !== "bronze";
+    const isExpired = member.membership_expires_at && new Date(member.membership_expires_at) < new Date();
+    const effectiveTier = (isActiveTier && !isExpired) ? member.membership_tier : "Bronze";
+
+    const { data: featureAccess } = await supabase
+      .from("feature_access")
+      .select("is_enabled, plan:membership_plans!inner(name)")
+      .ilike("plan.name", effectiveTier)
+      .eq("feature_key", featureKey)
+      .single();
+
+    if (!featureAccess || !featureAccess.is_enabled) {
+      return res.status(403).json({
+        error: "Feature not available on your current plan",
+        code: "UPGRADE_REQUIRED"
+      });
+    }
+
+    (req as any).member = member;
+    next();
+  };
+};
+
 // Role-based access control middleware factory
 export const requireRole = (...allowedRoles: string[]): RequestHandler => {
   return async (req, res, next) => {
