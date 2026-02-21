@@ -2,6 +2,8 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
+import { supabase } from "@/lib/supabase";
+import { RealtimeChannel } from "@supabase/supabase-js";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -58,68 +60,59 @@ export function ChatWidget({ currentMemberId }: ChatWidgetProps) {
   const [showNewChat, setShowNewChat] = useState(false);
   const [wsConnected, setWsConnected] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const wsRef = useRef<WebSocket | null>(null);
+  const channelRef = useRef<RealtimeChannel | null>(null);
   const queryClient = useQueryClient();
 
-  const connectWebSocket = useCallback(() => {
-    if (wsRef.current?.readyState === WebSocket.OPEN) return;
+  const connectSupabaseRealtime = useCallback(() => {
+    // Prevent duplicate subscriptions
+    if (channelRef.current) return;
 
-    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const wsUrl = `${protocol}//${window.location.host}/ws/chat?memberId=${currentMemberId}`;
+    const channel = supabase.channel('chat-room');
 
-    const ws = new WebSocket(wsUrl);
-
-    ws.onopen = () => {
-      setWsConnected(true);
-      if (activeConversation) {
-        ws.send(JSON.stringify({ type: "join", conversationId: activeConversation.id }));
-      }
-    };
-
-    ws.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        if (data.type === "message") {
-          queryClient.invalidateQueries({
-            queryKey: ["/api/interactions/conversations", data.conversationId, "messages"]
-          });
+    channel
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'messages' },
+        (payload) => {
+          // Invalidate messages if it matches the current active conversation
+          if (activeConversation && payload.new.conversation_id === activeConversation.id) {
+            queryClient.invalidateQueries({
+              queryKey: ["/api/interactions/conversations", activeConversation.id, "messages"]
+            });
+          }
+          // Always invalidate conversation list to update unseen counts/last message
           queryClient.invalidateQueries({
             queryKey: ["/api/interactions/conversations"]
           });
         }
-      } catch (error) {
-        console.error("WebSocket message parse error:", error);
-      }
-    };
+      )
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          setWsConnected(true);
+        } else if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
+          setWsConnected(false);
+          // Optional: handle reconnection logic here if needed
+        }
+      });
 
-    ws.onclose = () => {
-      setWsConnected(false);
-      setTimeout(connectWebSocket, 3000);
-    };
-
-    ws.onerror = () => {
-      setWsConnected(false);
-    };
-
-    wsRef.current = ws;
-  }, [currentMemberId, activeConversation, queryClient]);
+    channelRef.current = channel;
+  }, [activeConversation, queryClient]);
 
   useEffect(() => {
     if (isOpen) {
-      connectWebSocket();
+      connectSupabaseRealtime();
     }
     return () => {
-      if (wsRef.current) {
-        wsRef.current.close();
-        wsRef.current = null;
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
       }
     };
-  }, [isOpen, connectWebSocket]);
+  }, [isOpen, connectSupabaseRealtime]);
 
+  // Handle active conversation changes (Realtime doesn't technically "join" tables exactly, but we rebind the ref context above)
   useEffect(() => {
-    if (activeConversation && wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({ type: "join", conversationId: activeConversation.id }));
-    }
+    // Optional: we can emit a presence "join" event if we implement presence later
   }, [activeConversation]);
 
   const { data: conversations = [], isLoading: loadingConversations } = useQuery<Conversation[]>({

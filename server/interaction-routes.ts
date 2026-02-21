@@ -1,7 +1,6 @@
 import { Router, Request, Response } from "express";
 import { isMemberAuthenticated } from "./auth";
 import { interactionStorage } from "./interaction-storage";
-import { chatWebSocket } from "./websocket";
 import {
   insertMessageSchema,
   insertCommentSchema,
@@ -58,7 +57,7 @@ memberRouter.get("/conversations/:id/messages", async (req: Request, res: Respon
     }
 
     const { id } = req.params;
-    
+
     const isParticipant = await interactionStorage.isMemberInConversation(id, memberId);
     if (!isParticipant) {
       return res.status(403).json({ message: "Access denied to this conversation" });
@@ -90,7 +89,7 @@ memberRouter.post("/conversations/:id/messages", async (req: Request, res: Respo
     }
 
     const { id } = req.params;
-    
+
     const isParticipant = await interactionStorage.isMemberInConversation(id, memberId);
     if (!isParticipant) {
       return res.status(403).json({ message: "Access denied to this conversation" });
@@ -107,15 +106,6 @@ memberRouter.post("/conversations/:id/messages", async (req: Request, res: Respo
     }
 
     const message = await interactionStorage.createMessage(validation.data);
-    
-    chatWebSocket.notifyNewMessage(id, {
-      id: message.id,
-      senderId: memberId,
-      content: message.content,
-      createdAt: message.createdAt?.toISOString() || new Date().toISOString(),
-      senderFirstName: member.firstName,
-      senderLastName: member.lastName,
-    });
 
     res.status(201).json(message);
   } catch (error) {
@@ -132,7 +122,7 @@ memberRouter.post("/conversations/:id/read", async (req: Request, res: Response)
     }
 
     const { id } = req.params;
-    
+
     const isParticipant = await interactionStorage.isMemberInConversation(id, memberId);
     if (!isParticipant) {
       return res.status(403).json({ message: "Access denied to this conversation" });
