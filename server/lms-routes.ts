@@ -20,12 +20,10 @@ const router = Router();
 // Create sub-routers for different access levels
 const publicRouter = Router();
 const memberRouter = Router();
-const subscriberRouter = Router(); // For routes that require active subscription
 const adminRouter = Router();
 
 // Apply authentication middleware to protected routers
 memberRouter.use(isMemberAuthenticated);
-subscriberRouter.use(isMemberAuthenticated, requireActiveMembership); // Requires auth + active subscription
 adminRouter.use(isAuthenticated);
 
 // ============ PUBLIC ROUTES ============
@@ -189,7 +187,7 @@ publicRouter.get("/certificates/download/:number", async (req: Request, res: Res
 // ============ MEMBER ROUTES (requires member auth - middleware applied above) ============
 
 // Enroll in a course (requires active subscription)
-subscriberRouter.post("/enrollments", async (req: Request, res: Response) => {
+memberRouter.post("/enrollments", async (req: Request, res: Response) => {
   try {
     const member = (req as any).member;
     const { courseId } = req.body;
@@ -290,7 +288,7 @@ memberRouter.post("/notifications/read-all", async (req: Request, res: Response)
 });
 
 // Get lesson content for enrolled member (requires active subscription)
-subscriberRouter.get("/lessons/:lessonId", async (req: Request, res: Response) => {
+memberRouter.get("/lessons/:lessonId", async (req: Request, res: Response) => {
   try {
     const member = (req as any).member;
     const { lessonId } = req.params;
@@ -327,7 +325,7 @@ subscriberRouter.get("/lessons/:lessonId", async (req: Request, res: Response) =
 });
 
 // Get course with modules, lessons, and progress for enrolled member (requires active subscription)
-subscriberRouter.get("/courses/:courseId/content", async (req: Request, res: Response) => {
+memberRouter.get("/courses/:courseId/content", async (req: Request, res: Response) => {
   try {
     const member = (req as any).member;
     const { courseId } = req.params;
@@ -365,7 +363,7 @@ subscriberRouter.get("/courses/:courseId/content", async (req: Request, res: Res
 });
 
 // Get member's recent activity (requires active subscription)
-subscriberRouter.get("/activity/recent", async (req: Request, res: Response) => {
+memberRouter.get("/activity/recent", async (req: Request, res: Response) => {
   try {
     const member = (req as any).member;
     const recentProgress = await lmsStorage.getRecentLessonProgress(member.id, 10);
@@ -397,7 +395,7 @@ subscriberRouter.get("/activity/recent", async (req: Request, res: Response) => 
 });
 
 // Get member's enrollments
-subscriberRouter.get("/enrollments/me", async (req: Request, res: Response) => {
+memberRouter.get("/enrollments/me", async (req: Request, res: Response) => {
   try {
     const member = (req as any).member;
     const enrollments = await lmsStorage.getEnrollmentsByMemberId(member.id);
@@ -417,7 +415,7 @@ subscriberRouter.get("/enrollments/me", async (req: Request, res: Response) => {
 });
 
 // Update lesson progress
-subscriberRouter.post("/lessons/:lessonId/progress", async (req: Request, res: Response) => {
+memberRouter.post("/lessons/:lessonId/progress", async (req: Request, res: Response) => {
   try {
     const member = (req as any).member;
     const { lessonId } = req.params;
@@ -439,7 +437,7 @@ subscriberRouter.post("/lessons/:lessonId/progress", async (req: Request, res: R
 });
 
 // Get member's progress for a course
-subscriberRouter.get("/courses/:courseId/progress", async (req: Request, res: Response) => {
+memberRouter.get("/courses/:courseId/progress", async (req: Request, res: Response) => {
   try {
     const member = (req as any).member;
     const { courseId } = req.params;
@@ -452,7 +450,7 @@ subscriberRouter.get("/courses/:courseId/progress", async (req: Request, res: Re
 });
 
 // Start quiz attempt
-subscriberRouter.post("/quizzes/:quizId/attempt", async (req: Request, res: Response) => {
+memberRouter.post("/quizzes/:quizId/attempt", async (req: Request, res: Response) => {
   try {
     const member = (req as any).member;
     const { quizId } = req.params;
@@ -491,7 +489,7 @@ subscriberRouter.post("/quizzes/:quizId/attempt", async (req: Request, res: Resp
 });
 
 // Submit quiz attempt
-subscriberRouter.post("/quizzes/attempts/:attemptId/submit", async (req: Request, res: Response) => {
+memberRouter.post("/quizzes/attempts/:attemptId/submit", async (req: Request, res: Response) => {
   try {
     const member = (req as any).member;
     const { attemptId } = req.params;
@@ -541,7 +539,7 @@ subscriberRouter.post("/quizzes/attempts/:attemptId/submit", async (req: Request
 });
 
 // Get member's certificates
-subscriberRouter.get("/certificates/me", async (req: Request, res: Response) => {
+memberRouter.get("/certificates/me", async (req: Request, res: Response) => {
   try {
     const member = (req as any).member;
     const certificates = await lmsStorage.getCertificatesByMemberId(member.id);
@@ -1592,7 +1590,7 @@ adminRouter.delete("/anatomy-models/:id", isContentAdmin, async (req: Request, r
 // ============ MEMBER FLASHCARD STUDY ROUTES ============
 
 // Get flashcard decks for members (public decks or course-related)
-subscriberRouter.get("/flashcard-decks", async (req: Request, res: Response) => {
+memberRouter.get("/flashcard-decks", async (req: Request, res: Response) => {
   try {
     const { courseId } = req.query;
     const decks = await lmsStorage.getFlashcardDecks(courseId as string);
@@ -1603,7 +1601,7 @@ subscriberRouter.get("/flashcard-decks", async (req: Request, res: Response) => 
 });
 
 // Get due flashcards for study
-subscriberRouter.get("/flashcard-decks/:deckId/due", async (req: Request, res: Response) => {
+memberRouter.get("/flashcard-decks/:deckId/due", async (req: Request, res: Response) => {
   try {
     const member = (req as any).member;
     const dueCards = await lmsStorage.getDueFlashcards(member.id, req.params.deckId);
@@ -1623,7 +1621,7 @@ subscriberRouter.get("/flashcard-decks/:deckId/due", async (req: Request, res: R
 });
 
 // Submit flashcard review (spaced repetition update)
-subscriberRouter.post("/flashcards/:flashcardId/review", async (req: Request, res: Response) => {
+memberRouter.post("/flashcards/:flashcardId/review", async (req: Request, res: Response) => {
   try {
     const member = (req as any).member;
     const { quality } = req.body; // quality: 0-5 (0=complete fail, 5=perfect)
@@ -1969,6 +1967,5 @@ router.use("/admin", adminRouter);
 router.use("/admin", superAdminRouter);
 router.use("/", publicRouter);
 router.use("/", memberRouter);
-router.use("/", subscriberRouter); // Routes requiring active subscription
 
 export default router;

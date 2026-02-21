@@ -185,14 +185,14 @@ export interface ILmsStorage {
   getAllMembersForAdmin(): Promise<Omit<Member, "password">[]>;
   updateMemberMembership(id: string, tier: string, expiresAt?: Date | null): Promise<Omit<Member, "password"> | undefined>;
   updateMemberStatus(id: string, isActive: boolean): Promise<Omit<Member, "password"> | undefined>;
-  deleteMember(id: string): Promise<Omit<Member, "password"> | undefined>;
+  deleteMember(id: string): Promise<boolean>;
 
   // Admin Users (Super Admin only)
   getAllAdminUsers(): Promise<Omit<User, "password">[]>;
   getAdminUserById(id: string): Promise<Omit<User, "password"> | undefined>;
   updateAdminUserRole(id: string, role: string): Promise<Omit<User, "password"> | undefined>;
   updateAdminUserStatus(id: string, isActive: boolean): Promise<Omit<User, "password"> | undefined>;
-  deleteAdminUser(id: string): Promise<Omit<User, "password"> | undefined>;
+  deleteAdminUser(id: string): Promise<boolean>;
   createAdminUser(email: string, password: string, role: string, firstName?: string, lastName?: string): Promise<Omit<User, "password">>;
 }
 
@@ -309,6 +309,7 @@ export class LmsStorage implements ILmsStorage {
         thumbnailUrl:thumbnail_url, level, duration, price, category,
         isPublished:is_published, isFeatured:is_featured,
         requiredMembershipTier:required_membership_tier,
+        isFree:is_free, createdBy:created_by,
         createdAt:created_at, updatedAt:updated_at
       `)
       .eq("slug", slug)
@@ -327,6 +328,7 @@ export class LmsStorage implements ILmsStorage {
         thumbnailUrl:thumbnail_url, level, duration, price, category,
         isPublished:is_published, isFeatured:is_featured,
         requiredMembershipTier:required_membership_tier,
+        isFree:is_free, createdBy:created_by,
         createdAt:created_at, updatedAt:updated_at
       `)
       .single();
@@ -345,6 +347,7 @@ export class LmsStorage implements ILmsStorage {
         thumbnailUrl:thumbnail_url, level, duration, price, category,
         isPublished:is_published, isFeatured:is_featured,
         requiredMembershipTier:required_membership_tier,
+        isFree:is_free, createdBy:created_by,
         createdAt:created_at, updatedAt:updated_at
       `)
       .single();
@@ -1392,7 +1395,7 @@ export class LmsStorage implements ILmsStorage {
   async getAnatomyModels(filters?: { category?: string; bodySystem?: string }): Promise<AnatomyModel[]> {
     let query = supabase
       .from("anatomy_models")
-      .select("id, title, slug, description, modelUrl:model_url, thumbnailUrl:thumbnail_url, category, tags, isPremium:is_premium, bodySystem:body_system, annotations, isPublished:is_published, createdBy:created_by, createdAt:created_at, updatedAt:updated_at")
+      .select("id, title, description, modelUrl:model_url, thumbnailUrl:thumbnail_url, category, tags, bodySystem:body_system, annotations, isPublished:is_published, createdBy:created_by, createdAt:created_at, updatedAt:updated_at")
       .order("created_at", { ascending: false });
 
     // Filter by published status (assuming we only want published models by default, or if there is a filter)
@@ -1416,7 +1419,7 @@ export class LmsStorage implements ILmsStorage {
   async getAnatomyModelById(id: string): Promise<AnatomyModel | undefined> {
     const { data, error } = await supabase
       .from("anatomy_models")
-      .select("id, title, slug, description, modelUrl:model_url, thumbnailUrl:thumbnail_url, category, tags, isPremium:is_premium, bodySystem:body_system, annotations, isPublished:is_published, createdBy:created_by, createdAt:created_at, updatedAt:updated_at")
+      .select("id, title, description, modelUrl:model_url, thumbnailUrl:thumbnail_url, category, tags, bodySystem:body_system, annotations, isPublished:is_published, createdBy:created_by, createdAt:created_at, updatedAt:updated_at")
       .eq("id", id)
       .single();
 
@@ -1428,7 +1431,7 @@ export class LmsStorage implements ILmsStorage {
     const { data, error } = await supabase
       .from("anatomy_models")
       .insert(toSnakeCase(model))
-      .select("id, title, slug, description, modelUrl:model_url, thumbnailUrl:thumbnail_url, category, tags, isPremium:is_premium, bodySystem:body_system, annotations, isPublished:is_published, createdBy:created_by, createdAt:created_at, updatedAt:updated_at")
+      .select("id, title, description, modelUrl:model_url, thumbnailUrl:thumbnail_url, category, tags, bodySystem:body_system, annotations, isPublished:is_published, createdBy:created_by, createdAt:created_at, updatedAt:updated_at")
       .single();
 
     if (error) throw error;
@@ -1440,7 +1443,7 @@ export class LmsStorage implements ILmsStorage {
       .from("anatomy_models")
       .update(model)
       .eq("id", id)
-      .select("id, title, slug, description, modelUrl:model_url, thumbnailUrl:thumbnail_url, category, tags, isPremium:is_premium, bodySystem:body_system, annotations, isPublished:is_published, createdBy:created_by, createdAt:created_at, updatedAt:updated_at")
+      .select("id, title, description, modelUrl:model_url, thumbnailUrl:thumbnail_url, category, tags, bodySystem:body_system, annotations, isPublished:is_published, createdBy:created_by, createdAt:created_at, updatedAt:updated_at")
       .single();
 
     if (error) return undefined;
