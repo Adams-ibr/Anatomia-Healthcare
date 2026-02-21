@@ -115,9 +115,9 @@ publicRouter.get("/courses/:slug", async (req: Request, res: Response) => {
 
     // Check if the user is a logged-in member to see if they are enrolled
     let isEnrolled = false;
-    const member = (req as any).member;
-    if (member) {
-      const enrollment = await lmsStorage.getEnrollment(member.id, course.id);
+    const memberId = (req.session as any)?.memberId;
+    if (memberId) {
+      const enrollment = await lmsStorage.getEnrollment(memberId, course.id);
       if (enrollment) {
         isEnrolled = true;
       }
