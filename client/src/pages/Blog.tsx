@@ -9,8 +9,8 @@ import { PageTransition } from "@/components/PageTransition";
 import { AnimatedSection } from "@/components/AnimatedSection";
 import { fadeInUp, staggerContainer } from "@/lib/motion";
 import { useInViewAnimation } from "@/hooks/use-in-view-animation";
-import { 
-  Clock, 
+import {
+  Clock,
   Search,
   User,
   ChevronLeft,
@@ -26,7 +26,7 @@ import armImg from "@assets/stock_images/human_arm_muscles_an_9d7db348.jpg";
 import brainImg from "@assets/stock_images/human_brain_anatomy__282b70de.jpg";
 import heartImg from "@assets/stock_images/human_heart_anatomy__701f24b0.jpg";
 import spineImg from "@assets/stock_images/human_spine_vertebra_b5200c9c.jpg";
-import torsoImg from "@assets/stock_images/human_torso_chest_an_152c69d9.jpg";
+import doctorImg from "@assets/stock_images/doctor_professional__26ea132c.jpg";
 import skeletonImg from "@assets/stock_images/human_skeleton_medic_56e01afd.jpg";
 
 const categories = ["All", "Musculoskeletal", "Neuroanatomy", "Visceral", "Clinical Case"];
@@ -91,7 +91,7 @@ const articles = [
     author: "Dr. James Victor",
     readTime: "7 min read",
     date: "Sep 25, 2023",
-    image: torsoImg
+    image: doctorImg
   },
 ];
 
@@ -115,8 +115,8 @@ export default function Blog() {
       setFooterEmail("");
     },
     onError: (error: any) => {
-      const message = error?.message?.includes("409") 
-        ? "This email is already subscribed." 
+      const message = error?.message?.includes("409")
+        ? "This email is already subscribed."
         : "Failed to subscribe. Please try again.";
       toast({
         title: "Error",
@@ -162,9 +162,9 @@ export default function Blog() {
                     <CardContent className="p-0">
                       <div className="grid md:grid-cols-2 gap-0">
                         <div className="aspect-square md:aspect-auto relative overflow-hidden">
-                          <img 
-                            src={armImg} 
-                            alt="Brachial Plexus" 
+                          <img
+                            src={armImg}
+                            alt="Brachial Plexus"
                             className="w-full h-full object-cover"
                           />
                           <Badge className="absolute top-4 left-4">FEATURED ARTICLE</Badge>
@@ -193,7 +193,7 @@ export default function Blog() {
                       <h2 className="text-2xl font-bold text-foreground" data-testid="text-latest-updates">Latest Updates</h2>
                       <p className="text-sm text-muted-foreground">Browse our archive of articles, study guides, and clinical notes.</p>
                     </div>
-                    
+
                     <div className="flex flex-wrap items-center gap-4 mb-6">
                       <div className="relative flex-1 min-w-[200px]">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -201,9 +201,9 @@ export default function Blog() {
                       </div>
                       <div className="flex flex-wrap gap-2">
                         {categories.map((cat) => (
-                          <Button 
-                            key={cat} 
-                            variant={cat === "All" ? "default" : "outline"} 
+                          <Button
+                            key={cat}
+                            variant={cat === "All" ? "default" : "outline"}
                             size="sm"
                             data-testid={`button-category-${cat.toLowerCase()}`}
                           >
@@ -215,7 +215,7 @@ export default function Blog() {
                   </div>
                 </AnimatedSection>
 
-                <motion.div 
+                <motion.div
                   className="grid sm:grid-cols-2 gap-6"
                   ref={articlesRef.ref}
                   initial={prefersReducedMotion ? false : "hidden"}
@@ -228,8 +228,8 @@ export default function Blog() {
                         <Card className="h-full group cursor-pointer transition-all duration-300 hover:shadow-lg">
                           <CardContent className="p-0">
                             <div className="h-40 relative overflow-hidden">
-                              <img 
-                                src={article.image} 
+                              <img
+                                src={article.image}
                                 alt={article.title}
                                 className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                               />
@@ -263,9 +263,9 @@ export default function Blog() {
                     <ChevronLeft className="w-4 h-4" />
                   </Button>
                   {[1, 2, 3].map((page) => (
-                    <Button 
-                      key={page} 
-                      variant={page === 1 ? "default" : "outline"} 
+                    <Button
+                      key={page}
+                      variant={page === 1 ? "default" : "outline"}
                       size="sm"
                       data-testid={`button-page-${page}`}
                     >
@@ -287,16 +287,16 @@ export default function Blog() {
                     <p className="text-sm text-primary-foreground/80 mb-4">
                       Join 50,000+ students receiving anatomy tips, mnemonics, and clinical correlations every week.
                     </p>
-                    <Input 
-                      placeholder="Your email address" 
+                    <Input
+                      placeholder="Your email address"
                       className="mb-3 bg-primary-foreground/10 border-primary-foreground/20 text-primary-foreground placeholder:text-primary-foreground/50"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       data-testid="input-newsletter-email"
                     />
-                    <Button 
-                      variant="secondary" 
-                      className="w-full gap-2" 
+                    <Button
+                      variant="secondary"
+                      className="w-full gap-2"
                       onClick={() => handleSubscribe(email)}
                       disabled={newsletterMutation.isPending}
                       data-testid="button-subscribe"
@@ -334,7 +334,7 @@ export default function Blog() {
           </div>
         </section>
 
-        <motion.section 
+        <motion.section
           className="py-16 md:py-24 bg-primary text-primary-foreground"
           initial={prefersReducedMotion ? false : { opacity: 0 }}
           whileInView={{ opacity: 1 }}
@@ -350,15 +350,15 @@ export default function Blog() {
                 Get weekly anatomy tips, clinical mnemonic cheat sheets, and 3D atlas updates delivered straight to your inbox.
               </p>
               <div className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto">
-                <Input 
-                  placeholder="Enter your email address" 
+                <Input
+                  placeholder="Enter your email address"
                   className="bg-primary-foreground/10 border-primary-foreground/20 text-primary-foreground placeholder:text-primary-foreground/50"
                   value={footerEmail}
                   onChange={(e) => setFooterEmail(e.target.value)}
                   data-testid="input-footer-newsletter"
                 />
-                <Button 
-                  variant="secondary" 
+                <Button
+                  variant="secondary"
                   onClick={() => handleSubscribe(footerEmail)}
                   disabled={newsletterMutation.isPending}
                   className="gap-2"

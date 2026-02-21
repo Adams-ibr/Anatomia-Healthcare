@@ -29,7 +29,6 @@ import heroAnatomyImg from "@assets/stock_images/3d_human_anatomy_mus_873f0c5b.j
 import armImg from "@assets/stock_images/human_arm_muscles_an_9d7db348.jpg";
 import legImg from "@assets/stock_images/human_leg_muscles_an_357c0b04.jpg";
 import skullImg from "@assets/stock_images/human_skeleton_medic_56e01afd.jpg";
-import torsoImg from "@assets/stock_images/human_torso_chest_an_152c69d9.jpg";
 import spineImg from "@assets/stock_images/human_spine_vertebra_b5200c9c.jpg";
 import pelvisImg from "@assets/stock_images/human_pelvis_hip_ana_160d6786.jpg";
 import heartImg from "@assets/stock_images/human_heart_anatomy__701f24b0.jpg";
@@ -47,7 +46,7 @@ const regions = [
   { title: "Upper Limb", description: "Shoulder, Arm, Elbow, Forearm, Hand", image: armImg, badge: "REGION" },
   { title: "Lower Limb", description: "Hip, Thigh, Knee, Leg, Ankle, Foot", image: legImg, badge: "REGION" },
   { title: "Head & Neck", description: "Skull, Face, Neck, Cranial Nerves", image: skullImg, badge: "REGION" },
-  { title: "Thorax", description: "Heart, Lungs, Mediastinum, Ribcage", image: torsoImg, badge: "REGION" },
+  { title: "Thorax", description: "Heart, Lungs, Mediastinum, Ribcage", image: heartImg, badge: "REGION" },
   { title: "Abdomen", description: "Digestive Tract, Liver, Kidneys, Spleen", image: spineImg, badge: "REGION" },
   { title: "Pelvis", description: "Reproductive Organs, Bladder, Perineum", image: pelvisImg, badge: "REGION" },
 ];
@@ -118,7 +117,7 @@ export default function Home() {
   const trustedRef = useInViewAnimation({ threshold: 0.2 });
   const featuresRef = useInViewAnimation({ threshold: 0.1 });
 
-  const backgroundImages = [heroAnatomyImg, torsoImg, brainImg, heartImg, skullImg, armImg, spineImg, pelvisImg, legImg, eyeImg];
+  const backgroundImages = [heroAnatomyImg, brainImg, heartImg, skullImg, armImg, spineImg, pelvisImg, legImg, eyeImg];
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
   useEffect(() => {
@@ -348,7 +347,7 @@ export default function Home() {
                 <div className="grid grid-cols-2 gap-4">
                   <Card className="aspect-square overflow-hidden relative group">
                     <img
-                      src={torsoImg}
+                      src={heartImg}
                       alt="Cadaveric Dissection"
                       className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                     />
