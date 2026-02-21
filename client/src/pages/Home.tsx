@@ -127,16 +127,16 @@ export default function Home() {
               loop
               muted
               playsInline
-              className="w-full h-full object-cover opacity-60"
+              className="w-full h-full object-cover opacity-50"
             >
               <source
-                src="https://cdn.pixabay.com/video/2016/03/24/2552-160161427_large.mp4"
+                src="https://assets.mixkit.co/videos/preview/mixkit-dna-molecule-rotating-loop-30372-large.mp4"
                 type="video/mp4"
               />
               Your browser does not support the video tag.
             </video>
             {/* Overlay Gradient for depth and legibility */}
-            <div className="absolute inset-0 bg-gradient-to-b from-slate-950/40 via-slate-950/80 to-slate-950" />
+            <div className="absolute inset-0 bg-gradient-to-b from-slate-950/60 via-slate-950/80 to-slate-950" />
           </div>
 
           <div className="max-w-7xl mx-auto px-4 sm:px-6 relative z-10 w-full text-center">
@@ -158,7 +158,7 @@ export default function Home() {
 
               <motion.h1
                 variants={fadeInUp}
-                className="text-5xl md:text-7xl lg:text-8xl font-black text-white leading-[1] mb-8 tracking-tight"
+                className="text-4xl md:text-5xl lg:text-6xl font-extrabold text-white leading-tight mb-6 tracking-tight"
                 data-testid="text-hero-title"
               >
                 Experience <span className="text-primary italic">Anatomy</span><br />
