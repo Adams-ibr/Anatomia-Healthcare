@@ -28,7 +28,9 @@ export default function CourseLanding() {
     const { data: course, isLoading, error } = useQuery<CourseWithModules>({
         queryKey: ["/api/lms/courses", slug],
         queryFn: async () => {
-            const res = await fetch(`/api/lms/courses/${slug}`);
+            const res = await fetch(`/api/lms/courses/${slug}`, {
+                credentials: "include"
+            });
             if (!res.ok) {
                 if (res.status === 404) throw new Error("Course not found");
                 throw new Error("Failed to fetch course details");

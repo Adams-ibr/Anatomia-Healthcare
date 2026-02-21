@@ -47,7 +47,9 @@ export default function CourseCatalog() {
   const { data: courses, isLoading } = useQuery<Course[]>({
     queryKey: ["/api/lms/courses", searchTerm, selectedCategory, selectedLevel, sortBy],
     queryFn: async () => {
-      const res = await fetch(`/api/lms/courses?${queryParams.toString()}`);
+      const res = await fetch(`/api/lms/courses?${queryParams.toString()}`, {
+        credentials: "include"
+      });
       if (!res.ok) throw new Error("Failed to fetch courses");
       return res.json();
     },

@@ -52,6 +52,7 @@ import CoursePlayer from "@/pages/member/CoursePlayer";
 import Subscribe from "@/pages/member/Subscribe";
 import PaymentVerify from "@/pages/member/PaymentVerify";
 import Profile from "@/pages/member/Profile";
+import MyCourses from "@/pages/member/MyCourses";
 import CourseCatalog from "@/pages/CourseCatalog";
 import Pricing from "@/pages/Pricing";
 
@@ -60,6 +61,7 @@ function StudentRoutes() {
     <StudentLayout>
       <Switch>
         <Route path="/dashboard" component={StudentDashboard} />
+        <Route path="/my-courses" component={MyCourses} />
         <Route path="/profile" component={Profile} />
         <Route path="/practice" component={PracticeMode} />
         <Route path="/flashcards" component={FlashcardStudy} />
@@ -80,6 +82,7 @@ function Router() {
 
   const isStudentRoute =
     location === "/dashboard" ||
+    location === "/my-courses" ||
     location === "/profile" ||
     location === "/practice" ||
     location === "/flashcards" ||
