@@ -21,6 +21,7 @@ import Privacy from "@/pages/Privacy";
 import Terms from "@/pages/Terms";
 import Sitemap from "@/pages/Sitemap";
 import NotFound from "@/pages/not-found";
+import CourseLanding from "@/pages/CourseLanding";
 import Dashboard from "@/pages/admin/Dashboard";
 import AdminArticles from "@/pages/admin/AdminArticles";
 import AdminTeam from "@/pages/admin/AdminTeam";
@@ -64,6 +65,7 @@ function StudentRoutes() {
         <Route path="/flashcards" component={FlashcardStudy} />
         <Route path="/anatomy-viewer" component={Anatomy3DViewer} />
         <Route path="/courses" component={CourseCatalog} />
+        <Route path="/courses/:slug" component={CourseLanding} />
         <Route path="/subscribe" component={Subscribe} />
         <Route path="/payment/verify" component={PaymentVerify} />
         <Route path="/learn/:courseId" component={CoursePlayer} />
@@ -75,8 +77,8 @@ function StudentRoutes() {
 
 function Router() {
   const [location] = useLocation();
-  
-  const isStudentRoute = 
+
+  const isStudentRoute =
     location === "/dashboard" ||
     location === "/profile" ||
     location === "/practice" ||
@@ -86,11 +88,11 @@ function Router() {
     location === "/subscribe" ||
     location === "/payment/verify" ||
     location.startsWith("/learn/");
-  
+
   if (isStudentRoute) {
     return <StudentRoutes />;
   }
-  
+
   return (
     <Switch>
       <Route path="/" component={Home} />
@@ -136,7 +138,7 @@ function Router() {
 
 function Analytics() {
   const [location] = useLocation();
-  
+
   useEffect(() => {
     // Track page view with Google Analytics
     if (typeof window !== "undefined" && (window as any).gtag) {
@@ -145,7 +147,7 @@ function Analytics() {
       });
     }
   }, [location]);
-  
+
   return null;
 }
 
