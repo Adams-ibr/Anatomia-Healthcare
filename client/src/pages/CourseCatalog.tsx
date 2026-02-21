@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Layout } from "@/components/layout/Layout";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -77,7 +78,8 @@ export default function CourseCatalog() {
   };
 
   return (
-    <div className="bg-background">
+    <Layout>
+      <div className="bg-background">
         <section className="relative py-16 bg-gradient-to-br from-primary/10 via-background to-background">
           <div className="container mx-auto px-4">
             <div className="max-w-3xl mx-auto text-center">
@@ -87,7 +89,7 @@ export default function CourseCatalog() {
               <p className="text-lg text-muted-foreground mb-8">
                 Explore our comprehensive collection of medical education courses
               </p>
-              
+
               <div className="relative max-w-xl mx-auto">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                 <Input
@@ -111,7 +113,7 @@ export default function CourseCatalog() {
                   <Filter className="h-4 w-4 text-muted-foreground" />
                   <span className="text-sm font-medium">Filters:</span>
                 </div>
-                
+
                 <Select value={selectedCategory} onValueChange={setSelectedCategory}>
                   <SelectTrigger className="w-[160px]" data-testid="select-category">
                     <SelectValue placeholder="Category" />
@@ -200,7 +202,7 @@ export default function CourseCatalog() {
                         </Badge>
                       )}
                       {course.requiredMembershipTier && course.requiredMembershipTier !== "bronze" && course.requiredMembershipTier !== "" && (
-                        <Badge 
+                        <Badge
                           className={`absolute top-3 right-3 flex items-center gap-1 ${getMembershipColor(course.requiredMembershipTier)}`}
                         >
                           <Crown className="h-3 w-3" />
@@ -239,6 +241,7 @@ export default function CourseCatalog() {
             )}
           </div>
         </section>
-    </div>
+      </div>
+    </Layout>
   );
 }

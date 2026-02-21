@@ -84,7 +84,6 @@ function Router() {
     location === "/practice" ||
     location === "/flashcards" ||
     location === "/anatomy-viewer" ||
-    location === "/courses" ||
     location === "/subscribe" ||
     location === "/payment/verify" ||
     location.startsWith("/learn/");
@@ -131,6 +130,8 @@ function Router() {
       <Route path="/register" component={Register} />
       <Route path="/login" component={UserLogin} />
       <Route path="/pricing" component={Pricing} />
+      <Route path="/courses" component={CourseCatalog} />
+      <Route path="/courses/:slug" component={CourseLanding} />
       <Route component={NotFound} />
     </Switch>
   );
