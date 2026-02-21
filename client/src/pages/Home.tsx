@@ -119,7 +119,7 @@ export default function Home() {
   return (
     <Layout>
       <PageTransition>
-        <section className="relative min-h-[90vh] flex items-center overflow-hidden">
+        <section className="relative min-h-[90vh] flex items-center justify-center overflow-hidden bg-slate-950">
           {/* Video Background */}
           <div className="absolute inset-0 z-0">
             <video
@@ -127,109 +127,84 @@ export default function Home() {
               loop
               muted
               playsInline
-              className="w-full h-full object-cover grayscale-[0.2] brightness-[0.7]"
-              poster={heroAnatomyImg}
+              className="w-full h-full object-cover opacity-60"
             >
               <source
-                src="https://assets.mixkit.co/videos/preview/mixkit-human-skeleton-rotation-animation-43180-large.mp4"
+                src="https://cdn.pixabay.com/video/2016/03/24/2552-160161427_large.mp4"
                 type="video/mp4"
               />
               Your browser does not support the video tag.
             </video>
-            {/* Overlay Gradient */}
-            <div className="absolute inset-0 bg-gradient-to-r from-background via-background/80 to-transparent" />
+            {/* Overlay Gradient for depth and legibility */}
+            <div className="absolute inset-0 bg-gradient-to-b from-slate-950/40 via-slate-950/80 to-slate-950" />
           </div>
 
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 relative z-10 w-full">
-            <div className="grid lg:grid-cols-2 gap-12 items-center">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 relative z-10 w-full text-center">
+            <motion.div
+              initial={prefersReducedMotion ? false : "hidden"}
+              animate="visible"
+              variants={staggerContainer}
+              className="max-w-3xl mx-auto"
+            >
               <motion.div
-                initial={prefersReducedMotion ? false : "hidden"}
-                animate="visible"
-                variants={staggerContainer}
-                className="max-w-2xl"
+                variants={fadeInUp}
+                className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/20 border border-primary/30 backdrop-blur-xl mb-8"
               >
-                <motion.div
-                  variants={fadeInUp}
-                  className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 backdrop-blur-md mb-6"
-                >
-                  <span className="flex h-2 w-2 rounded-full bg-primary animate-pulse" />
-                  <span className="text-xs font-bold tracking-wider text-primary uppercase">
-                    Trusted by 500,000+ Students
-                  </span>
-                </motion.div>
-
-                <motion.h1
-                  variants={fadeInUp}
-                  className="text-5xl md:text-6xl lg:text-7xl font-extrabold text-foreground leading-[1.1] mb-6"
-                  data-testid="text-hero-title"
-                >
-                  Experience <span className="text-primary italic">Anatomy</span> like never before.
-                </motion.h1>
-
-                <motion.p
-                  variants={fadeInUp}
-                  className="text-xl text-muted-foreground mb-10 max-w-lg leading-relaxed"
-                  data-testid="text-hero-description"
-                >
-                  The world's most comprehensive 3D interactive atlas for medical students and professionals. Master the human body with stunning detail and accuracy.
-                </motion.p>
-
-                <motion.div variants={fadeInUp} className="flex flex-wrap gap-4">
-                  <Link href="/services">
-                    <Button size="lg" className="h-14 px-8 text-lg rounded-xl shadow-xl shadow-primary/20 hover:shadow-primary/40 transition-all font-bold" data-testid="button-start-learning">
-                      Start Learning Free
-                    </Button>
-                  </Link>
-                  <Link href="/services">
-                    <Button size="lg" variant="outline" className="h-14 px-8 text-lg rounded-xl border-2 backdrop-blur-sm bg-white/5 hover:bg-white/10 transition-all font-bold" data-testid="button-browse-atlas">
-                      Browse Atlas
-                    </Button>
-                  </Link>
-                </motion.div>
-
-                {/* Quick Stats/Features floating tags */}
-                <motion.div variants={fadeInUp} className="mt-12 flex items-center gap-6 pt-8 border-t border-border/50">
-                  <div className="flex flex-col">
-                    <span className="text-2xl font-bold">1,200+</span>
-                    <span className="text-xs text-muted-foreground uppercase tracking-widest">3D Models</span>
-                  </div>
-                  <div className="h-8 w-[1px] bg-border" />
-                  <div className="flex flex-col">
-                    <span className="text-2xl font-bold">500k+</span>
-                    <span className="text-xs text-muted-foreground uppercase tracking-widest">Active Users</span>
-                  </div>
-                  <div className="h-8 w-[1px] bg-border" />
-                  <div className="flex flex-col">
-                    <span className="text-2xl font-bold">4.9/5</span>
-                    <span className="text-xs text-muted-foreground uppercase tracking-widest">User Rating</span>
-                  </div>
-                </motion.div>
+                <span className="flex h-2 w-2 rounded-full bg-primary animate-pulse" />
+                <span className="text-xs font-bold tracking-widest text-primary uppercase">
+                  Modern Anatomy Learning
+                </span>
               </motion.div>
 
-              <motion.div
-                className="hidden lg:block relative"
-                initial={prefersReducedMotion ? false : { opacity: 0, x: 50 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.8, delay: 0.5 }}
+              <motion.h1
+                variants={fadeInUp}
+                className="text-5xl md:text-7xl lg:text-8xl font-black text-white leading-[1] mb-8 tracking-tight"
+                data-testid="text-hero-title"
               >
-                {/* Modern visual element - floating card */}
-                <div className="relative z-10 p-4 border border-white/20 rounded-[2rem] bg-white/5 backdrop-blur-xl shadow-2xl">
-                  <div className="aspect-[4/5] rounded-[1.5rem] overflow-hidden">
-                    <img
-                      src={heroAnatomyImg}
-                      alt="3D Human Anatomy"
-                      className="w-full h-full object-cover grayscale-[0.3] hover:grayscale-0 transition-all duration-700"
-                    />
-                  </div>
-                  <div className="absolute -bottom-6 -left-6 p-6 rounded-2xl bg-white dark:bg-card border border-border shadow-2xl max-w-[200px] animate-bounce-subtle">
-                    <p className="text-sm font-bold mb-1 italic">Real-time Rendering</p>
-                    <p className="text-[10px] text-muted-foreground uppercase tracking-tighter">Powered by 3D Engine V2.0</p>
-                  </div>
+                Experience <span className="text-primary italic">Anatomy</span><br />
+                Like Never Before.
+              </motion.h1>
+
+              <motion.p
+                variants={fadeInUp}
+                className="text-xl md:text-2xl text-slate-300 mb-12 max-w-2xl mx-auto leading-relaxed font-light"
+                data-testid="text-hero-description"
+              >
+                The world's most advanced 3D interactive atlas for medical education.
+                Master the human body with precision and immersive detail.
+              </motion.p>
+
+              <motion.div variants={fadeInUp} className="flex flex-wrap justify-center gap-5">
+                <Link href="/services">
+                  <Button size="lg" className="h-16 px-10 text-xl rounded-2xl shadow-2xl shadow-primary/30 hover:shadow-primary/50 transition-all font-bold bg-primary hover:bg-primary/90" data-testid="button-start-learning">
+                    Start Learning Free
+                  </Button>
+                </Link>
+                <Link href="/services">
+                  <Button size="lg" variant="outline" className="h-16 px-10 text-xl rounded-2xl border-2 border-white/20 text-white backdrop-blur-md bg-white/5 hover:bg-white/10 transition-all font-bold" data-testid="button-browse-atlas">
+                    Browse All Regions
+                  </Button>
+                </Link>
+              </motion.div>
+
+              {/* Minimalist Stats */}
+              <motion.div variants={fadeInUp} className="mt-16 flex flex-wrap justify-center items-center gap-8 md:gap-16 pt-10 border-t border-white/10">
+                <div className="flex flex-col items-center">
+                  <span className="text-3xl font-bold text-white tracking-tighter">1,200+</span>
+                  <span className="text-[10px] text-slate-400 uppercase tracking-[0.2em] mt-1">3D Models</span>
                 </div>
-                {/* Decorative background shapes */}
-                <div className="absolute -z-10 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[120%] h-[120%] bg-primary/20 blur-[120px] rounded-full" />
+                <div className="hidden md:block h-10 w-[1px] bg-white/10" />
+                <div className="flex flex-col items-center">
+                  <span className="text-3xl font-bold text-white tracking-tighter">500k+</span>
+                  <span className="text-[10px] text-slate-400 uppercase tracking-[0.2em] mt-1">Active Users</span>
+                </div>
+                <div className="hidden md:block h-10 w-[1px] bg-white/10" />
+                <div className="flex flex-col items-center">
+                  <span className="text-3xl font-bold text-white tracking-tighter">HD</span>
+                  <span className="text-[10px] text-slate-400 uppercase tracking-[0.2em] mt-1">Physiology</span>
+                </div>
               </motion.div>
-            </div>
+            </motion.div>
           </div>
         </section>
 
