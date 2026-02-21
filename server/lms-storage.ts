@@ -1,4 +1,16 @@
 import { supabase } from "./db";
+
+// Helper to convert camelCase object keys to snake_case for Supabase
+function toSnakeCase(obj: any): any {
+  if (!obj || typeof obj !== 'object' || Array.isArray(obj) || obj instanceof Date) return obj;
+  const result: any = {};
+  for (const [key, value] of Object.entries(obj)) {
+    const snakeKey = key.replace(/[A-Z]/g, (letter) => "_" + letter.toLowerCase());
+    result[snakeKey] = value;
+  }
+  return result;
+}
+
 import bcrypt from "bcryptjs";
 import {
   CourseCategory, InsertCourseCategory,
@@ -189,7 +201,7 @@ export class LmsStorage implements ILmsStorage {
   async getCourseCategories(): Promise<CourseCategory[]> {
     const { data, error } = await supabase
       .from("course_categories")
-      .select("id, name, slug, description, iconName:icon_name, color, order, isActive:is_active, createdAt:created_at, updatedAt:updated_at")
+      .select("id, name, slug, description, iconName:icon_name, order, isActive:is_active, createdAt:created_at, updatedAt:updated_at")
       .order("order", { ascending: true });
 
     if (error) throw error;
@@ -199,7 +211,7 @@ export class LmsStorage implements ILmsStorage {
   async getCourseCategoryById(id: string): Promise<CourseCategory | undefined> {
     const { data, error } = await supabase
       .from("course_categories")
-      .select("id, name, slug, description, iconName:icon_name, color, order, isActive:is_active, createdAt:created_at, updatedAt:updated_at")
+      .select("id, name, slug, description, iconName:icon_name, order, isActive:is_active, createdAt:created_at, updatedAt:updated_at")
       .eq("id", id)
       .single();
 
@@ -210,8 +222,8 @@ export class LmsStorage implements ILmsStorage {
   async createCourseCategory(category: InsertCourseCategory): Promise<CourseCategory> {
     const { data, error } = await supabase
       .from("course_categories")
-      .insert(category)
-      .select("id, name, slug, description, iconName:icon_name, color, order, isActive:is_active, createdAt:created_at, updatedAt:updated_at")
+      .insert(toSnakeCase(category))
+      .select("id, name, slug, description, iconName:icon_name, order, isActive:is_active, createdAt:created_at, updatedAt:updated_at")
       .single();
 
     if (error) throw error;
@@ -221,9 +233,9 @@ export class LmsStorage implements ILmsStorage {
   async updateCourseCategory(id: string, category: Partial<InsertCourseCategory>): Promise<CourseCategory | undefined> {
     const { data, error } = await supabase
       .from("course_categories")
-      .update({ ...category, updated_at: new Date() })
+      .update({ ...toSnakeCase(category), updated_at: new Date() })
       .eq("id", id)
-      .select("id, name, slug, description, iconName:icon_name, color, order, isActive:is_active, createdAt:created_at, updatedAt:updated_at")
+      .select("id, name, slug, description, iconName:icon_name, order, isActive:is_active, createdAt:created_at, updatedAt:updated_at")
       .single();
 
     if (error) return undefined;
@@ -241,8 +253,7 @@ export class LmsStorage implements ILmsStorage {
       .from("courses")
       .select(`
         id, title, slug, shortDescription:short_description, description,
-        thumbnailUrl:thumbnail_url, videoPreviewUrl:video_preview_url,
-        level, duration, price, category, tags,
+        thumbnailUrl:thumbnail_url, level, duration, price, category,
         isPublished:is_published, isFeatured:is_featured,
         requiredMembershipTier:required_membership_tier,
         isFree:is_free, createdBy:created_by,
@@ -259,8 +270,7 @@ export class LmsStorage implements ILmsStorage {
       .from("courses")
       .select(`
         id, title, slug, shortDescription:short_description, description,
-        thumbnailUrl:thumbnail_url, videoPreviewUrl:video_preview_url,
-        level, duration, price, category, tags,
+        thumbnailUrl:thumbnail_url, level, duration, price, category,
         isPublished:is_published, isFeatured:is_featured,
         requiredMembershipTier:required_membership_tier,
         isFree:is_free, createdBy:created_by,
@@ -278,8 +288,7 @@ export class LmsStorage implements ILmsStorage {
       .from("courses")
       .select(`
         id, title, slug, shortDescription:short_description, description,
-        thumbnailUrl:thumbnail_url, videoPreviewUrl:video_preview_url,
-        level, duration, price, category, tags,
+        thumbnailUrl:thumbnail_url, level, duration, price, category,
         isPublished:is_published, isFeatured:is_featured,
         requiredMembershipTier:required_membership_tier,
         isFree:is_free, createdBy:created_by,
@@ -297,8 +306,7 @@ export class LmsStorage implements ILmsStorage {
       .from("courses")
       .select(`
         id, title, slug, shortDescription:short_description, description,
-        thumbnailUrl:thumbnail_url, videoPreviewUrl:video_preview_url,
-        level, duration, price, category, tags,
+        thumbnailUrl:thumbnail_url, level, duration, price, category,
         isPublished:is_published, isFeatured:is_featured,
         requiredMembershipTier:required_membership_tier,
         createdAt:created_at, updatedAt:updated_at
@@ -313,11 +321,10 @@ export class LmsStorage implements ILmsStorage {
   async createCourse(course: InsertCourse): Promise<Course> {
     const { data, error } = await supabase
       .from("courses")
-      .insert(course)
+      .insert(toSnakeCase(course))
       .select(`
         id, title, slug, shortDescription:short_description, description,
-        thumbnailUrl:thumbnail_url, videoPreviewUrl:video_preview_url,
-        level, duration, price, category, tags,
+        thumbnailUrl:thumbnail_url, level, duration, price, category,
         isPublished:is_published, isFeatured:is_featured,
         requiredMembershipTier:required_membership_tier,
         createdAt:created_at, updatedAt:updated_at
@@ -331,12 +338,11 @@ export class LmsStorage implements ILmsStorage {
   async updateCourse(id: string, course: Partial<InsertCourse>): Promise<Course | undefined> {
     const { data, error } = await supabase
       .from("courses")
-      .update({ ...course, updated_at: new Date() })
+      .update({ ...toSnakeCase(course), updated_at: new Date() })
       .eq("id", id)
       .select(`
         id, title, slug, shortDescription:short_description, description,
-        thumbnailUrl:thumbnail_url, videoPreviewUrl:video_preview_url,
-        level, duration, price, category, tags,
+        thumbnailUrl:thumbnail_url, level, duration, price, category,
         isPublished:is_published, isFeatured:is_featured,
         requiredMembershipTier:required_membership_tier,
         createdAt:created_at, updatedAt:updated_at
@@ -378,7 +384,7 @@ export class LmsStorage implements ILmsStorage {
   async createModule(module: InsertCourseModule): Promise<CourseModule> {
     const { data, error } = await supabase
       .from("course_modules")
-      .insert(module)
+      .insert(toSnakeCase(module))
       .select("id, courseId:course_id, title, description, order, isPublished:is_published, createdAt:created_at")
       .single();
 
@@ -439,7 +445,7 @@ export class LmsStorage implements ILmsStorage {
   async createLesson(lesson: InsertLesson): Promise<Lesson> {
     const { data, error } = await supabase
       .from("lessons")
-      .insert(lesson)
+      .insert(toSnakeCase(lesson))
       .select(`
         id, moduleId:module_id, title, description,
         content, contentType:content_type, videoUrl:video_url, duration,
@@ -455,7 +461,7 @@ export class LmsStorage implements ILmsStorage {
   async updateLesson(id: string, lesson: Partial<InsertLesson>): Promise<Lesson | undefined> {
     const { data, error } = await supabase
       .from("lessons")
-      .update({ ...lesson, updated_at: new Date() })
+      .update({ ...toSnakeCase(lesson), updated_at: new Date() })
       .eq("id", id)
       .select(`
         id, moduleId:module_id, title, description,
@@ -489,7 +495,7 @@ export class LmsStorage implements ILmsStorage {
   async createAsset(asset: InsertLessonAsset): Promise<LessonAsset> {
     const { data, error } = await supabase
       .from("lesson_assets")
-      .insert(asset)
+      .insert(toSnakeCase(asset))
       .select("id, lessonId:lesson_id, title, assetType:asset_type, assetUrl:asset_url, order, createdAt:created_at")
       .single();
 
@@ -538,7 +544,7 @@ export class LmsStorage implements ILmsStorage {
   async createEnrollment(enrollment: InsertEnrollment): Promise<Enrollment> {
     const { data, error } = await supabase
       .from("enrollments")
-      .insert(enrollment)
+      .insert(toSnakeCase(enrollment))
       .select("id, memberId:member_id, courseId:course_id, enrolledAt:enrolled_at, completedAt:completed_at, progress, status")
       .single();
 
@@ -656,7 +662,7 @@ export class LmsStorage implements ILmsStorage {
     } else {
       const { data, error } = await supabase
         .from("lesson_progress")
-        .insert(progress)
+        .insert(toSnakeCase(progress))
         .select(`
           id, memberId:member_id, lessonId:lesson_id,
           isCompleted:is_completed, progressPercent:progress_percent,
@@ -705,7 +711,7 @@ export class LmsStorage implements ILmsStorage {
   async createQuiz(quiz: InsertQuiz): Promise<Quiz> {
     const { data, error } = await supabase
       .from("quizzes")
-      .insert(quiz)
+      .insert(toSnakeCase(quiz))
       .select("id, courseId:course_id, lessonId:lesson_id, title, description, timeLimit:time_limit, passingScore:passing_score, maxAttempts:max_attempts, isPublished:is_published, createdAt:created_at")
       .single();
 
@@ -745,7 +751,7 @@ export class LmsStorage implements ILmsStorage {
   async createQuestion(question: InsertQuizQuestion): Promise<QuizQuestion> {
     const { data, error } = await supabase
       .from("quiz_questions")
-      .insert(question)
+      .insert(toSnakeCase(question))
       .select("id, quizId:quiz_id, question, questionType:question_type, explanation, points, order")
       .single();
 
@@ -785,7 +791,7 @@ export class LmsStorage implements ILmsStorage {
   async createOption(option: InsertQuizOption): Promise<QuizOption> {
     const { data, error } = await supabase
       .from("quiz_options")
-      .insert(option)
+      .insert(toSnakeCase(option))
       .select("id, questionId:question_id, optionText:option_text, isCorrect:is_correct, order")
       .single();
 
@@ -823,7 +829,7 @@ export class LmsStorage implements ILmsStorage {
   async createAttempt(attempt: InsertQuizAttempt): Promise<QuizAttempt> {
     const { data, error } = await supabase
       .from("quiz_attempts")
-      .insert(attempt)
+      .insert(toSnakeCase(attempt))
       .select("id, memberId:member_id, quizId:quiz_id, score, maxScore:max_score, isPassed:is_passed, answers, startedAt:started_at, completedAt:completed_at")
       .single();
 
@@ -868,7 +874,7 @@ export class LmsStorage implements ILmsStorage {
   async createCertificate(certificate: InsertCertificate): Promise<Certificate> {
     const { data, error } = await supabase
       .from("certificates")
-      .insert(certificate)
+      .insert(toSnakeCase(certificate))
       .select("id, memberId:member_id, courseId:course_id, certificateNumber:certificate_number, issuedAt:issued_at, expiresAt:expires_at")
       .single();
 
@@ -890,7 +896,7 @@ export class LmsStorage implements ILmsStorage {
   async addPrerequisite(prerequisite: InsertCoursePrerequisite): Promise<CoursePrerequisite> {
     const { data, error } = await supabase
       .from("course_prerequisites")
-      .insert(prerequisite)
+      .insert(toSnakeCase(prerequisite))
       .select("id, courseId:course_id, prerequisiteId:prerequisite_id, createdAt:created_at")
       .single();
 
@@ -924,7 +930,7 @@ export class LmsStorage implements ILmsStorage {
   async createAuditLog(log: InsertAuditLog): Promise<AuditLog> {
     const { data, error } = await supabase
       .from("audit_logs")
-      .insert(log)
+      .insert(toSnakeCase(log))
       .select("id, userId:user_id, action, entityType:entity_type, entityId:entity_id, oldData:old_data, newData:new_data, ipAddress:ip_address, userAgent:user_agent, createdAt:created_at")
       .single();
 
@@ -969,7 +975,7 @@ export class LmsStorage implements ILmsStorage {
   async createNotification(notification: InsertNotification): Promise<Notification> {
     const { data, error } = await supabase
       .from("notifications")
-      .insert(notification)
+      .insert(toSnakeCase(notification))
       .select("id, memberId:member_id, userId:user_id, type, title, message, link, isRead:is_read, createdAt:created_at")
       .single();
 
@@ -1026,7 +1032,7 @@ export class LmsStorage implements ILmsStorage {
   async createQuestionTopic(topic: InsertQuestionTopic): Promise<QuestionTopic> {
     const { data, error } = await supabase
       .from("question_topics")
-      .insert(topic)
+      .insert(toSnakeCase(topic))
       .select("id, name, slug, description, parentId:parent_id, order, createdAt:created_at")
       .single();
 
@@ -1094,7 +1100,7 @@ export class LmsStorage implements ILmsStorage {
   async createQuestionBankItem(item: InsertQuestionBank): Promise<QuestionBankItem> {
     const { data, error } = await supabase
       .from("question_bank")
-      .insert(item)
+      .insert(toSnakeCase(item))
       .select(`
         id, question, questionType:question_type, difficulty, topicId:topic_id,
         explanation, points, tags, isActive:is_active, createdBy:created_by,
@@ -1109,7 +1115,7 @@ export class LmsStorage implements ILmsStorage {
   async updateQuestionBankItem(id: string, item: Partial<InsertQuestionBank>): Promise<QuestionBankItem | undefined> {
     const { data, error } = await supabase
       .from("question_bank")
-      .update({ ...item, updated_at: new Date() })
+      .update({ ...toSnakeCase(item), updated_at: new Date() })
       .eq("id", id)
       .select(`
         id, question, questionType:question_type, difficulty, topicId:topic_id,
@@ -1146,7 +1152,7 @@ export class LmsStorage implements ILmsStorage {
   async createQuestionBankOption(option: InsertQuestionBankOption): Promise<QuestionBankOption> {
     const { data, error } = await supabase
       .from("question_bank_options")
-      .insert(option)
+      .insert(toSnakeCase(option))
       .select("id, questionId:question_id, optionText:option_text, isCorrect:is_correct, explanation, order")
       .single();
 
@@ -1189,7 +1195,7 @@ export class LmsStorage implements ILmsStorage {
   async createFlashcardDeck(deck: InsertFlashcardDeck): Promise<FlashcardDeck> {
     const { data, error } = await supabase
       .from("flashcard_decks")
-      .insert(deck)
+      .insert(toSnakeCase(deck))
       .select("id, courseId:course_id, moduleId:module_id, title, description, category, isPublished:is_published, createdAt:created_at")
       .single();
 
@@ -1248,7 +1254,7 @@ export class LmsStorage implements ILmsStorage {
   async createFlashcard(flashcard: InsertFlashcard): Promise<Flashcard> {
     const { data, error } = await supabase
       .from("flashcards")
-      .insert(flashcard)
+      .insert(toSnakeCase(flashcard))
       .select(`
         id, deckId:deck_id, cardType:card_type, front, back, options,
         correctAnswer:correct_answer, explanation, imageUrl:image_url,
@@ -1369,7 +1375,7 @@ export class LmsStorage implements ILmsStorage {
     } else {
       const { data, error } = await supabase
         .from("flashcard_progress")
-        .insert(progress)
+        .insert(toSnakeCase(progress))
         .select(`
           id, memberId:member_id, flashcardId:flashcard_id, masteryLevel:mastery_level,
           interval, easeFactor:ease_factor, nextReviewAt:next_review_at,
@@ -1421,7 +1427,7 @@ export class LmsStorage implements ILmsStorage {
   async createAnatomyModel(model: InsertAnatomyModel): Promise<AnatomyModel> {
     const { data, error } = await supabase
       .from("anatomy_models")
-      .insert(model)
+      .insert(toSnakeCase(model))
       .select("id, title, slug, description, modelUrl:model_url, thumbnailUrl:thumbnail_url, category, tags, isPremium:is_premium, bodySystem:body_system, annotations, isPublished:is_published, createdBy:created_by, createdAt:created_at, updatedAt:updated_at")
       .single();
 
@@ -1447,25 +1453,26 @@ export class LmsStorage implements ILmsStorage {
   }
 
   // Members
-  async updateMemberStatus(memberId: string, isActive: boolean): Promise<Member | undefined> {
-    // Note: Assuming this updates the Member's related User status or a field on Member if it exists.
-    // Based on previous code, it seemed to update the User.
-    // However, without a direct link to User update here, and if 'members' table doesn't have isActive,
-    // we might need to fetch the user ID and update users table.
-
-    // Get member to find user_id
-    const member = await this.getMemberById(memberId);
-    if (!member) return undefined;
-
+  async getAllMembersForAdmin(): Promise<Omit<Member, "password">[]> {
     const { data, error } = await supabase
-      .from("users")
-      .update({ is_active: isActive })
-      .eq("id", member.userId)
-      .select()
+      .from("members")
+      .select("id, email, firstName:first_name, lastName:last_name, membershipTier:membership_tier, membershipExpiresAt:membership_expires_at, isActive:is_active, createdAt:created_at, updatedAt:updated_at")
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
+    return (data || []) as unknown as Omit<Member, "password">[];
+  }
+
+  async updateMemberStatus(memberId: string, isActive: boolean): Promise<Member | undefined> {
+    const { data, error } = await supabase
+      .from("members")
+      .update({ is_active: isActive, updated_at: new Date() })
+      .eq("id", memberId)
+      .select("id, email, password, firstName:first_name, lastName:last_name, membershipTier:membership_tier, membershipExpiresAt:membership_expires_at, isActive:is_active, createdAt:created_at, updatedAt:updated_at")
       .single();
 
     if (error) return undefined;
-    return member; // Return the member as the method signature expects Member
+    return data as unknown as Member;
   }
 
   async deleteMember(id: string): Promise<boolean> {
@@ -1477,7 +1484,7 @@ export class LmsStorage implements ILmsStorage {
   async getAllAdminUsers(): Promise<User[]> {
     const { data, error } = await supabase
       .from("users")
-      .select("id, username, password, displayName:display_name, email, role, avatarUrl:avatar_url, bio, createdAt:created_at")
+      .select("id, email, password, firstName:first_name, lastName:last_name, role, profileImageUrl:profile_image_url, isActive:is_active, createdAt:created_at, updatedAt:updated_at")
       .order("created_at", { ascending: false });
 
     if (error) throw error;
@@ -1488,7 +1495,7 @@ export class LmsStorage implements ILmsStorage {
   async getAdminUserById(id: string): Promise<User | undefined> {
     const { data, error } = await supabase
       .from("users")
-      .select("id, username, password, displayName:display_name, email, role, avatarUrl:avatar_url, bio, createdAt:created_at")
+      .select("id, email, password, firstName:first_name, lastName:last_name, role, profileImageUrl:profile_image_url, isActive:is_active, createdAt:created_at, updatedAt:updated_at")
       .eq("id", id)
       .single();
 
@@ -1501,7 +1508,7 @@ export class LmsStorage implements ILmsStorage {
       .from("users")
       .update({ role, updated_at: new Date() })
       .eq("id", id)
-      .select("id, username, password, displayName:display_name, email, role, avatarUrl:avatar_url, bio, createdAt:created_at")
+      .select("id, email, password, firstName:first_name, lastName:last_name, role, profileImageUrl:profile_image_url, isActive:is_active, createdAt:created_at, updatedAt:updated_at")
       .single();
 
     if (error) return undefined;
@@ -1513,7 +1520,7 @@ export class LmsStorage implements ILmsStorage {
       .from("users")
       .update({ is_active: isActive, updated_at: new Date() })
       .eq("id", id)
-      .select("id, username, password, displayName:display_name, email, role, avatarUrl:avatar_url, bio, createdAt:created_at")
+      .select("id, email, password, firstName:first_name, lastName:last_name, role, profileImageUrl:profile_image_url, isActive:is_active, createdAt:created_at, updatedAt:updated_at")
       .single();
 
     if (error) return undefined;
@@ -1526,16 +1533,7 @@ export class LmsStorage implements ILmsStorage {
   }
 
   async createAdminUser(email: string, password: string, role: string, firstName?: string, lastName?: string): Promise<User> {
-    // Note: firstName and lastName are NOT in the standard Supabase 'users' table or our 'users' schema usually (it has displayName).
-    // If the schema matches what Drizzle used:
-    // Drizzle used: firstName, lastName.
-    // Supabase select used: displayName.
-    // I need to check the exact columns of 'users' table in shared/schema.ts.
-    // Assuming 'display_name' is the field, I should combine them or use what's available.
-    // For now, I will use displayName = firstName + " " + lastName
-
     const hashedPassword = await bcrypt.hash(password, 10);
-    const displayName = [firstName, lastName].filter(Boolean).join(" ");
 
     const { data, error } = await supabase
       .from("users")
@@ -1543,10 +1541,11 @@ export class LmsStorage implements ILmsStorage {
         email,
         password: hashedPassword,
         role,
-        display_name: displayName || email.split('@')[0],
+        first_name: firstName || email.split('@')[0],
+        last_name: lastName || null,
         is_active: true,
       })
-      .select("id, username, password, displayName:display_name, email, role, avatarUrl:avatar_url, bio, createdAt:created_at")
+      .select("id, email, password, firstName:first_name, lastName:last_name, role, profileImageUrl:profile_image_url, isActive:is_active, createdAt:created_at, updatedAt:updated_at")
       .single();
 
     if (error) throw error;

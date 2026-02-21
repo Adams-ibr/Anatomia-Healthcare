@@ -7,8 +7,8 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { 
-  MessageCircle, X, Send, Search, ChevronLeft, 
+import {
+  MessageCircle, X, Send, Search, ChevronLeft,
   Users, Loader2, Wifi, WifiOff
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
@@ -66,9 +66,9 @@ export function ChatWidget({ currentMemberId }: ChatWidgetProps) {
 
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     const wsUrl = `${protocol}//${window.location.host}/ws/chat?memberId=${currentMemberId}`;
-    
+
     const ws = new WebSocket(wsUrl);
-    
+
     ws.onopen = () => {
       setWsConnected(true);
       if (activeConversation) {
@@ -80,11 +80,11 @@ export function ChatWidget({ currentMemberId }: ChatWidgetProps) {
       try {
         const data = JSON.parse(event.data);
         if (data.type === "message") {
-          queryClient.invalidateQueries({ 
-            queryKey: ["/api/interactions/conversations", data.conversationId, "messages"] 
+          queryClient.invalidateQueries({
+            queryKey: ["/api/interactions/conversations", data.conversationId, "messages"]
           });
-          queryClient.invalidateQueries({ 
-            queryKey: ["/api/interactions/conversations"] 
+          queryClient.invalidateQueries({
+            queryKey: ["/api/interactions/conversations"]
           });
         }
       } catch (error) {
@@ -213,13 +213,13 @@ export function ChatWidget({ currentMemberId }: ChatWidgetProps) {
       <Button
         onClick={() => setIsOpen(true)}
         size="icon"
-        className="fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-lg z-50"
+        className="fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-lg z-[9999]"
         data-testid="button-open-chat"
       >
         <MessageCircle className="h-6 w-6" />
         {totalUnread > 0 && (
-          <Badge 
-            variant="destructive" 
+          <Badge
+            variant="destructive"
             className="absolute -top-1 -right-1 h-6 w-6 rounded-full p-0 flex items-center justify-center"
           >
             {totalUnread > 9 ? "9+" : totalUnread}
@@ -230,7 +230,7 @@ export function ChatWidget({ currentMemberId }: ChatWidgetProps) {
   }
 
   return (
-    <Card className="fixed bottom-6 right-6 w-80 md:w-96 h-[500px] shadow-2xl z-50 flex flex-col overflow-hidden">
+    <Card className="fixed bottom-6 right-6 w-80 md:w-96 h-[500px] shadow-2xl z-[9999] flex flex-col overflow-hidden">
       <CardHeader className="flex flex-row items-center justify-between p-3 border-b">
         <div className="flex items-center gap-2">
           {(activeConversation || showNewChat) && (
@@ -247,9 +247,9 @@ export function ChatWidget({ currentMemberId }: ChatWidgetProps) {
             </Button>
           )}
           <CardTitle className="text-base flex items-center gap-2">
-            {showNewChat 
-              ? "New Message" 
-              : activeConversation 
+            {showNewChat
+              ? "New Message"
+              : activeConversation
                 ? getConversationName(activeConversation)
                 : "Messages"}
             {activeConversation && (
@@ -323,7 +323,7 @@ export function ChatWidget({ currentMemberId }: ChatWidgetProps) {
                       </Avatar>
                       <div className="text-left">
                         <p className="font-medium text-sm">
-                          {member.firstName || member.lastName 
+                          {member.firstName || member.lastName
                             ? `${member.firstName || ""} ${member.lastName || ""}`.trim()
                             : member.email}
                         </p>
@@ -362,11 +362,10 @@ export function ChatWidget({ currentMemberId }: ChatWidgetProps) {
                         className={`flex ${isOwn ? "justify-end" : "justify-start"}`}
                       >
                         <div
-                          className={`max-w-[80%] rounded-lg px-3 py-2 ${
-                            isOwn
-                              ? "bg-primary text-primary-foreground"
-                              : "bg-muted"
-                          }`}
+                          className={`max-w-[80%] rounded-lg px-3 py-2 ${isOwn
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-muted"
+                            }`}
                         >
                           {!isOwn && (
                             <p className="text-xs font-medium mb-1">
@@ -395,9 +394,9 @@ export function ChatWidget({ currentMemberId }: ChatWidgetProps) {
                 className="flex-1"
                 data-testid="input-message"
               />
-              <Button 
-                type="submit" 
-                size="icon" 
+              <Button
+                type="submit"
+                size="icon"
                 disabled={!messageInput.trim() || sendMessageMutation.isPending}
                 data-testid="button-send-message"
               >
