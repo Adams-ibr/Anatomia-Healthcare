@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Plus, Pencil, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
@@ -33,7 +33,7 @@ export default function AdminFaq() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: (data: Partial<FaqItem> & { id: string }) => 
+    mutationFn: (data: Partial<FaqItem> & { id: string }) =>
       apiRequest("PATCH", `/api/admin/faq/${data.id}`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/faq"] });
@@ -85,6 +85,9 @@ export default function AdminFaq() {
           <DialogContent>
             <DialogHeader>
               <DialogTitle>{editingFaq ? "Edit FAQ" : "New FAQ"}</DialogTitle>
+              <DialogDescription>
+                {editingFaq ? "Update the question and answer for this FAQ item." : "Create a new frequently asked question and provide its answer."}
+              </DialogDescription>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
@@ -136,17 +139,17 @@ export default function AdminFaq() {
                     <p className="text-sm text-muted-foreground line-clamp-2">{faq.answer}</p>
                   </div>
                   <div className="flex gap-1">
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
+                    <Button
+                      variant="ghost"
+                      size="icon"
                       onClick={() => { setEditingFaq(faq); setIsDialogOpen(true); }}
                       data-testid={`button-edit-${faq.id}`}
                     >
                       <Pencil className="h-4 w-4" />
                     </Button>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
+                    <Button
+                      variant="ghost"
+                      size="icon"
                       onClick={() => deleteMutation.mutate(faq.id)}
                       data-testid={`button-delete-${faq.id}`}
                     >

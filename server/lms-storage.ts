@@ -387,7 +387,7 @@ export class LmsStorage implements ILmsStorage {
   async updateModule(id: string, module: Partial<InsertCourseModule>): Promise<CourseModule | undefined> {
     const { data, error } = await supabase
       .from("course_modules")
-      .update(module)
+      .update({ ...toSnakeCase(module), updated_at: new Date() })
       .eq("id", id)
       .select("id, courseId:course_id, title, description, order, isPublished:is_published, createdAt:created_at")
       .single();
@@ -547,7 +547,7 @@ export class LmsStorage implements ILmsStorage {
   async updateEnrollment(id: string, enrollment: Partial<InsertEnrollment>): Promise<Enrollment | undefined> {
     const { data, error } = await supabase
       .from("enrollments")
-      .update(enrollment)
+      .update(toSnakeCase(enrollment))
       .eq("id", id)
       .select("id, memberId:member_id, courseId:course_id, enrolledAt:enrolled_at, completedAt:completed_at, progress, status")
       .single();
@@ -635,7 +635,7 @@ export class LmsStorage implements ILmsStorage {
       const { data, error } = await supabase
         .from("lesson_progress")
         .update({
-          ...progress,
+          ...toSnakeCase(progress),
           time_spent_seconds: accumulatedTime,
           last_accessed_at: new Date(),
           completed_at: progress.isCompleted ? new Date() : existing.completedAt
@@ -714,7 +714,7 @@ export class LmsStorage implements ILmsStorage {
   async updateQuiz(id: string, quiz: Partial<InsertQuiz>): Promise<Quiz | undefined> {
     const { data, error } = await supabase
       .from("quizzes")
-      .update(quiz)
+      .update({ ...toSnakeCase(quiz), updated_at: new Date() })
       .eq("id", id)
       .select("id, courseId:course_id, lessonId:lesson_id, title, description, timeLimit:time_limit, passingScore:passing_score, maxAttempts:max_attempts, isPublished:is_published, createdAt:created_at")
       .single();
@@ -754,7 +754,7 @@ export class LmsStorage implements ILmsStorage {
   async updateQuestion(id: string, question: Partial<InsertQuizQuestion>): Promise<QuizQuestion | undefined> {
     const { data, error } = await supabase
       .from("quiz_questions")
-      .update(question)
+      .update({ ...toSnakeCase(question), updated_at: new Date() })
       .eq("id", id)
       .select("id, quizId:quiz_id, question, questionType:question_type, explanation, points, order")
       .single();
@@ -832,7 +832,7 @@ export class LmsStorage implements ILmsStorage {
   async updateAttempt(id: string, attempt: Partial<InsertQuizAttempt>): Promise<QuizAttempt | undefined> {
     const { data, error } = await supabase
       .from("quiz_attempts")
-      .update({ ...attempt, completed_at: new Date() })
+      .update({ ...toSnakeCase(attempt), completed_at: new Date() })
       .eq("id", id)
       .select("id, memberId:member_id, quizId:quiz_id, score, maxScore:max_score, isPassed:is_passed, answers, startedAt:started_at, completedAt:completed_at")
       .single();
@@ -1035,7 +1035,7 @@ export class LmsStorage implements ILmsStorage {
   async updateQuestionTopic(id: string, topic: Partial<InsertQuestionTopic>): Promise<QuestionTopic | undefined> {
     const { data, error } = await supabase
       .from("question_topics")
-      .update(topic)
+      .update({ ...toSnakeCase(topic), updated_at: new Date() })
       .eq("id", id)
       .select("id, name, slug, description, parentId:parent_id, order, createdAt:created_at")
       .single();
@@ -1198,7 +1198,7 @@ export class LmsStorage implements ILmsStorage {
   async updateFlashcardDeck(id: string, deck: Partial<InsertFlashcardDeck>): Promise<FlashcardDeck | undefined> {
     const { data, error } = await supabase
       .from("flashcard_decks")
-      .update(deck)
+      .update({ ...toSnakeCase(deck), updated_at: new Date() })
       .eq("id", id)
       .select("id, courseId:course_id, moduleId:module_id, title, description, category, isPublished:is_published, createdAt:created_at")
       .single();
@@ -1261,7 +1261,7 @@ export class LmsStorage implements ILmsStorage {
   async updateFlashcard(id: string, flashcard: Partial<InsertFlashcard>): Promise<Flashcard | undefined> {
     const { data, error } = await supabase
       .from("flashcards")
-      .update(flashcard)
+      .update({ ...toSnakeCase(flashcard), updated_at: new Date() })
       .eq("id", id)
       .select(`
         id, deckId:deck_id, cardType:card_type, front, back, options,
@@ -1430,7 +1430,7 @@ export class LmsStorage implements ILmsStorage {
   async updateAnatomyModel(id: string, model: Partial<InsertAnatomyModel>): Promise<AnatomyModel | undefined> {
     const { data, error } = await supabase
       .from("anatomy_models")
-      .update(model)
+      .update({ ...toSnakeCase(model), updated_at: new Date() })
       .eq("id", id)
       .select("id, title, description, modelUrl:model_url, thumbnailUrl:thumbnail_url, category, tags, bodySystem:body_system, annotations, isPublished:is_published, createdBy:created_by, createdAt:created_at, updatedAt:updated_at")
       .single();

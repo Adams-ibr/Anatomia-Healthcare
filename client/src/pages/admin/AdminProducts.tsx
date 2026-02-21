@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Plus, Pencil, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
@@ -34,7 +34,7 @@ export default function AdminProducts() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: (data: Partial<Product> & { id: string }) => 
+    mutationFn: (data: Partial<Product> & { id: string }) =>
       apiRequest("PATCH", `/api/admin/products/${data.id}`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/products"] });
@@ -90,6 +90,9 @@ export default function AdminProducts() {
           <DialogContent className="max-w-lg">
             <DialogHeader>
               <DialogTitle>{editingProduct ? "Edit Product" : "New Product"}</DialogTitle>
+              <DialogDescription>
+                {editingProduct ? "Update the product details, price, and availability." : "Add a new product or service to your catalog."}
+              </DialogDescription>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
@@ -110,11 +113,11 @@ export default function AdminProducts() {
                 <Label htmlFor="price">Price</Label>
                 <Input id="price" name="price" defaultValue={editingProduct?.price || ""} required placeholder="$99.99" data-testid="input-price" />
               </div>
-              <ImageUploader 
-                key={editingProduct?.id || "new"} 
-                name="imageUrl" 
-                label="Product Image" 
-                defaultValue={editingProduct?.imageUrl} 
+              <ImageUploader
+                key={editingProduct?.id || "new"}
+                name="imageUrl"
+                label="Product Image"
+                defaultValue={editingProduct?.imageUrl}
               />
               <div className="grid grid-cols-3 gap-4">
                 <div className="space-y-2">
@@ -158,17 +161,17 @@ export default function AdminProducts() {
                     <p className="text-sm text-primary font-semibold">{product.price}</p>
                   </div>
                   <div className="flex gap-1">
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
+                    <Button
+                      variant="ghost"
+                      size="icon"
                       onClick={() => { setEditingProduct(product); setIsDialogOpen(true); }}
                       data-testid={`button-edit-${product.id}`}
                     >
                       <Pencil className="h-4 w-4" />
                     </Button>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
+                    <Button
+                      variant="ghost"
+                      size="icon"
                       onClick={() => deleteMutation.mutate(product.id)}
                       data-testid={`button-delete-${product.id}`}
                     >

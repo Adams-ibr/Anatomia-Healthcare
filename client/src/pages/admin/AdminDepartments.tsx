@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Pencil, Trash2, Building2 } from "lucide-react";
 import { useState } from "react";
@@ -148,6 +148,9 @@ export default function AdminDepartments() {
           <DialogContent className="max-w-lg">
             <DialogHeader>
               <DialogTitle>{editingDepartment ? "Edit Department" : "New Department"}</DialogTitle>
+              <DialogDescription>
+                {editingDepartment ? "Modify the department details and head of department." : "Add a new organizational department to the platform."}
+              </DialogDescription>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">

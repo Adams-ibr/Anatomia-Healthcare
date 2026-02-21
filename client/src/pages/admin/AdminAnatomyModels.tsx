@@ -17,6 +17,7 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -149,6 +150,9 @@ export default function AdminAnatomyModels() {
           <DialogContent className="max-w-lg">
             <DialogHeader>
               <DialogTitle>{editingModel ? "Edit Model" : "Add New Model"}</DialogTitle>
+              <DialogDescription>
+                {editingModel ? "Update the model's 3D assets and metadata." : "Upload a 3D model and fill in the details."}
+              </DialogDescription>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">

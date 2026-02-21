@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Plus, Pencil, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
@@ -34,7 +34,7 @@ export default function AdminArticles() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: (data: Partial<Article> & { id: string }) => 
+    mutationFn: (data: Partial<Article> & { id: string }) =>
       apiRequest("PATCH", `/api/admin/articles/${data.id}`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/articles"] });
@@ -91,6 +91,9 @@ export default function AdminArticles() {
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>{editingArticle ? "Edit Article" : "New Article"}</DialogTitle>
+              <DialogDescription>
+                {editingArticle ? "Update the content and settings of your article." : "Create a new blog article by filling out the details below."}
+              </DialogDescription>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
@@ -113,11 +116,11 @@ export default function AdminArticles() {
                   <Input id="author" name="author" defaultValue={editingArticle?.author || ""} required data-testid="input-author" />
                 </div>
               </div>
-              <ImageUploader 
-                key={editingArticle?.id || "new"} 
-                name="imageUrl" 
-                label="Article Image" 
-                defaultValue={editingArticle?.imageUrl} 
+              <ImageUploader
+                key={editingArticle?.id || "new"}
+                name="imageUrl"
+                label="Article Image"
+                defaultValue={editingArticle?.imageUrl}
               />
               <div className="space-y-2">
                 <Label htmlFor="readTime">Read Time</Label>
@@ -174,17 +177,17 @@ export default function AdminArticles() {
                     <p className="text-xs text-muted-foreground mt-2">{article.category} | {article.author}</p>
                   </div>
                   <div className="flex gap-2">
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
+                    <Button
+                      variant="ghost"
+                      size="icon"
                       onClick={() => { setEditingArticle(article); setIsDialogOpen(true); }}
                       data-testid={`button-edit-${article.id}`}
                     >
                       <Pencil className="h-4 w-4" />
                     </Button>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
+                    <Button
+                      variant="ghost"
+                      size="icon"
                       onClick={() => deleteMutation.mutate(article.id)}
                       data-testid={`button-delete-${article.id}`}
                     >
