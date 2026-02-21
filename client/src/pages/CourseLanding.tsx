@@ -25,9 +25,9 @@ export default function CourseLanding() {
     const slug = params?.slug;
 
     const { data: course, isLoading, error } = useQuery<CourseWithModules>({
-        queryKey: ["/api/lms/courses/by-slug", slug],
+        queryKey: ["/api/lms/courses", slug],
         queryFn: async () => {
-            const res = await fetch(`/api/lms/courses/by-slug/${slug}`);
+            const res = await fetch(`/api/lms/courses/${slug}`);
             if (!res.ok) {
                 if (res.status === 404) throw new Error("Course not found");
                 throw new Error("Failed to fetch course details");
@@ -48,7 +48,7 @@ export default function CourseLanding() {
                 title: "Successfully enrolled!",
                 description: `You are now enrolled in ${course?.title}`,
             });
-            queryClient.invalidateQueries({ queryKey: ["/api/lms/courses/by-slug", slug] });
+            queryClient.invalidateQueries({ queryKey: ["/api/lms/courses", slug] });
             if (course) {
                 setLocation(`/learn/${course.id}`);
             }
