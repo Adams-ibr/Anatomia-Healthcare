@@ -34,6 +34,7 @@ import spineImg from "@assets/stock_images/human_spine_vertebra_b5200c9c.jpg";
 import pelvisImg from "@assets/stock_images/human_pelvis_hip_ana_160d6786.jpg";
 import heartImg from "@assets/stock_images/human_heart_anatomy__701f24b0.jpg";
 import brainImg from "@assets/stock_images/human_brain_anatomy__282b70de.jpg";
+import eyeImg from "@assets/stock_images/human_eye_anatomy_cl_a34cfb66.jpg";
 
 const trustedBy = [
   { icon: GraduationCap, label: "Medical Schools" },
@@ -117,7 +118,7 @@ export default function Home() {
   const trustedRef = useInViewAnimation({ threshold: 0.2 });
   const featuresRef = useInViewAnimation({ threshold: 0.1 });
 
-  const backgroundImages = [heroAnatomyImg, torsoImg, brainImg, heartImg, skullImg, armImg];
+  const backgroundImages = [heroAnatomyImg, torsoImg, brainImg, heartImg, skullImg, armImg, spineImg, pelvisImg, legImg, eyeImg];
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
   useEffect(() => {
