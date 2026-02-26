@@ -20,20 +20,20 @@ const tierDisplayNames: Record<MembershipTier, string> = {
 
 export function TierGate({ requiredTier, children, fallback }: TierGateProps) {
   const { hasMinimumTier, isSubscriptionActive, member } = useMember();
-  
+
   const hasAccess = hasMinimumTier(requiredTier);
-  
+
   if (hasAccess) {
     return <>{children}</>;
   }
-  
+
   if (fallback) {
     return <>{fallback}</>;
   }
-  
+
   const currentTier = member.membershipTier || "bronze";
   const needsUpgrade = !isSubscriptionActive || currentTier === "bronze";
-  
+
   return (
     <Card className="max-w-md mx-auto">
       <CardHeader className="text-center">
@@ -52,7 +52,7 @@ export function TierGate({ requiredTier, children, fallback }: TierGateProps) {
       </CardHeader>
       <CardContent className="flex justify-center">
         <Button asChild data-testid="button-upgrade-tier">
-          <Link href="/subscribe">Upgrade Now</Link>
+          <Link href={`/subscribe?tier=${requiredTier}`}>Upgrade Now</Link>
         </Button>
       </CardContent>
     </Card>
@@ -66,7 +66,7 @@ export function PremiumBadge({ tier }: { tier: MembershipTier }) {
     gold: "bg-amber-400 text-black",
     diamond: "bg-cyan-400 text-black",
   };
-  
+
   return (
     <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${colorMap[tier]}`}>
       <Crown className="h-3 w-3" />

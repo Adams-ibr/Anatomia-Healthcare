@@ -70,6 +70,7 @@ async function createTransaction(
 
 // Function utilized by webhooks to extend membership expiry duration properly
 async function updateMembershipTier(memberId: string, tier: string, durationMonths: number = 1) {
+  const normalizedTier = tier.toLowerCase(); // Frontend expects lowercase tier names
   const { data: member } = await supabase
     .from("members")
     .select("membership_expires_at")
@@ -88,7 +89,7 @@ async function updateMembershipTier(memberId: string, tier: string, durationMont
   await supabase
     .from("members")
     .update({
-      membership_tier: tier, // Upgrades to the new tier name
+      membership_tier: normalizedTier, // Upgrades to the new tier name (lowercase)
       membership_expires_at: expiresAt,
     })
     .eq("id", memberId);
@@ -246,7 +247,7 @@ router.get("/verify-paystack/:reference", async (req: Request, res: Response) =>
     if (transaction.status === "success") return res.json({ message: "Payment already verified", status: "success" });
 
     // Extract raw tier name (format is typically "Gold (student) - X Months")
-    const inferredTier = transaction.membershipTier.split(" ")[0] || "Gold";
+    const inferredTier = (transaction.membershipTier.split(" ")[0] || "gold").toLowerCase();
 
     await supabase.from("payment_transactions").update({
       status: "success",
@@ -286,7 +287,7 @@ router.get("/verify-flutterwave/:reference", async (req: Request, res: Response)
     if (!transaction) return res.status(404).json({ error: "Transaction not found" });
     if (transaction.status === "success") return res.json({ message: "Payment already verified", status: "success" });
 
-    const inferredTier = transaction.membershipTier.split(" ")[0] || "Gold";
+    const inferredTier = (transaction.membershipTier.split(" ")[0] || "gold").toLowerCase();
 
     await supabase.from("payment_transactions").update({
       status: "success",
@@ -326,7 +327,7 @@ router.post("/webhook/paystack", async (req: Request, res: Response) => {
           updated_at: new Date(),
         }).eq("id", transaction.id);
 
-        const inferredTier = transaction.membershipTier.split(" ")[0] || "Gold";
+        const inferredTier = (transaction.membershipTier.split(" ")[0] || "gold").toLowerCase();
         await updateMembershipTier(transaction.memberId, inferredTier, transaction.durationMonths || 1);
       }
     }
@@ -359,7 +360,7 @@ router.post("/webhook/flutterwave", async (req: Request, res: Response) => {
           updated_at: new Date(),
         }).eq("id", transaction.id);
 
-        const inferredTier = transaction.membershipTier.split(" ")[0] || "Gold";
+        const inferredTier = (transaction.membershipTier.split(" ")[0] || "gold").toLowerCase();
         await updateMembershipTier(transaction.memberId, inferredTier, transaction.durationMonths || 1);
       }
     }

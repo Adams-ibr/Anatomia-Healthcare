@@ -157,7 +157,7 @@ export default function Profile() {
                 <User className="h-10 w-10 text-primary" />
               </div>
               <CardTitle>
-                {member?.firstName || member?.lastName 
+                {member?.firstName || member?.lastName
                   ? `${member.firstName || ""} ${member.lastName || ""}`.trim()
                   : "User"}
               </CardTitle>
@@ -171,7 +171,7 @@ export default function Profile() {
                   {tierLabels[memberTier]}
                 </Badge>
               </div>
-              
+
               {!isBronze && expiresAt && (
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">Expires</span>
@@ -183,7 +183,7 @@ export default function Profile() {
               )}
 
               {(isBronze || isExpired) && (
-                <Link href="/subscribe">
+                <Link href="/pricing">
                   <Button className="w-full mt-4" data-testid="button-upgrade-subscription">
                     <Crown className="h-4 w-4 mr-2" />
                     {isBronze ? "Upgrade Membership" : "Renew Subscription"}
@@ -266,8 +266,8 @@ export default function Profile() {
                           </FormItem>
                         )}
                       />
-                      <Button 
-                        type="submit" 
+                      <Button
+                        type="submit"
                         disabled={updateProfileMutation.isPending}
                         data-testid="button-save-profile"
                       >
@@ -336,8 +336,8 @@ export default function Profile() {
                           </FormItem>
                         )}
                       />
-                      <Button 
-                        type="submit" 
+                      <Button
+                        type="submit"
                         disabled={changePasswordMutation.isPending}
                         data-testid="button-change-password"
                       >
@@ -369,7 +369,7 @@ export default function Profile() {
                         {memberTier.charAt(0).toUpperCase() + memberTier.slice(1)}
                       </Badge>
                     </div>
-                    
+
                     {!isBronze && expiresAt && (
                       <div className="text-sm">
                         <span className="text-muted-foreground">
@@ -420,7 +420,7 @@ export default function Profile() {
                     </ul>
                   </div>
 
-                  <Link href="/subscribe">
+                  <Link href="/pricing">
                     <Button className="w-full" data-testid="button-manage-subscription">
                       <Crown className="h-4 w-4 mr-2" />
                       {isBronze ? "Upgrade to Premium" : isExpired ? "Renew Subscription" : "Change Plan"}
