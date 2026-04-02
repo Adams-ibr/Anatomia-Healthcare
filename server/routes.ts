@@ -22,10 +22,10 @@ import {
   insertWaitlistSchema
 } from "../shared/schema";
 import { setupSession, registerAuthRoutes, registerMemberRoutes, isAuthenticated, isMemberAuthenticated } from "./auth";
-import lmsRoutes from "./lms-routes";
-import paymentRoutes from "./payment-routes";
-import interactionRoutes from "./interaction-routes";
-import galleryRoutes from "./gallery-routes";
+// import lmsRoutes from "./lms-routes";
+// import paymentRoutes from "./payment-routes";
+// import interactionRoutes from "./interaction-routes";
+// import galleryRoutes from "./gallery-routes";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -38,16 +38,16 @@ export async function registerRoutes(
   registerMemberRoutes(app);
 
   // LMS routes
-  app.use("/api/lms", lmsRoutes);
+  // app.use("/api/lms", lmsRoutes);
 
   // Payment routes (with member auth middleware)
-  app.use("/api/payments", paymentRoutes);
+  // app.use("/api/payments", paymentRoutes);
 
   // Chat and interaction routes (comments, discussions, messages)
-  app.use("/api/interactions", interactionRoutes);
+  // app.use("/api/interactions", interactionRoutes);
 
   // Gallery routes
-  app.use("/api/gallery", galleryRoutes);
+  // app.use("/api/gallery", galleryRoutes);
 
   // Upload routes (protected)
   app.post("/api/uploads/request-url", async (req, res) => {
