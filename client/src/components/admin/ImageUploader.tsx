@@ -66,6 +66,7 @@ export function ImageUploader({ name, label = "Image", defaultValue, onUploadCom
             size="icon"
             className="absolute top-2 right-2"
             onClick={handleClear}
+            aria-label="Clear image"
             data-testid="button-clear-image"
           >
             <X className="h-4 w-4" />

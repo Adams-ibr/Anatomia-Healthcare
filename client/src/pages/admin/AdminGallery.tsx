@@ -170,12 +170,12 @@ export default function AdminGallery() {
               <div className="space-y-2">
                 <Label htmlFor="category">Category</Label>
                 <Select name="category" defaultValue={editingItem?.category || "Anatomy"}>
-                  <SelectTrigger>
+                  <SelectTrigger aria-label="Category">
                     <SelectValue placeholder="Select category" />
                   </SelectTrigger>
                   <SelectContent>
                     {CATEGORIES.map((cat) => (
-                      <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                      <SelectItem key={cat} value={cat} textValue={cat}>{cat}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
