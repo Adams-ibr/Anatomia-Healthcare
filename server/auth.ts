@@ -428,8 +428,12 @@ export function registerMemberRoutes(app: Express) {
         });
       });
     } catch (error) {
-      console.error("Error registering member:", error);
-      res.status(500).json({ error: "Failed to register" });
+      console.error("Error fetching member:", error);
+      res.status(500).json({ 
+        error: "Failed to fetch user", 
+        details: error instanceof Error ? error.message : String(error),
+        stack: process.env.NODE_ENV !== 'production' ? (error instanceof Error ? error.stack : undefined) : undefined
+      });
     }
   });
 
@@ -505,7 +509,11 @@ export function registerMemberRoutes(app: Express) {
       });
     } catch (error) {
       console.error("Error fetching member:", error);
-      res.status(500).json({ error: "Failed to fetch user" });
+      res.status(500).json({ 
+        error: "Failed to fetch user", 
+        details: error instanceof Error ? error.message : String(error),
+        stack: process.env.NODE_ENV !== 'production' ? (error instanceof Error ? error.stack : undefined) : undefined
+      });
     }
   });
 

@@ -31,7 +31,11 @@ export default async function handler(req: any, res: any) {
         await ensureRoutes();
     } catch (err) {
         console.error("Error setting up routes:", err);
-        return res.status(500).json({ error: "Internal Server Error during startup" });
+        return res.status(500).json({ 
+            error: "Internal Server Error during startup", 
+            details: err instanceof Error ? err.message : String(err),
+            stack: err instanceof Error ? err.stack : undefined
+        });
     }
     return app(req, res);
 }
