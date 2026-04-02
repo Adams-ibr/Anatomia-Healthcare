@@ -88,7 +88,7 @@ export default function About() {
                 Anatomia provides accessible, high-quality 3D resources to democratize medical education for everyone, everywhere.
               </motion.p>
               <motion.div variants={fadeInUp}>
-                <Link href="/about">
+                <Link href="#founder-story">
                   <Button variant="secondary" data-testid="button-our-story">
                     Our Story
                   </Button>
@@ -97,6 +97,72 @@ export default function About() {
             </div>
           </motion.div>
         </section>
+
+        <motion.section 
+          id="founder-story"
+          className="py-16 md:py-24 bg-card"
+          initial={prefersReducedMotion ? false : "hidden"}
+          whileInView="visible"
+          viewport={{ once: true }}
+          variants={staggerContainer}
+        >
+          <div className="max-w-7xl mx-auto px-4 sm:px-6">
+            <div className="grid lg:grid-cols-2 gap-12 items-center">
+              <motion.div variants={fadeInLeft}>
+                <div className="relative aspect-[4/5] rounded-3xl overflow-hidden shadow-2xl bg-muted group">
+                  <div className="absolute inset-0 flex items-center justify-center text-muted-foreground group-hover:scale-105 transition-transform duration-500">
+                    <Avatar className="w-full h-full rounded-none">
+                      <AvatarImage src="" alt="CEO/MD" className="object-cover" />
+                      <AvatarFallback className="rounded-none bg-primary/5 text-primary text-2xl font-semibold px-8 text-center italic">
+                        "MedVR is the frontier of Anatomy"
+                      </AvatarFallback>
+                    </Avatar>
+                  </div>
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+                  <div className="absolute bottom-6 left-6 right-6 text-white">
+                    <p className="text-xl font-bold leading-none">CEO/MD</p>
+                    <p className="text-sm text-white/80 mt-2">Founder of Anatomia MedTech</p>
+                  </div>
+                </div>
+              </motion.div>
+
+              <motion.div variants={fadeInRight} className="space-y-8">
+                <div>
+                  <Badge className="mb-4 bg-primary/10 text-primary hover:bg-primary/20 border-none">THE JOURNEY</Badge>
+                  <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-6">Our Genesis: From a WhatsApp Group to a VR Frontier</h2>
+                  <div className="space-y-4 text-muted-foreground leading-relaxed">
+                    <p>
+                      Anatomia wasn’t built in a lab; it was born in the classroom. In 2016, we launched a groundbreaking WhatsApp-based tutorial for our pioneer anatomy students. What started as a simple chat grew into a movement, using peer-to-peer "Synergy Models" to pull students off probation and into excellence.
+                    </p>
+                    <p>
+                      As technology evolved, so did we. We transitioned from social media to Google Classrooms, eventually building Nigeria’s first indigenous Anatomy LMS.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="pt-8 border-t border-border">
+                  <Badge className="mb-4 bg-primary/10 text-primary hover:bg-primary/20 border-none">THE MISSION</Badge>
+                  <h3 className="text-2xl md:text-3xl font-bold text-foreground mb-4">The MedVR Project: Solving the Cadaver Crisis</h3>
+                  <div className="text-muted-foreground leading-relaxed">
+                    <p>
+                      As a Head of Department, I saw the rising costs, scarcity, and chemical toxicity of traditional cadaver dissection. This sparked our most ambitious mission yet: <span className="font-semibold text-foreground">The MedVR Project</span>. 
+                    </p>
+                    <p className="mt-4">
+                      We are replacing the physical limitations of the dissection hall with high-fidelity 3D models and Virtual Cadavers. No chemicals. No scarcity. Just pure, immersive precision.
+                    </p>
+                  </div>
+                  <div className="mt-8">
+                    <Link href="/services">
+                      <Button className="rounded-xl px-8 h-12 gap-2 shadow-lg shadow-primary/20">
+                        Explore Our Frontier <ArrowRight className="w-4 h-4" />
+                      </Button>
+                    </Link>
+                  </div>
+                </div>
+              </motion.div>
+            </div>
+          </div>
+        </motion.section>
 
         <motion.section 
           className="py-8 bg-card border-b border-border"
