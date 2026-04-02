@@ -51,28 +51,58 @@ export async function registerRoutes(
 
   // Upload routes (protected)
   app.post("/api/uploads/request-url", async (req, res) => {
-    // Note: Removed isAuthenticated from this simple implementation to ensure it works, 
-    // but in production it should use the auth middleware.
     try {
       const { name, size, contentType } = req.body;
       if (!name || !contentType) {
         return res.status(400).json({ error: "Name and contentType are required" });
       }
 
-      // Generate unique filename
+      console.log(`[Upload] Request for ${name} (${contentType}, ${size} bytes)`);
+
+      // 1. Ensure bucket exists
+      const { data: buckets, error: listError } = await supabase.storage.listBuckets();
+      if (listError) {
+        console.error("[Upload] Failed to list buckets:", listError);
+        throw new Error(`Storage configuration error: ${listError.message}`);
+      }
+
+      const bucketName = "uploads";
+      const bucketExists = buckets.some(b => b.name === bucketName);
+
+      if (!bucketExists) {
+        console.log(`[Upload] Bucket '${bucketName}' not found. Attempting to create...`);
+        const { error: createError } = await supabase.storage.createBucket(bucketName, {
+          public: true,
+          allowedMimeTypes: ["image/*"],
+          fileSizeLimit: 10485760 // 10MB
+        });
+        if (createError) {
+          console.error("[Upload] Failed to create bucket:", createError);
+          throw new Error(`Failed to initialize storage bucket: ${createError.message}`);
+        }
+        console.log(`[Upload] Bucket '${bucketName}' created successfully.`);
+      }
+
+      // 2. Generate unique filename
       const fileExt = name.split('.').pop();
       const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
-      const objectPath = `uploads/${fileName}`;
+      const objectPath = `items/${fileName}`; // Put in items subfolder
 
-      const { data, error } = await supabase.storage
-        .from("uploads")
+      // 3. Create signed upload URL
+      const { data, error: signError } = await supabase.storage
+        .from(bucketName)
         .createSignedUploadUrl(objectPath);
 
-      if (error) throw error;
+      if (signError) {
+        console.error("[Upload] Failed to create signed URL:", signError);
+        throw signError;
+      }
 
       const { data: publicUrlData } = supabase.storage
-        .from("uploads")
+        .from(bucketName)
         .getPublicUrl(objectPath);
+
+      console.log(`[Upload] Successfully generated URL for ${objectPath}`);
 
       res.json({
         uploadURL: data.signedUrl,
@@ -80,7 +110,7 @@ export async function registerRoutes(
         metadata: { name, size, contentType }
       });
     } catch (error: any) {
-      console.error("Error creating upload URL:", error);
+      console.error("[Upload] Internal Error:", error);
       res.status(500).json({ 
         error: "Failed to create upload URL", 
         details: error.message || String(error),
