@@ -1,31 +1,34 @@
-let appInstance: any = null;
-let serverInstance: any = null;
+import { createServer } from "http";
+import express from "express";
+import { registerRoutes } from "../server/routes";
+
+const app = express();
+const server = createServer(app);
+
+// Body parsing middleware
+app.use(
+    express.json({
+        verify: (req: any, _res: any, buf: any) => {
+            req.rawBody = buf;
+        },
+    })
+);
+app.use(express.urlencoded({ extended: false }));
+
+// Initialize routes (async)
 let routesPromise: Promise<any> | null = null;
 
+function ensureRoutes() {
+    if (!routesPromise) {
+        routesPromise = registerRoutes(server, app);
+    }
+    return routesPromise;
+}
+
+// Export a handler that waits for routes to be registered before handling requests
 export default async function handler(req: any, res: any) {
     try {
-        if (!appInstance) {
-            const { createServer } = await import("http");
-            const express = (await import("express")).default;
-            const { registerRoutes } = await import("../server/routes");
-
-            appInstance = express();
-            serverInstance = createServer(appInstance);
-
-            // Body parsing middleware
-            appInstance.use(
-                express.json({
-                    verify: (req: any, _res: any, buf: any) => {
-                        req.rawBody = buf;
-                    },
-                })
-            );
-            appInstance.use(express.urlencoded({ extended: false }));
-
-            routesPromise = registerRoutes(serverInstance, appInstance);
-        }
-
-        await routesPromise;
+        await ensureRoutes();
     } catch (err) {
         console.error("Error setting up routes:", err);
         return res.status(500).json({ 
@@ -34,5 +37,5 @@ export default async function handler(req: any, res: any) {
             stack: err instanceof Error ? err.stack : undefined
         });
     }
-    return appInstance(req, res);
+    return app(req, res);
 }
