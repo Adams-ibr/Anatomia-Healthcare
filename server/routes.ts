@@ -101,6 +101,22 @@ export async function registerRoutes(
     }
   });
 
+  // Debug route for Storage connection
+  app.get("/api/health-storage", async (req, res) => {
+    try {
+      const { data, error } = await supabase.storage.listBuckets();
+      if (error) throw error;
+      res.json({ status: "ok", buckets: data.map(b => b.name) });
+    } catch (error: any) {
+      console.error("Storage health check failed:", error);
+      res.status(500).json({ 
+        status: "error", 
+        message: error.message || "Unknown error",
+        details: error
+      });
+    }
+  });
+
   // Public routes
   app.post("/api/contact", async (req, res) => {
     try {
