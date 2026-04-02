@@ -9,7 +9,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AnimatedSection, StaggerContainer, AnimatedItem } from "@/components/AnimatedSection";
 import { PageTransition } from "@/components/PageTransition";
-import { fadeInUp, staggerContainer } from "@/lib/motion";
+import { fadeInUp, staggerContainer, fadeInLeft, fadeInRight } from "@/lib/motion";
 import { useInViewAnimation } from "@/hooks/use-in-view-animation";
 import { 
   Target, 
