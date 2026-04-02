@@ -1,41 +1,40 @@
-import { createServer } from "http";
-import express from "express";
-import { registerRoutes } from "../server/routes";
+let initializedApp: any = null;
+let initializedPromise: any = null;
 
-const app = express();
-const server = createServer(app);
-
-// Body parsing middleware
-app.use(
-    express.json({
-        verify: (req: any, _res: any, buf: any) => {
-            req.rawBody = buf;
-        },
-    })
-);
-app.use(express.urlencoded({ extended: false }));
-
-// Initialize routes (async)
-let routesPromise: Promise<any> | null = null;
-
-function ensureRoutes() {
-    if (!routesPromise) {
-        routesPromise = registerRoutes(server, app);
-    }
-    return routesPromise;
-}
-
-// Export a handler that waits for routes to be registered before handling requests
 export default async function handler(req: any, res: any) {
     try {
-        await ensureRoutes();
+        if (!initializedApp) {
+            // Using require() ensures Vercel's nft bundler includes the files,
+            // while allowing us to catch any unhandled initialization exceptions.
+            const { createServer } = require("http");
+            const express = require("express");
+            const { registerRoutes } = require("../server/routes");
+
+            const app = express();
+            const server = createServer(app);
+
+            app.use(
+                express.json({
+                    verify: (req: any, _res: any, buf: any) => {
+                        req.rawBody = buf;
+                    },
+                })
+            );
+            app.use(express.urlencoded({ extended: false }));
+
+            initializedPromise = registerRoutes(server, app);
+            initializedApp = app;
+        }
+
+        await initializedPromise;
     } catch (err) {
-        console.error("Error setting up routes:", err);
+        console.error("Critical Vercel Boot Error:", err);
         return res.status(500).json({ 
             error: "Internal Server Error during startup", 
             details: err instanceof Error ? err.message : String(err),
             stack: err instanceof Error ? err.stack : undefined
         });
     }
-    return app(req, res);
+
+    return initializedApp(req, res);
 }
