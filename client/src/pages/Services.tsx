@@ -34,7 +34,8 @@ import {
   DialogContent, 
   DialogHeader, 
   DialogTitle, 
-  DialogTrigger 
+  DialogTrigger,
+  DialogDescription
 } from "@/components/ui/dialog";
 
 import heroAnatomyImg from "@assets/stock_images/3d_human_anatomy_mus_873f0c5b.jpg";
@@ -161,6 +162,9 @@ export default function Services() {
                     <DialogContent className="sm:max-w-md bg-slate-900 border-white/10 text-white">
                       <DialogHeader>
                         <DialogTitle className="text-2xl font-bold text-center">Join the 3D Beta Waitlist</DialogTitle>
+                        <DialogDescription className="text-slate-400 text-center">
+                          Join our waitlist to be among the first to experience the future of elective anatomy.
+                        </DialogDescription>
                       </DialogHeader>
                       <div className="py-6">
                         <WaitlistForm />
