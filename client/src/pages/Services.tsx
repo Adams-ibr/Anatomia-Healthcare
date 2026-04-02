@@ -28,6 +28,7 @@ import {
   ChevronRight,
   Layers
 } from "lucide-react";
+import { WaitlistForm } from "@/components/WaitlistForm";
 
 import heroAnatomyImg from "@assets/stock_images/3d_human_anatomy_mus_873f0c5b.jpg";
 import heartImg from "@assets/stock_images/human_heart_anatomy__701f24b0.jpg";
@@ -48,16 +49,16 @@ const products = [
   {
     title: "Complete Anatomy 2024",
     category: "DIGITAL ATLAS",
-    description: "The world's most accurate and advanced 3D anatomy platform...",
-    price: "$34.99/yr",
-    badge: "BESTSELLER",
-    badgeColor: "bg-primary",
+    description: "The world's most accurate and advanced 3D anatomy platform. Experience the lab from your screen.",
+    price: "COMING SOON",
+    badge: "COMING SOON",
+    badgeColor: "bg-amber-500",
     image: heroAnatomyImg
   },
   {
     title: "Deluxe Heart Model",
     category: "PHYSICAL MODEL",
-    description: "2-part life-size heart model with removable front wall to show...",
+    description: "2-part life-size heart model with removable front wall to show. Precision for clinicians.",
     price: "$129.00",
     badge: null,
     badgeColor: null,
@@ -66,19 +67,19 @@ const products = [
   {
     title: "Neuro VR Lab",
     category: "VR SOFTWARE",
-    description: "Immersive virtual reality experience for neuroanatomy...",
-    price: "Contact Sales",
-    badge: "NEW",
-    badgeColor: "bg-green-500",
+    description: "Immersive virtual reality experience for neuroanatomy education and clinical training.",
+    price: "COMING SOON",
+    badge: "COMING SOON",
+    badgeColor: "bg-amber-500",
     image: brainImg
   },
   {
     title: "Ophthalmology Suite",
     category: "DIGITAL ATLAS",
-    description: "Detailed cross-sections and pathologies of the human eye...",
-    price: "$19.99/mo",
-    badge: null,
-    badgeColor: null,
+    description: "Detailed cross-sections and pathologies of the human eye. Advanced visualization.",
+    price: "COMING SOON",
+    badge: "COMING SOON",
+    badgeColor: "bg-amber-500",
     image: eyeImg
   },
   {
@@ -108,57 +109,47 @@ export default function Services() {
   return (
     <Layout>
       <PageTransition>
-        <section className="py-12 md:py-20 bg-gradient-to-br from-slate-900 to-slate-800 text-white relative overflow-hidden">
-          <div className="absolute inset-0 opacity-20">
+        <section className="py-12 md:py-24 bg-slate-950 text-white relative overflow-hidden">
+          <div className="absolute inset-0 z-0 bg-slate-950">
             <img 
               src={heroAnatomyImg} 
               alt="" 
-              className="w-full h-full object-cover"
+              className="absolute inset-0 w-full h-full object-cover opacity-20"
             />
+            <div className="absolute inset-0 bg-gradient-to-b from-slate-950/60 to-slate-950" />
           </div>
-          <motion.div 
-            className="relative max-w-7xl mx-auto px-4 sm:px-6"
-            initial={prefersReducedMotion ? false : "hidden"}
-            animate="visible"
-            variants={staggerContainer}
-          >
+
+          <div className="relative max-w-7xl mx-auto px-4 sm:px-6 z-10">
             <div className="grid lg:grid-cols-2 gap-12 items-center">
               <motion.div 
-                className="aspect-video rounded-xl overflow-hidden shadow-2xl"
+                className="aspect-video rounded-2xl overflow-hidden shadow-2xl border border-white/10"
                 variants={fadeInUp}
               >
                 <img 
                   src={heroAnatomyImg} 
                   alt="3D Anatomy Model" 
                   className="w-full h-full object-cover"
-                  data-testid="img-services-hero"
                 />
               </motion.div>
-              <motion.div variants={staggerContainer}>
+              <motion.div variants={staggerContainer} className="text-left">
+                <motion.div variants={fadeInUp}>
+                  <Badge className="mb-4 bg-primary text-white border-none px-4 py-1">3D ATLAS - COMING SOON!</Badge>
+                </motion.div>
                 <motion.h1 
                   variants={fadeInUp}
-                  className="text-4xl md:text-5xl font-bold mb-6" 
-                  data-testid="text-services-hero-title"
+                  className="text-4xl md:text-6xl font-bold mb-6 tracking-tight" 
                 >
-                  Comprehensive Anatomy Solutions
+                  Our 3D Interactive<br /><span className="text-primary italic">Models is Coming!</span>
                 </motion.h1>
-                <motion.p variants={fadeInUp} className="text-lg text-gray-300 mb-8">
-                  Explore our suite of educational tools, 3D models, and institutional software designed for medical professionals and students.
+                <motion.p variants={fadeInUp} className="text-xl text-slate-300 mb-8 max-w-xl leading-relaxed">
+                  We are currently in the laboratory phase of 3D Interactive Models and VR Simulations. Join our waitlist to be among the first to experience the future of elective anatomy.
                 </motion.p>
-                <motion.div variants={fadeInUp} className="flex gap-3">
-                  <div className="relative flex-1">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                    <Input 
-                      placeholder="Find models, courses, tools..." 
-                      className="pl-10 bg-white/10 border-white/20 text-white placeholder:text-gray-400"
-                      data-testid="input-search-products"
-                    />
-                  </div>
-                  <Button data-testid="button-search-products">Search</Button>
+                <motion.div variants={fadeInUp}>
+                  <WaitlistForm />
                 </motion.div>
               </motion.div>
             </div>
-          </motion.div>
+          </div>
         </section>
 
         <section className="py-8 border-b border-border">
