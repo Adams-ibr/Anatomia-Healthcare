@@ -12,6 +12,7 @@ import About from "@/pages/About";
 import TeamMember from "@/pages/TeamMember";
 import Blog from "@/pages/Blog";
 import SingleBlog from "@/pages/SingleBlog";
+import Gallery from "@/pages/Gallery";
 import Career from "@/pages/Career";
 import Contact from "@/pages/Contact";
 import FAQ from "@/pages/FAQ";
@@ -38,6 +39,7 @@ import AdminLessons from "@/pages/admin/AdminLessons";
 import AdminQuestionBank from "@/pages/admin/AdminQuestionBank";
 import AdminFlashcards from "@/pages/admin/AdminFlashcards";
 import AdminAnatomyModels from "@/pages/admin/AdminAnatomyModels";
+import AdminGallery from "@/pages/admin/AdminGallery";
 import AdminMembers from "@/pages/admin/AdminMembers";
 import AdminUsers from "@/pages/admin/AdminUsers";
 import AdminUserManagement from "@/pages/admin/AdminUserManagement";
@@ -102,6 +104,7 @@ function Router() {
       <Route path="/team/:slug" component={TeamMember} />
       <Route path="/blog" component={Blog} />
       <Route path="/blog/:slug" component={SingleBlog} />
+      <Route path="/gallery" component={Gallery} />
       <Route path="/careers" component={Career} />
       <Route path="/contact" component={Contact} />
       <Route path="/faq" component={FAQ} />
@@ -126,6 +129,7 @@ function Router() {
       <Route path="/admin/question-bank" component={AdminQuestionBank} />
       <Route path="/admin/flashcards" component={AdminFlashcards} />
       <Route path="/admin/anatomy-models" component={AdminAnatomyModels} />
+      <Route path="/admin/gallery" component={AdminGallery} />
       <Route path="/admin/members" component={AdminMembers} />
       <Route path="/admin/users" component={AdminUsers} />
       <Route path="/admin/user-management" component={AdminUserManagement} />

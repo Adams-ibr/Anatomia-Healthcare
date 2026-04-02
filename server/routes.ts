@@ -24,6 +24,7 @@ import { setupSession, registerAuthRoutes, registerMemberRoutes, isAuthenticated
 import lmsRoutes from "./lms-routes";
 import paymentRoutes from "./payment-routes";
 import interactionRoutes from "./interaction-routes";
+import galleryRoutes from "./gallery-routes";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -43,6 +44,9 @@ export async function registerRoutes(
 
   // Chat and interaction routes (comments, discussions, messages)
   app.use("/api/interactions", interactionRoutes);
+
+  // Gallery routes
+  app.use("/api/gallery", galleryRoutes);
 
   // Upload routes (protected)
   app.post("/api/uploads/request-url", async (req, res) => {

@@ -16,7 +16,8 @@ import {
   Layers,
   Atom,
   Heart,
-  Building2
+  Building2,
+  Image as ImageIcon
 } from "lucide-react";
 import logoIcon from "@assets/logo.png";
 import {
@@ -46,6 +47,7 @@ const menuItems = [
   { title: "3D Models", icon: Atom, href: "/admin/anatomy-models", group: "LMS" },
   { title: "Articles", icon: FileText, href: "/admin/articles", group: "Content" },
   { title: "Team", icon: Users, href: "/admin/team", group: "Content" },
+  { title: "Gallery", icon: ImageIcon, href: "/admin/gallery", group: "Content" },
   { title: "Products", icon: Package, href: "/admin/products", group: "Content" },
   { title: "FAQ", icon: HelpCircle, href: "/admin/faq", group: "Content" },
   { title: "Careers", icon: Briefcase, href: "/admin/careers", group: "Content" },

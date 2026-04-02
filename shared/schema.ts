@@ -189,3 +189,23 @@ export const insertDepartmentSchema = createInsertSchema(departments).omit({
 
 export type InsertDepartment = z.infer<typeof insertDepartmentSchema>;
 export type Department = typeof departments.$inferSelect;
+// Gallery Items
+export const galleryItems = pgTable("gallery_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  title: text("title").notNull(),
+  description: text("description"),
+  imageUrl: text("image_url").notNull(),
+  category: text("category").notNull(),
+  isPublished: boolean("is_published").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertGalleryItemSchema = createInsertSchema(galleryItems).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertGalleryItem = z.infer<typeof insertGalleryItemSchema>;
+export type GalleryItem = typeof galleryItems.$inferSelect;
