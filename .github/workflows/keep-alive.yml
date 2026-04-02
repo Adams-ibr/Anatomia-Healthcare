@@ -1,0 +1,24 @@
+name: Supabase Keep Alive
+
+on:
+  schedule:
+    - cron: '0 */2 * * *' # Run every 2 hours
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase Project
+        run: |
+          # Pings the Supabase REST API to prevent the project from pausing due to inactivity
+          # Using the Anon Key provided. 
+          # RECOMMENDATION: Move the key to Repository Secrets as SUPABASE_ANON_KEY
+          ANON_KEY="${{ secrets.SUPABASE_ANON_KEY }}"
+          if [ -z "$ANON_KEY" ]; then
+            ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV2ZmRueXhya3JrY2lna2tyaHlyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA2NjczMTYsImV4cCI6MjA4NjI0MzMxNn0.UMRNMCIknyU1ZduAltxWDNqQAAmS1xjAP_ltEVkftbI"
+          fi
+          
+          curl -I -X GET "https://evfdnyxrkrkcigkkrhyr.supabase.co/rest/v1/" \
+            -H "apikey: $ANON_KEY" \
+            -H "Authorization: Bearer $ANON_KEY"
