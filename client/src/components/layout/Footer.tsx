@@ -44,7 +44,7 @@ export function Footer() {
         <div className="grid grid-cols-2 md:grid-cols-6 gap-8">
           <div className="col-span-2">
             <Link href="/" className="flex items-center gap-2 mb-4">
-              <img src={logoIcon} alt="Anatomia" className="h-10 w-auto object-contain" />
+              <img src={logoIcon} alt="Anatomia" className="h-12 w-auto object-contain" />
             </Link>
             <p className="text-sm text-muted-foreground mb-4 max-w-xs">
               Making anatomy accessible, interactive, and comprehensive for medical professionals and students worldwide.

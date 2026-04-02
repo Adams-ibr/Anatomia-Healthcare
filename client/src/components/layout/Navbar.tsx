@@ -94,7 +94,7 @@ export function Navbar() {
             transition={{ duration: 0.3 }}
           >
             <Link href="/" className="flex items-center gap-2 shrink-0">
-              <img src={logoIcon} alt="Anatomia" className="h-10 w-auto object-contain" />
+              <img src={logoIcon} alt="Anatomia" className="h-12 w-auto object-contain" />
             </Link>
           </motion.div>
 
