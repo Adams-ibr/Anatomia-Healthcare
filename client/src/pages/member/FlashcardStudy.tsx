@@ -47,7 +47,7 @@ interface DeckWithCards extends FlashcardDeck {
 }
 
 const CARD_TYPE_INFO: Record<string, { icon: any; label: string; color: string }> = {
-  learning: { icon: BookOpen, label: "Learning", color: "text-blue-500" },
+  learning: { icon: BookOpen, label: "Learning", color: "text-primary" },
   question: { icon: HelpCircle, label: "Question", color: "text-purple-500" },
   fun_fact: { icon: Sparkles, label: "Fun Fact", color: "text-yellow-500" },
   tip: { icon: Lightbulb, label: "Tip", color: "text-green-500" },

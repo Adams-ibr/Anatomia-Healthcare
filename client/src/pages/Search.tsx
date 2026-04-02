@@ -45,7 +45,7 @@ const allResults = [
     readTime: "8 min read",
     views: "12.5k views",
     badge: "UPPER LIMB",
-    badgeColor: "bg-blue-500",
+    badgeColor: "bg-primary",
     keywords: ["brachial", "plexus", "nerves", "upper limb", "arm", "cervical"]
   },
   {

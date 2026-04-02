@@ -43,7 +43,7 @@ export default function Gallery() {
           {/* Header */}
           <div className="text-center max-w-3xl mx-auto mb-12">
             <motion.h1 
-              className="text-4xl md:text-5xl font-bold mb-4 bg-gradient-to-r from-primary to-blue-600 bg-clip-text text-transparent"
+              className="text-4xl md:text-5xl font-bold mb-4 bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
             >

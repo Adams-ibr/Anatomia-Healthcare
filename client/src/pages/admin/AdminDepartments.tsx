@@ -26,7 +26,7 @@ const slugify = (text: string) => {
 };
 
 const DEPARTMENT_COLORS = [
-  { value: "blue", label: "Blue", className: "bg-blue-500" },
+  { value: "coral", label: "Coral", className: "bg-primary" },
   { value: "green", label: "Green", className: "bg-green-500" },
   { value: "purple", label: "Purple", className: "bg-purple-500" },
   { value: "orange", label: "Orange", className: "bg-orange-500" },
@@ -125,7 +125,7 @@ export default function AdminDepartments() {
 
   const getColorClass = (color: string | null) => {
     const colorObj = DEPARTMENT_COLORS.find(c => c.value === color);
-    return colorObj?.className || "bg-blue-500";
+    return colorObj?.className || "bg-primary";
   };
 
   const getHeadName = (headId: string | null) => {
