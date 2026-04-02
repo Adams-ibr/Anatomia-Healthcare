@@ -279,7 +279,7 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="py-16 md:py-24 bg-slate-900 border-y border-white/5 relative overflow-hidden">
+        <section id="3d-section" className="py-16 md:py-24 bg-slate-900 border-y border-white/5 relative overflow-hidden">
           {/* Subtle background element */}
           <div className="absolute top-0 right-0 w-1/2 h-full bg-primary/5 blur-3xl rounded-full -translate-y-1/2 translate-x-1/2 pointer-events-none" />
           

@@ -19,7 +19,7 @@ import type { Member } from "@shared/schema";
 
 const navLinks = [
   { label: "Home", href: "/" },
-  { label: "3D Atlas", href: "/services" },
+  { label: "3D Atlas", href: "/#3d-section" },
   { label: "Articles", href: "/blog" },
   { label: "Gallery", href: "/gallery" },
   { label: "FAQs", href: "/faq" },
