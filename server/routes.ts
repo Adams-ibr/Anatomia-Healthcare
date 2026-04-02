@@ -79,9 +79,13 @@ export async function registerRoutes(
         objectPath: publicUrlData.publicUrl,
         metadata: { name, size, contentType }
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error creating upload URL:", error);
-      res.status(500).json({ error: "Failed to create upload URL" });
+      res.status(500).json({ 
+        error: "Failed to create upload URL", 
+        details: error.message || String(error),
+        stack: process.env.NODE_ENV !== 'production' ? error.stack : undefined
+      });
     }
   });
 
