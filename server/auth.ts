@@ -29,8 +29,9 @@ export function setupSession(app: Express) {
 
   console.log(`Session config: NODE_ENV=${process.env.NODE_ENV}, isProduction=${isProduction}`);
 
+  const secret = process.env.SESSION_SECRET || "anatomia_fallback_secret_for_development_do_not_use_in_prod";
   app.use(session({
-    secret: process.env.SESSION_SECRET!,
+    secret: secret,
     store: sessionStore,
     resave: false,
     saveUninitialized: false,
