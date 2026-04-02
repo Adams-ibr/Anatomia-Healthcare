@@ -33,6 +33,8 @@ import {
   DialogTrigger,
   DialogDescription
 } from "@/components/ui/dialog";
+import { useQuery } from "@tanstack/react-query";
+import type { GalleryItem } from "@shared/schema";
 
 import heroAnatomyImg from "@assets/stock_images/3d_human_anatomy_mus_873f0c5b.jpg";
 import armImg from "@assets/stock_images/human_arm_muscles_an_9d7db348.jpg";
@@ -51,14 +53,7 @@ const trustedBy = [
   { icon: Stethoscope, label: "Nursing Programs" },
 ];
 
-const regions = [
-  { title: "Upper Limb", description: "Shoulder, Arm, Elbow, Forearm, Hand", image: armImg, badge: "REGION" },
-  { title: "Lower Limb", description: "Hip, Thigh, Knee, Leg, Ankle, Foot", image: legImg, badge: "REGION" },
-  { title: "Head & Neck", description: "Skull, Face, Neck, Cranial Nerves", image: skullImg, badge: "REGION" },
-  { title: "Thorax", description: "Heart, Lungs, Mediastinum, Ribcage", image: heartImg, badge: "REGION" },
-  { title: "Abdomen", description: "Digestive Tract, Liver, Kidneys, Spleen", image: spineImg, badge: "REGION" },
-  { title: "Pelvis", description: "Reproductive Organs, Bladder, Perineum", image: pelvisImg, badge: "REGION" },
-];
+// Regions will be dynamic inside the Home component
 
 const features3D = [
   { icon: RotateCcw, text: "Real-time 360° rotation" },
@@ -125,6 +120,69 @@ export default function Home() {
   const heroRef = useInViewAnimation({ threshold: 0.1 });
   const trustedRef = useInViewAnimation({ threshold: 0.2 });
   const featuresRef = useInViewAnimation({ threshold: 0.1 });
+
+  const { data: galleryItems = [] } = useQuery<GalleryItem[]>({
+    queryKey: ["/api/gallery"],
+  });
+
+  const regions = [
+    { 
+      title: "Upper Limb", 
+      description: "Shoulder, Arm, Elbow, Forearm, Hand", 
+      image: galleryItems.find(item => 
+        item.title.toLowerCase().includes("upper limb") || 
+        item.title.toLowerCase().includes("arm")
+      )?.imageUrl || armImg, 
+      badge: "REGION" 
+    },
+    { 
+      title: "Lower Limb", 
+      description: "Hip, Thigh, Knee, Leg, Ankle, Foot", 
+      image: galleryItems.find(item => 
+        item.title.toLowerCase().includes("lower limb") || 
+        item.title.toLowerCase().includes("leg")
+      )?.imageUrl || legImg, 
+      badge: "REGION" 
+    },
+    { 
+      title: "Head & Neck", 
+      description: "Skull, Face, Neck, Cranial Nerves", 
+      image: galleryItems.find(item => 
+        item.title.toLowerCase().includes("head") || 
+        item.title.toLowerCase().includes("neck") ||
+        item.title.toLowerCase().includes("skull")
+      )?.imageUrl || skullImg, 
+      badge: "REGION" 
+    },
+    { 
+      title: "Thorax", 
+      description: "Heart, Lungs, Mediastinum, Ribcage", 
+      image: galleryItems.find(item => 
+        item.title.toLowerCase().includes("thorax") || 
+        item.title.toLowerCase().includes("chest") ||
+        item.title.toLowerCase().includes("heart")
+      )?.imageUrl || heartImg, 
+      badge: "REGION" 
+    },
+    { 
+      title: "Abdomen", 
+      description: "Digestive Tract, Liver, Kidneys, Spleen", 
+      image: galleryItems.find(item => 
+        item.title.toLowerCase().includes("abdomen") || 
+        item.title.toLowerCase().includes("stomach")
+      )?.imageUrl || spineImg, 
+      badge: "REGION" 
+    },
+    { 
+      title: "Pelvis", 
+      description: "Reproductive Organs, Bladder, Perineum", 
+      image: galleryItems.find(item => 
+        item.title.toLowerCase().includes("pelvis") || 
+        item.title.toLowerCase().includes("hip")
+      )?.imageUrl || pelvisImg, 
+      badge: "REGION" 
+    },
+  ];
 
   const backgroundImages = [heroAnatomyImg, brainImg, heartImg, skullImg, armImg, spineImg, pelvisImg, legImg, eyeImg];
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
