@@ -21,7 +21,8 @@ router.get("/admin", isAuthenticated, isContentAdmin, async (req, res) => {
     const items = await galleryStorage.getGalleryItems();
     res.json(items);
   } catch (error) {
-    res.status(500).json({ message: "Failed to fetch all gallery items" });
+    console.error("Error fetching all gallery items:", error);
+    res.status(500).json({ message: "Failed to fetch all gallery items", details: error instanceof Error ? error.message : String(error) });
   }
 });
 
