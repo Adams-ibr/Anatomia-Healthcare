@@ -24,6 +24,7 @@ import {
   Video,
   BookOpen
 } from "lucide-react";
+import { WaitlistForm } from "@/components/WaitlistForm";
 
 import heroAnatomyImg from "@assets/stock_images/3d_human_anatomy_mus_873f0c5b.jpg";
 import armImg from "@assets/stock_images/human_arm_muscles_an_9d7db348.jpg";
@@ -278,8 +279,11 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="py-16 md:py-24 bg-gradient-to-r from-primary/5 to-primary/10">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6">
+        <section className="py-16 md:py-24 bg-slate-900 border-y border-white/5 relative overflow-hidden">
+          {/* Subtle background element */}
+          <div className="absolute top-0 right-0 w-1/2 h-full bg-primary/5 blur-3xl rounded-full -translate-y-1/2 translate-x-1/2 pointer-events-none" />
+          
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 relative z-10">
             <div className="grid lg:grid-cols-2 gap-12 items-center">
               <motion.div
                 ref={featuresRef.ref}
@@ -288,34 +292,23 @@ export default function Home() {
                 variants={staggerContainer}
               >
                 <motion.div variants={fadeInUp}>
-                  <Badge variant="outline" className="mb-4">NEW FEATURE</Badge>
+                  <Badge className="mb-4 bg-primary text-white hover:bg-primary border-none px-4 py-1">3D - Coming soon!</Badge>
                 </motion.div>
                 <motion.h2
                   variants={fadeInUp}
-                  className="text-3xl md:text-4xl font-bold text-foreground mb-4"
+                  className="text-4xl md:text-5xl font-bold text-white mb-6 tracking-tight"
                   data-testid="text-3d-title"
                 >
-                  Interactive<br />3D Models
+                  Beyond the<br /><span className="text-primary italic">Textbook</span>
                 </motion.h2>
-                <motion.p variants={fadeInUp} className="text-muted-foreground mb-6">
-                  Visualize complex anatomical structures in 3D. Rotate, zoom, and dissect to understand spatial relationships better than ever before. Forget flat diagrams; experience anatomy as it truly is.
+                <motion.p variants={fadeInUp} className="text-slate-300 text-lg mb-8 leading-relaxed max-w-xl">
+                  While we are currently offering a comprehensive digital curriculum in Human Anatomy, we aren't stopping there. We are currently in the laboratory phase of 3D Interactive Models and VR Simulations.
                 </motion.p>
-                <motion.ul variants={fadeInUp} className="space-y-3 mb-8">
-                  {features3D.map((feature) => (
-                    <li key={feature.text} className="flex items-center gap-3 text-foreground">
-                      <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                        <Check className="w-4 h-4 text-primary" />
-                      </div>
-                      {feature.text}
-                    </li>
-                  ))}
-                </motion.ul>
-                <motion.div variants={fadeInUp}>
-                  <Link href="/services">
-                    <Button data-testid="button-try-demo">
-                      Try 3D Demo Now
-                    </Button>
-                  </Link>
+                <motion.div variants={fadeInUp} className="mb-6">
+                  <p className="text-white font-bold mb-4 tracking-wide">
+                    Be the first to experience our 3D beta. JOIN OUR WAITLIST!
+                  </p>
+                  <WaitlistForm />
                 </motion.div>
               </motion.div>
               <StaggerContainer className="grid grid-cols-2 gap-4">

@@ -18,7 +18,8 @@ import {
   insertProductSchema,
   insertFaqItemSchema,
   insertCareerSchema,
-  insertDepartmentSchema
+  insertDepartmentSchema,
+  insertWaitlistSchema
 } from "../shared/schema";
 import { setupSession, registerAuthRoutes, registerMemberRoutes, isAuthenticated, isMemberAuthenticated } from "./auth";
 import lmsRoutes from "./lms-routes";
@@ -150,6 +151,32 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error creating newsletter subscription:", error);
       res.status(500).json({ error: "Failed to subscribe" });
+    }
+  });
+
+  app.post("/api/waitlist", async (req, res) => {
+    try {
+      const result = insertWaitlistSchema.safeParse(req.body);
+      if (!result.success) {
+        return res.status(400).json({ error: "Invalid waitlist data", details: result.error.issues });
+      }
+
+      const { data: entry, error: createError } = await supabase
+        .from("waitlist")
+        .insert(result.data)
+        .select()
+        .single();
+
+      if (createError) {
+        if (createError.code === '23505') { // Unique violation
+          return res.status(409).json({ error: "You are already on the waitlist!" });
+        }
+        throw createError;
+      }
+      res.status(201).json({ success: true, message: "Joined waitlist successfully", id: entry.id });
+    } catch (error) {
+      console.error("Error joining waitlist:", error);
+      res.status(500).json({ error: "Failed to join waitlist" });
     }
   });
 
