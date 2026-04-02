@@ -29,6 +29,13 @@ import {
   Layers
 } from "lucide-react";
 import { WaitlistForm } from "@/components/WaitlistForm";
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogHeader, 
+  DialogTitle, 
+  DialogTrigger 
+} from "@/components/ui/dialog";
 
 import heroAnatomyImg from "@assets/stock_images/3d_human_anatomy_mus_873f0c5b.jpg";
 import heartImg from "@assets/stock_images/human_heart_anatomy__701f24b0.jpg";
@@ -145,7 +152,21 @@ export default function Services() {
                   We are currently in the laboratory phase of 3D Interactive Models and VR Simulations. Join our waitlist to be among the first to experience the future of elective anatomy.
                 </motion.p>
                 <motion.div variants={fadeInUp}>
-                  <WaitlistForm />
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <Button size="lg" className="h-14 px-10 text-xl rounded-2xl shadow-2xl shadow-primary/30 hover:shadow-primary/50 transition-all font-bold bg-primary hover:bg-primary/90">
+                        JOIN OUR WAITLIST!
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-md bg-slate-900 border-white/10 text-white">
+                      <DialogHeader>
+                        <DialogTitle className="text-2xl font-bold text-center">Join the 3D Beta Waitlist</DialogTitle>
+                      </DialogHeader>
+                      <div className="py-6">
+                        <WaitlistForm />
+                      </div>
+                    </DialogContent>
+                  </Dialog>
                 </motion.div>
               </motion.div>
             </div>
