@@ -104,7 +104,11 @@ export function registerAuthRoutes(app: Express) {
       });
     } catch (error) {
       console.error("Error registering user:", error);
-      res.status(500).json({ error: "Failed to register user" });
+      res.status(500).json({ 
+        error: "Failed to register user", 
+        details: error instanceof Error ? error.message : String(error),
+        stack: process.env.NODE_ENV !== 'production' ? (error instanceof Error ? error.stack : undefined) : undefined
+      });
     }
   });
 
@@ -145,7 +149,10 @@ export function registerAuthRoutes(app: Express) {
       req.session.save((err) => {
         if (err) {
           console.error("Error saving admin session:", err);
-          return res.status(500).json({ error: "Failed to log in" });
+          return res.status(500).json({ 
+            error: "Failed to log in", 
+            details: err instanceof Error ? err.message : String(err) 
+          });
         }
         console.log(`Admin login successful for ${email}, session ID: ${req.sessionID}`);
         res.json({
@@ -158,7 +165,11 @@ export function registerAuthRoutes(app: Express) {
       });
     } catch (error) {
       console.error("Error logging in:", error);
-      res.status(500).json({ error: "Failed to log in" });
+      res.status(500).json({ 
+        error: "Failed to log in", 
+        details: error instanceof Error ? error.message : String(error),
+        stack: process.env.NODE_ENV !== 'production' ? (error instanceof Error ? error.stack : undefined) : undefined
+      });
     }
   });
 
@@ -469,7 +480,10 @@ export function registerMemberRoutes(app: Express) {
       req.session.save((err) => {
         if (err) {
           console.error("Error saving session:", err);
-          return res.status(500).json({ error: "Failed to log in" });
+          return res.status(500).json({ 
+            error: "Failed to log in", 
+            details: err instanceof Error ? err.message : String(err)
+          });
         }
         res.json({
           id: member.id,
@@ -482,7 +496,11 @@ export function registerMemberRoutes(app: Express) {
       });
     } catch (error) {
       console.error("Error logging in:", error);
-      res.status(500).json({ error: "Failed to log in" });
+      res.status(500).json({ 
+        error: "Failed to log in", 
+        details: error instanceof Error ? error.message : String(error),
+        stack: process.env.NODE_ENV !== 'production' ? (error instanceof Error ? error.stack : undefined) : undefined
+      });
     }
   });
 
@@ -569,7 +587,11 @@ export function registerMemberRoutes(app: Express) {
       });
     } catch (error) {
       console.error("Error updating profile:", error);
-      res.status(500).json({ error: "Failed to update profile" });
+      res.status(500).json({ 
+        error: "Failed to update profile", 
+        details: error instanceof Error ? error.message : String(error),
+        stack: process.env.NODE_ENV !== 'production' ? (error instanceof Error ? error.stack : undefined) : undefined
+      });
     }
   });
 
