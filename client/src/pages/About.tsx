@@ -88,11 +88,27 @@ export default function About() {
                 Anatomia provides accessible, high-quality 3D resources to democratize medical education for everyone, everywhere.
               </motion.p>
               <motion.div variants={fadeInUp}>
-                <Link href="#founder-story">
-                  <Button variant="secondary" data-testid="button-our-story">
-                    Our Story
-                  </Button>
-                </Link>
+                <Button 
+                  variant="secondary" 
+                  data-testid="button-our-story"
+                  onClick={() => {
+                    const el = document.getElementById("founder-story");
+                    if (el) {
+                      const offset = 80; // Account for sticky header
+                      const bodyRect = document.body.getBoundingClientRect().top;
+                      const elementRect = el.getBoundingClientRect().top;
+                      const elementPosition = elementRect - bodyRect;
+                      const offsetPosition = elementPosition - offset;
+
+                      window.scrollTo({
+                        top: offsetPosition,
+                        behavior: "smooth"
+                      });
+                    }
+                  }}
+                >
+                  Our Story
+                </Button>
               </motion.div>
             </div>
           </motion.div>
