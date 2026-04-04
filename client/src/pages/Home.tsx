@@ -61,7 +61,8 @@ const features3D = [
   { icon: Monitor, text: "Works on all devices" },
 ];
 
-const model3DItems = [
+// We'll calculate these dynamically in the component to avoid hardcoded fallbacks
+const defaultPreviewItems = [
   { label: "Joint Systems", image: armImg },
   { label: "Muscular System", image: heroAnatomyImg },
   { label: "Organ Systems", image: heartImg },
@@ -125,58 +126,21 @@ export default function Home() {
     queryKey: ["/api/gallery"],
   });
 
-  const regionDefinitions = [
-    { 
-      title: "Upper Limb", 
-      description: "Shoulder, Arm, Elbow, Forearm, Hand", 
-      keywords: ["upper limb", "arm", "hand", "shoulder", "brachial", "radial", "ulnar", "wrist"]
-    },
-    { 
-      title: "Lower Limb", 
-      description: "Hip, Thigh, Knee, Leg, Ankle, Foot", 
-      keywords: ["lower limb", "leg", "foot", "hip", "thigh", "knee", "femur", "tibia", "ankle"]
-    },
-    { 
-      title: "Head & Neck", 
-      description: "Skull, Face, Neck, Cranial Nerves", 
-      keywords: ["head", "neck", "skull", "brain", "face", "eye", "ear", "mouth", "cerebral", "cervical"]
-    },
-    { 
-      title: "Thorax", 
-      description: "Heart, Lungs, Mediastinum, Ribcage", 
-      keywords: ["thorax", "chest", "heart", "lung", "rib", "sternum", "cardiac", "pulmonary", "mediastinum"]
-    },
-    { 
-      title: "Abdomen", 
-      description: "Digestive Tract, Liver, Kidneys, Spleen", 
-      keywords: ["abdomen", "stomach", "liver", "kidney", "spleen", "intestine", "gut", "digestive", "pancreas"]
-    },
-    { 
-      title: "Pelvis", 
-      description: "Reproductive Organs, Bladder, Perineum", 
-      keywords: ["pelvis", "reproductive", "bladder", "genital", "perineum", "hip", "sacrum", "prostate", "uterus"]
-    },
-  ];
+  // Display the 6 most recent published gallery items
+  const recentGalleryItems = galleryItems.slice(0, 6);
 
-  const defaultImages = [armImg, legImg, skullImg, heartImg, spineImg, pelvisImg];
+  // Use gallery items for background if available, otherwise fallback to hero images only
+  const backgroundImages = galleryItems.length > 0 
+    ? galleryItems.slice(0, 8).map(item => item.imageUrl)
+    : [heroAnatomyImg, brainImg, heartImg, skullImg, armImg, spineImg, pelvisImg, legImg, eyeImg];
 
-  const regions = regionDefinitions.map((def, idx) => {
-    // 1. Try to find a precise match by keywords
-    const match = galleryItems.find(item => 
-      def.keywords.some(k => item.title.toLowerCase().includes(k)) ||
-      def.keywords.some(k => item.description?.toLowerCase().includes(k))
-    );
-
-    return {
-      title: def.title,
-      description: def.description,
-      // 2. Fallback to match, then to unique gallery item by index, then to stock image
-      image: match?.imageUrl || galleryItems[idx]?.imageUrl || defaultImages[idx],
-      badge: "REGION"
-    };
-  });
-
-  const backgroundImages = [heroAnatomyImg, brainImg, heartImg, skullImg, armImg, spineImg, pelvisImg, legImg, eyeImg];
+  // Dynamically map 3D preview items from gallery
+  const model3DItems = galleryItems.length >= 4
+    ? galleryItems.slice(0, 4).map((item, idx) => ({
+        label: item.title,
+        image: item.imageUrl
+      }))
+    : defaultPreviewItems;
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
   useEffect(() => {
@@ -301,38 +265,49 @@ export default function Home() {
           <div className="max-w-7xl mx-auto px-4 sm:px-6">
             <AnimatedSection className="text-center mb-12">
               <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4" data-testid="text-browse-title">
-                Browse by Region
+                Medical Illustration Gallery
               </h2>
               <p className="text-muted-foreground max-w-2xl mx-auto">
-                Start your journey by selecting an anatomical region. Each section contains detailed articles, diagrams, and quizzes.
+                Explore our curated collection of high-precision medical illustrations and clinical imagery.
               </p>
             </AnimatedSection>
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {regions.map((region, index) => (
-                <AnimatedCard key={region.title} index={index}>
-                  <Link href="/services">
-                    <Card className="group cursor-pointer transition-all duration-300 hover:shadow-lg hover:-translate-y-1 overflow-hidden">
-                      <CardContent className="p-0">
-                        <div className="aspect-square relative overflow-hidden">
-                          <img
-                            src={region.image}
-                            alt={region.title}
-                            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                          />
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-                          <Badge variant="secondary" className="absolute top-3 left-3 text-xs">{region.badge}</Badge>
-                        </div>
-                        <div className="p-4">
-                          <h3 className="text-lg font-semibold text-foreground mb-1" data-testid={`text-region-${region.title.toLowerCase().replace(/\s/g, '-')}`}>
-                            {region.title}
-                          </h3>
-                          <p className="text-sm text-muted-foreground">{region.description}</p>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </Link>
-                </AnimatedCard>
-              ))}
+              {recentGalleryItems.length > 0 ? (
+                recentGalleryItems.map((item, index) => (
+                  <AnimatedCard key={item.id} index={index}>
+                    <Link href="/gallery">
+                      <Card className="group cursor-pointer transition-all duration-300 hover:shadow-lg hover:-translate-y-1 overflow-hidden h-full">
+                        <CardContent className="p-0">
+                          <div className="aspect-square relative overflow-hidden">
+                            <img
+                              src={item.imageUrl}
+                              alt={item.title}
+                              className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                            />
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                            <Badge variant="secondary" className="absolute top-3 left-3 text-xs uppercase">{item.category}</Badge>
+                          </div>
+                          <div className="p-4">
+                            <h3 className="text-lg font-semibold text-foreground mb-1">
+                              {item.title}
+                            </h3>
+                            {item.description && (
+                              <p className="text-sm text-muted-foreground line-clamp-2">{item.description}</p>
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </Link>
+                  </AnimatedCard>
+                ))
+              ) : (
+                // Elegant loading state / empty state
+                Array.from({ length: 3 }).map((_, i) => (
+                  <Card key={i} className="aspect-square bg-muted/20 animate-pulse rounded-3xl border-dashed border-2 flex items-center justify-center">
+                    <p className="text-muted-foreground font-medium italic">Gallery Item Coming Soon</p>
+                  </Card>
+                ))
+              )}
             </div>
           </div>
         </section>
@@ -413,50 +388,24 @@ export default function Home() {
             <div className="grid lg:grid-cols-2 gap-12 items-center">
               <div className="order-2 lg:order-1">
                 <div className="grid grid-cols-2 gap-4">
-                  <Card className="aspect-square overflow-hidden relative group">
-                    <img
-                      src={heartImg}
-                      alt="Cadaveric Dissection"
-                      className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
-                    <div className="absolute bottom-0 left-0 right-0 p-3">
-                      <p className="text-sm font-medium text-white">Thorax Dissection</p>
-                    </div>
-                  </Card>
-                  <Card className="aspect-square overflow-hidden relative group">
-                    <img
-                      src={armImg}
-                      alt="Upper Limb Dissection"
-                      className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
-                    <div className="absolute bottom-0 left-0 right-0 p-3">
-                      <p className="text-sm font-medium text-white">Upper Limb</p>
-                    </div>
-                  </Card>
-                  <Card className="aspect-square overflow-hidden relative group">
-                    <img
-                      src={legImg}
-                      alt="Lower Limb Dissection"
-                      className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
-                    <div className="absolute bottom-0 left-0 right-0 p-3">
-                      <p className="text-sm font-medium text-white">Lower Limb</p>
-                    </div>
-                  </Card>
-                  <Card className="aspect-square overflow-hidden relative group">
-                    <img
-                      src={skullImg}
-                      alt="Head & Neck Dissection"
-                      className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
-                    <div className="absolute bottom-0 left-0 right-0 p-3">
-                      <p className="text-sm font-medium text-white">Head & Neck</p>
-                    </div>
-                  </Card>
+                  {(galleryItems.length >= 4 ? galleryItems.slice(0, 4).map(item => ({ title: item.title, imageUrl: item.imageUrl })) : [
+                    { title: "Thorax Dissection", imageUrl: heartImg },
+                    { title: "Upper Limb", imageUrl: armImg },
+                    { title: "Lower Limb", imageUrl: legImg },
+                    { title: "Head & Neck", imageUrl: skullImg }
+                  ]).map((item, i) => (
+                    <Card key={i} className="aspect-square overflow-hidden relative group">
+                      <img
+                        src={item.imageUrl}
+                        alt={item.title}
+                        className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
+                      <div className="absolute bottom-0 left-0 right-0 p-3">
+                        <p className="text-sm font-medium text-white">{item.title}</p>
+                      </div>
+                    </Card>
+                  ))}
                 </div>
               </div>
               <AnimatedSection className="order-1 lg:order-2">

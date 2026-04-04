@@ -112,7 +112,7 @@ export default function About() {
                 <div className="relative aspect-[4/5] rounded-3xl overflow-hidden shadow-2xl bg-muted group">
                   <div className="absolute inset-0 flex items-center justify-center text-muted-foreground group-hover:scale-105 transition-transform duration-500">
                     <Avatar className="w-full h-full rounded-none">
-                      <AvatarImage src="" alt="CEO/MD" className="object-cover" />
+                      <AvatarImage src="/founder.jpeg" alt="CEO/MD" className="object-cover" />
                       <AvatarFallback className="rounded-none bg-primary/5 text-primary text-2xl font-semibold px-8 text-center italic">
                         "MedVR is the frontier of Anatomy"
                       </AvatarFallback>
