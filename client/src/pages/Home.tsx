@@ -125,64 +125,56 @@ export default function Home() {
     queryKey: ["/api/gallery"],
   });
 
-  const regions = [
+  const regionDefinitions = [
     { 
       title: "Upper Limb", 
       description: "Shoulder, Arm, Elbow, Forearm, Hand", 
-      image: galleryItems.find(item => 
-        item.title.toLowerCase().includes("upper limb") || 
-        item.title.toLowerCase().includes("arm")
-      )?.imageUrl || armImg, 
-      badge: "REGION" 
+      keywords: ["upper limb", "arm", "hand", "shoulder", "brachial", "radial", "ulnar", "wrist"]
     },
     { 
       title: "Lower Limb", 
       description: "Hip, Thigh, Knee, Leg, Ankle, Foot", 
-      image: galleryItems.find(item => 
-        item.title.toLowerCase().includes("lower limb") || 
-        item.title.toLowerCase().includes("leg")
-      )?.imageUrl || legImg, 
-      badge: "REGION" 
+      keywords: ["lower limb", "leg", "foot", "hip", "thigh", "knee", "femur", "tibia", "ankle"]
     },
     { 
       title: "Head & Neck", 
       description: "Skull, Face, Neck, Cranial Nerves", 
-      image: galleryItems.find(item => 
-        item.title.toLowerCase().includes("head") || 
-        item.title.toLowerCase().includes("neck") ||
-        item.title.toLowerCase().includes("skull")
-      )?.imageUrl || skullImg, 
-      badge: "REGION" 
+      keywords: ["head", "neck", "skull", "brain", "face", "eye", "ear", "mouth", "cerebral", "cervical"]
     },
     { 
       title: "Thorax", 
       description: "Heart, Lungs, Mediastinum, Ribcage", 
-      image: galleryItems.find(item => 
-        item.title.toLowerCase().includes("thorax") || 
-        item.title.toLowerCase().includes("chest") ||
-        item.title.toLowerCase().includes("heart")
-      )?.imageUrl || heartImg, 
-      badge: "REGION" 
+      keywords: ["thorax", "chest", "heart", "lung", "rib", "sternum", "cardiac", "pulmonary", "mediastinum"]
     },
     { 
       title: "Abdomen", 
       description: "Digestive Tract, Liver, Kidneys, Spleen", 
-      image: galleryItems.find(item => 
-        item.title.toLowerCase().includes("abdomen") || 
-        item.title.toLowerCase().includes("stomach")
-      )?.imageUrl || spineImg, 
-      badge: "REGION" 
+      keywords: ["abdomen", "stomach", "liver", "kidney", "spleen", "intestine", "gut", "digestive", "pancreas"]
     },
     { 
       title: "Pelvis", 
       description: "Reproductive Organs, Bladder, Perineum", 
-      image: galleryItems.find(item => 
-        item.title.toLowerCase().includes("pelvis") || 
-        item.title.toLowerCase().includes("hip")
-      )?.imageUrl || pelvisImg, 
-      badge: "REGION" 
+      keywords: ["pelvis", "reproductive", "bladder", "genital", "perineum", "hip", "sacrum", "prostate", "uterus"]
     },
   ];
+
+  const defaultImages = [armImg, legImg, skullImg, heartImg, spineImg, pelvisImg];
+
+  const regions = regionDefinitions.map((def, idx) => {
+    // 1. Try to find a precise match by keywords
+    const match = galleryItems.find(item => 
+      def.keywords.some(k => item.title.toLowerCase().includes(k)) ||
+      def.keywords.some(k => item.description?.toLowerCase().includes(k))
+    );
+
+    return {
+      title: def.title,
+      description: def.description,
+      // 2. Fallback to match, then to unique gallery item by index, then to stock image
+      image: match?.imageUrl || galleryItems[idx]?.imageUrl || defaultImages[idx],
+      badge: "REGION"
+    };
+  });
 
   const backgroundImages = [heroAnatomyImg, brainImg, heartImg, skullImg, armImg, spineImg, pelvisImg, legImg, eyeImg];
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
