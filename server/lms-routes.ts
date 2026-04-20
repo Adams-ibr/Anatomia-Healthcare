@@ -2,6 +2,7 @@ import { Router, Request, Response } from "express";
 import { lmsStorage, logAuditAction } from "./lms-storage";
 import { generateCertificatePDF, generateCertificateNumber } from "./certificate-generator";
 import { isAuthenticated, isMemberAuthenticated, requireActiveMembership, isContentAdmin, isSuperAdmin } from "./auth";
+import { importService } from "./import-service";
 import {
   insertCourseSchema,
   insertCourseCategorySchema,
@@ -1801,6 +1802,131 @@ adminRouter.delete("/members/:id", async (req: Request, res: Response) => {
     res.json({ message: "Member deleted successfully" });
   } catch (error) {
     res.status(500).json({ message: "Failed to delete member" });
+  }
+});
+
+// ============ IMPORT ROUTES (Requirements 1.1, 1.2, 10.x) ============
+
+// Task 3.1: POST /api/lms/admin/quizzes/:quizId/import-questions
+// Requirements: 1.1, 1.2, 10.1, 10.7, 10.8
+adminRouter.post("/quizzes/:quizId/import-questions", async (req: Request, res: Response) => {
+  try {
+    const { questionIds } = req.body;
+    if (!Array.isArray(questionIds) || questionIds.some((id) => typeof id !== "string")) {
+      return res.status(400).json({ message: "questionIds must be an array of strings" });
+    }
+
+    const quiz = await lmsStorage.getQuizById(req.params.quizId);
+    if (!quiz) {
+      return res.status(404).json({ message: "Quiz not found" });
+    }
+
+    const result = await importService.importQuestionsToQuiz(req.params.quizId, questionIds);
+    return res.status(201).json(result);
+  } catch (err: any) {
+    if (err?.status === 422 && err?.invalidIds) {
+      return res.status(422).json({ message: err.message, invalidIds: err.invalidIds });
+    }
+    return res.status(500).json({ message: "Failed to import questions" });
+  }
+});
+
+// Task 3.2: POST /api/lms/admin/courses/:courseId/import-flashcard-decks
+// Requirements: 1.1, 1.2, 10.2, 10.7, 10.8
+adminRouter.post("/courses/:courseId/import-flashcard-decks", async (req: Request, res: Response) => {
+  try {
+    const { deckIds, moduleId } = req.body;
+    if (!Array.isArray(deckIds) || deckIds.some((id) => typeof id !== "string")) {
+      return res.status(400).json({ message: "deckIds must be an array of strings" });
+    }
+    if (moduleId !== undefined && typeof moduleId !== "string") {
+      return res.status(400).json({ message: "moduleId must be a string if provided" });
+    }
+
+    const course = await lmsStorage.getCourseById(req.params.courseId);
+    if (!course) {
+      return res.status(404).json({ message: "Course not found" });
+    }
+
+    const result = await importService.importFlashcardDecksToTarget(req.params.courseId, deckIds, moduleId);
+    return res.status(201).json(result);
+  } catch (err: any) {
+    if (err?.status === 422 && err?.invalidIds) {
+      return res.status(422).json({ message: err.message, invalidIds: err.invalidIds });
+    }
+    return res.status(500).json({ message: "Failed to import flashcard decks" });
+  }
+});
+
+// Task 3.3: POST /api/lms/admin/flashcard-decks/:deckId/import-flashcards
+// Requirements: 1.1, 1.2, 10.3, 10.7, 10.8
+adminRouter.post("/flashcard-decks/:deckId/import-flashcards", async (req: Request, res: Response) => {
+  try {
+    const { flashcardIds } = req.body;
+    if (!Array.isArray(flashcardIds) || flashcardIds.some((id) => typeof id !== "string")) {
+      return res.status(400).json({ message: "flashcardIds must be an array of strings" });
+    }
+
+    const deck = await lmsStorage.getFlashcardDeckById(req.params.deckId);
+    if (!deck) {
+      return res.status(404).json({ message: "Flashcard deck not found" });
+    }
+
+    const result = await importService.importFlashcardsToDecks(req.params.deckId, flashcardIds);
+    return res.status(201).json(result);
+  } catch (err: any) {
+    if (err?.status === 422 && err?.invalidIds) {
+      return res.status(422).json({ message: err.message, invalidIds: err.invalidIds });
+    }
+    return res.status(500).json({ message: "Failed to import flashcards" });
+  }
+});
+
+// Task 3.4: POST /api/lms/admin/lessons/:lessonId/import-3d-models
+// Requirements: 1.1, 1.2, 10.4, 10.6, 10.7, 10.8
+adminRouter.post("/lessons/:lessonId/import-3d-models", async (req: Request, res: Response) => {
+  try {
+    const { modelIds } = req.body;
+    if (!Array.isArray(modelIds) || modelIds.some((id) => typeof id !== "string")) {
+      return res.status(400).json({ message: "modelIds must be an array of strings" });
+    }
+
+    const lesson = await lmsStorage.getLessonById(req.params.lessonId);
+    if (!lesson) {
+      return res.status(404).json({ message: "Lesson not found" });
+    }
+
+    const result = await importService.importModelsToLesson(req.params.lessonId, modelIds);
+    return res.status(201).json(result);
+  } catch (err: any) {
+    if (err?.status === 422 && err?.invalidIds) {
+      return res.status(422).json({ message: err.message, invalidIds: err.invalidIds });
+    }
+    return res.status(500).json({ message: "Failed to import 3D models to lesson" });
+  }
+});
+
+// Task 3.5: POST /api/lms/admin/modules/:moduleId/import-3d-models
+// Requirements: 1.1, 1.2, 10.5, 10.6, 10.7, 10.8
+adminRouter.post("/modules/:moduleId/import-3d-models", async (req: Request, res: Response) => {
+  try {
+    const { modelIds } = req.body;
+    if (!Array.isArray(modelIds) || modelIds.some((id) => typeof id !== "string")) {
+      return res.status(400).json({ message: "modelIds must be an array of strings" });
+    }
+
+    const module = await lmsStorage.getModuleById(req.params.moduleId);
+    if (!module) {
+      return res.status(404).json({ message: "Module not found" });
+    }
+
+    const result = await importService.importModelsToModule(req.params.moduleId, modelIds);
+    return res.status(201).json(result);
+  } catch (err: any) {
+    if (err?.status === 422 && err?.invalidIds) {
+      return res.status(422).json({ message: err.message, invalidIds: err.invalidIds });
+    }
+    return res.status(500).json({ message: "Failed to import 3D models to module" });
   }
 });
 

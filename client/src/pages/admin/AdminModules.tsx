@@ -24,11 +24,15 @@ import {
   ArrowLeft,
   FileText,
   GripVertical,
-  Layers
+  Layers,
+  Download,
+  Box
 } from "lucide-react";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { ImportBrowserDialog } from "@/components/admin/ImportBrowserDialog";
+import type { ImportContentType } from "@/components/admin/ImportBrowserDialog";
 import type { Course, CourseModule } from "@shared/schema";
 
 export default function AdminModules() {
@@ -36,6 +40,9 @@ export default function AdminModules() {
   const { toast } = useToast();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingModule, setEditingModule] = useState<CourseModule | null>(null);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [importContentType, setImportContentType] = useState<ImportContentType>("flashcard-decks");
+  const [importTargetModuleId, setImportTargetModuleId] = useState<string | undefined>();
   const [formData, setFormData] = useState({
     title: "",
     description: "",
@@ -248,6 +255,30 @@ export default function AdminModules() {
                     )}
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      data-testid={`button-import-flashcard-decks-${module.id}`}
+                      onClick={() => {
+                        setImportContentType("flashcard-decks");
+                        setImportTargetModuleId(module.id);
+                        setImportDialogOpen(true);
+                      }}
+                    >
+                      <Download className="w-4 h-4 mr-1" /> Import Flashcard Decks
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      data-testid={`button-import-3d-models-${module.id}`}
+                      onClick={() => {
+                        setImportContentType("3d-models");
+                        setImportTargetModuleId(module.id);
+                        setImportDialogOpen(true);
+                      }}
+                    >
+                      <Box className="w-4 h-4 mr-1" /> Import 3D Models
+                    </Button>
                     <Link href={`/admin/modules/${module.id}/lessons`}>
                       <Button variant="outline" size="sm" data-testid={`button-lessons-${module.id}`}>
                         <FileText className="w-4 h-4 mr-1" /> Lessons
@@ -293,6 +324,14 @@ export default function AdminModules() {
           </CardContent>
         </Card>
       )}
+
+      <ImportBrowserDialog
+        open={importDialogOpen}
+        onOpenChange={setImportDialogOpen}
+        contentType={importContentType}
+        targetCourseId={courseId}
+        targetModuleId={importTargetModuleId}
+      />
     </AdminLayout>
   );
 }

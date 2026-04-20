@@ -33,12 +33,149 @@ import {
   Video,
   File,
   GripVertical,
-  Clock
+  Clock,
+  ChevronDown,
+  ChevronRight,
+  Download,
+  BookOpen,
+  Layers3,
 } from "lucide-react";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import type { Lesson } from "@shared/schema";
+import { ImportBrowserDialog } from "@/components/admin/ImportBrowserDialog";
+import type { Lesson, CourseModule, Quiz } from "@shared/schema";
+
+// ─── Import dialog state type ─────────────────────────────────────────────────
+
+type ImportDialogState = {
+  open: boolean;
+  contentType: "questions" | "flashcard-decks" | "3d-models";
+  targetQuizId?: string;
+  targetCourseId?: string;
+  targetLessonId?: string;
+};
+
+const CLOSED_IMPORT: ImportDialogState = {
+  open: false,
+  contentType: "questions",
+};
+
+// ─── Per-lesson expandable section ───────────────────────────────────────────
+
+function LessonImportSection({
+  lesson,
+  courseId,
+  onOpenImport,
+}: {
+  lesson: Lesson;
+  courseId: string | undefined;
+  onOpenImport: (state: Omit<ImportDialogState, "open">) => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+
+  // Fetch quizzes linked to this lesson
+  const { data: quizzes = [] } = useQuery<Quiz[]>({
+    queryKey: [`/api/lms/admin/lessons/${lesson.id}/quizzes`],
+    enabled: expanded,
+  });
+
+  return (
+    <div className="border-t mt-3 pt-3">
+      <button
+        type="button"
+        className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
+        onClick={() => setExpanded((v) => !v)}
+        data-testid={`button-expand-import-${lesson.id}`}
+      >
+        {expanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+        Import Content
+      </button>
+
+      {expanded && (
+        <div className="mt-3 space-y-4 pl-1">
+          {/* Quiz editor section — import questions */}
+          <div>
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
+              Quiz Questions
+            </p>
+            {quizzes.length === 0 ? (
+              <p className="text-xs text-muted-foreground">No quizzes linked to this lesson.</p>
+            ) : (
+              <div className="space-y-1">
+                {quizzes.map((quiz) => (
+                  <div key={quiz.id} className="flex items-center justify-between gap-2 text-sm">
+                    <span className="truncate">{quiz.title}</span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex-shrink-0"
+                      onClick={() =>
+                        onOpenImport({
+                          contentType: "questions",
+                          targetQuizId: quiz.id,
+                        })
+                      }
+                      data-testid={`button-import-questions-${quiz.id}`}
+                    >
+                      <Download className="w-3 h-3 mr-1" />
+                      Import from Question Bank
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Flashcard section — import flashcard decks */}
+          <div>
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
+              Flashcard Decks
+            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                onOpenImport({
+                  contentType: "flashcard-decks",
+                  targetCourseId: courseId,
+                  targetLessonId: lesson.id,
+                })
+              }
+              data-testid={`button-import-flashcards-${lesson.id}`}
+            >
+              <BookOpen className="w-3 h-3 mr-1" />
+              Import Flashcard Decks
+            </Button>
+          </div>
+
+          {/* 3D models section — import anatomy models */}
+          <div>
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
+              3D Models
+            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                onOpenImport({
+                  contentType: "3d-models",
+                  targetLessonId: lesson.id,
+                })
+              }
+              data-testid={`button-import-3d-models-${lesson.id}`}
+            >
+              <Layers3 className="w-3 h-3 mr-1" />
+              Import 3D Models
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function AdminLessons() {
   const { moduleId } = useParams<{ moduleId: string }>();
@@ -55,6 +192,14 @@ export default function AdminLessons() {
     order: 0,
     isFree: false,
     isPublished: true,
+  });
+
+  // Import dialog state
+  const [importDialog, setImportDialog] = useState<ImportDialogState>(CLOSED_IMPORT);
+
+  const { data: module } = useQuery<CourseModule>({
+    queryKey: [`/api/lms/admin/modules/${moduleId}`],
+    enabled: !!moduleId,
   });
 
   const { data: lessons, isLoading } = useQuery<Lesson[]>({
@@ -157,6 +302,12 @@ export default function AdminLessons() {
         return <File className="w-4 h-4" />;
     }
   };
+
+  const openImport = (state: Omit<ImportDialogState, "open">) => {
+    setImportDialog({ open: true, ...state });
+  };
+
+  const courseId = module?.courseId;
 
   return (
     <AdminLayout title="Module Lessons">
@@ -347,6 +498,13 @@ export default function AdminLessons() {
                         </span>
                       )}
                     </div>
+
+                    {/* Import controls per lesson */}
+                    <LessonImportSection
+                      lesson={lesson}
+                      courseId={courseId}
+                      onOpenImport={openImport}
+                    />
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
                     <Button
@@ -389,6 +547,16 @@ export default function AdminLessons() {
           </CardContent>
         </Card>
       )}
+
+      {/* Import Browser Dialog */}
+      <ImportBrowserDialog
+        open={importDialog.open}
+        onOpenChange={(open) => setImportDialog((prev) => ({ ...prev, open }))}
+        contentType={importDialog.contentType}
+        targetQuizId={importDialog.targetQuizId}
+        targetCourseId={importDialog.targetCourseId}
+        targetLessonId={importDialog.targetLessonId}
+      />
     </AdminLayout>
   );
 }

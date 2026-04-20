@@ -515,6 +515,24 @@ export const insertAnatomyModelSchema = createInsertSchema(anatomyModels).omit({
 export type InsertAnatomyModel = z.infer<typeof insertAnatomyModelSchema>;
 export type AnatomyModel = typeof anatomyModels.$inferSelect;
 
+// Lesson Anatomy Models (join table linking anatomy models to lessons or modules)
+export const lessonAnatomyModels = pgTable("lesson_anatomy_models", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  lessonId: varchar("lesson_id").references(() => lessons.id, { onDelete: "cascade" }),
+  moduleId: varchar("module_id").references(() => courseModules.id, { onDelete: "cascade" }),
+  modelId: varchar("model_id").notNull().references(() => anatomyModels.id, { onDelete: "cascade" }),
+  order: integer("order").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertLessonAnatomyModelSchema = createInsertSchema(lessonAnatomyModels).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type LessonAnatomyModel = typeof lessonAnatomyModels.$inferSelect;
+export type InsertLessonAnatomyModel = typeof lessonAnatomyModels.$inferInsert;
+
 // Payment Transactions
 export const paymentTransactions = pgTable("payment_transactions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
