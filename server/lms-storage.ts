@@ -1022,9 +1022,12 @@ export class LmsStorage implements ILmsStorage {
   }
 
   async createQuestionTopic(topic: InsertQuestionTopic): Promise<QuestionTopic> {
+    const slug = (topic as any).slug ||
+      topic.name.toLowerCase().trim().replace(/\s+/g, "-").replace(/[^\w-]+/g, "").replace(/--+/g, "-") +
+      "-" + Date.now();
     const { data, error } = await supabase
       .from("question_topics")
-      .insert(toSnakeCase(topic))
+      .insert(toSnakeCase({ ...topic, slug }))
       .select("id, name, slug, description, parentId:parent_id, order, createdAt:created_at")
       .single();
 

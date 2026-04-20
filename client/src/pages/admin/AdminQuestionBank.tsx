@@ -817,6 +817,9 @@ export default function AdminQuestionBank() {
           <DialogContent>
             <DialogHeader>
               <DialogTitle>{editingTopic ? "Edit Topic" : "Add New Topic"}</DialogTitle>
+              <DialogDescription>
+                {editingTopic ? "Update the details for this topic." : "Create a new topic to organize your questions."}
+              </DialogDescription>
             </DialogHeader>
             <Form {...topicForm}>
               <form onSubmit={topicForm.handleSubmit(onTopicSubmit)} className="space-y-4">
