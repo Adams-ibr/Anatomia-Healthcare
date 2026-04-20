@@ -48,6 +48,7 @@ const menuItems = [
   { title: "Articles", icon: FileText, href: "/admin/articles", group: "Content" },
   { title: "Team", icon: Users, href: "/admin/team", group: "Content" },
   { title: "Gallery", icon: ImageIcon, href: "/admin/gallery", group: "Content" },
+  { title: "Partners", icon: Building2, href: "/admin/partners", group: "Content" },
   { title: "Products", icon: Package, href: "/admin/products", group: "Content" },
   { title: "FAQ", icon: HelpCircle, href: "/admin/faq", group: "Content" },
   { title: "Careers", icon: Briefcase, href: "/admin/careers", group: "Content" },

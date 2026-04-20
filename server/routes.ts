@@ -19,7 +19,8 @@ import {
   insertFaqItemSchema,
   insertCareerSchema,
   insertDepartmentSchema,
-  insertWaitlistSchema
+  insertWaitlistSchema,
+  insertPartnerSchema
 } from "../shared/schema";
 import { setupSession, registerAuthRoutes, registerMemberRoutes, isAuthenticated, isMemberAuthenticated } from "./auth";
 import lmsRoutes from "./lms-routes";
@@ -1013,6 +1014,106 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error fetching departments:", error);
       res.status(500).json({ error: "Failed to fetch departments" });
+    }
+  });
+
+  // Public partners endpoint
+  app.get("/api/partners", async (req, res) => {
+    try {
+      const { data: activePartners, error } = await supabase
+        .from("partners")
+        .select(`
+          id, name, logoUrl:logo_url, websiteUrl:website_url, order, 
+          isActive:is_active, createdAt:created_at, updatedAt:updated_at
+        `)
+        .eq("is_active", true)
+        .order("order", { ascending: true });
+
+      if (error) throw error;
+      res.json(activePartners);
+    } catch (error) {
+      console.error("Error fetching partners:", error);
+      res.status(500).json({ error: "Failed to fetch partners" });
+    }
+  });
+
+  // Admin partners endpoints
+  app.get("/api/admin/partners", isAuthenticated, async (req, res) => {
+    try {
+      const { data: allPartners, error } = await supabase
+        .from("partners")
+        .select(`
+          id, name, logoUrl:logo_url, websiteUrl:website_url, order, 
+          isActive:is_active, createdAt:created_at, updatedAt:updated_at
+        `)
+        .order("order", { ascending: true });
+
+      if (error) throw error;
+      res.json(allPartners);
+    } catch (error) {
+      console.error("Error fetching admin partners:", error);
+      res.status(500).json({ error: "Failed to fetch admin partners" });
+    }
+  });
+
+  app.post("/api/admin/partners", isAuthenticated, async (req, res) => {
+    try {
+      const result = insertPartnerSchema.safeParse(req.body);
+      if (!result.success) {
+        return res.status(400).json({ error: "Invalid partner data", details: result.error.issues });
+      }
+      const { data: partner, error } = await supabase
+        .from("partners")
+        .insert(toSnakeCase(result.data))
+        .select(`
+          id, name, logoUrl:logo_url, websiteUrl:website_url, order, 
+          isActive:is_active, createdAt:created_at, updatedAt:updated_at
+        `)
+        .single();
+
+      if (error) {
+        console.error("Supabase error creating partner:", error);
+        return res.status(500).json({ error: "Failed to create partner", details: error });
+      }
+      res.status(201).json(partner);
+    } catch (error) {
+      console.error("Unexpected error creating partner:", error);
+      res.status(500).json({ error: "An unexpected error occurred" });
+    }
+  });
+
+  app.patch("/api/admin/partners/:id", isAuthenticated, async (req, res) => {
+    try {
+      const { id, createdAt, ...updateData } = req.body;
+      const { data: partner, error } = await supabase
+        .from("partners")
+        .update(toSnakeCase(updateData))
+        .eq("id", req.params.id)
+        .select(`
+          id, name, logoUrl:logo_url, websiteUrl:website_url, order, 
+          isActive:is_active, createdAt:created_at, updatedAt:updated_at
+        `)
+        .single();
+
+      if (error) {
+        console.error("Supabase error updating partner:", error);
+        return res.status(500).json({ error: "Failed to update partner", details: error });
+      }
+      res.json(partner);
+    } catch (error) {
+      console.error("Unexpected error updating partner:", error);
+      res.status(500).json({ error: "An unexpected error occurred" });
+    }
+  });
+
+  app.delete("/api/admin/partners/:id", isAuthenticated, async (req, res) => {
+    try {
+      const { error } = await supabase.from("partners").delete().eq("id", req.params.id);
+      if (error) throw error;
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting partner:", error);
+      res.status(500).json({ error: "Failed to delete partner" });
     }
   });
 

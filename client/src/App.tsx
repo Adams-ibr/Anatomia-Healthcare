@@ -40,6 +40,7 @@ import AdminQuestionBank from "@/pages/admin/AdminQuestionBank";
 import AdminFlashcards from "@/pages/admin/AdminFlashcards";
 import AdminAnatomyModels from "@/pages/admin/AdminAnatomyModels";
 import AdminGallery from "@/pages/admin/AdminGallery";
+import AdminPartners from "@/pages/admin/AdminPartners";
 import AdminMembers from "@/pages/admin/AdminMembers";
 import AdminUsers from "@/pages/admin/AdminUsers";
 import AdminUserManagement from "@/pages/admin/AdminUserManagement";
@@ -130,6 +131,7 @@ function Router() {
       <Route path="/admin/flashcards" component={AdminFlashcards} />
       <Route path="/admin/anatomy-models" component={AdminAnatomyModels} />
       <Route path="/admin/gallery" component={AdminGallery} />
+      <Route path="/admin/partners" component={AdminPartners} />
       <Route path="/admin/members" component={AdminMembers} />
       <Route path="/admin/users" component={AdminUsers} />
       <Route path="/admin/user-management" component={AdminUserManagement} />
