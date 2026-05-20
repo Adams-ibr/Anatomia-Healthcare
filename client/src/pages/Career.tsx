@@ -2,6 +2,7 @@ import { Link } from "wouter";
 import { motion, useReducedMotion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import type { Career as CareerType } from "@shared/schema";
+import { useState } from "react";
 import { Layout } from "@/components/layout/Layout";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -64,43 +65,25 @@ const benefits = [
   },
 ];
 
-const openings = [
-  {
-    title: "Senior Medical Illustrator",
-    location: "Remote",
-    type: "Full-time",
-    department: "Creative"
-  },
-  {
-    title: "Full Stack Developer",
-    location: "London, UK",
-    type: "Full-time",
-    department: "Engineering"
-  },
-  {
-    title: "Content Editor - Anatomy",
-    location: "New York, USA",
-    type: "Contract",
-    department: "Editorial"
-  },
-  {
-    title: "3D Generalist",
-    location: "Remote",
-    type: "Full-time",
-    department: "Creative"
-  },
-];
+
 
 export default function Career() {
   const prefersReducedMotion = useReducedMotion();
   const valuesRef = useInViewAnimation({ threshold: 0.1 });
   const openingsRef = useInViewAnimation({ threshold: 0.1 });
 
+  const [searchQuery, setSearchQuery] = useState("");
+
   const { data: fetchedJobs, isLoading } = useQuery<CareerType[]>({
     queryKey: ["/api/careers"],
   });
 
   const activeJobs = fetchedJobs?.filter(job => job.isActive) || [];
+
+  const displayedJobs = activeJobs.filter(job => 
+    job.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+    job.department.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   return (
     <Layout>
@@ -234,17 +217,23 @@ export default function Career() {
               </div>
               <div className="relative w-full md:w-64">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input placeholder="Search roles..." className="pl-9" data-testid="input-search-roles" />
+                <Input 
+                  placeholder="Search roles..." 
+                  className="pl-9" 
+                  data-testid="input-search-roles" 
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
               </div>
             </motion.div>
 
             <div className="space-y-4">
               {isLoading ? (
                 <div className="text-center py-8 text-muted-foreground">Loading open positions...</div>
-              ) : activeJobs.length === 0 ? (
+              ) : displayedJobs.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">No open positions currently available.</div>
               ) : (
-                activeJobs.map((job, index) => (
+                displayedJobs.map((job, index) => (
                   <motion.div key={job.id} variants={fadeInUp} custom={index}>
                     <Card className="hover:shadow-md transition-shadow">
                       <CardContent className="p-6">
