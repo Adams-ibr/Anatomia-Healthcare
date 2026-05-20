@@ -247,3 +247,30 @@ export const insertPartnerSchema = createInsertSchema(partners).omit({
 
 export type InsertPartner = z.infer<typeof insertPartnerSchema>;
 export type Partner = typeof partners.$inferSelect;
+
+// Job Applications
+export const jobApplications = pgTable("job_applications", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  jobId: varchar("job_id").notNull(),
+  name: text("name").notNull(),
+  email: text("email").notNull(),
+  phone: text("phone").notNull(),
+  location: text("location").notNull(),
+  experience: integer("experience").notNull(),
+  startDate: text("start_date").notNull(),
+  portfolioUrl: text("portfolio_url"),
+  coverLetter: text("cover_letter").notNull(),
+  resumeUrl: text("resume_url"), // Will store placeholder until bucket is set up
+  status: text("status").default("pending"), // pending, reviewed, rejected, accepted
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertJobApplicationSchema = createInsertSchema(jobApplications).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertJobApplication = z.infer<typeof insertJobApplicationSchema>;
+export type JobApplication = typeof jobApplications.$inferSelect;

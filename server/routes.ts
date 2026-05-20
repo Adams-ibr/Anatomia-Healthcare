@@ -20,7 +20,9 @@ import {
   insertCareerSchema,
   insertDepartmentSchema,
   insertWaitlistSchema,
-  insertPartnerSchema
+  insertPartnerSchema,
+  jobApplications,
+  insertJobApplicationSchema
 } from "../shared/schema";
 import { setupSession, registerAuthRoutes, registerMemberRoutes, isAuthenticated, isMemberAuthenticated } from "./auth";
 import lmsRoutes from "./lms-routes";
@@ -373,6 +375,29 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error fetching careers:", error);
       res.status(500).json({ error: "Failed to fetch careers" });
+    }
+  });
+
+  app.post("/api/applications", async (req, res) => {
+    try {
+      const result = insertJobApplicationSchema.safeParse(req.body);
+      if (!result.success) {
+        return res.status(400).json({ error: "Invalid application data", details: result.error.issues });
+      }
+      const { data: application, error } = await supabase
+        .from("job_applications")
+        .insert(toSnakeCase(result.data))
+        .select()
+        .single();
+
+      if (error) {
+        console.error("Supabase error creating application:", error);
+        return res.status(500).json({ error: "Failed to submit application", details: error });
+      }
+      res.status(201).json(application);
+    } catch (error) {
+      console.error("Unexpected error submitting application:", error);
+      res.status(500).json({ error: "An unexpected error occurred" });
     }
   });
 
@@ -876,6 +901,49 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error deleting career:", error);
       res.status(500).json({ error: "Failed to delete career" });
+    }
+  });
+
+  // Admin Applications CRUD
+  app.get("/api/admin/applications", isAuthenticated, async (req, res) => {
+    try {
+      // We want to fetch applications along with the job title, but we can just fetch applications and careers separately or use a join if we had Drizzle relations. Since it's Supabase, we can query both.
+      const { data: allApplications, error } = await supabase
+        .from("job_applications")
+        .select(`*, careers(title)`) // Supabase join if foreign key is configured, else we might get error if it's not. Wait, we don't have FK set up in Supabase if we just use Drizzle schema without running migrations or if we haven't configured foreign keys. Let's just fetch applications and we can fetch jobs separately on frontend or join here manually if it fails. Let's try to just fetch applications first.
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        // Fallback if foreign key join fails
+        const { data: fallbackData, fallbackError } = await supabase.from("job_applications").select("*").order("created_at", { ascending: false });
+        if (fallbackError) throw fallbackError;
+        return res.json(fallbackData);
+      }
+      res.json(allApplications);
+    } catch (error) {
+      console.error("Error fetching applications:", error);
+      res.status(500).json({ error: "Failed to fetch applications" });
+    }
+  });
+
+  app.patch("/api/admin/applications/:id/status", isAuthenticated, async (req, res) => {
+    try {
+      const { status } = req.body;
+      const { data: application, error } = await supabase
+        .from("job_applications")
+        .update({ status, updated_at: new Date() })
+        .eq("id", req.params.id)
+        .select()
+        .single();
+
+      if (error) {
+        console.error("Supabase error updating application:", error);
+        return res.status(500).json({ error: "Failed to update application", details: error });
+      }
+      res.json(application);
+    } catch (error) {
+      console.error("Unexpected error updating application:", error);
+      res.status(500).json({ error: "An unexpected error occurred" });
     }
   });
 

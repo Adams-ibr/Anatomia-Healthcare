@@ -29,6 +29,7 @@ import AdminTeam from "@/pages/admin/AdminTeam";
 import AdminProducts from "@/pages/admin/AdminProducts";
 import AdminFaq from "@/pages/admin/AdminFaq";
 import AdminCareers from "@/pages/admin/AdminCareers";
+import AdminApplications from "@/pages/admin/AdminApplications";
 import AdminDepartments from "@/pages/admin/AdminDepartments";
 import AdminContacts from "@/pages/admin/AdminContacts";
 import AdminNewsletter from "@/pages/admin/AdminNewsletter";
@@ -120,6 +121,7 @@ function Router() {
       <Route path="/admin/products" component={AdminProducts} />
       <Route path="/admin/faq" component={AdminFaq} />
       <Route path="/admin/careers" component={AdminCareers} />
+      <Route path="/admin/applications" component={AdminApplications} />
       <Route path="/admin/departments" component={AdminDepartments} />
       <Route path="/admin/contacts" component={AdminContacts} />
       <Route path="/admin/newsletter" component={AdminNewsletter} />

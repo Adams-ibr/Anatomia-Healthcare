@@ -1,8 +1,9 @@
 import { Link } from "wouter";
 import { motion, useReducedMotion } from "framer-motion";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import type { Career as CareerType } from "@shared/schema";
 import { useState } from "react";
+import { apiRequest } from "@/lib/queryClient";
 import { Layout } from "@/components/layout/Layout";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -78,15 +79,45 @@ export default function Career() {
   
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
-  const [applyingJobId, setApplyingJobId] = useState<number | null>(null);
+  const [applyingJobId, setApplyingJobId] = useState<string | null>(null);
 
-  const handleApply = (e: React.FormEvent) => {
+  const applyMutation = useMutation({
+    mutationFn: (data: any) => apiRequest("POST", "/api/applications", data),
+    onSuccess: () => {
+      toast({
+        title: "Application Submitted",
+        description: "Thank you for applying! We'll review your application and get back to you soon.",
+      });
+      setApplyingJobId(null);
+    },
+    onError: () => {
+      toast({
+        title: "Submission Failed",
+        description: "There was an error submitting your application. Please try again.",
+        variant: "destructive",
+      });
+    }
+  });
+
+  const handleApply = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    toast({
-      title: "Application Submitted",
-      description: "Thank you for applying! We'll review your application and get back to you soon.",
-    });
-    setApplyingJobId(null);
+    if (!applyingJobId) return;
+
+    const formData = new FormData(e.currentTarget);
+    const data = {
+      jobId: applyingJobId,
+      name: formData.get("name") as string,
+      email: formData.get("email") as string,
+      phone: formData.get("phone") as string,
+      location: formData.get("location") as string,
+      experience: parseInt(formData.get("experience") as string) || 0,
+      startDate: formData.get("startDate") as string,
+      portfolioUrl: formData.get("portfolio") as string,
+      coverLetter: formData.get("coverLetter") as string,
+      resumeUrl: "Pending Upload System", // Mock for now
+    };
+
+    applyMutation.mutate(data);
   };
 
   const { data: fetchedJobs, isLoading } = useQuery<CareerType[]>({
@@ -95,10 +126,11 @@ export default function Career() {
 
   const activeJobs = fetchedJobs?.filter(job => job.isActive) || [];
 
-  const displayedJobs = activeJobs.filter(job => 
-    job.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
-    job.department.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const displayedJobs = activeJobs.filter(job => {
+    const titleMatch = (job.title || "").toLowerCase().includes(searchQuery.toLowerCase());
+    const deptMatch = (job.department || "").toLowerCase().includes(searchQuery.toLowerCase());
+    return titleMatch || deptMatch;
+  });
 
   return (
     <Layout>
@@ -254,7 +286,7 @@ export default function Career() {
                       <CardContent className="p-6">
                         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                           <div>
-                            <h3 className="text-lg font-semibold text-foreground mb-2" data-testid={`text-job-${job.title.toLowerCase().replace(/\s/g, '-')}`}>
+                            <h3 className="text-lg font-semibold text-foreground mb-2" data-testid={`text-job-${(job.title || '').toLowerCase().replace(/\s/g, '-')}`}>
                               {job.title}
                             </h3>
                             <div className="flex flex-wrap gap-2">
@@ -275,7 +307,7 @@ export default function Career() {
                           <Button 
                             variant="outline" 
                             className="shrink-0" 
-                            data-testid={`button-apply-${job.title.toLowerCase().replace(/\s/g, '-')}`}
+                            data-testid={`button-apply-${(job.title || '').toLowerCase().replace(/\s/g, '-')}`}
                             onClick={() => setApplyingJobId(job.id)}
                           >
                             Apply Now
@@ -300,55 +332,57 @@ export default function Career() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="name">Full Name</Label>
-                      <Input id="name" required placeholder="Jane Doe" />
+                      <Input id="name" name="name" required placeholder="Jane Doe" disabled={applyMutation.isPending} />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="email">Email Address</Label>
-                      <Input id="email" type="email" required placeholder="jane@example.com" />
+                      <Input id="email" name="email" type="email" required placeholder="jane@example.com" disabled={applyMutation.isPending} />
                     </div>
                   </div>
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="phone">Phone Number</Label>
-                      <Input id="phone" type="tel" required placeholder="+1 (555) 000-0000" />
+                      <Input id="phone" name="phone" type="tel" required placeholder="+1 (555) 000-0000" disabled={applyMutation.isPending} />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="location">Current Location</Label>
-                      <Input id="location" required placeholder="City, Country" />
+                      <Input id="location" name="location" required placeholder="City, Country" disabled={applyMutation.isPending} />
                     </div>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="experience">Years of Experience</Label>
-                      <Input id="experience" type="number" min="0" required placeholder="e.g. 5" />
+                      <Input id="experience" name="experience" type="number" min="0" required placeholder="e.g. 5" disabled={applyMutation.isPending} />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="startDate">Available Start Date</Label>
-                      <Input id="startDate" type="date" required />
+                      <Input id="startDate" name="startDate" type="date" required disabled={applyMutation.isPending} />
                     </div>
                   </div>
 
                   <div className="space-y-2">
                     <Label htmlFor="resume">Resume / CV</Label>
-                    <Input id="resume" type="file" accept=".pdf,.doc,.docx" required className="cursor-pointer" />
+                    <Input id="resume" name="resume" type="file" accept=".pdf,.doc,.docx" required className="cursor-pointer" disabled={applyMutation.isPending} />
                     <p className="text-xs text-muted-foreground">Accepted formats: PDF, DOC, DOCX (Max 5MB)</p>
                   </div>
 
                   <div className="space-y-2">
                     <Label htmlFor="portfolio">Portfolio / LinkedIn URL (Optional)</Label>
-                    <Input id="portfolio" type="url" placeholder="https://..." />
+                    <Input id="portfolio" name="portfolio" type="url" placeholder="https://..." disabled={applyMutation.isPending} />
                   </div>
 
                   <div className="space-y-2">
                     <Label htmlFor="coverLetter">Cover Letter</Label>
-                    <Textarea id="coverLetter" required placeholder="Tell us why you're a great fit for this role and what excites you about Anatomia..." className="min-h-[120px]" />
+                    <Textarea id="coverLetter" name="coverLetter" required placeholder="Tell us why you're a great fit for this role and what excites you about Anatomia..." className="min-h-[120px]" disabled={applyMutation.isPending} />
                   </div>
 
                   <div className="flex justify-end gap-2 pt-4 border-t">
-                    <Button type="button" variant="outline" onClick={() => setApplyingJobId(null)}>Cancel</Button>
-                    <Button type="submit">Submit Application</Button>
+                    <Button type="button" variant="outline" onClick={() => setApplyingJobId(null)} disabled={applyMutation.isPending}>Cancel</Button>
+                    <Button type="submit" disabled={applyMutation.isPending}>
+                      {applyMutation.isPending ? "Submitting..." : "Submit Application"}
+                    </Button>
                   </div>
                 </form>
               </DialogContent>
