@@ -1,5 +1,7 @@
 import { Link } from "wouter";
 import { motion, useReducedMotion } from "framer-motion";
+import { useQuery } from "@tanstack/react-query";
+import type { Career as CareerType } from "@shared/schema";
 import { Layout } from "@/components/layout/Layout";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -93,6 +95,12 @@ export default function Career() {
   const prefersReducedMotion = useReducedMotion();
   const valuesRef = useInViewAnimation({ threshold: 0.1 });
   const openingsRef = useInViewAnimation({ threshold: 0.1 });
+
+  const { data: fetchedJobs, isLoading } = useQuery<CareerType[]>({
+    queryKey: ["/api/careers"],
+  });
+
+  const activeJobs = fetchedJobs?.filter(job => job.isActive) || [];
 
   return (
     <Layout>
@@ -231,38 +239,44 @@ export default function Career() {
             </motion.div>
 
             <div className="space-y-4">
-              {openings.map((job, index) => (
-                <motion.div key={job.title} variants={fadeInUp} custom={index}>
-                  <Card className="hover:shadow-md transition-shadow">
-                    <CardContent className="p-6">
-                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                        <div>
-                          <h3 className="text-lg font-semibold text-foreground mb-2" data-testid={`text-job-${job.title.toLowerCase().replace(/\s/g, '-')}`}>
-                            {job.title}
-                          </h3>
-                          <div className="flex flex-wrap gap-2">
-                            <Badge variant="outline" className="gap-1">
-                              <MapPin className="w-3 h-3" />
-                              {job.location}
-                            </Badge>
-                            <Badge variant="outline" className="gap-1">
-                              <Clock className="w-3 h-3" />
-                              {job.type}
-                            </Badge>
-                            <Badge variant="outline" className="gap-1">
-                              <Briefcase className="w-3 h-3" />
-                              {job.department}
-                            </Badge>
+              {isLoading ? (
+                <div className="text-center py-8 text-muted-foreground">Loading open positions...</div>
+              ) : activeJobs.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">No open positions currently available.</div>
+              ) : (
+                activeJobs.map((job, index) => (
+                  <motion.div key={job.id} variants={fadeInUp} custom={index}>
+                    <Card className="hover:shadow-md transition-shadow">
+                      <CardContent className="p-6">
+                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                          <div>
+                            <h3 className="text-lg font-semibold text-foreground mb-2" data-testid={`text-job-${job.title.toLowerCase().replace(/\s/g, '-')}`}>
+                              {job.title}
+                            </h3>
+                            <div className="flex flex-wrap gap-2">
+                              <Badge variant="outline" className="gap-1">
+                                <MapPin className="w-3 h-3" />
+                                {job.location}
+                              </Badge>
+                              <Badge variant="outline" className="gap-1">
+                                <Clock className="w-3 h-3" />
+                                {job.type}
+                              </Badge>
+                              <Badge variant="outline" className="gap-1">
+                                <Briefcase className="w-3 h-3" />
+                                {job.department}
+                              </Badge>
+                            </div>
                           </div>
+                          <Button variant="outline" className="shrink-0" data-testid={`button-apply-${job.title.toLowerCase().replace(/\s/g, '-')}`}>
+                            Apply Now
+                          </Button>
                         </div>
-                        <Button variant="outline" className="shrink-0" data-testid={`button-apply-${job.title.toLowerCase().replace(/\s/g, '-')}`}>
-                          Apply Now
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </motion.div>
-              ))}
+                      </CardContent>
+                    </Card>
+                  </motion.div>
+                ))
+              )}
             </div>
 
             <motion.div className="text-center mt-8" variants={fadeInUp}>
