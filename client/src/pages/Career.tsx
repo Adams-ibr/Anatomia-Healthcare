@@ -289,31 +289,64 @@ export default function Career() {
             </div>
 
             <Dialog open={applyingJobId !== null} onOpenChange={(open) => !open && setApplyingJobId(null)}>
-              <DialogContent className="sm:max-w-[500px]">
+              <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle>Application Form</DialogTitle>
                   <DialogDescription>
-                    Please provide your details to apply for this position.
+                    Please provide your details to apply for this position. All fields are required unless marked as optional.
                   </DialogDescription>
                 </DialogHeader>
-                <form onSubmit={handleApply} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="name">Full Name</Label>
-                    <Input id="name" required placeholder="Jane Doe" />
+                <form onSubmit={handleApply} className="space-y-5">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="name">Full Name</Label>
+                      <Input id="name" required placeholder="Jane Doe" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="email">Email Address</Label>
+                      <Input id="email" type="email" required placeholder="jane@example.com" />
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="email">Email Address</Label>
-                    <Input id="email" type="email" required placeholder="jane@example.com" />
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="phone">Phone Number</Label>
+                      <Input id="phone" type="tel" required placeholder="+1 (555) 000-0000" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="location">Current Location</Label>
+                      <Input id="location" required placeholder="City, Country" />
+                    </div>
                   </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="experience">Years of Experience</Label>
+                      <Input id="experience" type="number" min="0" required placeholder="e.g. 5" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="startDate">Available Start Date</Label>
+                      <Input id="startDate" type="date" required />
+                    </div>
+                  </div>
+
                   <div className="space-y-2">
-                    <Label htmlFor="portfolio">Portfolio/LinkedIn URL</Label>
+                    <Label htmlFor="resume">Resume / CV</Label>
+                    <Input id="resume" type="file" accept=".pdf,.doc,.docx" required className="cursor-pointer" />
+                    <p className="text-xs text-muted-foreground">Accepted formats: PDF, DOC, DOCX (Max 5MB)</p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="portfolio">Portfolio / LinkedIn URL (Optional)</Label>
                     <Input id="portfolio" type="url" placeholder="https://..." />
                   </div>
+
                   <div className="space-y-2">
                     <Label htmlFor="coverLetter">Cover Letter</Label>
-                    <Textarea id="coverLetter" required placeholder="Tell us why you're a great fit..." className="min-h-[100px]" />
+                    <Textarea id="coverLetter" required placeholder="Tell us why you're a great fit for this role and what excites you about Anatomia..." className="min-h-[120px]" />
                   </div>
-                  <div className="flex justify-end gap-2 pt-4">
+
+                  <div className="flex justify-end gap-2 pt-4 border-t">
                     <Button type="button" variant="outline" onClick={() => setApplyingJobId(null)}>Cancel</Button>
                     <Button type="submit">Submit Application</Button>
                   </div>
