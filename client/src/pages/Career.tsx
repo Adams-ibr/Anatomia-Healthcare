@@ -8,6 +8,10 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/hooks/use-toast";
 import { PageTransition } from "@/components/PageTransition";
 import { AnimatedSection, StaggerContainer, AnimatedItem } from "@/components/AnimatedSection";
 import { fadeInUp, staggerContainer } from "@/lib/motion";
@@ -71,8 +75,19 @@ export default function Career() {
   const prefersReducedMotion = useReducedMotion();
   const valuesRef = useInViewAnimation({ threshold: 0.1 });
   const openingsRef = useInViewAnimation({ threshold: 0.1 });
-
+  
+  const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
+  const [applyingJobId, setApplyingJobId] = useState<number | null>(null);
+
+  const handleApply = (e: React.FormEvent) => {
+    e.preventDefault();
+    toast({
+      title: "Application Submitted",
+      description: "Thank you for applying! We'll review your application and get back to you soon.",
+    });
+    setApplyingJobId(null);
+  };
 
   const { data: fetchedJobs, isLoading } = useQuery<CareerType[]>({
     queryKey: ["/api/careers"],
@@ -257,7 +272,12 @@ export default function Career() {
                               </Badge>
                             </div>
                           </div>
-                          <Button variant="outline" className="shrink-0" data-testid={`button-apply-${job.title.toLowerCase().replace(/\s/g, '-')}`}>
+                          <Button 
+                            variant="outline" 
+                            className="shrink-0" 
+                            data-testid={`button-apply-${job.title.toLowerCase().replace(/\s/g, '-')}`}
+                            onClick={() => setApplyingJobId(job.id)}
+                          >
                             Apply Now
                           </Button>
                         </div>
@@ -267,6 +287,39 @@ export default function Career() {
                 ))
               )}
             </div>
+
+            <Dialog open={applyingJobId !== null} onOpenChange={(open) => !open && setApplyingJobId(null)}>
+              <DialogContent className="sm:max-w-[500px]">
+                <DialogHeader>
+                  <DialogTitle>Application Form</DialogTitle>
+                  <DialogDescription>
+                    Please provide your details to apply for this position.
+                  </DialogDescription>
+                </DialogHeader>
+                <form onSubmit={handleApply} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="name">Full Name</Label>
+                    <Input id="name" required placeholder="Jane Doe" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="email">Email Address</Label>
+                    <Input id="email" type="email" required placeholder="jane@example.com" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="portfolio">Portfolio/LinkedIn URL</Label>
+                    <Input id="portfolio" type="url" placeholder="https://..." />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="coverLetter">Cover Letter</Label>
+                    <Textarea id="coverLetter" required placeholder="Tell us why you're a great fit..." className="min-h-[100px]" />
+                  </div>
+                  <div className="flex justify-end gap-2 pt-4">
+                    <Button type="button" variant="outline" onClick={() => setApplyingJobId(null)}>Cancel</Button>
+                    <Button type="submit">Submit Application</Button>
+                  </div>
+                </form>
+              </DialogContent>
+            </Dialog>
 
             <motion.div className="text-center mt-8" variants={fadeInUp}>
               <Link href="/careers">
