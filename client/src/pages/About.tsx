@@ -298,7 +298,11 @@ export default function About() {
                   A diverse group of doctors, illustrators, and developers passionate about education.
                 </p>
               </div>
-
+              <Link href="/careers">
+                <Button variant="ghost" className="gap-2 hidden md:flex" data-testid="link-view-all-members">
+                  View all members <ArrowRight className="w-4 h-4" />
+                </Button>
+              </Link>
             </motion.div>
 
             <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">

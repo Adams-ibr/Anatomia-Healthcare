@@ -13,7 +13,7 @@ import TeamMember from "@/pages/TeamMember";
 import Blog from "@/pages/Blog";
 import SingleBlog from "@/pages/SingleBlog";
 import Gallery from "@/pages/Gallery";
-
+import Career from "@/pages/Career";
 import Contact from "@/pages/Contact";
 import FAQ from "@/pages/FAQ";
 import Services from "@/pages/Services";
@@ -107,7 +107,7 @@ function Router() {
       <Route path="/blog" component={Blog} />
       <Route path="/blog/:slug" component={SingleBlog} />
       <Route path="/gallery" component={Gallery} />
-
+      <Route path="/careers" component={Career} />
       <Route path="/contact" component={Contact} />
       <Route path="/faq" component={FAQ} />
       <Route path="/services" component={Services} />
