@@ -170,17 +170,23 @@ export default function AdminApplications() {
   const stats = applications ? computeSummaryStats(applications) : null;
   const allSelected = applications && applications.length > 0 && selectedIds.length === applications.length;
 
+  // Sentinel value for "no filter selected" — shadcn Select forbids value=""
+  const ALL = "__all__";
+
   return (
     <AdminLayout title="Job Applications">
       {/* Filter controls */}
       <div className="flex flex-wrap gap-3 mb-4">
         {/* Job filter */}
-        <Select value={jobId} onValueChange={setJobId}>
+        <Select
+          value={jobId || ALL}
+          onValueChange={(v) => setJobId(v === ALL ? "" : v)}
+        >
           <SelectTrigger className="w-48" aria-label="Filter by job">
             <SelectValue placeholder="All jobs" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">All jobs</SelectItem>
+            <SelectItem value={ALL}>All jobs</SelectItem>
             {careers?.map((career) => (
               <SelectItem key={career.id} value={career.id}>
                 {career.title}
@@ -190,12 +196,15 @@ export default function AdminApplications() {
         </Select>
 
         {/* Status filter */}
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
+        <Select
+          value={statusFilter || ALL}
+          onValueChange={(v) => setStatusFilter(v === ALL ? "" : v)}
+        >
           <SelectTrigger className="w-40" aria-label="Filter by status">
             <SelectValue placeholder="All statuses" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">All statuses</SelectItem>
+            <SelectItem value={ALL}>All statuses</SelectItem>
             <SelectItem value="pending">Pending</SelectItem>
             <SelectItem value="reviewed">Reviewed</SelectItem>
             <SelectItem value="accepted">Accepted</SelectItem>
