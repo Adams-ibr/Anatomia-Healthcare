@@ -1,6 +1,6 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
-import { supabase, toSnakeCase } from "./db";
+import { supabase, toSnakeCase, db } from "./db";
 import { eq, desc, sql } from "drizzle-orm";
 import {
   contactMessages,
@@ -384,20 +384,14 @@ export async function registerRoutes(
       if (!result.success) {
         return res.status(400).json({ error: "Invalid application data", details: result.error.issues });
       }
-      const { data: application, error } = await supabase
-        .from("job_applications")
-        .insert(toSnakeCase(result.data))
-        .select()
-        .single();
 
-      if (error) {
-        console.error("Supabase error creating application:", error);
-        return res.status(500).json({ error: "Failed to submit application", details: error });
-      }
+      // Use drizzle db directly for better error handling and native camelCase mapping
+      const [application] = await db.insert(jobApplications).values(result.data).returning();
+
       res.status(201).json(application);
     } catch (error) {
       console.error("Unexpected error submitting application:", error);
-      res.status(500).json({ error: "An unexpected error occurred" });
+      res.status(500).json({ error: "Failed to submit application", details: error instanceof Error ? error.message : String(error) });
     }
   });
 

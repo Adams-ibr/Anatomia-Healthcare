@@ -14,7 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { PageTransition } from "@/components/PageTransition";
-import { AnimatedSection, StaggerContainer, AnimatedItem } from "@/components/AnimatedSection";
+import { AnimatedSection } from "@/components/AnimatedSection";
 import { fadeInUp, staggerContainer } from "@/lib/motion";
 import { useInViewAnimation } from "@/hooks/use-in-view-animation";
 import {
@@ -82,7 +82,7 @@ export default function Career() {
   const [applyingJobId, setApplyingJobId] = useState<string | null>(null);
 
   const applyMutation = useMutation({
-    mutationFn: (data: any) => apiRequest("POST", "/api/applications", data),
+    mutationFn: (data: Record<string, unknown>) => apiRequest("POST", "/api/applications", data),
     onSuccess: () => {
       toast({
         title: "Application Submitted",
@@ -389,10 +389,8 @@ export default function Career() {
             </Dialog>
 
             <motion.div className="text-center mt-8" variants={fadeInUp}>
-              <Link href="/careers">
-                <a className={buttonVariants({ variant: "link", className: "gap-2" })} data-testid="link-archived-positions">
-                  View archived positions <ChevronRight className="w-4 h-4" />
-                </a>
+              <Link href="/careers" className={buttonVariants({ variant: "link", className: "gap-2" })} data-testid="link-archived-positions">
+                View archived positions <ChevronRight className="w-4 h-4" />
               </Link>
             </motion.div>
           </div>
