@@ -385,8 +385,19 @@ export async function registerRoutes(
         return res.status(400).json({ error: "Invalid application data", details: result.error.issues });
       }
 
-      // Use drizzle db directly for better error handling and native camelCase mapping
-      const [application] = await db.insert(jobApplications).values(result.data).returning();
+      const { data: application, error: supabaseError } = await supabase
+        .from("job_applications")
+        .insert(toSnakeCase(result.data))
+        .select()
+        .single();
+
+      if (supabaseError) {
+        console.error("Supabase error creating application:", supabaseError);
+        return res.status(500).json({ 
+          error: "Failed to submit application", 
+          details: supabaseError.message || supabaseError 
+        });
+      }
 
       res.status(201).json(application);
     } catch (error) {
