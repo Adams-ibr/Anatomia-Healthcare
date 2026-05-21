@@ -6,9 +6,9 @@ interface UseInViewAnimationOptions {
   rootMargin?: string;
 }
 
-export function useInViewAnimation(options: UseInViewAnimationOptions = {}) {
+export function useInViewAnimation<T extends HTMLElement = HTMLDivElement>(options: UseInViewAnimationOptions = {}) {
   const { threshold = 0.1, triggerOnce = true, rootMargin = "0px" } = options;
-  const ref = useRef<HTMLDivElement>(null);
+  const ref = useRef<T>(null);
   const [isInView, setIsInView] = useState(false);
 
   useEffect(() => {

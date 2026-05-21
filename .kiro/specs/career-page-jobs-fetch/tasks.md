@@ -26,7 +26,7 @@
   - Mark task complete when tests are written, run, and failure is documented
   - _Requirements: 1.1, 1.2, 1.3_
 
-- [~] 2. Write preservation property tests (BEFORE implementing fix)
+- [ ] 2. Write preservation property tests (BEFORE implementing fix)
   - **Property 2: Preservation** - Static Page Sections Remain Unchanged
   - **IMPORTANT**: Follow observation-first methodology
   - **Test file**: `client/src/pages/__tests__/Career.preservation.test.tsx`
@@ -48,9 +48,9 @@
   - Mark task complete when tests are written, run, and passing on unfixed code
   - _Requirements: 3.1, 3.2, 3.3, 3.4_
 
-- [~] 3. Fix: Replace hardcoded openings array with useQuery API fetch
+- [ ] 3. Fix: Replace hardcoded openings array with useQuery API fetch
 
-  - [~] 3.1 Implement the fix in `client/src/pages/Career.tsx`
+  - [ ] 3.1 Implement the fix in `client/src/pages/Career.tsx`
     - Add `import { useQuery } from "@tanstack/react-query"` to the import block
     - Add `import type { Career } from "@shared/schema"` to the import block
     - Remove the module-level `const openings = [...]` array (lines 62–79)
@@ -72,7 +72,7 @@
     - _Preservation: hero, values, benefits, CTA sections and job card structure (title, location, type, department, Apply Now button) remain unchanged_
     - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 3.1, 3.2, 3.3, 3.4_
 
-  - [~] 3.2 Verify bug condition exploration test now passes
+  - [ ] 3.2 Verify bug condition exploration test now passes
     - **Property 1: Expected Behavior** - Career Page Fetches Real Jobs from API
     - **IMPORTANT**: Re-run the SAME tests from task 1 — do NOT write new tests
     - The tests from task 1 encode the expected behavior: job listings come from `GET /api/careers`, not the hardcoded array
@@ -80,14 +80,14 @@
     - **EXPECTED OUTCOME**: All 4 test cases PASS (confirms bug is fixed)
     - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6_
 
-  - [~] 3.3 Verify preservation tests still pass
+  - [ ] 3.3 Verify preservation tests still pass
     - **Property 2: Preservation** - Static Page Sections Remain Unchanged
     - **IMPORTANT**: Re-run the SAME tests from task 2 — do NOT write new tests
     - Run `npm test` (or `npx vitest --run`) targeting `Career.preservation.test.tsx`
     - **EXPECTED OUTCOME**: All 5 property-based tests PASS (confirms no regressions in static sections)
     - Confirm hero, values, benefits, CTA, and search input all render correctly after the fix
 
-- [~] 4. Checkpoint — Ensure all tests pass
+- [ ] 4. Checkpoint — Ensure all tests pass
   - Run the full test suite: `npx vitest --run`
   - Confirm `Career.bug-condition.test.tsx` — all tests pass (bug is fixed)
   - Confirm `Career.preservation.test.tsx` — all tests pass (no regressions)
