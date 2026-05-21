@@ -378,6 +378,28 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/careers/:id", async (req, res) => {
+    try {
+      const { data: career, error } = await supabase
+        .from("careers")
+        .select(`
+          id, title, department, location, type, description, requirements,
+          isActive:is_active, createdAt:created_at
+        `)
+        .eq("id", req.params.id)
+        .eq("is_active", true)
+        .single();
+
+      if (error || !career) {
+        return res.status(404).json({ error: "Career not found" });
+      }
+      res.json(career);
+    } catch (error) {
+      console.error("Error fetching career:", error);
+      res.status(500).json({ error: "Failed to fetch career" });
+    }
+  });
+
   app.post("/api/applications", async (req, res) => {
     try {
       const result = insertJobApplicationSchema.safeParse(req.body);
@@ -912,15 +934,53 @@ export async function registerRoutes(
   // Admin Applications CRUD
   app.get("/api/admin/applications", isAuthenticated, async (req, res) => {
     try {
-      // We want to fetch applications along with the job title, but we can just fetch applications and careers separately or use a join if we had Drizzle relations. Since it's Supabase, we can query both.
-      const { data: allApplications, error } = await supabase
+      const { jobId, status, sortBy, sortOrder } = req.query as {
+        jobId?: string;
+        status?: string;
+        sortBy?: string;
+        sortOrder?: string;
+      };
+
+      // Validate status if provided
+      const validStatuses = ['pending', 'reviewed', 'accepted', 'rejected'];
+      if (status !== undefined && !validStatuses.includes(status)) {
+        return res.status(400).json({ error: "Invalid status filter", validValues: validStatuses });
+      }
+
+      // Validate sortBy if provided
+      const validSortBy = ['createdAt', 'experience'];
+      if (sortBy !== undefined && !validSortBy.includes(sortBy)) {
+        return res.status(400).json({ error: "Invalid sortBy value", validValues: validSortBy });
+      }
+
+      // Map sortBy param to DB column name; default to created_at
+      const sortColumn = sortBy === 'experience' ? 'experience' : 'created_at';
+      const ascending = sortOrder === 'asc';
+
+      let query = supabase
         .from("job_applications")
-        .select(`*, careers(title)`) // Supabase join if foreign key is configured, else we might get error if it's not. Wait, we don't have FK set up in Supabase if we just use Drizzle schema without running migrations or if we haven't configured foreign keys. Let's just fetch applications and we can fetch jobs separately on frontend or join here manually if it fails. Let's try to just fetch applications first.
-        .order("created_at", { ascending: false });
+        .select(`*, careers(title)`);
+
+      // Apply optional filters
+      if (jobId !== undefined) {
+        query = query.eq('job_id', jobId);
+      }
+      if (status !== undefined) {
+        query = query.eq('status', status);
+      }
+
+      query = query.order(sortColumn, { ascending });
+
+      const { data: allApplications, error } = await query;
 
       if (error) {
-        // Fallback if foreign key join fails
-        const { data: fallbackData, fallbackError } = await supabase.from("job_applications").select("*").order("created_at", { ascending: false });
+        // Fallback if foreign key join fails — retry without the join
+        let fallbackQuery = supabase.from("job_applications").select("*");
+        if (jobId !== undefined) fallbackQuery = fallbackQuery.eq('job_id', jobId);
+        if (status !== undefined) fallbackQuery = fallbackQuery.eq('status', status);
+        fallbackQuery = fallbackQuery.order(sortColumn, { ascending });
+
+        const { data: fallbackData, error: fallbackError } = await fallbackQuery;
         if (fallbackError) throw fallbackError;
         return res.json(fallbackData);
       }
@@ -928,6 +988,61 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error fetching applications:", error);
       res.status(500).json({ error: "Failed to fetch applications" });
+    }
+  });
+
+  // Bulk status update — must be registered BEFORE /:id/status to prevent Express
+  // treating "bulk-status" as an :id parameter value.
+  app.patch("/api/admin/applications/bulk-status", isAuthenticated, async (req, res) => {
+    try {
+      const { ids, status } = req.body;
+
+      // Validate status against allowed enum values
+      const allowedStatuses = ["pending", "reviewed", "accepted", "rejected"];
+      if (!status || !allowedStatuses.includes(status)) {
+        return res.status(400).json({ error: "Invalid status value" });
+      }
+
+      // Validate ids is a non-empty array
+      if (!Array.isArray(ids) || ids.length === 0) {
+        return res.status(400).json({ error: "Invalid request", invalidIds: [] });
+      }
+
+      // Query Supabase for all provided ids to detect any that don't exist
+      const { data: existingApplications, error: fetchError } = await supabase
+        .from("job_applications")
+        .select("id")
+        .in("id", ids);
+
+      if (fetchError) {
+        console.error("Supabase error fetching applications for bulk update:", fetchError);
+        return res.status(500).json({ error: "Failed to validate application IDs", details: fetchError });
+      }
+
+      const foundIds = new Set((existingApplications || []).map((a: { id: string }) => a.id));
+      const invalidIds = ids.filter((id: string) => !foundIds.has(id));
+
+      // If any IDs are not found, return 400 without updating anything
+      if (invalidIds.length > 0) {
+        return res.status(400).json({ error: "Invalid request", invalidIds });
+      }
+
+      // All IDs are valid — run a single UPDATE WHERE id IN (...)
+      const { data: updatedApplications, error: updateError } = await supabase
+        .from("job_applications")
+        .update({ status, updated_at: new Date().toISOString() })
+        .in("id", ids)
+        .select();
+
+      if (updateError) {
+        console.error("Supabase error bulk updating applications:", updateError);
+        return res.status(500).json({ error: "Failed to bulk update applications", details: updateError });
+      }
+
+      res.json({ updated: updatedApplications, failed: [] });
+    } catch (error) {
+      console.error("Unexpected error in bulk status update:", error);
+      res.status(500).json({ error: "An unexpected error occurred" });
     }
   });
 

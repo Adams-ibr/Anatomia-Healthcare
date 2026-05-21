@@ -6,24 +6,97 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { BulkActionToolbar } from "@/components/admin/BulkActionToolbar";
 import { format } from "date-fns";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
-import type { JobApplication, Career } from "@shared/schema";
+import type { Career } from "@shared/schema";
 import { Mail, Phone, MapPin, Briefcase, Calendar, Link as LinkIcon, Download, FileText } from "lucide-react";
+import {
+  type ApplicationWithJob,
+  computeSummaryStats,
+  hasValidResumeUrl,
+  isValidStatus,
+  sortApplications,
+} from "./adminApplicationsUtils";
 
-type ApplicationWithJob = JobApplication & { careers: Pick<Career, "title"> };
+// Re-export for backward compatibility and test imports
+export { computeSummaryStats, hasValidResumeUrl, isValidStatus, sortApplications };
+export type { ApplicationWithJob };
+
+// ---------------------------------------------------------------------------
+// Sort option definitions
+// ---------------------------------------------------------------------------
+
+interface SortOption {
+  label: string;
+  sortBy: "createdAt" | "experience";
+  sortOrder: "asc" | "desc";
+}
+
+const SORT_OPTIONS: SortOption[] = [
+  { label: "Newest first", sortBy: "createdAt", sortOrder: "desc" },
+  { label: "Oldest first", sortBy: "createdAt", sortOrder: "asc" },
+  { label: "Most experience", sortBy: "experience", sortOrder: "desc" },
+  { label: "Least experience", sortBy: "experience", sortOrder: "asc" },
+];
+
+// Encode a SortOption to a single string value for the Select component
+function encodeSortValue(sortBy: string, sortOrder: string): string {
+  return `${sortBy}:${sortOrder}`;
+}
+
+function decodeSortValue(value: string): { sortBy: "createdAt" | "experience"; sortOrder: "asc" | "desc" } {
+  const [sortBy, sortOrder] = value.split(":") as ["createdAt" | "experience", "asc" | "desc"];
+  return { sortBy, sortOrder };
+}
+
+// ---------------------------------------------------------------------------
+// Component
+// ---------------------------------------------------------------------------
 
 export default function AdminApplications() {
   const { toast } = useToast();
   const [selectedApp, setSelectedApp] = useState<ApplicationWithJob | null>(null);
 
+  // Filter state
+  const [jobId, setJobId] = useState<string>("");
+  const [statusFilter, setStatusFilter] = useState<string>("");
+  const [sortValue, setSortValue] = useState<string>(encodeSortValue("createdAt", "desc"));
+
+  // Checkbox selection state
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+
+  const { sortBy, sortOrder } = decodeSortValue(sortValue);
+
+  // Build query params
+  const queryParams: Record<string, string> = {};
+  if (jobId) queryParams.jobId = jobId;
+  if (statusFilter) queryParams.status = statusFilter;
+  queryParams.sortBy = sortBy;
+  queryParams.sortOrder = sortOrder;
+
   const { data: applications, isLoading } = useQuery<ApplicationWithJob[]>({
-    queryKey: ["/api/admin/applications"],
+    queryKey: ["/api/admin/applications", { jobId, status: statusFilter, sortBy, sortOrder }],
+    queryFn: async () => {
+      const params = new URLSearchParams(queryParams).toString();
+      const url = `/api/admin/applications${params ? `?${params}` : ""}`;
+      const res = await apiRequest("GET", url);
+      return res.json();
+    },
+  });
+
+  // Fetch careers for the job filter dropdown
+  const { data: careers } = useQuery<Career[]>({
+    queryKey: ["/api/admin/careers"],
+    queryFn: async () => {
+      const res = await apiRequest("GET", "/api/admin/careers");
+      return res.json();
+    },
   });
 
   const statusMutation = useMutation({
-    mutationFn: ({ id, status }: { id: string; status: string }) => 
+    mutationFn: ({ id, status }: { id: string; status: string }) =>
       apiRequest("PATCH", `/api/admin/applications/${id}/status`, { status }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/applications"] });
@@ -31,6 +104,59 @@ export default function AdminApplications() {
     },
     onError: () => toast({ title: "Failed to update status", variant: "destructive" }),
   });
+
+  const bulkStatusMutation = useMutation({
+    mutationFn: ({ ids, status }: { ids: string[]; status: string }) =>
+      apiRequest("PATCH", "/api/admin/applications/bulk-status", { ids, status }),
+    onSuccess: async (res) => {
+      const data = await res.json();
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/applications"] });
+      setSelectedIds([]);
+      if (data.failed && data.failed.length > 0) {
+        toast({
+          title: "Some updates failed",
+          description: `Failed IDs: ${data.failed.join(", ")}`,
+          variant: "destructive",
+        });
+      } else {
+        toast({ title: "Bulk status updated successfully" });
+      }
+    },
+    onError: async (error: unknown) => {
+      let failedIds: string[] = [];
+      try {
+        if (error instanceof Response) {
+          const data = await error.json();
+          failedIds = data.failed ?? [];
+        }
+      } catch {
+        // ignore parse errors
+      }
+      toast({
+        title: "Bulk update failed",
+        description: failedIds.length > 0 ? `Failed IDs: ${failedIds.join(", ")}` : "An error occurred",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleBulkStatusUpdate = (status: string) => {
+    bulkStatusMutation.mutate({ ids: selectedIds, status });
+  };
+
+  const handleCheckboxChange = (id: string, checked: boolean) => {
+    setSelectedIds((prev) =>
+      checked ? [...prev, id] : prev.filter((existingId) => existingId !== id)
+    );
+  };
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked && applications) {
+      setSelectedIds(applications.map((a) => a.id));
+    } else {
+      setSelectedIds([]);
+    }
+  };
 
   const getStatusColor = (status: string | null) => {
     switch (status) {
@@ -41,44 +167,136 @@ export default function AdminApplications() {
     }
   };
 
+  const stats = applications ? computeSummaryStats(applications) : null;
+  const allSelected = applications && applications.length > 0 && selectedIds.length === applications.length;
+
   return (
     <AdminLayout title="Job Applications">
-      <div className="flex justify-between items-center mb-6">
-        <p className="text-muted-foreground">{applications?.length || 0} total applications</p>
+      {/* Filter controls */}
+      <div className="flex flex-wrap gap-3 mb-4">
+        {/* Job filter */}
+        <Select value={jobId} onValueChange={setJobId}>
+          <SelectTrigger className="w-48" aria-label="Filter by job">
+            <SelectValue placeholder="All jobs" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="">All jobs</SelectItem>
+            {careers?.map((career) => (
+              <SelectItem key={career.id} value={career.id}>
+                {career.title}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        {/* Status filter */}
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="w-40" aria-label="Filter by status">
+            <SelectValue placeholder="All statuses" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="">All statuses</SelectItem>
+            <SelectItem value="pending">Pending</SelectItem>
+            <SelectItem value="reviewed">Reviewed</SelectItem>
+            <SelectItem value="accepted">Accepted</SelectItem>
+            <SelectItem value="rejected">Rejected</SelectItem>
+          </SelectContent>
+        </Select>
+
+        {/* Sort dropdown */}
+        <Select value={sortValue} onValueChange={setSortValue}>
+          <SelectTrigger className="w-48" aria-label="Sort applications">
+            <SelectValue placeholder="Sort by" />
+          </SelectTrigger>
+          <SelectContent>
+            {SORT_OPTIONS.map((opt) => (
+              <SelectItem key={encodeSortValue(opt.sortBy, opt.sortOrder)} value={encodeSortValue(opt.sortBy, opt.sortOrder)}>
+                {opt.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
+
+      {/* Summary stats bar */}
+      {stats && (
+        <div
+          className="flex flex-wrap gap-4 mb-6 p-4 rounded-lg border bg-card/50 text-sm"
+          data-testid="summary-stats"
+        >
+          <span className="font-semibold">Total: {stats.total}</span>
+          <span className="text-yellow-700">Pending: {stats.pending}</span>
+          <span className="text-blue-700">Reviewed: {stats.reviewed}</span>
+          <span className="text-green-700">Accepted: {stats.accepted}</span>
+          <span className="text-red-700">Rejected: {stats.rejected}</span>
+        </div>
+      )}
 
       {isLoading ? (
         <div className="text-center py-8 text-muted-foreground">Loading applications...</div>
       ) : (
         <div className="space-y-4">
+          {/* Select all checkbox header */}
+          {applications && applications.length > 0 && (
+            <div className="flex items-center gap-2 px-2">
+              <input
+                type="checkbox"
+                aria-label="Select all applications"
+                checked={!!allSelected}
+                onChange={(e) => handleSelectAll(e.target.checked)}
+                className="h-4 w-4 cursor-pointer"
+              />
+              <span className="text-sm text-muted-foreground">Select all</span>
+            </div>
+          )}
+
           {applications?.map((app) => (
-            <Card key={app.id} className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => setSelectedApp(app)}>
+            <Card
+              key={app.id}
+              className="hover:shadow-md transition-shadow"
+            >
               <CardContent className="p-4 sm:p-6">
-                <div className="flex flex-col sm:flex-row justify-between gap-4">
-                  <div>
-                    <div className="flex items-center gap-2 mb-2">
-                      <h3 className="font-semibold text-lg">{app.name}</h3>
-                      <Badge variant="outline" className={getStatusColor(app.status)}>
-                        {app.status ? app.status.charAt(0).toUpperCase() + app.status.slice(1) : "Pending"}
-                      </Badge>
+                <div className="flex items-start gap-3">
+                  {/* Checkbox */}
+                  <input
+                    type="checkbox"
+                    aria-label={`Select application from ${app.name}`}
+                    checked={selectedIds.includes(app.id)}
+                    onChange={(e) => handleCheckboxChange(app.id, e.target.checked)}
+                    className="mt-1 h-4 w-4 cursor-pointer flex-shrink-0"
+                    onClick={(e) => e.stopPropagation()}
+                  />
+
+                  {/* Card content */}
+                  <div
+                    className="flex flex-col sm:flex-row justify-between gap-4 flex-1 cursor-pointer"
+                    onClick={() => setSelectedApp(app)}
+                  >
+                    <div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <h3 className="font-semibold text-lg">{app.name}</h3>
+                        <Badge variant="outline" className={getStatusColor(app.status)}>
+                          {app.status ? app.status.charAt(0).toUpperCase() + app.status.slice(1) : "Pending"}
+                        </Badge>
+                      </div>
+                      <p className="font-medium text-primary mb-1">
+                        Applied for: {app.careers?.title || "Unknown Role"}
+                      </p>
+                      <div className="flex items-center gap-4 text-sm text-muted-foreground mt-2">
+                        <span className="flex items-center gap-1"><Mail className="w-3.5 h-3.5" /> {app.email}</span>
+                        <span className="flex items-center gap-1"><MapPin className="w-3.5 h-3.5" /> {app.location}</span>
+                      </div>
                     </div>
-                    <p className="font-medium text-primary mb-1">
-                      Applied for: {app.careers?.title || "Unknown Role"}
-                    </p>
-                    <div className="flex items-center gap-4 text-sm text-muted-foreground mt-2">
-                      <span className="flex items-center gap-1"><Mail className="w-3.5 h-3.5" /> {app.email}</span>
-                      <span className="flex items-center gap-1"><MapPin className="w-3.5 h-3.5" /> {app.location}</span>
+                    <div className="flex flex-col items-end gap-2 text-sm text-muted-foreground">
+                      <span>{app.createdAt ? format(new Date(app.createdAt), "MMM d, yyyy") : "Unknown Date"}</span>
+                      <span className="font-medium text-foreground">{app.experience} yrs exp.</span>
                     </div>
-                  </div>
-                  <div className="flex flex-col items-end gap-2 text-sm text-muted-foreground">
-                    <span>{app.createdAt ? format(new Date(app.createdAt), "MMM d, yyyy") : "Unknown Date"}</span>
-                    <span className="font-medium text-foreground">{app.experience} yrs exp.</span>
                   </div>
                 </div>
               </CardContent>
             </Card>
           ))}
-          
+
           {applications?.length === 0 && (
             <div className="text-center py-12 border rounded-lg bg-card/50">
               <FileText className="w-12 h-12 text-muted-foreground mx-auto mb-4 opacity-50" />
@@ -89,6 +307,14 @@ export default function AdminApplications() {
         </div>
       )}
 
+      {/* Bulk action toolbar */}
+      <BulkActionToolbar
+        selectedIds={selectedIds}
+        onBulkStatusUpdate={handleBulkStatusUpdate}
+        isPending={bulkStatusMutation.isPending}
+      />
+
+      {/* Application detail dialog */}
       <Dialog open={selectedApp !== null} onOpenChange={(open) => !open && setSelectedApp(null)}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           {selectedApp && (
@@ -101,8 +327,8 @@ export default function AdminApplications() {
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-medium">Status:</span>
-                    <Select 
-                      defaultValue={selectedApp.status || "pending"} 
+                    <Select
+                      defaultValue={selectedApp.status || "pending"}
                       onValueChange={(val) => statusMutation.mutate({ id: selectedApp.id, status: val })}
                       disabled={statusMutation.isPending}
                     >
@@ -165,16 +391,33 @@ export default function AdminApplications() {
                       )}
                     </ul>
                   </div>
-                  
+
                   <div>
                     <h4 className="font-semibold mb-3 flex items-center gap-2 border-b pb-2">
                       <Download className="w-4 h-4" /> Documents
                     </h4>
-                    {/* Placeholder since actual file bucket isn't implemented */}
-                    <Button variant="outline" className="w-full justify-start gap-2">
-                      <FileText className="w-4 h-4 text-blue-600" />
-                      View Resume
-                    </Button>
+                    {hasValidResumeUrl(selectedApp.resumeUrl) ? (
+                      <a
+                        href={selectedApp.resumeUrl!}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-2 w-full justify-start rounded-md border px-4 py-2 text-sm font-medium hover:bg-accent transition-colors"
+                        data-testid="resume-link"
+                      >
+                        <FileText className="w-4 h-4 text-blue-600" />
+                        Download Resume
+                      </a>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        className="w-full justify-start gap-2"
+                        disabled
+                        data-testid="resume-disabled-button"
+                      >
+                        <FileText className="w-4 h-4 text-blue-600" />
+                        Download Resume
+                      </Button>
+                    )}
                   </div>
                 </div>
 
