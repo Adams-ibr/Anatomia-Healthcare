@@ -76,7 +76,12 @@ export async function registerRoutes(
         console.log(`[Upload] Bucket '${bucketName}' not found. Attempting to create...`);
         const { error: createError } = await supabase.storage.createBucket(bucketName, {
           public: true,
-          allowedMimeTypes: ["image/*"],
+          allowedMimeTypes: [
+            "image/*",
+            "application/pdf",
+            "application/msword",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+          ],
           fileSizeLimit: 10485760 // 10MB
         });
         if (createError) {
@@ -84,6 +89,18 @@ export async function registerRoutes(
           throw new Error(`Failed to initialize storage bucket: ${createError.message}`);
         }
         console.log(`[Upload] Bucket '${bucketName}' created successfully.`);
+      } else {
+        // Ensure existing bucket allows document uploads (update if needed)
+        await supabase.storage.updateBucket(bucketName, {
+          public: true,
+          allowedMimeTypes: [
+            "image/*",
+            "application/pdf",
+            "application/msword",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+          ],
+          fileSizeLimit: 10485760
+        });
       }
 
       // 2. Generate unique filename
