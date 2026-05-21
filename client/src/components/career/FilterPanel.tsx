@@ -1,12 +1,5 @@
 import type { Career } from "@shared/schema";
 import type { CareerFilters } from "@/lib/careerFilters";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -19,8 +12,6 @@ interface FilterPanelProps {
   matchCount: number;
   isLoading: boolean;
 }
-
-const EMPTY_FILTER = "__all__";
 
 export function FilterPanel({
   careers,
@@ -60,74 +51,44 @@ export function FilterPanel({
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap gap-3 items-center">
-        {/* Department filter */}
-        <Select
-          value={filters.department === "" ? EMPTY_FILTER : filters.department}
-          onValueChange={(val) =>
-            onChange({
-              ...filters,
-              department: val === EMPTY_FILTER ? "" : val,
-            })
-          }
+        {/* Department filter — native select for reliable "All" default */}
+        <select
+          className="h-9 w-40 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+          aria-label="Filter by department"
+          value={filters.department}
+          onChange={(e) => onChange({ ...filters, department: e.target.value })}
         >
-          <SelectTrigger className="w-40" aria-label="Filter by department">
-            <SelectValue placeholder="Department" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={EMPTY_FILTER}>All Departments</SelectItem>
-            {departments.map((dept) => (
-              <SelectItem key={dept} value={dept}>
-                {dept}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+          <option value="">All Departments</option>
+          {departments.map((dept) => (
+            <option key={dept} value={dept}>{dept}</option>
+          ))}
+        </select>
 
         {/* Location filter */}
-        <Select
-          value={filters.location === "" ? EMPTY_FILTER : filters.location}
-          onValueChange={(val) =>
-            onChange({
-              ...filters,
-              location: val === EMPTY_FILTER ? "" : val,
-            })
-          }
+        <select
+          className="h-9 w-40 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+          aria-label="Filter by location"
+          value={filters.location}
+          onChange={(e) => onChange({ ...filters, location: e.target.value })}
         >
-          <SelectTrigger className="w-40" aria-label="Filter by location">
-            <SelectValue placeholder="Location" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={EMPTY_FILTER}>All Locations</SelectItem>
-            {locations.map((loc) => (
-              <SelectItem key={loc} value={loc}>
-                {loc}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+          <option value="">All Locations</option>
+          {locations.map((loc) => (
+            <option key={loc} value={loc}>{loc}</option>
+          ))}
+        </select>
 
         {/* Type filter */}
-        <Select
-          value={filters.type === "" ? EMPTY_FILTER : filters.type}
-          onValueChange={(val) =>
-            onChange({
-              ...filters,
-              type: val === EMPTY_FILTER ? "" : val,
-            })
-          }
+        <select
+          className="h-9 w-40 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+          aria-label="Filter by type"
+          value={filters.type}
+          onChange={(e) => onChange({ ...filters, type: e.target.value })}
         >
-          <SelectTrigger className="w-40" aria-label="Filter by type">
-            <SelectValue placeholder="Type" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={EMPTY_FILTER}>All Types</SelectItem>
-            {types.map((t) => (
-              <SelectItem key={t} value={t}>
-                {t}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+          <option value="">All Types</option>
+          {types.map((t) => (
+            <option key={t} value={t}>{t}</option>
+          ))}
+        </select>
 
         {/* Search input */}
         <Input
