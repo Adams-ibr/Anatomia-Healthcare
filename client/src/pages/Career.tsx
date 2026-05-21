@@ -1,18 +1,13 @@
 import { Link } from "wouter";
 import { motion, useReducedMotion } from "framer-motion";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import type { Career as CareerType } from "@shared/schema";
 import { useState } from "react";
-import { apiRequest, getQueryFn } from "@/lib/queryClient";
+import { getQueryFn } from "@/lib/queryClient";
 import { Layout } from "@/components/layout/Layout";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { useToast } from "@/hooks/use-toast";
 import { PageTransition } from "@/components/PageTransition";
 import { fadeInUp, staggerContainer } from "@/lib/motion";
 import {
@@ -29,25 +24,20 @@ import {
   Clock,
   Briefcase,
   Mail,
-  Search,
   Heart,
   Users,
   ChevronRight
 } from "lucide-react";
+import { FilterPanel } from "@/components/career/FilterPanel";
+import { ApplicationModal } from "@/components/career/ApplicationModal";
+import { filterCareers, type CareerFilters } from "@/lib/careerFilters";
 
-// Types
-interface ApplicationPayload extends Record<string, unknown> {
-  jobId: string;
-  name: string;
-  email: string;
-  phone: string;
-  location: string;
-  experience: number;
-  startDate: string;
-  portfolioUrl?: string;
-  coverLetter: string;
-  resumeUrl: string;
-}
+const EMPTY_FILTERS: CareerFilters = {
+  department: "",
+  location: "",
+  type: "",
+  search: "",
+};
 
 const values = [
   {
@@ -84,49 +74,9 @@ const benefits = [
 
 export default function Career() {
   const prefersReducedMotion = useReducedMotion();
-  const { toast } = useToast();
-  
-  const [searchQuery, setSearchQuery] = useState("");
-  const [applyingJobId, setApplyingJobId] = useState<string | null>(null);
 
-  const applyMutation = useMutation({
-    mutationFn: (data: ApplicationPayload) => apiRequest("POST", "/api/applications", data),
-    onSuccess: () => {
-      toast({
-        title: "Application Submitted",
-        description: "Thank you for applying! We'll review your application and get back to you soon.",
-      });
-      setApplyingJobId(null);
-    },
-    onError: (err) => {
-      toast({
-        title: "Submission Failed",
-        description: err instanceof Error ? err.message : "There was an error submitting your application.",
-        variant: "destructive",
-      });
-    }
-  });
-
-  const handleApply = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    if (!applyingJobId) return;
-
-    const formData = new FormData(e.currentTarget);
-    const data: ApplicationPayload = {
-      jobId: applyingJobId,
-      name: formData.get("name") as string,
-      email: formData.get("email") as string,
-      phone: formData.get("phone") as string,
-      location: formData.get("location") as string,
-      experience: parseInt(formData.get("experience") as string, 10) || 0,
-      startDate: formData.get("startDate") as string,
-      portfolioUrl: (formData.get("portfolio") as string) || undefined,
-      coverLetter: formData.get("coverLetter") as string,
-      resumeUrl: "Pending Upload System", // Mock for now
-    };
-
-    applyMutation.mutate(data);
-  };
+  const [filters, setFilters] = useState<CareerFilters>(EMPTY_FILTERS);
+  const [applyingJob, setApplyingJob] = useState<{ id: string; title: string } | null>(null);
 
   const { data: fetchedJobs, isLoading } = useQuery<CareerType[]>({
     queryKey: ["/api/careers"],
@@ -134,12 +84,13 @@ export default function Career() {
   });
 
   const activeJobs = fetchedJobs?.filter(job => job.isActive) || [];
+  const displayedJobs = filterCareers(activeJobs, filters);
 
-  const displayedJobs = activeJobs.filter(job => {
-    const titleMatch = (job.title || "").toLowerCase().includes(searchQuery.toLowerCase());
-    const deptMatch = (job.department || "").toLowerCase().includes(searchQuery.toLowerCase());
-    return titleMatch || deptMatch;
-  });
+  const hasActiveFilters =
+    filters.department !== "" ||
+    filters.location !== "" ||
+    filters.type !== "" ||
+    filters.search !== "";
 
   const viewportConfig = { once: true, margin: "-50px" };
 
@@ -286,30 +237,38 @@ export default function Career() {
         >
           <div className="max-w-7xl mx-auto px-4 sm:px-6">
             <motion.div
-              className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8"
+              className="mb-6"
               variants={fadeInUp}
             >
-              <div>
-                <h2 className="text-2xl md:text-3xl font-bold text-foreground" data-testid="text-openings-title">
-                  Current Openings
-                </h2>
-                <p className="text-muted-foreground">Join us in shaping the future.</p>
-              </div>
-              <div className="relative w-full md:w-64">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input 
-                  placeholder="Search roles..." 
-                  className="pl-9" 
-                  data-testid="input-search-roles" 
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
-              </div>
+              <h2 className="text-2xl md:text-3xl font-bold text-foreground mb-1" data-testid="text-openings-title">
+                Current Openings
+              </h2>
+              <p className="text-muted-foreground mb-6">Join us in shaping the future.</p>
+
+              {/* Filter Panel */}
+              <FilterPanel
+                careers={activeJobs}
+                filters={filters}
+                onChange={setFilters}
+                matchCount={displayedJobs.length}
+                isLoading={isLoading}
+              />
             </motion.div>
 
             <div className="space-y-4">
               {isLoading ? (
                 <div className="text-center py-8 text-muted-foreground">Loading open positions...</div>
+              ) : displayedJobs.length === 0 && hasActiveFilters ? (
+                <div className="text-center py-8" data-testid="no-filter-results">
+                  <p className="text-muted-foreground mb-4">No positions match your filters.</p>
+                  <Button
+                    variant="outline"
+                    onClick={() => setFilters(EMPTY_FILTERS)}
+                    data-testid="button-clear-filters"
+                  >
+                    Clear filters
+                  </Button>
+                </div>
               ) : displayedJobs.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">No open positions currently available.</div>
               ) : (
@@ -337,14 +296,23 @@ export default function Career() {
                               </Badge>
                             </div>
                           </div>
-                          <Button 
-                            variant="outline" 
-                            className="shrink-0" 
-                            data-testid={`button-apply-${(job.title || '').toLowerCase().replace(/\s/g, '-')}`}
-                            onClick={() => setApplyingJobId(job.id)}
-                          >
-                            Apply Now
-                          </Button>
+                          <div className="flex gap-2 shrink-0">
+                            <Link href={`/careers/${job.id}`}>
+                              <a
+                                className={buttonVariants({ variant: "outline" })}
+                                data-testid={`link-view-details-${job.id}`}
+                              >
+                                View Details
+                              </a>
+                            </Link>
+                            <Button
+                              variant="default"
+                              data-testid={`button-apply-${(job.title || '').toLowerCase().replace(/\s/g, '-')}`}
+                              onClick={() => setApplyingJob({ id: job.id, title: job.title })}
+                            >
+                              Apply Now
+                            </Button>
+                          </div>
                         </div>
                       </CardContent>
                     </Card>
@@ -353,74 +321,15 @@ export default function Career() {
               )}
             </div>
 
-            {/* Application Form Modal */}
-            <Dialog open={applyingJobId !== null} onOpenChange={(open) => !open && setApplyingJobId(null)}>
-              <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
-                <DialogHeader>
-                  <DialogTitle>Application Form</DialogTitle>
-                  <DialogDescription>
-                    Please provide your details to apply for this position. All fields are required unless marked as optional.
-                  </DialogDescription>
-                </DialogHeader>
-                <form onSubmit={handleApply} className="space-y-5">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="name">Full Name</Label>
-                      <Input id="name" name="name" required placeholder="Jane Doe" disabled={applyMutation.isPending} />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="email">Email Address</Label>
-                      <Input id="email" name="email" type="email" required placeholder="jane@example.com" disabled={applyMutation.isPending} />
-                    </div>
-                  </div>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="phone">Phone Number</Label>
-                      <Input id="phone" name="phone" type="tel" required placeholder="+1 (555) 000-0000" disabled={applyMutation.isPending} />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="location">Current Location</Label>
-                      <Input id="location" name="location" required placeholder="City, Country" disabled={applyMutation.isPending} />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="experience">Years of Experience</Label>
-                      <Input id="experience" name="experience" type="number" min="0" required placeholder="e.g. 5" disabled={applyMutation.isPending} />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="startDate">Available Start Date</Label>
-                      <Input id="startDate" name="startDate" type="date" required disabled={applyMutation.isPending} />
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="resume">Resume / CV</Label>
-                    <Input id="resume" name="resume" type="file" accept=".pdf,.doc,.docx" required className="cursor-pointer" disabled={applyMutation.isPending} />
-                    <p className="text-xs text-muted-foreground">Accepted formats: PDF, DOC, DOCX (Max 5MB)</p>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="portfolio">Portfolio / LinkedIn URL (Optional)</Label>
-                    <Input id="portfolio" name="portfolio" type="url" placeholder="https://..." disabled={applyMutation.isPending} />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="coverLetter">Cover Letter</Label>
-                    <Textarea id="coverLetter" name="coverLetter" required placeholder="Tell us why you're a great fit for this role and what excites you about Anatomia..." className="min-h-[120px]" disabled={applyMutation.isPending} />
-                  </div>
-
-                  <div className="flex justify-end gap-2 pt-4 border-t">
-                    <Button type="button" variant="outline" onClick={() => setApplyingJobId(null)} disabled={applyMutation.isPending}>Cancel</Button>
-                    <Button type="submit" disabled={applyMutation.isPending}>
-                      {applyMutation.isPending ? "Submitting..." : "Submit Application"}
-                    </Button>
-                  </div>
-                </form>
-              </DialogContent>
-            </Dialog>
+            {/* Application Modal */}
+            {applyingJob && (
+              <ApplicationModal
+                jobId={applyingJob.id}
+                jobTitle={applyingJob.title}
+                open={applyingJob !== null}
+                onClose={() => setApplyingJob(null)}
+              />
+            )}
 
             <motion.div className="text-center mt-8" variants={fadeInUp}>
               <Link href="/careers">
