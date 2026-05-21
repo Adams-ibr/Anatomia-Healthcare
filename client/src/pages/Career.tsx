@@ -273,7 +273,12 @@ export default function Career() {
                 <div className="text-center py-8 text-muted-foreground">No open positions currently available.</div>
               ) : (
                 displayedJobs.map((job, index) => (
-                  <motion.div key={job.id} variants={fadeInUp} custom={index}>
+                  <motion.div
+                    key={job.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.4, delay: index * 0.08 }}
+                  >
                     <Card className="hover:shadow-md transition-shadow">
                       <CardContent className="p-6">
                         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
