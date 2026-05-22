@@ -13,7 +13,8 @@
             "src": "package.json",
             "use": "@vercel/static-build",
             "config": {
-                "distDir": "dist/public"
+                "distDir": "dist/public",
+                "installCommand": "npm ci"
             }
         }
     ],
