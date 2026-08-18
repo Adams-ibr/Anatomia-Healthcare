@@ -13,6 +13,7 @@ export default function Register() {
   const nav = useNavigate()
   const [params] = useSearchParams()
   const initialRole = params.get('role') === 'instructor' ? 'instructor' : 'student'
+  const next = params.get('next')
   const [role, setRole] = useState<'student' | 'instructor'>(initialRole)
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
@@ -32,7 +33,8 @@ export default function Register() {
     setLoading(false)
     if (!res.ok || !res.user) { setError(res.error ?? t('auth.register.failed')); return }
     toast(t('auth.register.created'), t('auth.register.welcomeBody', { name: res.user.name.split(' ')[0] }))
-    nav(homePath(res.user.role))
+    const target = next && next.startsWith('/') ? next : homePath(res.user.role)
+    nav(target)
   }
 
   return (
