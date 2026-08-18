@@ -178,6 +178,24 @@ create table public.reviews (
 create index reviews_course_idx on public.reviews (course_id);
 
 -- -----------------------------------------------------------------------------
+-- Certificates
+-- -----------------------------------------------------------------------------
+
+create table public.certificates (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references public.profiles (id) on delete cascade,
+  course_id uuid not null references public.courses (id) on delete cascade,
+  instructor_id uuid references public.profiles (id) on delete set null,
+  issued_at timestamptz not null default now(),
+  completion_date timestamptz not null default now(),
+  verification_code text not null unique,
+  unique (user_id, course_id)
+);
+
+create index certificates_user_idx on public.certificates (user_id);
+create index certificates_code_idx on public.certificates (verification_code);
+
+-- -----------------------------------------------------------------------------
 -- Enrollments / progress
 -- -----------------------------------------------------------------------------
 
@@ -269,24 +287,6 @@ create table public.submissions (
 
 create index submissions_assignment_idx on public.submissions (assignment_id);
 create index submissions_user_idx on public.submissions (user_id);
-
--- -----------------------------------------------------------------------------
--- Certificates
--- -----------------------------------------------------------------------------
-
-create table public.certificates (
-  id uuid primary key default gen_random_uuid(),
-  user_id uuid not null references public.profiles (id) on delete cascade,
-  course_id uuid not null references public.courses (id) on delete cascade,
-  instructor_id uuid references public.profiles (id) on delete set null,
-  issued_at timestamptz not null default now(),
-  completion_date timestamptz not null default now(),
-  verification_code text not null unique,
-  unique (user_id, course_id)
-);
-
-create index certificates_user_idx on public.certificates (user_id);
-create index certificates_code_idx on public.certificates (verification_code);
 
 -- -----------------------------------------------------------------------------
 -- Communication
