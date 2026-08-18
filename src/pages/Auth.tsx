@@ -54,7 +54,7 @@ export function ResetPassword() {
   const { t } = useTranslation()
   const nav = useNavigate()
   const [params] = useSearchParams()
-  const token = params.get('token') ?? ''
+  const token = params.get('token') ?? params.get('token_hash') ?? ''
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
   const [error, setError] = useState('')

@@ -58,7 +58,7 @@ function SidebarContent({ nav, role }: { nav: NavItem[]; role: string }) {
   return (
     <div className="flex flex-col gap-5">
       <Link to="/" className="flex items-center px-2">
-        <img src="/logo.png" alt="HamaAcademy" className="h-8 w-auto" />
+        <img src="/logo.png" alt="HamaAcademy" className="h-10 w-auto" />
       </Link>
       <div>
         <p className="px-2 pb-2 text-[11px] font-semibold uppercase tracking-wider text-muted">{t(`nav.${role}Dashboard`)}</p>
