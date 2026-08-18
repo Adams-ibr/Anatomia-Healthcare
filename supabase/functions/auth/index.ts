@@ -79,6 +79,19 @@ async function getProfile(id: string): Promise<ProfileRow | null> {
   return (data as ProfileRow | null) ?? null
 }
 
+// Creates the profile row on demand if it's missing (e.g. signup trigger absent
+// or accounts created before grants were in place). Self-healing for login/me.
+async function ensureProfile(user: { id: string; email?: string }): Promise<{ profile: ProfileRow | null; error?: string }> {
+  const existing = await getProfile(user.id)
+  if (existing) return { profile: existing }
+  const { error } = await supabase.from('profiles').upsert(
+    { id: user.id, name: (user.email?.split('@')[0] ?? 'User') || 'User', email: user.email ?? '', role: 'student' },
+    { onConflict: 'id' }
+  )
+  if (error) return { profile: null, error: error.message }
+  return { profile: await getProfile(user.id) }
+}
+
 function bearerToken(req: Request): string | null {
   const match = /^Bearer\s+(.+)$/i.exec(req.headers.get('authorization') ?? '')
   return match ? match[1] : null
@@ -137,6 +150,12 @@ async function handleRegister(req: Request): Promise<Response> {
     if (roleError) return errorResponse(500, 'Failed to assign role.')
   }
 
+  // Ensure the profile row exists even if the signup trigger isn't installed.
+  const { error: profileError } = await supabase
+    .from('profiles')
+    .upsert({ id: data.user!.id, name: name.trim(), email, role: chosenRole }, { onConflict: 'id' })
+  if (profileError) return errorResponse(500, 'Failed to create profile: ' + profileError.message)
+
   const session = await supabase.auth.signInWithPassword({ email, password })
   if (session.error) return errorResponse(500, 'Account created but login failed. Please sign in.')
 
@@ -156,8 +175,8 @@ async function handleLogin(req: Request): Promise<Response> {
     return errorResponse(401, 'Invalid email or password.')
   }
 
-  const profile = await getProfile(data.user.id)
-  if (!profile) return errorResponse(401, 'No profile found for this account.')
+  const { profile, error: profileErr } = await ensureProfile({ id: data.user.id, email: data.user.email })
+  if (!profile) return errorResponse(401, profileErr ?? 'No profile found for this account.')
   if (!profile.is_active) return errorResponse(403, 'This account has been disabled.')
 
   return json({ user: mapProfile(profile), token: data.session.access_token })
@@ -167,8 +186,8 @@ async function handleMe(req: Request): Promise<Response> {
   const user = await authUser(req)
   if (!user) return errorResponse(401, 'Not authenticated.')
 
-  const profile = await getProfile(user.id)
-  if (!profile) return errorResponse(401, 'No profile found for this account.')
+  const { profile, error: profileErr } = await ensureProfile(user)
+  if (!profile) return errorResponse(401, profileErr ?? 'No profile found for this account.')
 
   return json({ user: mapProfile(profile) })
 }
