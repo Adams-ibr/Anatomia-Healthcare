@@ -9,7 +9,7 @@ export function AuthShell({ title, subtitle, children, footer }: { title: string
     <div className="flex min-h-screen">
       <div className="hidden w-[45%] flex-col justify-between bg-brand-900 p-10 lg:flex">
         <Link to="/" className="flex items-center">
-          <img src="/logo.png" alt="HamaAcademy" className="h-12 w-auto" />
+          <img src="/logo.png" alt="HamaAcademy" className="h-14 w-auto" />
         </Link>
         <div>
           <h2 className="max-w-md font-display text-3xl font-bold leading-snug text-white">
@@ -32,7 +32,7 @@ export function AuthShell({ title, subtitle, children, footer }: { title: string
         </div>
         <div className="w-full max-w-md">
           <div className="mb-8 lg:hidden">
-            <img src="/logo.png" alt="HamaAcademy" className="h-12 w-auto" />
+            <img src="/logo.png" alt="HamaAcademy" className="h-14 w-auto" />
           </div>
           <h1 className="font-display text-2xl font-bold text-ink">{title}</h1>
           <p className="mt-1.5 text-sm text-muted">{subtitle}</p>

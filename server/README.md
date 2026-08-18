@@ -5,6 +5,11 @@ It implements the contract in [`AUTH_API.md`](../AUTH_API.md): `/api/auth/regist
 `login`, `logout`, `me`, `profile`, `change-password`, `account`, `forgot-password`,
 `reset-password`, `verify-email`.
 
+> **Prefer the Supabase Edge Function.** For the current stack (frontend on Vercel,
+> backend on Supabase), deploy [`supabase/functions/auth`](../supabase/functions/auth)
+> and rewrite `/api/auth/*` on Vercel. This folder is the Express equivalent if you'd
+> rather run a standalone Node service.
+
 The Supabase **access token** is returned as the JWT the frontend stores and sends as
 `Authorization: Bearer <token>`.
 

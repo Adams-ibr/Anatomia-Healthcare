@@ -12,7 +12,7 @@ import { EASE } from '../lib/motion'
 function Logo() {
   return (
     <Link to="/" className="flex items-center">
-      <img src="/logo.png" alt="HamaAcademy" className="h-12 w-auto" />
+      <img src="/logo.png" alt="HamaAcademy" className="h-14 w-auto" />
     </Link>
   )
 }
