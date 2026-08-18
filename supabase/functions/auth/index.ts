@@ -286,8 +286,11 @@ Deno.serve(async (req) => {
   }
 
   const url = new URL(req.url)
-  // Strips the function prefix: /functions/v1/auth/register -> /register
-  const path = url.pathname.replace(/^\/functions\/v1\/auth/, '') || '/'
+  // Extract the route segment after the function name, regardless of prefix.
+  // Accepts /functions/v1/auth/register, /auth/register, or /register.
+  const pathname = url.pathname.replace(/\/+$/, '')
+  const idx = pathname.lastIndexOf('/auth')
+  const path = (idx >= 0 ? pathname.slice(idx + '/auth'.length) : pathname) || '/'
   const method = req.method.toUpperCase()
 
   let response: Response
