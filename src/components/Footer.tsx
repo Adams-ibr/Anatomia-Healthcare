@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { Facebook, Instagram, Linkedin, Mail, ShieldCheck, Twitter, Youtube } from 'lucide-react'
+import { Facebook, Instagram, Linkedin, Mail, Twitter, Youtube } from 'lucide-react'
 import { useState } from 'react'
 import { useApp } from '../lib/store'
 
@@ -21,11 +21,8 @@ export function Footer() {
       <div className="container-page py-14">
         <div className="grid gap-10 lg:grid-cols-[1.4fr_2fr]">
           <div>
-            <div className="flex items-center gap-2.5">
-              <div className="flex h-9 w-9 items-center justify-center rounded-card bg-brand-500">
-                <ShieldCheck className="h-5 w-5 text-white" />
-              </div>
-              <p className="font-display text-lg font-bold text-ink">{t('brand.name')}</p>
+            <div className="flex items-center">
+              <img src="/logo.png" alt="HamaAcademy" className="h-9 w-auto" />
             </div>
             <p className="mt-4 max-w-sm text-sm leading-relaxed text-muted">
               {t('footer.tagline')}

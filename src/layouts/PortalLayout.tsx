@@ -4,7 +4,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import {
   AlertTriangle, BarChart3, Bell, BookOpen, Calendar, CheckSquare, ChevronDown,
   ClipboardList, FileText, GraduationCap, Heart, LayoutDashboard, LogOut, Mail,
-  Megaphone, MessageSquare, Package, Palette, ShieldCheck, Settings, ShoppingBag,
+  Megaphone, MessageSquare, Package, Palette, Settings, ShoppingBag,
   Tag, Users, Wallet, X, Home, Search, Trophy, UserCog, DollarSign, Receipt, ChartColumn, PanelLeft
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
@@ -57,14 +57,8 @@ function SidebarContent({ nav, role }: { nav: NavItem[]; role: string }) {
   const { t } = useTranslation()
   return (
     <div className="flex flex-col gap-5">
-      <Link to="/" className="flex items-center gap-2.5 px-2">
-        <div className="flex h-8 w-8 items-center justify-center rounded-card bg-brand-500">
-          <ShieldCheck className="h-4.5 h-5 w-5 text-white" />
-        </div>
-        <div className="leading-tight">
-          <p className="font-display text-[15px] font-bold text-ink">Hama</p>
-          <p className="-mt-1 text-[9px] font-medium uppercase tracking-[0.14em] text-brand-700">Academy</p>
-        </div>
+      <Link to="/" className="flex items-center px-2">
+        <img src="/logo.png" alt="HamaAcademy" className="h-8 w-auto" />
       </Link>
       <div>
         <p className="px-2 pb-2 text-[11px] font-semibold uppercase tracking-wider text-muted">{t(`nav.${role}Dashboard`)}</p>

@@ -1,6 +1,6 @@
 import { useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { Award, CheckCircle2, Download, Link2, QrCode, Share2, ShieldCheck } from 'lucide-react'
+import { Award, CheckCircle2, Download, Link2, QrCode, Share2 } from 'lucide-react'
 import { COURSES } from '../lib/data'
 import { useApp } from '../lib/store'
 import { Button } from '../components/ui'
@@ -42,9 +42,8 @@ export function CertificateDetail() {
         <div className="relative border border-line bg-[#FBF9F3] p-8 sm:p-12">
           <div className="pointer-events-none absolute inset-0 opacity-[0.07]" style={{ backgroundImage: 'repeating-linear-gradient(45deg, #1B4E9B 0 2px, transparent 2px 18px)' }} />
           <div className="relative text-center">
-            <div className="mx-auto flex w-fit items-center gap-2">
-              <div className="flex h-10 w-10 items-center justify-center rounded-card bg-brand-500"><ShieldCheck className="h-6 w-6 text-white" /></div>
-              <p className="font-display text-xl font-bold text-ink">HamaAcademy</p>
+            <div className="mx-auto flex w-fit items-center justify-center">
+              <img src="/logo.png" alt="HamaAcademy" className="h-10 w-auto" />
             </div>
             <p className="mt-8 text-xs font-semibold uppercase tracking-[0.25em] text-muted">{t('cert.ofCompletion')}</p>
             <p className="mt-8 text-sm text-muted">{t('cert.certify')}</p>

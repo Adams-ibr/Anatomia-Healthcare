@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link, NavLink, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { AnimatePresence, motion } from 'framer-motion'
-import { ChevronDown, LogOut, Menu, Search, ShieldCheck, X } from 'lucide-react'
+import { ChevronDown, LogOut, Menu, Search, X } from 'lucide-react'
 import { useApp } from '../lib/store'
 import { Avatar, Button } from './ui'
 import { LanguageSwitcher } from './LanguageSwitcher'
@@ -11,14 +11,8 @@ import { EASE } from '../lib/motion'
 
 function Logo() {
   return (
-    <Link to="/" className="flex items-center gap-2.5">
-      <div className="flex h-9 w-9 items-center justify-center rounded-card bg-brand-500">
-        <ShieldCheck className="h-5 w-5 text-white" />
-      </div>
-      <div className="leading-tight">
-        <p className="font-display text-[17px] font-bold tracking-tight text-ink">Hama</p>
-        <p className="-mt-1 text-[10px] font-medium uppercase tracking-[0.14em] text-brand-700">Academy</p>
-      </div>
+    <Link to="/" className="flex items-center">
+      <img src="/logo.png" alt="HamaAcademy" className="h-9 w-auto" />
     </Link>
   )
 }

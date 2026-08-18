@@ -157,10 +157,7 @@ export function Certificates() {
               <div key={cert.id} className="card overflow-hidden">
                 <div className="relative border-b border-line bg-brand-900 p-6 text-white">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="flex h-8 w-8 items-center justify-center rounded-card bg-brand-500"><Award className="h-4 w-4" /></div>
-                      <p className="font-display text-sm font-semibold">HamaAcademy</p>
-                    </div>
+                    <img src="/logo.png" alt="HamaAcademy" className="h-7 w-auto" />
                     <Badge color="ink">{t('mycert.verified')}</Badge>
                   </div>
                   <div className="mt-8 text-center">
