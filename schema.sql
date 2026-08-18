@@ -526,8 +526,7 @@ create policy "Own wishlist read/write" on public.wishlist for all using (auth.u
 create policy "Own cart read/write" on public.cart_items for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
 -- Instructor-owned content
-create policy "Own courses manage" on public.courses for insert with check (auth.uid() = instructor_id);
-create policy "Own courses manage" on public.courses for update using (auth.uid() = instructor_id);
+create policy "Own courses manage" on public.courses for all using (auth.uid() = instructor_id) with check (auth.uid() = instructor_id);
 
 -- Message participants access
 create policy "Conversation participants read" on public.conversation_participants for select using (auth.uid() = user_id);
