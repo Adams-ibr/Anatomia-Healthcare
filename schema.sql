@@ -6,6 +6,13 @@
 
 create extension if not exists "pgcrypto";
 
+-- Supabase app-role access (subject to RLS). Run this against an existing
+-- database too — new tables won't inherit grants if defaults were altered.
+grant usage on schema public to anon, authenticated, service_role;
+grant all on all tables in schema public to anon, authenticated, service_role;
+grant all on all sequences in schema public to anon, authenticated, service_role;
+grant all on all functions in schema public to anon, authenticated, service_role;
+
 -- -----------------------------------------------------------------------------
 -- Enums
 -- -----------------------------------------------------------------------------
