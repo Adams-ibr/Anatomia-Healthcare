@@ -5,6 +5,7 @@ import {
 } from 'lucide-react'
 import { useState } from 'react'
 import { motion } from 'framer-motion'
+import { useTranslation } from 'react-i18next'
 import { useApp } from '../lib/store'
 import { CATEGORIES, COURSES, FAQS, INSTRUCTORS, LEARNING_PATHS, PLANS, TESTIMONIALS } from '../lib/data'
 import { CourseCard, InstructorCard } from '../components/cards'
@@ -22,7 +23,7 @@ const HERO_ITEM = {
   show: { opacity: 1, y: 0, transition: { duration: 0.65, ease: EASE } }
 }
 
-function HeroMock() {
+function HeroMock({ t }: { t: (key: string) => string }) {
   return (
     <div className="relative mx-auto w-full max-w-xl">
       <motion.div
@@ -34,31 +35,31 @@ function HeroMock() {
         <div className="flex items-center gap-3 border-b border-line bg-surface px-4 py-3">
           <Avatar name="John Adedeji" size="sm" />
           <div>
-            <p className="text-sm font-semibold text-ink">Good morning, John</p>
-            <p className="text-xs text-muted">You are on a 5-day learning streak</p>
+            <p className="text-sm font-semibold text-ink">{t('landing.mockGreeting')}</p>
+            <p className="text-xs text-muted">{t('landing.mockStreak')}</p>
           </div>
           <div className="ml-auto flex items-center gap-1 text-xs font-medium text-success">
-            <Trophy className="h-3.5 w-3.5" /> 5 days
+            <Trophy className="h-3.5 w-3.5" /> {t('landing.mockDays')}
           </div>
         </div>
         <div className="space-y-4 bg-surface p-4">
           <div>
             <div className="mb-1.5 flex items-center justify-between text-xs">
-              <span className="font-medium text-ink">Cybersecurity Fundamentals</span>
+              <span className="font-medium text-ink">{t('landing.mockCourseTitle')}</span>
               <span className="text-muted">78%</span>
             </div>
             <div className="h-1.5 w-full overflow-hidden rounded-full bg-line">
               <div className="h-full w-[78%] rounded-full bg-brand-500" />
             </div>
-            <p className="mt-2 text-xs text-muted">Continue: Incident Response Lifecycle</p>
+            <p className="mt-2 text-xs text-muted">{t('landing.mockContinue')}</p>
           </div>
           <div className="grid grid-cols-2 gap-2">
             <div className="rounded-card border border-line p-3">
-              <p className="text-xs text-muted">Completed courses</p>
+              <p className="text-xs text-muted">{t('landing.mockCompleted')}</p>
               <p className="text-lg font-bold text-ink">3</p>
             </div>
             <div className="rounded-card border border-line p-3">
-              <p className="text-xs text-muted">Certificates</p>
+              <p className="text-xs text-muted">{t('landing.mockCertificates')}</p>
               <p className="text-lg font-bold text-ink">2</p>
             </div>
           </div>
@@ -73,8 +74,8 @@ function HeroMock() {
           <div className="flex items-center gap-2">
             <div className="rounded-full bg-brand-50 p-2 text-brand-700"><ShieldCheck className="h-4 w-4" /></div>
             <div>
-              <p className="text-xs font-semibold text-ink">Certificate earned</p>
-              <p className="text-[11px] text-muted">Python for Security</p>
+              <p className="text-xs font-semibold text-ink">{t('landing.mockCertEarned')}</p>
+              <p className="text-[11px] text-muted">{t('landing.mockCertCourse')}</p>
             </div>
           </div>
         </div>
@@ -88,8 +89,8 @@ function HeroMock() {
           <div className="flex items-center gap-2">
             <div className="rounded-full bg-success/10 p-2 text-success"><TrendingUp className="h-4 w-4" /></div>
             <div>
-              <p className="text-xs font-semibold text-ink">Assessment score</p>
-              <p className="text-[11px] text-muted">92% — passed</p>
+              <p className="text-xs font-semibold text-ink">{t('landing.mockScore')}</p>
+              <p className="text-[11px] text-muted">{t('landing.mockScoreVal')}</p>
             </div>
           </div>
         </div>
@@ -98,35 +99,40 @@ function HeroMock() {
   )
 }
 
-const STATS = [
-  { value: 50, suffix: 'K+', label: 'Learners' },
-  { value: 1200, suffix: '+', label: 'Courses' },
-  { value: 500, suffix: '+', label: 'Instructors' },
-  { value: 95, suffix: '%', label: 'Completion satisfaction' }
+const STATS = (t: (key: string) => string) => [
+  { value: 50, suffix: 'K+', label: t('landing.statLearners') },
+  { value: 1200, suffix: '+', label: t('landing.statCourses') },
+  { value: 500, suffix: '+', label: t('landing.statInstructors') },
+  { value: 95, suffix: '%', label: t('landing.statSatisfaction') }
 ]
 
-const WHY = [
-  { icon: <Award className="h-5 w-5" />, title: 'Expert instructors', text: 'Learn from practitioners at the top of their fields.' },
-  { icon: <ListChecks className="h-5 w-5" />, title: 'Structured learning', text: 'Purpose-built curricula that build skill progressively.' },
-  { icon: <Code2 className="h-5 w-5" />, title: 'Practical projects', text: 'Apply what you learn in realistic, portfolio-ready work.' },
-  { icon: <GraduationCap className="h-5 w-5" />, title: 'Verified certificates', text: 'Earn shareable, verifiable proof of your skills.' },
-  { icon: <Clock className="h-5 w-5" />, title: 'Flexible learning', text: 'Self-paced courses that fit around your life.' },
-  { icon: <MessageSquare className="h-5 w-5" />, title: 'Community support', text: 'Ask questions, share progress, and learn together.' }
+const WHY = (t: (key: string) => string) => [
+  { icon: <Award className="h-5 w-5" />, title: t('landing.why1Title'), text: t('landing.why1Text') },
+  { icon: <ListChecks className="h-5 w-5" />, title: t('landing.why2Title'), text: t('landing.why2Text') },
+  { icon: <Code2 className="h-5 w-5" />, title: t('landing.why3Title'), text: t('landing.why3Text') },
+  { icon: <GraduationCap className="h-5 w-5" />, title: t('landing.why4Title'), text: t('landing.why4Text') },
+  { icon: <Clock className="h-5 w-5" />, title: t('landing.why5Title'), text: t('landing.why5Text') },
+  { icon: <MessageSquare className="h-5 w-5" />, title: t('landing.why6Title'), text: t('landing.why6Text') }
 ]
 
-const FLOW = [
-  { step: 'Discover', text: 'Find the right course', icon: <Compass className="h-5 w-5" /> },
-  { step: 'Enroll', text: 'Start in minutes', icon: <PlayCircle className="h-5 w-5" /> },
-  { step: 'Learn', text: 'Structured lessons', icon: <BookOpen className="h-5 w-5" /> },
-  { step: 'Practice', text: 'Labs and projects', icon: <Code2 className="h-5 w-5" /> },
-  { step: 'Assess', text: 'Prove your mastery', icon: <CheckCircle2 className="h-5 w-5" /> },
-  { step: 'Certify', text: 'Earn your credential', icon: <Trophy className="h-5 w-5" /> }
+const FLOW = (t: (key: string) => string) => [
+  { step: t('landing.flow1Step'), text: t('landing.flow1Text'), icon: <Compass className="h-5 w-5" /> },
+  { step: t('landing.flow2Step'), text: t('landing.flow2Text'), icon: <PlayCircle className="h-5 w-5" /> },
+  { step: t('landing.flow3Step'), text: t('landing.flow3Text'), icon: <BookOpen className="h-5 w-5" /> },
+  { step: t('landing.flow4Step'), text: t('landing.flow4Text'), icon: <Code2 className="h-5 w-5" /> },
+  { step: t('landing.flow5Step'), text: t('landing.flow5Text'), icon: <CheckCircle2 className="h-5 w-5" /> },
+  { step: t('landing.flow6Step'), text: t('landing.flow6Text'), icon: <Trophy className="h-5 w-5" /> }
 ]
 
 export default function Landing() {
   const nav = useNavigate()
   const { toast } = useApp()
+  const { t } = useTranslation()
   const [faqOpen, setFaqOpen] = useState<string | null>('0')
+
+  const stats = STATS(t)
+  const why = WHY(t)
+  const flow = FLOW(t)
 
   const featured = COURSES.filter((c) => c.isFeatured).slice(0, 4)
   const trending = COURSES.filter((c) => c.isTrending).slice(0, 4)
@@ -139,26 +145,26 @@ export default function Landing() {
           <motion.div variants={HERO_LEFT} initial="hidden" animate="show">
             <motion.div variants={HERO_ITEM}>
               <Badge color="brand" className="mb-5">
-                <Sparkles className="h-3.5 w-3.5" /> New: SIEM & Threat Hunting
+                <Sparkles className="h-3.5 w-3.5" /> {t('landing.heroBadge')}
               </Badge>
             </motion.div>
             <motion.div variants={HERO_ITEM}>
               <h1 className="text-4xl font-bold leading-tight tracking-tight text-ink sm:text-5xl">
-                Learn Without Limits. Build Skills That Matter.
+                {t('landing.heroTitle')}
               </h1>
             </motion.div>
             <motion.div variants={HERO_ITEM}>
               <p className="mt-5 max-w-xl text-lg leading-relaxed text-muted">
-                Learn practical, professional, and academic skills through structured courses taught by experienced instructors — with labs, projects, and verifiable certificates.
+                {t('landing.heroBody')}
               </p>
             </motion.div>
             <motion.div variants={HERO_ITEM}>
               <div className="mt-8 flex flex-wrap gap-3">
                 <Button onClick={() => nav('/courses')} className="px-6 py-3 text-base">
-                  Explore Courses <ChevronRight className="h-4 w-4" />
+                  {t('landing.exploreCourses')} <ChevronRight className="h-4 w-4" />
                 </Button>
                 <Button variant="outline" onClick={() => nav('/register?role=instructor')} className="px-6 py-3 text-base">
-                  Become an Instructor
+                  {t('landing.becomeInstructor')}
                 </Button>
               </div>
             </motion.div>
@@ -169,19 +175,19 @@ export default function Landing() {
                 </div>
                 <div>
                   <Rating value={4.8} />
-                  <p className="text-xs text-muted">Trusted by 50,000+ learners</p>
+                  <p className="text-xs text-muted">{t('landing.trustedBy')}</p>
                 </div>
               </div>
             </motion.div>
           </motion.div>
-          <HeroMock />
+          <HeroMock t={t} />
         </div>
       </section>
 
       <section className="border-b border-line bg-surface py-10">
         <div className="container-page">
           <Reveal y={16}>
-            <p className="mb-6 text-center text-xs font-semibold uppercase tracking-widest text-muted">Trusted by teams at</p>
+            <p className="mb-6 text-center text-xs font-semibold uppercase tracking-widest text-muted">{t('landing.trustedTeams')}</p>
             <div className="flex flex-wrap items-center justify-center gap-x-12 gap-y-4 text-sm font-semibold text-muted/70">
               {['NORTHWIND', 'APEX BANK', 'HELIOS LABS', 'CRESTLINE U', 'VANTA TELECOM', 'GRIDSOFT', 'ORBITA'].map((name) => (
                 <span key={name} className="tracking-widest">{name}</span>
@@ -195,10 +201,10 @@ export default function Landing() {
         <Reveal>
           <div className="mb-8 flex items-end justify-between">
             <div>
-              <p className="text-sm font-semibold text-brand-700">Categories</p>
-              <h2 className="section-title mt-1">Explore Popular Categories</h2>
+              <p className="text-sm font-semibold text-brand-700">{t('landing.categoriesEyebrow')}</p>
+              <h2 className="section-title mt-1">{t('landing.categoriesTitle')}</h2>
             </div>
-            <Link to="/courses" className="hidden items-center gap-1 text-sm font-medium text-brand-700 hover:underline sm:flex">All courses <ChevronRight className="h-4 w-4" /></Link>
+            <Link to="/courses" className="hidden items-center gap-1 text-sm font-medium text-brand-700 hover:underline sm:flex">{t('landing.allCourses')} <ChevronRight className="h-4 w-4" /></Link>
           </div>
         </Reveal>
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
@@ -210,7 +216,7 @@ export default function Landing() {
                 </div>
                 <div>
                   <p className="font-semibold text-ink">{cat.name}</p>
-                  <p className="mt-0.5 text-xs text-muted">{cat.courseCount} courses</p>
+                  <p className="mt-0.5 text-xs text-muted">{t('landing.courseCount', { count: cat.courseCount })}</p>
                 </div>
               </Link>
             </Reveal>
@@ -222,8 +228,8 @@ export default function Landing() {
         <div className="container-page">
           <Reveal>
             <div className="mb-8 text-center">
-              <p className="text-sm font-semibold text-brand-700">Featured</p>
-              <h2 className="section-title mt-1">Courses Our Learners Love</h2>
+              <p className="text-sm font-semibold text-brand-700">{t('landing.featuredEyebrow')}</p>
+              <h2 className="section-title mt-1">{t('landing.featuredTitle')}</h2>
             </div>
           </Reveal>
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
@@ -239,12 +245,12 @@ export default function Landing() {
       <section className="container-page py-16 lg:py-20">
         <Reveal>
           <div className="mb-8 text-center">
-            <p className="text-sm font-semibold text-brand-700">Why Hama</p>
-            <h2 className="section-title mt-1">Why Learn With Us?</h2>
+            <p className="text-sm font-semibold text-brand-700">{t('landing.whyEyebrow')}</p>
+            <h2 className="section-title mt-1">{t('landing.whyTitle')}</h2>
           </div>
         </Reveal>
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {WHY.map((w, i) => (
+          {why.map((w, i) => (
             <Reveal key={w.title} delay={Math.min(i * 0.06, 0.3)}>
               <div className="card group h-full p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-lift">
                 <div className="mb-4 inline-flex rounded-card bg-brand-50 p-3 text-brand-700 transition-transform duration-300 group-hover:scale-110">{w.icon}</div>
@@ -260,15 +266,15 @@ export default function Landing() {
         <div className="container-page">
           <Reveal>
             <div className="mb-10 text-center">
-              <p className="text-sm font-semibold text-brand-700">The Experience</p>
-              <h2 className="section-title mt-1">A Complete Learning Journey</h2>
+              <p className="text-sm font-semibold text-brand-700">{t('landing.experienceEyebrow')}</p>
+              <h2 className="section-title mt-1">{t('landing.experienceTitle')}</h2>
             </div>
           </Reveal>
           <div className="grid grid-cols-2 gap-6 sm:grid-cols-3 lg:grid-cols-6">
-            {FLOW.map((f, i) => (
+            {flow.map((f, i) => (
               <Reveal key={f.step} delay={Math.min(i * 0.07, 0.35)} className="group">
                 <div className="relative text-center">
-                  {i < FLOW.length - 1 && <div className="absolute left-[60%] top-8 hidden h-px w-[80%] bg-line lg:block" />}
+                  {i < flow.length - 1 && <div className="absolute left-[60%] top-8 hidden h-px w-[80%] bg-line lg:block" />}
                   <div className="relative mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full border border-brand-200 bg-brand-50 text-brand-700 transition-transform duration-300 group-hover:scale-110">
                     {f.icon}
                     <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-brand-500 text-[10px] font-bold text-white">{i + 1}</span>
@@ -286,19 +292,19 @@ export default function Landing() {
         <div className="grid items-center gap-10 lg:grid-cols-2">
           <Reveal>
             <div>
-              <p className="text-sm font-semibold text-brand-700">For Instructors</p>
-              <h2 className="section-title mt-1">Share Your Expertise With the World</h2>
+              <p className="text-sm font-semibold text-brand-700">{t('landing.instructorEyebrow')}</p>
+              <h2 className="section-title mt-1">{t('landing.instructorTitle')}</h2>
               <p className="mt-4 leading-relaxed text-muted">
-                Build structured courses with videos, labs, assessments, and assignments. Get transparent analytics, engaged students, and fair revenue share. We handle the platform so you can focus on teaching.
+                {t('landing.instructorBody')}
               </p>
               <ul className="mt-6 space-y-3">
-                {['Drag-and-drop course builder', 'Quizzes, exams, and assignments', 'Student analytics & earnings', 'Dedicated instructor support'].map((f) => (
+                {[t('landing.instructorFeature1'), t('landing.instructorFeature2'), t('landing.instructorFeature3'), t('landing.instructorFeature4')].map((f) => (
                   <li key={f} className="flex items-center gap-3 text-sm text-ink">
                     <CheckCircle2 className="h-5 w-5 shrink-0 text-success" /> {f}
                   </li>
                 ))}
               </ul>
-              <Button className="mt-8" onClick={() => nav('/register?role=instructor')}>Become an Instructor <ChevronRight className="h-4 w-4" /></Button>
+              <Button className="mt-8" onClick={() => nav('/register?role=instructor')}>{t('landing.becomeInstructor')} <ChevronRight className="h-4 w-4" /></Button>
             </div>
           </Reveal>
           <div className="grid gap-4 sm:grid-cols-2">
@@ -315,12 +321,12 @@ export default function Landing() {
         <div className="container-page">
           <Reveal>
             <div className="mb-8 text-center">
-              <p className="text-sm font-semibold text-brand-700">In numbers</p>
-              <h2 className="section-title mt-1">A Platform That Delivers Results</h2>
+              <p className="text-sm font-semibold text-brand-700">{t('landing.numbersEyebrow')}</p>
+              <h2 className="section-title mt-1">{t('landing.numbersTitle')}</h2>
             </div>
           </Reveal>
           <div className="grid grid-cols-2 gap-6 lg:grid-cols-4">
-            {STATS.map((s, i) => (
+            {stats.map((s, i) => (
               <Reveal key={s.label} delay={i * 0.08}>
                 <div className="text-center">
                   <Counter to={s.value} suffix={s.suffix} className="font-display text-4xl font-bold text-brand-700" />
@@ -335,9 +341,9 @@ export default function Landing() {
       <section className="container-page py-16 lg:py-20">
         <Reveal>
           <div className="mb-8 text-center">
-            <p className="text-sm font-semibold text-brand-700">Learning Paths</p>
-            <h2 className="section-title mt-1">Career-Focused Learning Paths</h2>
-            <p className="mx-auto mt-3 max-w-xl text-muted">Structured sequences of courses that take you from beginner to job-ready.</p>
+            <p className="text-sm font-semibold text-brand-700">{t('landing.pathsEyebrow')}</p>
+            <h2 className="section-title mt-1">{t('landing.pathsTitle')}</h2>
+            <p className="mx-auto mt-3 max-w-xl text-muted">{t('landing.pathsBody')}</p>
           </div>
         </Reveal>
         <div className="grid gap-5 lg:grid-cols-3">
@@ -349,8 +355,8 @@ export default function Landing() {
                 <p className="mt-1.5 flex-1 text-sm leading-relaxed text-muted">{lp.description}</p>
                 <p className="mt-3 text-xs font-medium text-brand-700">{lp.career}</p>
                 <div className="mt-4 flex items-center justify-between border-t border-line pt-4">
-                  <span className="text-xs text-muted">{lp.courses.length} courses · {lp.level}</span>
-                  <button onClick={() => { toast('Learning path saved', 'Start with the first course in this path.'); nav('/courses') }} className="flex items-center gap-1 text-sm font-medium text-brand-700 hover:underline">View path <ChevronRight className="h-3.5 w-3.5 transition-transform duration-300 group-hover:translate-x-0.5" /></button>
+                  <span className="text-xs text-muted">{t('landing.pathMeta', { count: lp.courses.length, level: lp.level })}</span>
+                  <button onClick={() => { toast(t('landing.pathSaved'), t('landing.pathSavedBody')); nav('/courses') }} className="flex items-center gap-1 text-sm font-medium text-brand-700 hover:underline">{t('landing.viewPath')} <ChevronRight className="h-3.5 w-3.5 transition-transform duration-300 group-hover:translate-x-0.5" /></button>
                 </div>
               </div>
             </Reveal>
@@ -362,8 +368,8 @@ export default function Landing() {
         <div className="container-page">
           <Reveal>
             <div className="mb-8 text-center">
-              <p className="text-sm font-semibold text-brand-700">What learners say</p>
-              <h2 className="section-title mt-1">Loved by Students Everywhere</h2>
+              <p className="text-sm font-semibold text-brand-700">{t('landing.testimonialsEyebrow')}</p>
+              <h2 className="section-title mt-1">{t('landing.testimonialsTitle')}</h2>
             </div>
           </Reveal>
           <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-4">
@@ -389,8 +395,8 @@ export default function Landing() {
       <section className="container-page py-16 lg:py-20">
         <Reveal>
           <div className="mb-8 text-center">
-            <p className="text-sm font-semibold text-brand-700">Trending</p>
-            <h2 className="section-title mt-1">What's Popular Right Now</h2>
+            <p className="text-sm font-semibold text-brand-700">{t('landing.trendingEyebrow')}</p>
+            <h2 className="section-title mt-1">{t('landing.trendingTitle')}</h2>
           </div>
         </Reveal>
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
@@ -406,19 +412,19 @@ export default function Landing() {
         <div className="container-page">
           <Reveal>
             <div className="mb-8 text-center">
-              <p className="text-sm font-semibold text-brand-700">Pricing</p>
-              <h2 className="section-title mt-1">Invest in Your Future</h2>
+              <p className="text-sm font-semibold text-brand-700">{t('landing.pricingEyebrow')}</p>
+              <h2 className="section-title mt-1">{t('landing.pricingTitle')}</h2>
             </div>
           </Reveal>
           <div className="grid gap-5 lg:grid-cols-3">
             {PLANS.map((p, i) => (
               <Reveal key={p.id} delay={Math.min(i * 0.08, 0.24)}>
                 <div className={cn('card group relative flex h-full flex-col p-7 transition-all duration-300 hover:-translate-y-1 hover:shadow-lift', p.highlight && 'border-brand-500 ring-1 ring-brand-500')}>
-                  {p.highlight && <Badge color="brand" className="absolute -top-3 left-1/2 -translate-x-1/2">Most Popular</Badge>}
+                  {p.highlight && <Badge color="brand" className="absolute -top-3 left-1/2 -translate-x-1/2">{t('landing.mostPopular')}</Badge>}
                   <h3 className="font-display text-xl font-semibold text-ink">{p.name}</h3>
                   <p className="mt-1 text-sm text-muted">{p.description}</p>
                   <div className="mt-5 flex items-baseline gap-1">
-                    <span className="text-4xl font-bold text-ink">{p.price === 0 ? 'Free' : formatPrice(p.price)}</span>
+                    <span className="text-4xl font-bold text-ink">{p.price === 0 ? t('landing.free') : formatPrice(p.price)}</span>
                     {p.price > 0 && <span className="text-sm text-muted">/{p.period}</span>}
                   </div>
                   <ul className="mt-6 flex-1 space-y-3">
@@ -429,7 +435,7 @@ export default function Landing() {
                     ))}
                   </ul>
                   <Button variant={p.highlight ? 'primary' : 'outline'} className="mt-7 w-full" onClick={() => nav('/register')}>
-                    {p.price === 0 ? 'Start for Free' : 'Get Started'}
+                    {p.price === 0 ? t('landing.startFree') : t('landing.getStarted')}
                   </Button>
                 </div>
               </Reveal>
@@ -441,8 +447,8 @@ export default function Landing() {
       <section className="container-page max-w-3xl py-16 lg:py-20">
         <Reveal>
           <div className="mb-8 text-center">
-            <p className="text-sm font-semibold text-brand-700">FAQ</p>
-            <h2 className="section-title mt-1">Frequently Asked Questions</h2>
+            <p className="text-sm font-semibold text-brand-700">{t('landing.faqEyebrow')}</p>
+            <h2 className="section-title mt-1">{t('landing.faqTitle')}</h2>
           </div>
         </Reveal>
         <div className="card px-6">
@@ -457,11 +463,11 @@ export default function Landing() {
       <section className="border-t border-line bg-brand-900">
         <div className="container-page flex flex-col items-center gap-6 py-16 text-center">
           <Reveal>
-            <h2 className="max-w-2xl font-display text-3xl font-bold text-white">Ready to start learning without limits?</h2>
-            <p className="mx-auto mt-4 max-w-xl text-brand-200">Join 50,000+ learners building skills that matter. Your first course is one click away.</p>
+            <h2 className="max-w-2xl font-display text-3xl font-bold text-white">{t('landing.ctaTitle')}</h2>
+            <p className="mx-auto mt-4 max-w-xl text-brand-200">{t('landing.ctaBody')}</p>
             <div className="mt-6 flex flex-wrap justify-center gap-3">
-              <Button onClick={() => nav('/register')} className="bg-white px-6 py-3 text-base text-brand-900 hover:bg-brand-50">Create Free Account</Button>
-              <Button onClick={() => nav('/courses')} className="border border-brand-400 bg-transparent px-6 py-3 text-base text-white hover:bg-brand-800">Browse Courses</Button>
+              <Button onClick={() => nav('/register')} className="bg-white px-6 py-3 text-base text-brand-900 hover:bg-brand-50">{t('landing.createFreeAccount')}</Button>
+              <Button onClick={() => nav('/courses')} className="border border-brand-400 bg-transparent px-6 py-3 text-base text-white hover:bg-brand-800">{t('landing.browseCourses')}</Button>
             </div>
           </Reveal>
         </div>
