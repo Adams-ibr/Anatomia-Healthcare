@@ -30,7 +30,8 @@ import Checkout from './Checkout'
 import Search from './Search'
 import { About, Blog, BlogPost, InstructorProfile, Instructors, Pricing, Support } from './Marketing'
 import { InstructorDashboard, InstructorStudents, InstructorAnalytics, InstructorEarnings } from './Instructor'
-import { InstructorCourses, CourseBuilder } from './InstructorCourses'
+import { InstructorCourses } from './InstructorCourses'
+import CourseStudio from './CourseStudio'
 import { AdminDashboard, AdminUsers, AdminCourses, AdminCategories, AdminEnrollments } from './Admin'
 import { AdminCertificates, AdminOrders, AdminPayments, AdminAnnouncements, AdminReports, AdminAnalytics, AdminSettings } from './Admin2'
 
@@ -219,8 +220,8 @@ export default function App() {
           <Route element={<PortalLayout nav={INSTRUCTOR_NAV} role="instructor" />}>
             <Route path="/instructor" element={<InstructorDashboard />} />
             <Route path="/instructor/courses" element={<InstructorCourses />} />
-            <Route path="/instructor/courses/new" element={<CourseBuilder />} />
-            <Route path="/instructor/courses/:id/edit" element={<CourseBuilder />} />
+            <Route path="/instructor/courses/new" element={<CourseStudio />} />
+            <Route path="/instructor/courses/:id/edit" element={<CourseStudio />} />
             <Route path="/instructor/students" element={<InstructorStudents />} />
             <Route path="/instructor/analytics" element={<InstructorAnalytics />} />
             <Route path="/instructor/earnings" element={<InstructorEarnings />} />
