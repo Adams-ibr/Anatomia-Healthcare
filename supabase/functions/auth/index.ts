@@ -296,6 +296,173 @@ async function handleVerifyEmail(req: Request): Promise<Response> {
 }
 
 // ---------------------------------------------------------------------------
+// Admin user management
+// ---------------------------------------------------------------------------
+
+async function requireAdmin(req: Request): Promise<{ profile: ProfileRow } | Response> {
+  const user = await authUser(req)
+  if (!user) return errorResponse(401, 'Not authenticated.')
+  const profile = await getProfile(user.id)
+  if (!profile) return errorResponse(401, 'No profile found for this account.')
+  if (profile.role !== 'admin') return errorResponse(403, 'Admin access required.')
+  return { profile }
+}
+
+interface AdminUserRow extends ProfileRow {
+  lastSignInAt?: string
+}
+
+function mapAdminUser(p: AdminUserRow) {
+  return { ...mapProfile(p), lastSignInAt: p.lastSignInAt }
+}
+
+async function handleAdminListUsers(req: Request): Promise<Response> {
+  const guard = await requireAdmin(req)
+  if (guard instanceof Response) return guard
+
+  const url = new URL(req.url)
+  const search = (url.searchParams.get('search') ?? '').trim().toLowerCase()
+  const role = url.searchParams.get('role') ?? 'all'
+  const status = url.searchParams.get('status') ?? 'all'
+  const page = Math.max(1, parseInt(url.searchParams.get('page') ?? '1', 10) || 1)
+  const perPage = Math.min(100, Math.max(1, parseInt(url.searchParams.get('perPage') ?? '25', 10) || 25))
+  const offset = (page - 1) * perPage
+
+  let query = supabase.from('profiles').select('*', { count: 'exact' })
+  if (search) query = query.or(`name.ilike.%${search}%,email.ilike.%${search}%`)
+  if (role !== 'all') query = query.eq('role', role)
+  if (status === 'active') query = query.eq('is_active', true)
+  if (status === 'suspended') query = query.eq('is_active', false)
+
+  const { data, count, error } = await query
+    .order('joined_at', { ascending: false })
+    .range(offset, offset + perPage - 1)
+
+  if (error) return errorResponse(500, 'Failed to load users: ' + error.message)
+
+  const rows = (data ?? []) as ProfileRow[]
+  const users = await Promise.all(rows.map(async (r) => {
+    const { data: au } = await supabase.auth.admin.getUserById(r.id)
+    return {
+      ...mapProfile(r),
+      lastSignInAt: au?.user?.last_sign_in_at ?? undefined
+    }
+  }))
+
+  return json({ users, total: count ?? rows.length, page, perPage, hasMore: (count ?? 0) > offset + rows.length })
+}
+
+async function handleAdminCreateUser(req: Request): Promise<Response> {
+  const guard = await requireAdmin(req)
+  if (guard instanceof Response) return guard
+
+  const body = await readBody(req)
+  const { name, email, password, role } = body as { name?: string; email?: string; password?: string; role?: string }
+  if (typeof name !== 'string' || !name.trim()) return errorResponse(422, 'Name is required.')
+  if (!isEmail(email)) return errorResponse(422, 'A valid email is required.')
+  if (typeof password !== 'string' || password.length < 8) return errorResponse(422, 'Password must be at least 8 characters.')
+  if (role !== 'student' && role !== 'instructor' && role !== 'admin' && role !== 'support') {
+    return errorResponse(422, 'Role must be student, instructor, admin or support.')
+  }
+
+  const { data, error } = await supabase.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true,
+    user_metadata: { name: name.trim(), role }
+  })
+  if (error) {
+    if (/already registered/i.test(error.message)) return errorResponse(409, 'An account with this email already exists.')
+    return errorResponse(400, error.message)
+  }
+
+  const { error: profileError } = await supabase.from('profiles').upsert(
+    { id: data.user!.id, name: name.trim(), email, role },
+    { onConflict: 'id' }
+  )
+  if (profileError) return errorResponse(500, 'Failed to create profile: ' + profileError.message)
+
+  const profile = await getProfile(data.user!.id)
+  if (!profile) return errorResponse(500, 'Account created but profile could not be loaded.')
+
+  return json({ user: mapProfile(profile) }, 201)
+}
+
+async function handleAdminUpdateUser(req: Request): Promise<Response> {
+  const guard = await requireAdmin(req)
+  if (guard instanceof Response) return guard
+
+  const url = new URL(req.url)
+  const id = url.pathname.split('/').pop() ?? ''
+  if (!id) return errorResponse(422, 'User id is required.')
+
+  const target = await getProfile(id)
+  if (!target) return errorResponse(404, 'User not found.')
+
+  const body = await readBody(req)
+  const allowedRoles = ['student', 'instructor', 'admin', 'support']
+  const patch: Record<string, unknown> = {}
+  if (body.name !== undefined) {
+    if (typeof body.name !== 'string' || !body.name.trim()) return errorResponse(422, 'Name must be a non-empty string.')
+    patch.name = body.name.trim()
+  }
+  if (body.role !== undefined) {
+    if (!allowedRoles.includes(body.role as string)) return errorResponse(422, 'Invalid role.')
+    patch.role = body.role
+  }
+  if (body.is_active !== undefined && typeof body.is_active === 'boolean') patch.is_active = body.is_active
+  if (body.title !== undefined && typeof body.title === 'string') patch.title = body.title || null
+  if (body.bio !== undefined && typeof body.bio === 'string') patch.bio = body.bio || null
+
+  if (id === guard.profile.id && patch.is_active === false) {
+    return errorResponse(400, 'You cannot suspend your own account.')
+  }
+  if (id === guard.profile.id && patch.role !== undefined && patch.role !== 'admin') {
+    return errorResponse(400, 'You cannot demote your own admin role.')
+  }
+
+  if (Object.keys(patch).length === 0) return errorResponse(422, 'No fields to update.')
+
+  const { error } = await supabase.from('profiles').update(patch).eq('id', id)
+  if (error) return errorResponse(500, 'Failed to update user: ' + error.message)
+
+  if (patch.is_active !== undefined) {
+    // Keep GoTrue ban state in sync so suspended users cannot sign in.
+    const { error: banError } = await supabase.auth.admin.updateUserById(id, {
+      ban_duration: patch.is_active ? 'none' : '87600h'
+    })
+    if (banError) return errorResponse(500, 'Failed to update account status: ' + banError.message)
+  }
+
+  if (patch.name !== undefined) {
+    const metadata = { name: patch.name, role: patch.role ?? target.role }
+    await supabase.auth.admin.updateUserById(id, { user_metadata: metadata })
+  }
+
+  const profile = await getProfile(id)
+  return json({ user: profile ? mapProfile(profile) : null })
+}
+
+async function handleAdminDeleteUser(req: Request): Promise<Response> {
+  const guard = await requireAdmin(req)
+  if (guard instanceof Response) return guard
+
+  const url = new URL(req.url)
+  const id = url.pathname.split('/').pop() ?? ''
+  if (!id) return errorResponse(422, 'User id is required.')
+
+  const target = await getProfile(id)
+  if (!target) return errorResponse(404, 'User not found.')
+
+  if (id === guard.profile.id) return errorResponse(400, 'You cannot delete your own account.')
+
+  const { error } = await supabase.auth.admin.deleteUser(id)
+  if (error) return errorResponse(500, 'Failed to delete user: ' + error.message)
+
+  return new Response(null, { status: 204, headers: corsHeaders })
+}
+
+// ---------------------------------------------------------------------------
 // Router
 // ---------------------------------------------------------------------------
 
@@ -344,8 +511,28 @@ Deno.serve(async (req) => {
     case 'POST /verify-email':
       response = await handleVerifyEmail(req)
       break
+    case 'GET /admin/users':
+      response = await handleAdminListUsers(req)
+      break
+    case 'POST /admin/users':
+      response = await handleAdminCreateUser(req)
+      break
+    case 'PATCH /admin/users':
+    case 'PATCH /admin/users/remove':
+      response = await handleAdminUpdateUser(req)
+      break
+    case 'DELETE /admin/users':
+    case 'DELETE /admin/users/remove':
+      response = await handleAdminDeleteUser(req)
+      break
     default:
-      response = errorResponse(404, 'API endpoint not found.')
+      if (/^\/admin\/users\/[^/]+$/.test(path)) {
+        if (method === 'PATCH') response = await handleAdminUpdateUser(req)
+        else if (method === 'DELETE') response = await handleAdminDeleteUser(req)
+        else response = errorResponse(404, 'API endpoint not found.')
+      } else {
+        response = errorResponse(404, 'API endpoint not found.')
+      }
   }
 
   return response

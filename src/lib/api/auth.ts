@@ -34,6 +34,53 @@ export function clearStoredToken() {
 
 export type RegisterRole = Extract<Role, 'student' | 'instructor'>
 
+export type AdminRole = 'student' | 'instructor' | 'admin' | 'support'
+
+export interface AdminUser extends AuthUser {
+  lastSignInAt?: string
+}
+
+export interface AdminUserListResult {
+  users: AdminUser[]
+  total: number
+  page: number
+  perPage: number
+  hasMore: boolean
+}
+
+export interface AdminListParams {
+  search?: string
+  role?: AdminRole | 'all'
+  status?: 'all' | 'active' | 'suspended'
+  page?: number
+  perPage?: number
+}
+
+export const adminApi = {
+  listUsers(token: string, params: AdminListParams = {}): Promise<AdminUserListResult> {
+    const qs = new URLSearchParams()
+    if (params.search) qs.set('search', params.search)
+    if (params.role && params.role !== 'all') qs.set('role', params.role)
+    if (params.status && params.status !== 'all') qs.set('status', params.status)
+    qs.set('page', String(params.page ?? 1))
+    qs.set('perPage', String(params.perPage ?? 25))
+    const query = qs.toString()
+    return apiFetch<AdminUserListResult>(`/api/auth/admin/users${query ? `?${query}` : ''}`, { token })
+  },
+
+  createUser(token: string, input: { name: string; email: string; password: string; role: AdminRole }): Promise<{ user: AdminUser }> {
+    return apiFetch<{ user: AdminUser }>('/api/auth/admin/users', { method: 'POST', body: input, token })
+  },
+
+  updateUser(token: string, id: string, patch: Partial<{ name: string; role: AdminRole; is_active: boolean; title: string; bio: string }>): Promise<{ user: AdminUser }> {
+    return apiFetch<{ user: AdminUser }>(`/api/auth/admin/users/${id}`, { method: 'PATCH', body: patch, token })
+  },
+
+  deleteUser(token: string, id: string): Promise<unknown> {
+    return apiFetch<unknown>(`/api/auth/admin/users/${id}`, { method: 'DELETE', token })
+  }
+}
+
 export const authApi = {
   register(input: { name: string; email: string; password: string; role: RegisterRole }): Promise<AuthSession> {
     return apiFetch<AuthSession>('/api/auth/register', { method: 'POST', body: input })

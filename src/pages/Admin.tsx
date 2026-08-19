@@ -5,9 +5,8 @@ import { Award, BookOpen, CheckCircle2, DollarSign, GraduationCap, Megaphone, Sh
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { CATEGORIES, COURSES, ORDERS, ALL_STUDENTS, INSTRUCTORS } from '../lib/data'
 import { useApp } from '../lib/store'
-import { Avatar, Badge, Button, Modal, ProgressBar, StatCard, Tabs } from '../components/ui'
-import { cn, formatPrice, timeAgo } from '../lib/utils'
-import type { User } from '../lib/types'
+import { Avatar, Badge, Button, ProgressBar, StatCard, Tabs } from '../components/ui'
+import { formatPrice } from '../lib/utils'
 
 export function AdminDashboard() {
   const { users, enrollments } = useApp()
@@ -84,119 +83,6 @@ export function AdminDashboard() {
 
 const ROLE_COLORS: Record<string, 'brand' | 'success' | 'warning' | 'danger' | 'ink'> = {
   admin: 'danger', instructor: 'brand', student: 'success', support: 'warning'
-}
-
-export function AdminUsers() {
-  const { users, toast } = useApp()
-  const { t } = useTranslation()
-  const [search, setSearch] = useState('')
-  const [role, setRole] = useState('all')
-  const [editing, setEditing] = useState<User | null>(null)
-  const nav = useNavigate()
-
-  const list = users.filter((u) => {
-    const matchSearch = !search || u.name.toLowerCase().includes(search.toLowerCase()) || u.email.toLowerCase().includes(search.toLowerCase())
-    const matchRole = role === 'all' || u.role === role
-    return matchSearch && matchRole
-  })
-
-  return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="font-display text-2xl font-bold text-ink">{t('admin.userManagement')}</h1>
-          <p className="mt-1 text-sm text-muted">{t('admin.totalUsersSub', { count: users.length })}</p>
-        </div>
-        <Button onClick={() => toast(t('admin.createUser'), t('admin.createUserBody'), 'info')}>{t('admin.newUser')}</Button>
-      </div>
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-        <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={t('admin.searchNameEmail')} className="input-base max-w-xs" />
-        <select value={role} onChange={(e) => setRole(e.target.value)} className="input-base max-w-40">
-          <option value="all">{t('admin.allRoles')}</option>
-          <option value="student">{t('admin.studentsLabel')}</option>
-          <option value="instructor">{t('admin.instructorsLabel')}</option>
-          <option value="admin">{t('admin.adminsLabel')}</option>
-          <option value="support">{t('admin.supportLabel')}</option>
-        </select>
-      </div>
-      <div className="card overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead>
-              <tr className="border-b border-line bg-paper text-xs uppercase tracking-wide text-muted">
-                <th className="px-5 py-3 font-semibold">{t('admin.user')}</th>
-                <th className="px-5 py-3 font-semibold">{t('admin.role')}</th>
-                <th className="px-5 py-3 font-semibold">{t('admin.status')}</th>
-                <th className="px-5 py-3 font-semibold">{t('admin.joined')}</th>
-                <th className="px-5 py-3 text-right font-semibold">{t('admin.actions')}</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-line">
-              {list.slice(0, 25).map((u) => (
-                <tr key={u.id} className="hover:bg-paper/60">
-                  <td className="px-5 py-3">
-                    <div className="flex items-center gap-3">
-                      <Avatar name={u.name} size="sm" />
-                      <div>
-                        <p className="font-medium text-ink">{u.name}</p>
-                        <p className="text-xs text-muted">{u.email}</p>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-5 py-3"><Badge color={ROLE_COLORS[u.role] ?? 'line'}>{u.role}</Badge></td>
-                  <td className="px-5 py-3">
-                    <span className={cn('flex items-center gap-1.5 text-xs font-medium', u.isActive ? 'text-success' : 'text-danger')}>
-                      <span className={cn('h-2 w-2 rounded-full', u.isActive ? 'bg-success' : 'bg-danger')} /> {u.isActive ? t('admin.active') : t('admin.suspended')}
-                    </span>
-                  </td>
-                  <td className="px-5 py-3 text-muted">{new Date(u.joinedAt).toLocaleDateString()}</td>
-                  <td className="px-5 py-3 text-right">
-                    <div className="flex justify-end gap-1">
-                      <button onClick={() => setEditing(u)} className="rounded px-2 py-1 text-xs font-medium text-brand-700 hover:bg-brand-50">{t('admin.edit')}</button>
-                      <button onClick={() => toast(u.isActive ? t('admin.userSuspended') : t('admin.userActivated'), u.name, 'info')} className="rounded px-2 py-1 text-xs font-medium text-warning hover:bg-warning/10">{t('admin.suspend')}</button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <Modal
-        open={editing !== null}
-        onClose={() => setEditing(null)}
-        title={t('admin.editUser')}
-        footer={
-          <>
-            <Button variant="outline" onClick={() => setEditing(null)}>{t('admin.cancel')}</Button>
-            <Button onClick={() => { toast(t('admin.userActivated'), editing?.name); setEditing(null) }}>{t('admin.saveChanges')}</Button>
-          </>
-        }
-      >
-        {editing && (
-          <div className="space-y-4">
-            <div className="flex items-center gap-3">
-              <Avatar name={editing.name} size="lg" />
-              <div>
-                <p className="font-semibold text-ink">{editing.name}</p>
-                <p className="text-xs text-muted">{editing.email}</p>
-              </div>
-            </div>
-            <div>
-              <label className="label-base">{t('admin.role')}</label>
-              <select defaultValue={editing.role} className="input-base">
-                {['student', 'instructor', 'admin', 'support'].map((r) => <option key={r} value={r}>{r}</option>)}
-              </select>
-            </div>
-            <label className="flex items-center gap-2 text-sm text-ink">
-              <input type="checkbox" defaultChecked={editing.isActive} className="h-4 w-4 rounded border-line accent-brand-500" /> {t('admin.activeAccount')}
-            </label>
-          </div>
-        )}
-      </Modal>
-    </div>
-  )
 }
 
 export function AdminCourses() {
