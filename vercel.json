@@ -3,6 +3,10 @@
     {
       "source": "/api/auth/:path*",
       "destination": "https://jfnhvzwksemvorxlzwwv.supabase.co/functions/v1/auth/:path*"
+    },
+    {
+      "source": "/((?!api/).*)",
+      "destination": "/index.html"
     }
   ]
 }
