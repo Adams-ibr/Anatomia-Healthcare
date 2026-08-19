@@ -44,7 +44,7 @@ export default function Login() {
       footer={<>{t('auth.login.newHere')} <Link to="/register" className="font-medium text-brand-700 hover:underline">{t('auth.login.createAccount')}</Link></>}
     >
       <form onSubmit={submit} className="space-y-4">
-        <Input label={t('auth.login.email')} type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
+        <Input label={t('auth.login.email')} type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder={t('common.emailPlaceholder')} />
         <div>
           <label className="label-base">{t('auth.login.password')}</label>
           <div className="relative">

@@ -40,7 +40,7 @@ export default function ForgotPassword() {
         </div>
       ) : (
         <form onSubmit={submit} className="space-y-4">
-          <Input label={t('auth.forgot.email')} type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
+          <Input label={t('auth.forgot.email')} type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder={t('common.emailPlaceholder')} />
           {error && <p className="rounded-card border border-danger/30 bg-danger/5 px-3 py-2 text-sm text-danger">{error}</p>}
           <Button type="submit" disabled={loading} className="w-full">{loading ? t('auth.forgot.sending') : t('auth.forgot.send')}</Button>
         </form>

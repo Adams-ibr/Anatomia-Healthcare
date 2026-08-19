@@ -56,13 +56,16 @@ export default {
     amount: 'Ọnụ ọgụgụ',
     all: 'Niile',
     none: 'Ọ dịghị',
-error: 'Ihe mere. Biko nwaa ọzọ.',
+    error: 'Ihe mere. Biko nwaa ọzọ.',
     notFound: 'Ahụghị',
-    and: 'na'
+    and: 'na',
+    success: 'Ọganihu',
+    emailPlaceholder: 'gị@iheatụ.com'
   },
 
   nav: {
     home: 'Ụlọ',
+    learn: 'Mụta',
     courses: 'Ihe ọmụmụ',
     categories: 'Ụdị',
     instructors: 'Ndị nkuzi',

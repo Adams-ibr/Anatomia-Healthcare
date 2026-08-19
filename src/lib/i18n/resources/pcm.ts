@@ -58,7 +58,9 @@ export default {
     none: 'None',
     error: 'Something no gree. Try again.',
     notFound: 'No see am',
-    and: 'and'
+    and: 'and',
+    success: 'Success',
+    emailPlaceholder: 'you@example.com'
   },
 
   nav: {

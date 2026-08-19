@@ -58,11 +58,14 @@ export default {
     none: 'Kò sí',
     error: 'Ohun kan ti ṣẹlẹ̀. Jọ̀wọ́ gbìyànjú lẹ́ẹ̀kansí.',
     notFound: 'A kò rí i',
-    and: 'àti'
+    and: 'àti',
+    success: 'Àṣeyọrí',
+    emailPlaceholder: 'ìwọ@àpẹẹrẹ.com'
   },
 
   nav: {
     home: 'Ilé',
+    learn: 'Kẹ́kọ̀ọ́',
     courses: 'Àwọn ẹ̀kọ́',
     categories: 'Àwọn ẹ̀ka',
     instructors: 'Àwọn olùkọ́',

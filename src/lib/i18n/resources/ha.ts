@@ -58,7 +58,9 @@ export default {
     none: 'Babu',
     error: 'Wani abu ya ɓace. Da fatan za ka sake gwadawa.',
     notFound: 'Ba a samu ba',
-    and: 'da'
+    and: 'da',
+    success: 'Nasara',
+    emailPlaceholder: 'kai@misali.com'
   },
 
   nav: {

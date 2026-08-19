@@ -60,7 +60,7 @@ export default function Register() {
           ))}
         </div>
         <Input label={t('auth.register.name')} required value={name} onChange={(e) => setName(e.target.value)} placeholder={t('auth.register.namePlaceholder')} />
-        <Input label={t('auth.register.email')} type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
+        <Input label={t('auth.register.email')} type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder={t('common.emailPlaceholder')} />
         <div>
           <label className="label-base">{t('auth.register.password')}</label>
           <div className="relative">
