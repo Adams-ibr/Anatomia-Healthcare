@@ -1,0 +1,95 @@
+name: Build Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'android/**'
+      - 'src/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'capacitor.config.*'
+      - 'index.html'
+      - 'vercel.json'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build web assets
+        run: npm run build
+        env:
+          VITE_API_URL: https://www.hamaacademy.com
+
+      - name: Sync web assets to Android
+        run: npx cap sync android
+
+      - name: Restore release keystore
+        run: |
+          if [ -n "$KEYSTORE_B64" ]; then
+            echo "$KEYSTORE_B64" | base64 --decode > "$RUNNER_TEMP/release.keystore"
+            echo "keystore restored"
+          else
+            echo "No keystore secret found; generating an ephemeral one for this build."
+            keytool -genkeypair -v \
+              -keystore "$RUNNER_TEMP/release.keystore" \
+              -storepass hamaacademy2026 \
+              -alias hama \
+              -keypass hamaacademy2026 \
+              -keyalg RSA -keysize 2048 -validity 10000 \
+              -dname "CN=Hama Academy, OU=Mobile, O=HamaAcademy, L=Lagos, S=Lagos, C=NG"
+          fi
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+        shell: bash
+
+      - name: Build release APK
+        run: ./gradlew assembleRelease
+        working-directory: android
+        env:
+          KEYSTORE_PATH: ${{ runner.temp }}/release.keystore
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD || 'hamaacademy2026' }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS || 'hama' }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD || 'hamaacademy2026' }}
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: hama-academy-apk
+          path: android/app/build/outputs/apk/release/*.apk
+          if-no-files-found: error
+
+      - name: Upload generated keystore (keep for future updates)
+        if: env.KEYSTORE_WAS_GENERATED == '1'
+        uses: actions/upload-artifact@v4
+        with:
+          name: hama-academy-release-keystore
+          path: ${{ runner.temp }}/release.keystore
+          retention-days: 7
+        env:
+          KEYSTORE_WAS_GENERATED: ${{ secrets.ANDROID_KEYSTORE_B64 == '' }}
