@@ -530,7 +530,7 @@ function mapCourse(c: CourseRow) {
 }
 
 function slugify(value: string): string {
-  return value.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+  return (value ?? '').toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
 }
 
 async function handleAdminListCourses(req: Request): Promise<Response> {
@@ -705,12 +705,106 @@ async function handleAdminListCategories(req: Request): Promise<Response> {
   if (error) return errorResponse(500, 'Failed to load categories: ' + error.message)
 
   const rows = (data ?? []) as CategoryRow[]
-  return json({
-    categories: rows.map((c) => ({
-      id: c.id, name: c.name, slug: c.slug, description: c.description,
-      icon: c.icon ?? undefined, color: c.color ?? undefined, courseCount: c.course_count
-    }))
-  })
+  return json({ categories: rows.map(mapCategory) })
+}
+
+function mapCategory(c: CategoryRow) {
+  return {
+    id: c.id, name: c.name, slug: c.slug, description: c.description,
+    icon: c.icon ?? undefined, color: c.color ?? undefined, courseCount: c.course_count
+  }
+}
+
+async function handleAdminCreateCategory(req: Request): Promise<Response> {
+  const guard = await requireAdmin(req)
+  if (guard instanceof Response) return guard
+
+  const body = await readBody(req)
+  const { name, description, icon, color } = body as { name?: string; description?: string; icon?: string; color?: string }
+
+  if (typeof name !== 'string' || !name.trim()) return errorResponse(422, 'Category name is required.')
+
+  const baseSlug = slugify(body.slug as string) || slugify(name)
+  if (!baseSlug) return errorResponse(422, 'A valid slug is required.')
+  let slug = baseSlug
+  const { count } = await supabase.from('categories').select('id', { count: 'exact', head: true }).eq('slug', slug)
+  if ((count ?? 0) > 0) slug = `${baseSlug}-${Date.now().toString(36)}`
+
+  const { data, error } = await supabase.from('categories').insert({
+    slug,
+    name: name.trim(),
+    description: typeof description === 'string' ? description : '',
+    icon: typeof icon === 'string' && icon.trim() ? icon.trim() : null,
+    color: typeof color === 'string' && color.trim() ? color.trim() : null
+  }).select('*').single()
+
+  if (error) {
+    if (/duplicate key/i.test(error.message)) return errorResponse(409, 'A category with this slug already exists.')
+    return errorResponse(500, 'Failed to create category: ' + error.message)
+  }
+
+  return json({ category: mapCategory(data as CategoryRow) }, 201)
+}
+
+async function handleAdminUpdateCategory(req: Request): Promise<Response> {
+  const guard = await requireAdmin(req)
+  if (guard instanceof Response) return guard
+
+  const url = new URL(req.url)
+  const id = url.pathname.split('/').pop() ?? ''
+  if (!id) return errorResponse(422, 'Category id is required.')
+
+  const { data: existing } = await supabase.from('categories').select('id').eq('id', id).single()
+  if (!existing) return errorResponse(404, 'Category not found.')
+
+  const body = await readBody(req)
+  const patch: Record<string, unknown> = {}
+
+  if (body.name !== undefined) {
+    if (typeof body.name !== 'string' || !body.name.trim()) return errorResponse(422, 'Name must be a non-empty string.')
+    patch.name = body.name.trim()
+  }
+  if (body.description !== undefined && typeof body.description === 'string') patch.description = body.description
+  if (body.icon !== undefined && typeof body.icon === 'string') patch.icon = body.icon.trim() || null
+  if (body.color !== undefined && typeof body.color === 'string') patch.color = body.color.trim() || null
+  if (body.slug !== undefined) {
+    if (typeof body.slug !== 'string' || !body.slug.trim()) return errorResponse(422, 'Slug must be a non-empty string.')
+    const newSlug = slugify(body.slug)
+    if (!newSlug) return errorResponse(422, 'A valid slug is required.')
+    const { count } = await supabase.from('categories').select('id', { count: 'exact', head: true }).eq('slug', newSlug).neq('id', id)
+    if ((count ?? 0) > 0) return errorResponse(409, 'A category with this slug already exists.')
+    patch.slug = newSlug
+  }
+
+  if (Object.keys(patch).length === 0) return errorResponse(422, 'No fields to update.')
+
+  const { data, error } = await supabase.from('categories').update(patch).eq('id', id).select('*').single()
+  if (error) {
+    if (/duplicate key/i.test(error.message)) return errorResponse(409, 'A category with this slug already exists.')
+    return errorResponse(500, 'Failed to update category: ' + error.message)
+  }
+
+  return json({ category: mapCategory(data as CategoryRow) })
+}
+
+async function handleAdminDeleteCategory(req: Request): Promise<Response> {
+  const guard = await requireAdmin(req)
+  if (guard instanceof Response) return guard
+
+  const url = new URL(req.url)
+  const id = url.pathname.split('/').pop() ?? ''
+  if (!id) return errorResponse(422, 'Category id is required.')
+
+  const { data: existing } = await supabase.from('categories').select('id').eq('id', id).single()
+  if (!existing) return errorResponse(404, 'Category not found.')
+
+  const { count } = await supabase.from('courses').select('id', { count: 'exact', head: true }).eq('category_id', id)
+  if ((count ?? 0) > 0) return errorResponse(409, 'This category has courses and cannot be deleted.')
+
+  const { error } = await supabase.from('categories').delete().eq('id', id)
+  if (error) return errorResponse(500, 'Failed to delete category: ' + error.message)
+
+  return new Response(null, { status: 204, headers: corsHeaders })
 }
 
 async function handleAdminListInstructors(req: Request): Promise<Response> {
@@ -807,6 +901,9 @@ Deno.serve(async (req) => {
     case 'GET /admin/categories':
       response = await handleAdminListCategories(req)
       break
+    case 'POST /admin/categories':
+      response = await handleAdminCreateCategory(req)
+      break
     case 'GET /admin/instructors':
       response = await handleAdminListInstructors(req)
       break
@@ -818,6 +915,10 @@ Deno.serve(async (req) => {
       } else if (/^\/admin\/courses\/[^/]+$/.test(path)) {
         if (method === 'PATCH') response = await handleAdminUpdateCourse(req)
         else if (method === 'DELETE') response = await handleAdminDeleteCourse(req)
+        else response = errorResponse(404, 'API endpoint not found.')
+      } else if (/^\/admin\/categories\/[^/]+$/.test(path)) {
+        if (method === 'PATCH') response = await handleAdminUpdateCategory(req)
+        else if (method === 'DELETE') response = await handleAdminDeleteCategory(req)
         else response = errorResponse(404, 'API endpoint not found.')
       } else {
         response = errorResponse(404, 'API endpoint not found.')

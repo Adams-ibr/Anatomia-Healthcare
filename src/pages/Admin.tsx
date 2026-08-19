@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Award, BookOpen, CheckCircle2, DollarSign, GraduationCap, Megaphone, ShoppingBag, TrendingUp, UserCog, Users } from 'lucide-react'
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import { CATEGORIES, COURSES, ORDERS, ALL_STUDENTS, INSTRUCTORS } from '../lib/data'
+import { COURSES, ORDERS, ALL_STUDENTS, INSTRUCTORS } from '../lib/data'
 import { useApp } from '../lib/store'
 import { Avatar, Badge, Button, ProgressBar, StatCard } from '../components/ui'
 import { formatPrice } from '../lib/utils'
@@ -83,34 +83,6 @@ export function AdminDashboard() {
 
 const ROLE_COLORS: Record<string, 'brand' | 'success' | 'warning' | 'danger' | 'ink'> = {
   admin: 'danger', instructor: 'brand', student: 'success', support: 'warning'
-}
-
-export function AdminCategories() {
-  const { toast } = useApp()
-  const { t } = useTranslation()
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="font-display text-2xl font-bold text-ink">{t('admin.categories')}</h1>
-          <p className="mt-1 text-sm text-muted">{t('admin.categoriesDesc')}</p>
-        </div>
-        <Button onClick={() => toast(t('admin.categoryCreated'), t('admin.categoryCreatedBody'), 'info')}>{t('admin.newCategory')}</Button>
-      </div>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {CATEGORIES.map((c) => (
-          <div key={c.id} className="card flex items-center gap-3 p-4">
-            <div className="rounded-card p-2.5 text-white" style={{ backgroundColor: c.color }}><BookOpen className="h-5 w-5" /></div>
-            <div className="flex-1">
-              <p className="font-semibold text-ink">{c.name}</p>
-              <p className="text-xs text-muted">{t('admin.coursesSlug', { count: c.courseCount, slug: c.slug })}</p>
-            </div>
-            <button onClick={() => toast(t('admin.categoryUpdated'), c.name, 'info')} className="text-sm font-medium text-brand-700 hover:underline">{t('admin.edit')}</button>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
 }
 
 export function AdminEnrollments() {

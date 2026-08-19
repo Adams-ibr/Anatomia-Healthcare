@@ -150,6 +150,14 @@ export interface AdminCategory {
   courseCount: number
 }
 
+export interface AdminCategoryInput {
+  name: string
+  slug?: string
+  description?: string
+  icon?: string
+  color?: string
+}
+
 export const courseApi = {
   listCourses(token: string, params: {
     search?: string
@@ -182,6 +190,18 @@ export const courseApi = {
 
   listCategories(token: string): Promise<{ categories: AdminCategory[] }> {
     return apiFetch<{ categories: AdminCategory[] }>('/api/auth/admin/categories', { token })
+  },
+
+  createCategory(token: string, input: AdminCategoryInput): Promise<{ category: AdminCategory }> {
+    return apiFetch<{ category: AdminCategory }>('/api/auth/admin/categories', { method: 'POST', body: input, token })
+  },
+
+  updateCategory(token: string, id: string, patch: Partial<AdminCategoryInput>): Promise<{ category: AdminCategory }> {
+    return apiFetch<{ category: AdminCategory }>(`/api/auth/admin/categories/${id}`, { method: 'PATCH', body: patch, token })
+  },
+
+  deleteCategory(token: string, id: string): Promise<unknown> {
+    return apiFetch<unknown>(`/api/auth/admin/categories/${id}`, { method: 'DELETE', token })
   },
 
   listInstructors(token: string): Promise<{ instructors: { id: string; name: string }[] }> {
