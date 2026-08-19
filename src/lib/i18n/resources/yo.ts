@@ -482,6 +482,31 @@ export default {
     continue: 'Tẹ̀síwájú'
   },
 
+  study: {
+    notFound: 'A kò rí ẹ̀kọ́ náà',
+    backToMyLearning: 'Padà sí Ẹ̀kọ́ Mi',
+    lessonsCompleted: 'Àwọn ẹ̀kọ́ tí ó parí',
+    hoursLearned: 'Àwọn wákàtí tí a kọ́',
+    certificate: 'Ìwé ẹ̀rí',
+    earned: 'Tí a gbà',
+    eligible: 'Ó múra láti gbà',
+    inProgress: 'Ó ń lọ lọ́wọ́',
+    certificateCourse: 'Ẹ̀kọ́ ìwé ẹ̀rí',
+    students: 'Àwọn akẹ́kọ̀ọ́ {{count}}',
+    duration: '{{duration}}',
+    completedCourse: 'Ẹ̀kọ́ tí ó parí',
+    startLearning: 'Bẹ̀rẹ̀ ẹ̀kọ́',
+    continueLearning: 'Tẹ̀síwájú nínú ẹ̀kọ́',
+    viewCertificate: 'Wo ìwé ẹ̀rí',
+    curriculum: 'Ètò ẹ̀kọ́',
+    lessonsTotal: 'ẹ̀kọ́',
+    currentLesson: 'Lọ́wọ́lọ́wọ́',
+    whatYouLearn: 'Ohun tí ìwọ ó kọ́',
+    finishCta: 'Parí ohun tí ìwọ ti bẹ̀rẹ̀',
+    finishCtaBody: 'Ẹ̀kọ́ {{remaining}} ṣẹ́kù láti parí ẹ̀kọ́ yìí.',
+    resume: 'Tẹ̀síwájú'
+  },
+
   wish: {
     title: 'Àkójọ ààyò',
     saved: 'Ẹ̀kọ́ {{count}} tí a fi pamọ́',

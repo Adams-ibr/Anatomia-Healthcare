@@ -482,6 +482,31 @@ export default {
     continue: 'Ci gaba'
   },
 
+  study: {
+    notFound: 'Ba a sami kwas ɗin ba',
+    backToMyLearning: 'Koma zuwa Koyon Na',
+    lessonsCompleted: 'Darussan da aka kammala',
+    hoursLearned: 'Sa\'o\'i da aka koya',
+    certificate: 'Takardar shaida',
+    earned: 'An samu',
+    eligible: 'A shirye don karɓa',
+    inProgress: 'Ana ci gaba',
+    certificateCourse: 'Kwas na takardar shaida',
+    students: 'Dalibai {{count}}',
+    duration: '{{duration}}',
+    completedCourse: 'Kwas da aka kammala',
+    startLearning: 'Fara koyo',
+    continueLearning: 'Ci gaba da koyo',
+    viewCertificate: 'Duba takardar shaida',
+    curriculum: 'Manhaja',
+    lessonsTotal: 'darussa',
+    currentLesson: 'Yanzu',
+    whatYouLearn: 'Abin da za ka koya',
+    finishCta: 'Kammala abin da ka fara',
+    finishCtaBody: 'Darussa {{remaining}} sun rage don kammala wannan kwas.',
+    resume: 'Ci gaba'
+  },
+
   wish: {
     title: 'Jerin so',
     saved: '{{count}} darasi da aka adana',

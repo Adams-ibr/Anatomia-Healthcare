@@ -482,6 +482,31 @@ export default {
     continue: 'Continue'
   },
 
+  study: {
+    notFound: 'We no find dis course',
+    backToMyLearning: 'Go back to My Learning',
+    lessonsCompleted: 'Lessons wey you don finish',
+    hoursLearned: 'Hours wey you don learn',
+    certificate: 'Certificate',
+    earned: 'You don get am',
+    eligible: 'Ready to claim am',
+    inProgress: 'De still dey go',
+    certificateCourse: 'Certificate course',
+    students: '{{count}} students',
+    duration: '{{duration}}',
+    completedCourse: 'Course wey you don finish',
+    startLearning: 'Start to learn',
+    continueLearning: 'Continue to learn',
+    viewCertificate: 'See certificate',
+    curriculum: 'Course content',
+    lessonsTotal: 'lessons',
+    currentLesson: 'Current',
+    whatYouLearn: 'Wetin you go learn',
+    finishCta: 'Finish wetin you start',
+    finishCtaBody: '{{remaining}} lessons remain to finish dis course.',
+    resume: 'Continue'
+  },
+
   wish: {
     title: 'Wishlist',
     saved: '{{count}} saved course',

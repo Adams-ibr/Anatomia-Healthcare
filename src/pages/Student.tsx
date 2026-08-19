@@ -41,8 +41,6 @@ export default function MyLearning() {
           {list.map((en) => {
             const course = COURSES.find((c) => c.id === en.courseId)
             if (!course) return null
-            const lessons = course.sections.flatMap((s) => s.lessons)
-            const current = lessons.find((l) => l.id === en.currentLessonId) ?? lessons[0]
             return (
               <div key={en.id} className="card flex flex-col overflow-hidden">
                 <div className="relative aspect-video bg-brand-900">
@@ -60,7 +58,7 @@ export default function MyLearning() {
                     ) : null}
                   </div>
                   <button
-                    onClick={() => en.status === 'completed' ? nav(`/courses/${course.slug}`) : nav(`/learning/${course.id}/${current.id}`)}
+                    onClick={() => nav(`/learning/${course.id}`)}
                     className="btn-primary mt-2 w-full"
                   >
                     {en.status === 'completed' ? t('learn.reviewCourse') : <>{t('learn.continue')} <ArrowRight className="h-4 w-4" /></>}

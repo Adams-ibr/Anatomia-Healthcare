@@ -20,6 +20,7 @@ import MyLearning, { Wishlist, Certificates } from './Student'
 import { CertificateDetail, VerifyCertificate } from './Certificates'
 import { Assignments, Assessments, AssessmentPlayer } from './Assessments'
 import LearningPlayer from './LearningPlayer'
+import CourseStudy from './CourseStudy'
 import Calendar from './Calendar'
 import Messages from './Messages'
 import NotificationsPage from './Notifications'
@@ -212,6 +213,7 @@ export default function App() {
             <Route path="/notifications" element={<NotificationsPage />} />
             <Route path="/profile" element={<ProfilePage />} />
             <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/learning/:courseId" element={<CourseStudy />} />
             <Route path="/learning/:courseId/:lessonId" element={<LearningPlayer />} />
           </Route>
         </Route>

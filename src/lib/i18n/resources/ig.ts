@@ -482,6 +482,31 @@ export default {
     continue: "Gaa n\'ihu"
   },
 
+  study: {
+    notFound: 'Ahụghị ọmụmụ',
+    backToMyLearning: 'Laghachi na Mmụta M',
+    lessonsCompleted: 'Ọmụmụ ndị agwụchara',
+    hoursLearned: 'Elekere ndị mụtara',
+    certificate: 'Asambodo',
+    earned: 'Enwetara',
+    eligible: 'Dị njikere ịnata',
+    inProgress: 'Na-aga n\'ihu',
+    certificateCourse: 'Ọmụmụ asambodo',
+    students: 'Ụmụ akwụkwọ {{count}}',
+    duration: '{{duration}}',
+    completedCourse: 'Ọmụmụ agwụchara',
+    startLearning: 'Malite mmụta',
+    continueLearning: 'Gaa n\'ihu mmụta',
+    viewCertificate: 'Lelee asambodo',
+    curriculum: 'Usoro ọmụmụ',
+    lessonsTotal: 'ọmụmụ',
+    currentLesson: 'Ugbu a',
+    whatYouLearn: 'Ihe ị ga-amụta',
+    finishCta: 'Gụchaa ihe ị malitere',
+    finishCtaBody: 'Ọmụmụ {{remaining}} fọdụrụ iji gụchaa ọmụmụ a.',
+    resume: 'Gaa n\'ihu'
+  },
+
   wish: {
     title: 'Ndị ịchọrọ',
     saved: '{{count}} ọmụmụ echekwara',

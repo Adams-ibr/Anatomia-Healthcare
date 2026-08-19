@@ -482,6 +482,31 @@ export default {
     continue: 'Continue'
   },
 
+  study: {
+    notFound: 'Course not found',
+    backToMyLearning: 'Back to My Learning',
+    lessonsCompleted: 'Lessons completed',
+    hoursLearned: 'Hours learned',
+    certificate: 'Certificate',
+    earned: 'Earned',
+    eligible: 'Ready to claim',
+    inProgress: 'In progress',
+    certificateCourse: 'Certificate course',
+    students: '{{count}} students',
+    duration: '{{duration}}',
+    completedCourse: 'Completed course',
+    startLearning: 'Start learning',
+    continueLearning: 'Continue learning',
+    viewCertificate: 'View certificate',
+    curriculum: 'Curriculum',
+    lessonsTotal: 'lessons',
+    currentLesson: 'Current',
+    whatYouLearn: 'What you will learn',
+    finishCta: 'Finish what you started',
+    finishCtaBody: '{{remaining}} lessons left to complete this course.',
+    resume: 'Resume'
+  },
+
   wish: {
     title: 'Wishlist',
     saved: '{{count}} saved course',
