@@ -23,7 +23,7 @@ void i18n
     supportedLngs: ['en', 'ha', 'yo', 'ig', 'pcm'],
     nonExplicitSupportedLngs: true,
     detection: {
-      order: ['localStorage', 'navigator'],
+      order: ['localStorage'],
       caches: ['localStorage'],
       lookupLocalStorage: 'dha:lang'
     },
