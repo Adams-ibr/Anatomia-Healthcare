@@ -85,7 +85,7 @@ jobs:
           if-no-files-found: error
 
       - name: Upload generated keystore (keep for future updates)
-        if: env.KEYSTORE_WAS_GENERATED == '1'
+        if: env.KEYSTORE_WAS_GENERATED == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: hama-academy-release-keystore
