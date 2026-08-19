@@ -18,7 +18,7 @@ const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS',
+  'Access-Control-Allow-Methods': 'GET, POST, PATCH, PUT, DELETE, OPTIONS',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   'Access-Control-Max-Age': '86400'
 }
@@ -687,6 +687,258 @@ async function handleAdminDeleteCourse(req: Request): Promise<Response> {
   return new Response(null, { status: 204, headers: corsHeaders })
 }
 
+interface SectionRow {
+  id: string
+  course_id: string
+  title: string
+  position: number
+}
+
+interface LessonRow {
+  id: string
+  section_id: string
+  title: string
+  type: string
+  duration: number
+  content: string
+  video_url: string | null
+  resource_url: string | null
+  position: number
+}
+
+interface ObjectiveRow {
+  id: string
+  course_id: string
+  text: string
+  position: number
+}
+
+interface RequirementRow {
+  id: string
+  course_id: string
+  text: string
+  position: number
+}
+
+interface FaqRow {
+  id: string
+  course_id: string
+  question: string
+  answer: string
+}
+
+interface AssessmentRow {
+  id: string
+  course_id: string
+  title: string
+  description: string
+  time_limit: number
+  passing_score: number
+  retake_limit: number
+}
+
+interface QuestionRow {
+  id: string
+  assessment_id: string
+  type: string
+  question: string
+  options: string[] | null
+  answer: string | null
+  explanation: string | null
+  position: number
+}
+
+async function loadCourseContent(id: string): Promise<Record<string, unknown> | null> {
+  const { data: course } = await supabase.from('courses').select('*').eq('id', id).single()
+  if (!course) return null
+
+  const [sections, objectives, requirements, faqs, assessments] = await Promise.all([
+    supabase.from('course_sections').select('*').eq('course_id', id).order('position'),
+    supabase.from('course_objectives').select('*').eq('course_id', id).order('position'),
+    supabase.from('course_requirements').select('*').eq('course_id', id).order('position'),
+    supabase.from('course_faqs').select('*').eq('course_id', id),
+    supabase.from('assessments').select('*').eq('course_id', id)
+  ])
+
+  const sectionRows = (sections.data ?? []) as SectionRow[]
+  const lessonRows = (await supabase.from('lessons').select('*').in('section_id', sectionRows.map((s) => s.id))).data as LessonRow[] | null
+  const assessmentRows = (assessments.data ?? []) as AssessmentRow[]
+  const questionRows = (await supabase.from('assessment_questions').select('*').in('assessment_id', assessmentRows.map((a) => a.id))).data as QuestionRow[] | null
+
+  return {
+    course: {
+      ...mapCourse(course as CourseRow),
+      objectives: (objectives.data ?? []).map((o: ObjectiveRow) => o.text),
+      requirements: (requirements.data ?? []).map((r: RequirementRow) => r.text),
+      sections: sectionRows.map((s) => ({
+        id: s.id,
+        title: s.title,
+        lessons: (lessonRows ?? []).filter((l) => l.section_id === s.id).map((l) => ({
+          id: l.id,
+          title: l.title,
+          type: l.type,
+          duration: l.duration,
+          content: l.content,
+          videoUrl: l.video_url ?? undefined,
+          resourceUrl: l.resource_url ?? undefined
+        }))
+      })),
+      faqs: (faqs.data ?? []).map((f: FaqRow) => ({ q: f.question, a: f.answer })),
+      assessments: assessmentRows.map((a) => ({
+        id: a.id,
+        title: a.title,
+        description: a.description,
+        timeLimit: a.time_limit,
+        passingScore: a.passing_score,
+        retakeLimit: a.retake_limit,
+        questions: (questionRows ?? []).filter((q) => q.assessment_id === a.id).map((q) => ({
+          id: q.id,
+          type: q.type,
+          question: q.question,
+          options: q.options ?? [],
+          answer: q.answer ?? '',
+          explanation: q.explanation ?? ''
+        }))
+      }))
+    }
+  }
+}
+
+async function handleAdminGetCourseFull(req: Request): Promise<Response> {
+  const guard = await requireAdmin(req)
+  if (guard instanceof Response) return guard
+
+  const url = new URL(req.url)
+  const id = url.pathname.split('/').filter(Boolean).at(-2) ?? ''
+  if (!id) return errorResponse(422, 'Course id is required.')
+
+  const content = await loadCourseContent(id)
+  if (!content) return errorResponse(404, 'Course not found.')
+  return json(content)
+}
+
+async function handleAdminSaveCourseContent(req: Request): Promise<Response> {
+  const guard = await requireAdmin(req)
+  if (guard instanceof Response) return guard
+
+  const url = new URL(req.url)
+  const id = url.pathname.split('/').filter(Boolean).at(-2) ?? ''
+  if (!id) return errorResponse(422, 'Course id is required.')
+
+  const { data: existing } = await supabase.from('courses').select('id').eq('id', id).single()
+  if (!existing) return errorResponse(404, 'Course not found.')
+
+  const body = await readBody(req)
+
+  const patch: Record<string, unknown> = {}
+  if (body.title !== undefined) {
+    if (typeof body.title !== 'string' || !body.title.trim()) return errorResponse(422, 'Title must be a non-empty string.')
+    patch.title = body.title.trim()
+  }
+  if (body.subtitle !== undefined && typeof body.subtitle === 'string') patch.subtitle = body.subtitle
+  if (body.description !== undefined && typeof body.description === 'string') patch.description = body.description
+  if (body.longDescription !== undefined && typeof body.longDescription === 'string') patch.long_description = body.longDescription
+  if (body.categoryId !== undefined && typeof body.categoryId === 'string' && body.categoryId) patch.category_id = body.categoryId
+  if (body.level !== undefined) {
+    if (!COURSE_LEVELS.includes(body.level as string)) return errorResponse(422, 'Level must be Beginner, Intermediate or Advanced.')
+    patch.level = body.level
+  }
+  if (body.language !== undefined && typeof body.language === 'string' && body.language.trim()) patch.language = body.language.trim()
+  if (body.thumbnail !== undefined && typeof body.thumbnail === 'string') patch.thumbnail = body.thumbnail || null
+  if (body.price !== undefined) patch.price = Number(body.price)
+  if (body.discountPrice !== undefined) patch.discount_price = body.discountPrice === null || body.discountPrice === '' ? null : Number(body.discountPrice)
+  if (body.hasCertificate !== undefined && typeof body.hasCertificate === 'boolean') patch.has_certificate = body.hasCertificate
+  if (body.status !== undefined) {
+    if (!COURSE_STATUSES.includes(body.status as string)) return errorResponse(422, 'Invalid course status.')
+    patch.status = body.status
+  }
+
+  const sections = Array.isArray(body.sections) ? body.sections as { title?: string; lessons?: { title?: string; type?: string; duration?: number; content?: string; videoUrl?: string; resourceUrl?: string }[] }[] : []
+  const objectives = Array.isArray(body.objectives) ? (body.objectives as unknown[]).filter((o): o is string => typeof o === 'string' && o.trim().length > 0) : []
+  const requirements = Array.isArray(body.requirements) ? (body.requirements as unknown[]).filter((r): r is string => typeof r === 'string' && r.trim().length > 0) : []
+  const faqs = Array.isArray(body.faqs) ? (body.faqs as { q?: string; a?: string }[]).filter((f) => f && (typeof f.q === 'string' || typeof f.a === 'string')) : []
+  const assessments = Array.isArray(body.assessments) ? body.assessments as { title?: string; description?: string; timeLimit?: number; passingScore?: number; retakeLimit?: number; questions?: { type?: string; question?: string; options?: string[]; answer?: string; explanation?: string }[] }[] : []
+
+  const duration = sections.reduce((total, s) => total + (s.lessons ?? []).reduce((t, l) => t + (Number(l.duration) || 0), 0), 0)
+  if (sections.length > 0) patch.duration = duration
+
+  const { error: updateError } = await supabase.from('courses').update(patch).eq('id', id)
+  if (updateError) {
+    if (/duplicate key/i.test(updateError.message)) return errorResponse(409, 'A course with this slug already exists.')
+    return errorResponse(500, 'Failed to update course: ' + updateError.message)
+  }
+
+  await Promise.all([
+    supabase.from('course_objectives').delete().eq('course_id', id),
+    supabase.from('course_requirements').delete().eq('course_id', id),
+    supabase.from('course_faqs').delete().eq('course_id', id),
+    supabase.from('assessments').delete().eq('course_id', id),
+    supabase.from('course_sections').delete().eq('course_id', id)
+  ])
+
+  for (let si = 0; si < sections.length; si++) {
+    const s = sections[si]
+    const { data: section } = await supabase.from('course_sections').insert({
+      course_id: id,
+      title: (s.title ?? '').trim() || `Section ${si + 1}`,
+      position: si
+    }).select('id').single()
+    if (!section) continue
+    const lessons = s.lessons ?? []
+    for (let li = 0; li < lessons.length; li++) {
+      const l = lessons[li]
+      await supabase.from('lessons').insert({
+        section_id: section.id,
+        title: (l.title ?? '').trim() || `Lesson ${li + 1}`,
+        type: l.type ?? 'video',
+        duration: Number(l.duration) || 0,
+        content: l.content ?? '',
+        video_url: typeof l.videoUrl === 'string' && l.videoUrl.trim() ? l.videoUrl.trim() : null,
+        resource_url: typeof l.resourceUrl === 'string' && l.resourceUrl.trim() ? l.resourceUrl.trim() : null,
+        position: li
+      })
+    }
+  }
+
+  for (let oi = 0; oi < objectives.length; oi++) {
+    await supabase.from('course_objectives').insert({ course_id: id, text: objectives[oi].trim(), position: oi })
+  }
+  for (let ri = 0; ri < requirements.length; ri++) {
+    await supabase.from('course_requirements').insert({ course_id: id, text: requirements[ri].trim(), position: ri })
+  }
+  for (let fi = 0; fi < faqs.length; fi++) {
+    await supabase.from('course_faqs').insert({ course_id: id, question: (faqs[fi].q ?? '').trim(), answer: (faqs[fi].a ?? '').trim() })
+  }
+  for (let ai = 0; ai < assessments.length; ai++) {
+    const a = assessments[ai]
+    const { data: assessment } = await supabase.from('assessments').insert({
+      course_id: id,
+      title: (a.title ?? '').trim() || `Assessment ${ai + 1}`,
+      description: a.description ?? '',
+      time_limit: Number(a.timeLimit) || 30,
+      passing_score: Number(a.passingScore) || 60,
+      retake_limit: Number(a.retakeLimit) || 3
+    }).select('id').single()
+    if (!assessment) continue
+    const questions = a.questions ?? []
+    for (let qi = 0; qi < questions.length; qi++) {
+      const q = questions[qi]
+      await supabase.from('assessment_questions').insert({
+        assessment_id: assessment.id,
+        type: q.type ?? 'mc',
+        question: (q.question ?? '').trim() || `Question ${qi + 1}`,
+        options: Array.isArray(q.options) ? q.options : null,
+        answer: typeof q.answer === 'string' && q.answer.trim() ? q.answer.trim() : null,
+        explanation: q.explanation ?? '',
+        position: qi
+      })
+    }
+  }
+
+  const content = await loadCourseContent(id)
+  return json(content ?? { course: mapCourse(await (await supabase.from('courses').select('*').eq('id', id).single()).data as CourseRow) })
+}
+
 interface CategoryRow {
   id: string
   name: string
@@ -911,6 +1163,12 @@ Deno.serve(async (req) => {
       if (/^\/admin\/users\/[^/]+$/.test(path)) {
         if (method === 'PATCH') response = await handleAdminUpdateUser(req)
         else if (method === 'DELETE') response = await handleAdminDeleteUser(req)
+        else response = errorResponse(404, 'API endpoint not found.')
+      } else if (/^\/admin\/courses\/[^/]+\/full$/.test(path)) {
+        if (method === 'GET') response = await handleAdminGetCourseFull(req)
+        else response = errorResponse(404, 'API endpoint not found.')
+      } else if (/^\/admin\/courses\/[^/]+\/content$/.test(path)) {
+        if (method === 'PUT') response = await handleAdminSaveCourseContent(req)
         else response = errorResponse(404, 'API endpoint not found.')
       } else if (/^\/admin\/courses\/[^/]+$/.test(path)) {
         if (method === 'PATCH') response = await handleAdminUpdateCourse(req)

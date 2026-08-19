@@ -158,6 +158,67 @@ export interface AdminCategoryInput {
   color?: string
 }
 
+export interface AdminLessonInput {
+  id: string
+  title: string
+  type: string
+  duration: number
+  content: string
+  videoUrl?: string
+  resourceUrl?: string
+}
+
+export interface AdminSectionInput {
+  title: string
+  lessons: AdminLessonInput[]
+}
+
+export interface AdminQuestionInput {
+  id: string
+  type: string
+  question: string
+  options?: string[]
+  answer?: string
+  explanation?: string
+}
+
+export interface AdminAssessmentInput {
+  title: string
+  description?: string
+  timeLimit?: number
+  passingScore?: number
+  retakeLimit?: number
+  questions: AdminQuestionInput[]
+}
+
+export interface AdminCourseFull extends AdminCourse {
+  objectives: string[]
+  requirements: string[]
+  sections: (AdminSectionInput & { id: string })[]
+  assessments: (AdminAssessmentInput & { id: string })[]
+  faqs: { q: string; a: string }[]
+}
+
+export interface AdminCourseContentInput {
+  title?: string
+  subtitle?: string
+  description?: string
+  longDescription?: string
+  categoryId?: string
+  level?: CourseLevel
+  language?: string
+  thumbnail?: string
+  price?: number
+  discountPrice?: number | null
+  hasCertificate?: boolean
+  status?: CourseStatus
+  objectives?: string[]
+  requirements?: string[]
+  sections?: AdminSectionInput[]
+  assessments?: AdminAssessmentInput[]
+  faqs?: { q: string; a: string }[]
+}
+
 export const courseApi = {
   listCourses(token: string, params: {
     search?: string
@@ -186,6 +247,14 @@ export const courseApi = {
 
   deleteCourse(token: string, id: string): Promise<unknown> {
     return apiFetch<unknown>(`/api/auth/admin/courses/${id}`, { method: 'DELETE', token })
+  },
+
+  getCourseFull(token: string, id: string): Promise<{ course: AdminCourseFull }> {
+    return apiFetch<{ course: AdminCourseFull }>(`/api/auth/admin/courses/${id}/full`, { token })
+  },
+
+  saveCourseContent(token: string, id: string, content: AdminCourseContentInput): Promise<{ course: AdminCourseFull }> {
+    return apiFetch<{ course: AdminCourseFull }>(`/api/auth/admin/courses/${id}/content`, { method: 'PUT', body: content, token })
   },
 
   listCategories(token: string): Promise<{ categories: AdminCategory[] }> {

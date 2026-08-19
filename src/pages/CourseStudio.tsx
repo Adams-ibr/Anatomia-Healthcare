@@ -1,12 +1,13 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
   ArrowLeft, ArrowRight, BookOpen, Check, CheckCircle2, ChevronDown, ChevronUp, Eye, FilePlus2,
-  GripVertical, HelpCircle, ImagePlus, Layers, ListChecks, Plus, Save, Settings2, Sparkles, Trash2, Video
+  GripVertical, HelpCircle, ImagePlus, Layers, ListChecks, Loader2, Plus, Save, Settings2, Sparkles, Trash2, Video
 } from 'lucide-react'
 import type { AssessmentQuestion, Course, CourseStatus, LessonType } from '../lib/types'
-import { ASSESSMENTS, CATEGORIES, COURSES } from '../lib/data'
+import { ASSESSMENTS, CATEGORIES as MOCK_CATEGORIES, COURSES } from '../lib/data'
+import { courseApi, getStoredToken, type AdminCategory, type AdminCourseFull } from '../lib/api/auth'
 import { useApp } from '../lib/store'
 import { Badge, Button, Input } from '../components/ui'
 import { cn, formatDuration, formatPrice, uid } from '../lib/utils'
@@ -89,7 +90,7 @@ function blank(): StudioDraft {
     subtitle: '',
     description: '',
     longDescription: '',
-    categoryId: 'c1',
+    categoryId: '',
     level: 'Beginner',
     language: 'English',
     thumbnail: '',
@@ -160,6 +161,55 @@ function fromCourse(c: Course): StudioDraft {
   }
 }
 
+function toContentInput(d: StudioDraft, courseId?: string) {
+  return {
+    title: d.title,
+    subtitle: d.subtitle,
+    description: d.description,
+    longDescription: d.longDescription,
+    categoryId: d.categoryId,
+    level: d.level,
+    language: d.language,
+    thumbnail: d.thumbnail,
+    price: Number(d.price) || 0,
+    discountPrice: d.discountPrice ? Number(d.discountPrice) : null,
+    hasCertificate: d.hasCertificate,
+    status: d.status,
+    objectives: d.objectives.filter(Boolean),
+    requirements: d.requirements.filter(Boolean),
+    sections: d.sections.map((s, si) => ({
+      id: s.id,
+      title: s.title || `Section ${si + 1}`,
+      lessons: s.lessons.map((l, li) => ({
+        id: l.id,
+        title: l.title || `Lesson ${li + 1}`,
+        type: l.type,
+        duration: l.duration || 0,
+        content: l.content,
+        videoUrl: l.videoUrl,
+        resourceUrl: l.resourceUrl
+      }))
+    })),
+    assessments: d.assessments.map((a, ai) => ({
+      id: a.id,
+      title: a.title || `Assessment ${ai + 1}`,
+      description: a.description,
+      timeLimit: a.timeLimit,
+      passingScore: a.passingScore,
+      retakeLimit: a.retakeLimit,
+      questions: a.questions.map((q, qi) => ({
+        id: q.id,
+        type: q.type,
+        question: q.question || `Question ${qi + 1}`,
+        options: q.options,
+        answer: q.answer,
+        explanation: q.explanation
+      }))
+    })),
+    faqs: d.faqs.filter((f) => f.q || f.a)
+  }
+}
+
 function toCourse(d: StudioDraft, instructorId: string): Course {
   const sections = d.sections.map((s, si) => ({
     id: s.id,
@@ -219,6 +269,9 @@ export default function CourseStudio() {
   const key = `dha:studio:${id ?? 'new'}`
   const existing = useMemo(() => COURSES.find((c) => c.id === id), [id])
 
+  const [categories, setCategories] = useState<AdminCategory[]>([])
+  const [loading, setLoading] = useState(Boolean(id))
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [tab, setTab] = useState<'details' | 'curriculum' | 'assessments' | 'faqs' | 'preview'>('details')
   const [draft, setDraft] = useState<StudioDraft>(() => {
     const raw = localStorage.getItem(key)
@@ -232,6 +285,86 @@ export default function CourseStudio() {
   })
   const [saveState, setSaveState] = useState<'saved' | 'dirty' | 'saving'>('saved')
   const [sel, setSel] = useState<Selection>(null)
+
+  const loadCategories = useCallback(async () => {
+    const token = getStoredToken()
+    if (!token) return
+    try {
+      const res = await courseApi.listCategories(token)
+      if (res.categories.length > 0) {
+        setCategories(res.categories)
+        setDraft((d) => (d.categoryId ? d : { ...d, categoryId: res.categories[0].id }))
+      }
+    } catch { /* fall back to mock */ }
+  }, [])
+
+  const loadFull = useCallback(async () => {
+    const token = getStoredToken()
+    if (!id || !token) return
+    setLoading(true)
+    setLoadError(null)
+    try {
+      const res = await courseApi.getCourseFull(token, id)
+      const full = res.course
+      const d: StudioDraft = {
+        title: full.title,
+        subtitle: full.subtitle,
+        description: full.description,
+        longDescription: full.longDescription,
+        categoryId: full.categoryId,
+        level: full.level,
+        language: full.language,
+        thumbnail: full.thumbnail ?? '',
+        price: String(full.price ?? 0),
+        discountPrice: full.discountPrice != null ? String(full.discountPrice) : '',
+        hasCertificate: full.hasCertificate,
+        status: full.status,
+        objectives: full.objectives.length > 0 ? full.objectives : [''],
+        requirements: full.requirements.length > 0 ? full.requirements : [''],
+        sections: full.sections.length > 0 ? full.sections.map((s) => ({
+          id: s.id,
+          title: s.title,
+          lessons: s.lessons.map((l) => ({
+            id: l.id,
+            title: l.title,
+            type: l.type as StudioLesson['type'],
+            duration: l.duration,
+            content: l.content,
+            videoUrl: l.videoUrl,
+            resourceUrl: l.resourceUrl
+          }))
+        })) : [{ id: uid('sec'), title: 'Section 1', lessons: [{ id: uid('les'), title: '', type: 'video', duration: 10, content: '' }] }],
+        assessments: full.assessments.map((a) => ({
+          id: a.id,
+          title: a.title,
+          description: a.description ?? '',
+          timeLimit: a.timeLimit ?? 30,
+          passingScore: a.passingScore ?? 60,
+          retakeLimit: a.retakeLimit ?? 3,
+          questions: a.questions.map((q) => ({
+            id: q.id,
+            type: q.type as StudioQuestion['type'],
+            question: q.question,
+            options: q.options ?? [],
+            answer: q.answer ?? '',
+            explanation: q.explanation ?? ''
+          }))
+        })),
+        faqs: full.faqs.map((f) => ({ id: uid('faq'), q: f.q, a: f.a }))
+      }
+      setDraft(d)
+      setSaveState('saved')
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : t('instrCourses.loadFailed'))
+    } finally {
+      setLoading(false)
+    }
+  }, [id, t])
+
+  useEffect(() => {
+    loadCategories()
+    if (isEdit) loadFull()
+  }, [loadCategories, loadFull, isEdit])
 
   useEffect(() => {
     setSaveState('dirty')
@@ -350,22 +483,82 @@ export default function CourseStudio() {
   ]
   const complete = checklist.every((c) => c.ok)
 
-  const saveNow = () => {
+  const saveNow = async () => {
     localStorage.setItem(key, JSON.stringify(draft))
-    setSaveState('saved')
-    toast(t('instrCourses.draftSaved'), t('instrCourses.draftSavedBody'))
+    setSaveState('saving')
+    const token = getStoredToken()
+    try {
+      if (isEdit && id && token) {
+        await courseApi.saveCourseContent(token, id, toContentInput(draft))
+      } else if (token && currentUser) {
+        const catId = draft.categoryId || categories[0]?.id
+        if (!catId) throw new Error(t('instrCourses.categoryRequired'))
+        const { course } = await courseApi.createCourse(token, {
+          title: draft.title.trim() || 'Untitled course',
+          categoryId: catId,
+          instructorId: currentUser.id,
+          level: draft.level,
+          price: Number(draft.price) || 0,
+          duration: totalMinutes,
+          hasCertificate: draft.hasCertificate,
+          status: draft.status
+        })
+        await courseApi.saveCourseContent(token, course.id, toContentInput({ ...draft, status: draft.status }, course.id))
+        nav(`/instructor/courses/${course.id}/edit`, { replace: true })
+      } else {
+        setSaveState('saved')
+        toast(t('instrCourses.draftSaved'), t('instrCourses.draftSavedBody'))
+        return
+      }
+      setSaveState('saved')
+      toast(t('instrCourses.draftSaved'), t('instrCourses.draftSavedBody'))
+    } catch (err) {
+      setSaveState('dirty')
+      toast(t('instrCourses.saveFailed'), err instanceof Error ? err.message : t('admin.errorGeneric'), 'error')
+    }
   }
 
-  const publish = () => {
+  const publish = async () => {
     if (!complete) {
       toast(t('instrCourses.publishWarning'), '', 'info')
       setTab('preview')
       return
     }
     setDraft((d) => ({ ...d, status: 'published' }))
-    localStorage.setItem(key, JSON.stringify({ ...draft, status: 'published' }))
-    setSaveState('saved')
-    toast(t('instrCourses.publishedSuccess'), t('instrCourses.publishedSuccessBody'))
+    const published = { ...draft, status: 'published' as const }
+    localStorage.setItem(key, JSON.stringify(published))
+    setSaveState('saving')
+    const token = getStoredToken()
+    try {
+      if (isEdit && id && token) {
+        await courseApi.saveCourseContent(token, id, toContentInput(published))
+      } else if (token && currentUser) {
+        const catId = draft.categoryId || categories[0]?.id
+        if (!catId) throw new Error(t('instrCourses.categoryRequired'))
+        const { course } = await courseApi.createCourse(token, {
+          title: published.title.trim() || 'Untitled course',
+          categoryId: catId,
+          instructorId: currentUser.id,
+          level: published.level,
+          price: Number(published.price) || 0,
+          duration: totalMinutes,
+          hasCertificate: published.hasCertificate,
+          status: 'published'
+        })
+        await courseApi.saveCourseContent(token, course.id, toContentInput({ ...published, status: 'published' }, course.id))
+        nav(`/instructor/courses/${course.id}/edit`, { replace: true })
+      } else {
+        setSaveState('saved')
+        toast(t('instrCourses.publishedSuccess'), t('instrCourses.publishedSuccessBody'))
+        return
+      }
+      setSaveState('saved')
+      toast(t('instrCourses.publishedSuccess'), t('instrCourses.publishedSuccessBody'))
+    } catch (err) {
+      setDraft((d) => ({ ...d, status: published.status }))
+      setSaveState('dirty')
+      toast(t('instrCourses.publishFailed'), err instanceof Error ? err.message : t('admin.errorGeneric'), 'error')
+    }
   }
 
   const tabs = [
@@ -377,6 +570,24 @@ export default function CourseStudio() {
   ]
 
   const saveLabel = saveState === 'saved' ? t('instrCourses.savedJustNow') : saveState === 'saving' ? t('instrCourses.savingChanges') : t('instrCourses.unsavedChanges')
+
+  if (loading) {
+    return (
+      <div className="flex min-h-[50vh] flex-col items-center justify-center gap-3 text-muted">
+        <Loader2 className="h-8 w-8 animate-spin text-brand-500" />
+        <p className="text-sm">{t('instrCourses.loadingCourse')}</p>
+      </div>
+    )
+  }
+
+  if (loadError) {
+    return (
+      <div className="flex min-h-[50vh] flex-col items-center justify-center gap-4">
+        <p className="text-sm text-danger">{loadError}</p>
+        <Button variant="outline" onClick={() => nav('/instructor/courses')}><ArrowLeft className="h-4 w-4" /> {t('instrCourses.backToCourses')}</Button>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -425,7 +636,7 @@ export default function CourseStudio() {
               <div>
                 <label className="label-base">{t('instrCourses.category')}</label>
                 <select value={draft.categoryId} onChange={(e) => patch({ categoryId: e.target.value })} className="input-base">
-                  {CATEGORIES.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  {(categories.length > 0 ? categories : MOCK_CATEGORIES).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
               </div>
               <div>
@@ -741,7 +952,7 @@ export default function CourseStudio() {
             </div>
             <div className="space-y-4 p-6">
               <div className="flex items-center gap-2">
-                <Badge color="brand">{CATEGORIES.find((c) => c.id === draft.categoryId)?.name}</Badge>
+                <Badge color="brand">{(categories.length > 0 ? categories : MOCK_CATEGORIES).find((c) => c.id === draft.categoryId)?.name}</Badge>
                 <Badge color="ink">{preview.level}</Badge>
                 {preview.hasCertificate && <Badge color="success">{t('cards.certificate')}</Badge>}
               </div>

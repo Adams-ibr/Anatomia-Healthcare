@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
   AlertTriangle, BookOpen, CheckCircle2, ChevronLeft, ChevronRight, CircleDollarSign,
-  Clock3, CloudDownload, FileText, Flag, Loader2, PencilLine, Plus, Search, Star,
+  Clock3, CloudDownload, FileText, Flag, Layers, Loader2, PencilLine, Plus, Search, Star,
   Trash2
 } from 'lucide-react'
 import { courseApi, getStoredToken, type AdminCategory, type AdminCourse, type AdminCourseInput, type CourseLevel, type CourseStatus } from '../lib/api/auth'
@@ -24,6 +25,7 @@ const STATUS_BADGE: Record<CourseStatus, 'success' | 'warning' | 'line' | 'brand
 export default function AdminCourses() {
   const { toast } = useApp()
   const { t } = useTranslation()
+  const nav = useNavigate()
 
   const [courses, setCourses] = useState<AdminCourse[]>([])
   const [total, setTotal] = useState(0)
@@ -252,6 +254,12 @@ export default function AdminCourses() {
                           className="rounded px-2 py-1 text-xs font-medium text-brand-700 hover:bg-brand-50"
                           aria-label={t('admin.editCourse')}
                         ><PencilLine className="h-3.5 w-3.5" /></button>
+                        <button
+                          onClick={() => nav(`/instructor/courses/${c.id}/edit`)}
+                          className="rounded px-2 py-1 text-xs font-medium text-ink hover:bg-line/50"
+                          aria-label={t('admin.editContent')}
+                          title={t('admin.editContent')}
+                        ><Layers className="h-3.5 w-3.5" /></button>
                         {c.status === 'pending' && (
                           <button
                             onClick={() => setConfirming({ course: c, mode: 'publish' })}
