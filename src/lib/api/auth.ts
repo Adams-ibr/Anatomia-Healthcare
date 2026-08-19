@@ -81,6 +81,114 @@ export const adminApi = {
   }
 }
 
+export type CourseStatus = 'published' | 'draft' | 'pending' | 'approved' | 'archived'
+export type CourseLevel = 'Beginner' | 'Intermediate' | 'Advanced'
+
+export interface AdminCourse {
+  id: string
+  slug: string
+  title: string
+  subtitle: string
+  description: string
+  longDescription: string
+  categoryId: string
+  categoryName?: string
+  instructorId: string
+  instructorName?: string
+  thumbnail?: string
+  price: number
+  discountPrice?: number
+  rating: number
+  reviewCount: number
+  studentCount: number
+  duration: number
+  level: CourseLevel
+  language: string
+  lastUpdated: string
+  hasCertificate: boolean
+  isFeatured: boolean
+  isTrending: boolean
+  isNew: boolean
+  status: CourseStatus
+  createdAt: string
+}
+
+export interface AdminCourseListResult {
+  courses: AdminCourse[]
+  total: number
+  page: number
+  perPage: number
+  hasMore: boolean
+}
+
+export interface AdminCourseInput {
+  title: string
+  slug?: string
+  subtitle?: string
+  description?: string
+  longDescription?: string
+  categoryId: string
+  instructorId: string
+  thumbnail?: string
+  price?: number
+  discountPrice?: number | null
+  level?: CourseLevel
+  language?: string
+  duration?: number
+  hasCertificate?: boolean
+  isFeatured?: boolean
+  status?: CourseStatus
+}
+
+export interface AdminCategory {
+  id: string
+  name: string
+  slug: string
+  description: string
+  icon?: string
+  color?: string
+  courseCount: number
+}
+
+export const courseApi = {
+  listCourses(token: string, params: {
+    search?: string
+    status?: 'all' | CourseStatus
+    category?: string
+    page?: number
+    perPage?: number
+  } = {}): Promise<AdminCourseListResult> {
+    const qs = new URLSearchParams()
+    if (params.search) qs.set('search', params.search)
+    if (params.status && params.status !== 'all') qs.set('status', params.status)
+    if (params.category) qs.set('category', params.category)
+    qs.set('page', String(params.page ?? 1))
+    qs.set('perPage', String(params.perPage ?? 25))
+    const query = qs.toString()
+    return apiFetch<AdminCourseListResult>(`/api/auth/admin/courses${query ? `?${query}` : ''}`, { token })
+  },
+
+  createCourse(token: string, input: AdminCourseInput): Promise<{ course: AdminCourse }> {
+    return apiFetch<{ course: AdminCourse }>('/api/auth/admin/courses', { method: 'POST', body: input, token })
+  },
+
+  updateCourse(token: string, id: string, patch: Partial<AdminCourseInput>): Promise<{ course: AdminCourse }> {
+    return apiFetch<{ course: AdminCourse }>(`/api/auth/admin/courses/${id}`, { method: 'PATCH', body: patch, token })
+  },
+
+  deleteCourse(token: string, id: string): Promise<unknown> {
+    return apiFetch<unknown>(`/api/auth/admin/courses/${id}`, { method: 'DELETE', token })
+  },
+
+  listCategories(token: string): Promise<{ categories: AdminCategory[] }> {
+    return apiFetch<{ categories: AdminCategory[] }>('/api/auth/admin/categories', { token })
+  },
+
+  listInstructors(token: string): Promise<{ instructors: { id: string; name: string }[] }> {
+    return apiFetch<{ instructors: { id: string; name: string }[] }>('/api/auth/admin/instructors', { token })
+  }
+}
+
 export const authApi = {
   register(input: { name: string; email: string; password: string; role: RegisterRole }): Promise<AuthSession> {
     return apiFetch<AuthSession>('/api/auth/register', { method: 'POST', body: input })

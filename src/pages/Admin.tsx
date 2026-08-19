@@ -1,11 +1,11 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { Award, BookOpen, CheckCircle2, DollarSign, GraduationCap, Megaphone, ShoppingBag, TrendingUp, UserCog, Users, X } from 'lucide-react'
+import { Award, BookOpen, CheckCircle2, DollarSign, GraduationCap, Megaphone, ShoppingBag, TrendingUp, UserCog, Users } from 'lucide-react'
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { CATEGORIES, COURSES, ORDERS, ALL_STUDENTS, INSTRUCTORS } from '../lib/data'
 import { useApp } from '../lib/store'
-import { Avatar, Badge, Button, ProgressBar, StatCard, Tabs } from '../components/ui'
+import { Avatar, Badge, Button, ProgressBar, StatCard } from '../components/ui'
 import { formatPrice } from '../lib/utils'
 
 export function AdminDashboard() {
@@ -83,65 +83,6 @@ export function AdminDashboard() {
 
 const ROLE_COLORS: Record<string, 'brand' | 'success' | 'warning' | 'danger' | 'ink'> = {
   admin: 'danger', instructor: 'brand', student: 'success', support: 'warning'
-}
-
-export function AdminCourses() {
-  const { toast } = useApp()
-  const { t } = useTranslation()
-  const [status, setStatus] = useState('all')
-  const list = COURSES.filter((c) => status === 'all' || c.status === status)
-
-  return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="font-display text-2xl font-bold text-ink">{t('admin.courseManagement')}</h1>
-        <p className="mt-1 text-sm text-muted">{t('admin.courseManagementDesc')}</p>
-      </div>
-      <Tabs
-        tabs={[
-          { id: 'all', label: t('admin.all') },
-          { id: 'pending', label: t('admin.pendingReview') },
-          { id: 'published', label: t('admin.published') },
-          { id: 'draft', label: t('admin.drafts') },
-          { id: 'archived', label: t('admin.archived') }
-        ]}
-        active={status}
-        onChange={setStatus}
-      />
-      <div className="space-y-3">
-        {list.map((c) => (
-          <div key={c.id} className="card flex flex-col gap-4 p-4 sm:flex-row sm:items-center">
-            <img src={c.thumbnail} alt="" className="h-16 w-28 shrink-0 rounded-card object-cover" />
-            <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <h3 className="font-semibold text-ink">{c.title}</h3>
-                <Badge color={c.status === 'published' ? 'success' : c.status === 'pending' ? 'warning' : 'line'}>{c.status}</Badge>
-                {c.isFeatured && <Badge color="brand">{t('admin.featured')}</Badge>}
-              </div>
-              <p className="mt-0.5 text-xs text-muted">
-                {CATEGORIES.find((x) => x.id === c.categoryId)?.name} · {t('admin.studentsCount', { count: c.studentCount })} · {c.rating.toFixed(1)}★ · {formatPrice(c.price)}
-              </p>
-            </div>
-            <div className="flex shrink-0 flex-wrap gap-2">
-              <Button variant="outline" onClick={() => toast(t('admin.courseOpened'), c.title, 'info')}>{t('admin.view')}</Button>
-              {c.status === 'pending' && (
-                <>
-                  <Button onClick={() => toast(t('admin.courseApproved'), t('admin.nowLive', { title: c.title }))}><CheckCircle2 className="h-4 w-4" /> {t('admin.approve')}</Button>
-                  <Button variant="outline" className="text-danger" onClick={() => toast(t('admin.courseRejected'), c.title, 'error')}><X className="h-4 w-4" /> {t('admin.reject')}</Button>
-                </>
-              )}
-              {c.status === 'published' && (
-                <>
-                  <Button variant="outline" onClick={() => toast(c.isFeatured ? t('admin.removedFeatured') : t('admin.markedFeatured'), c.title)}>{c.isFeatured ? t('admin.unfeature') : t('admin.feature')}</Button>
-                  <Button variant="outline" onClick={() => toast(t('admin.courseUnpublished'), c.title, 'info')}>{t('admin.unpublish')}</Button>
-                </>
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
 }
 
 export function AdminCategories() {

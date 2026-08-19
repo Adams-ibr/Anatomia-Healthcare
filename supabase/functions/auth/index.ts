@@ -463,6 +463,271 @@ async function handleAdminDeleteUser(req: Request): Promise<Response> {
 }
 
 // ---------------------------------------------------------------------------
+// Admin: courses
+// ---------------------------------------------------------------------------
+
+const COURSE_STATUSES = ['published', 'draft', 'pending', 'approved', 'archived']
+const COURSE_LEVELS = ['Beginner', 'Intermediate', 'Advanced']
+
+interface CourseRow {
+  id: string
+  slug: string
+  title: string
+  subtitle: string | null
+  description: string | null
+  long_description: string | null
+  category_id: string
+  instructor_id: string
+  thumbnail: string | null
+  price: number
+  discount_price: number | null
+  rating: number
+  review_count: number
+  student_count: number
+  duration: number
+  level: string
+  language: string
+  last_updated: string
+  has_certificate: boolean
+  is_featured: boolean
+  is_trending: boolean
+  is_new: boolean
+  status: string
+  created_at: string
+  categories?: { id: string; name: string } | null
+  instructors?: { id: string; name: string } | null
+}
+
+function mapCourse(c: CourseRow) {
+  return {
+    id: c.id,
+    slug: c.slug,
+    title: c.title,
+    subtitle: c.subtitle ?? '',
+    description: c.description ?? '',
+    longDescription: c.long_description ?? '',
+    categoryId: c.category_id,
+    categoryName: c.categories?.name,
+    instructorId: c.instructor_id,
+    instructorName: c.instructors?.name,
+    thumbnail: c.thumbnail ?? undefined,
+    price: Number(c.price),
+    discountPrice: c.discount_price != null ? Number(c.discount_price) : undefined,
+    rating: Number(c.rating),
+    reviewCount: c.review_count,
+    studentCount: c.student_count,
+    duration: c.duration,
+    level: c.level,
+    language: c.language,
+    lastUpdated: c.last_updated,
+    hasCertificate: c.has_certificate,
+    isFeatured: c.is_featured,
+    isTrending: c.is_trending,
+    isNew: c.is_new,
+    status: c.status,
+    createdAt: c.created_at
+  }
+}
+
+function slugify(value: string): string {
+  return value.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+}
+
+async function handleAdminListCourses(req: Request): Promise<Response> {
+  const guard = await requireAdmin(req)
+  if (guard instanceof Response) return guard
+
+  const url = new URL(req.url)
+  const search = (url.searchParams.get('search') ?? '').trim().toLowerCase()
+  const status = url.searchParams.get('status') ?? 'all'
+  const category = url.searchParams.get('category') ?? 'all'
+  const page = Math.max(1, parseInt(url.searchParams.get('page') ?? '1', 10) || 1)
+  const perPage = Math.min(100, Math.max(1, parseInt(url.searchParams.get('perPage') ?? '25', 10) || 25))
+  const offset = (page - 1) * perPage
+
+  let query = supabase
+    .from('courses')
+    .select('*, categories(id,name), instructors:profiles!courses_instructor_id_fkey(id,name)', { count: 'exact' })
+  if (search) query = query.or(`title.ilike.%${search}%,slug.ilike.%${search}%`)
+  if (status !== 'all') query = query.eq('status', status)
+  if (category !== 'all') query = query.eq('category_id', category)
+
+  const { data, count, error } = await query
+    .order('created_at', { ascending: false })
+    .range(offset, offset + perPage - 1)
+
+  if (error) return errorResponse(500, 'Failed to load courses: ' + error.message)
+
+  const rows = (data ?? []) as CourseRow[]
+  const courses = rows.map(mapCourse)
+
+  return json({ courses, total: count ?? rows.length, page, perPage, hasMore: (count ?? 0) > offset + rows.length })
+}
+
+async function handleAdminCreateCourse(req: Request): Promise<Response> {
+  const guard = await requireAdmin(req)
+  if (guard instanceof Response) return guard
+
+  const body = await readBody(req)
+  const { title, categoryId, instructorId } = body as { title?: string; categoryId?: string; instructorId?: string }
+
+  if (typeof title !== 'string' || !title.trim()) return errorResponse(422, 'Title is required.')
+  if (typeof categoryId !== 'string' || !categoryId) return errorResponse(422, 'A category is required.')
+  if (typeof instructorId !== 'string' || !instructorId) return errorResponse(422, 'An instructor is required.')
+
+  const level = (body.level as string) ?? 'Beginner'
+  if (!COURSE_LEVELS.includes(level)) return errorResponse(422, 'Level must be Beginner, Intermediate or Advanced.')
+  const status = (body.status as string) ?? 'draft'
+  if (!COURSE_STATUSES.includes(status)) return errorResponse(422, 'Invalid course status.')
+
+  const baseSlug = slugify(body.slug as string) || slugify(title)
+  if (!baseSlug) return errorResponse(422, 'A valid slug is required.')
+  let slug = baseSlug
+  const { count } = await supabase.from('courses').select('id', { count: 'exact', head: true }).eq('slug', slug)
+  if ((count ?? 0) > 0) slug = `${baseSlug}-${Date.now().toString(36)}`
+
+  const { data, error } = await supabase.from('courses').insert({
+    slug,
+    title: title.trim(),
+    subtitle: (body.subtitle as string) ?? '',
+    description: (body.description as string) ?? '',
+    long_description: (body.longDescription as string) ?? '',
+    category_id: categoryId,
+    instructor_id: instructorId,
+    thumbnail: (body.thumbnail as string) ?? null,
+    price: Number(body.price ?? 0),
+    discount_price: body.discountPrice != null && body.discountPrice !== '' ? Number(body.discountPrice) : null,
+    level,
+    language: (body.language as string) ?? 'English',
+    duration: Number(body.duration ?? 0),
+    has_certificate: body.hasCertificate === true,
+    is_featured: body.isFeatured === true,
+    status
+  }).select('*, categories(id,name), instructors:profiles!courses_instructor_id_fkey(id,name)').single()
+
+  if (error) {
+    if (/violates foreign key constraint/i.test(error.message)) return errorResponse(422, 'Category or instructor does not exist.')
+    if (/duplicate key/i.test(error.message)) return errorResponse(409, 'A course with this slug already exists.')
+    return errorResponse(500, 'Failed to create course: ' + error.message)
+  }
+
+  return json({ course: mapCourse(data as CourseRow) }, 201)
+}
+
+async function handleAdminUpdateCourse(req: Request): Promise<Response> {
+  const guard = await requireAdmin(req)
+  if (guard instanceof Response) return guard
+
+  const url = new URL(req.url)
+  const id = url.pathname.split('/').pop() ?? ''
+  if (!id) return errorResponse(422, 'Course id is required.')
+
+  const { data: existing } = await supabase.from('courses').select('id').eq('id', id).single()
+  if (!existing) return errorResponse(404, 'Course not found.')
+
+  const body = await readBody(req)
+  const patch: Record<string, unknown> = {}
+
+  if (body.title !== undefined) {
+    if (typeof body.title !== 'string' || !body.title.trim()) return errorResponse(422, 'Title must be a non-empty string.')
+    patch.title = body.title.trim()
+  }
+  if (body.subtitle !== undefined && typeof body.subtitle === 'string') patch.subtitle = body.subtitle
+  if (body.description !== undefined && typeof body.description === 'string') patch.description = body.description
+  if (body.longDescription !== undefined && typeof body.longDescription === 'string') patch.long_description = body.longDescription
+  if (body.categoryId !== undefined && typeof body.categoryId === 'string' && body.categoryId) patch.category_id = body.categoryId
+  if (body.instructorId !== undefined && typeof body.instructorId === 'string' && body.instructorId) patch.instructor_id = body.instructorId
+  if (body.thumbnail !== undefined && typeof body.thumbnail === 'string') patch.thumbnail = body.thumbnail || null
+  if (body.price !== undefined) patch.price = Number(body.price)
+  if (body.discountPrice !== undefined) patch.discount_price = body.discountPrice === null || body.discountPrice === '' ? null : Number(body.discountPrice)
+  if (body.level !== undefined) {
+    if (!COURSE_LEVELS.includes(body.level as string)) return errorResponse(422, 'Level must be Beginner, Intermediate or Advanced.')
+    patch.level = body.level
+  }
+  if (body.language !== undefined && typeof body.language === 'string' && body.language.trim()) patch.language = body.language.trim()
+  if (body.duration !== undefined) patch.duration = Number(body.duration)
+  if (body.hasCertificate !== undefined && typeof body.hasCertificate === 'boolean') patch.has_certificate = body.hasCertificate
+  if (body.isFeatured !== undefined && typeof body.isFeatured === 'boolean') patch.is_featured = body.isFeatured
+  if (body.status !== undefined) {
+    if (!COURSE_STATUSES.includes(body.status as string)) return errorResponse(422, 'Invalid course status.')
+    patch.status = body.status
+  }
+
+  if (Object.keys(patch).length === 0) return errorResponse(422, 'No fields to update.')
+
+  const { data, error } = await supabase.from('courses').update(patch)
+    .eq('id', id)
+    .select('*, categories(id,name), instructors:profiles!courses_instructor_id_fkey(id,name)')
+    .single()
+  if (error) {
+    if (/duplicate key/i.test(error.message)) return errorResponse(409, 'A course with this slug already exists.')
+    return errorResponse(500, 'Failed to update course: ' + error.message)
+  }
+
+  return json({ course: mapCourse(data as CourseRow) })
+}
+
+async function handleAdminDeleteCourse(req: Request): Promise<Response> {
+  const guard = await requireAdmin(req)
+  if (guard instanceof Response) return guard
+
+  const url = new URL(req.url)
+  const id = url.pathname.split('/').pop() ?? ''
+  if (!id) return errorResponse(422, 'Course id is required.')
+
+  const { data: existing } = await supabase.from('courses').select('id').eq('id', id).single()
+  if (!existing) return errorResponse(404, 'Course not found.')
+
+  const { error } = await supabase.from('courses').delete().eq('id', id)
+  if (error) {
+    if (/foreign key constraint/i.test(error.message)) return errorResponse(409, 'This course has paid orders and cannot be deleted.')
+    return errorResponse(500, 'Failed to delete course: ' + error.message)
+  }
+
+  return new Response(null, { status: 204, headers: corsHeaders })
+}
+
+interface CategoryRow {
+  id: string
+  name: string
+  slug: string
+  description: string
+  icon: string | null
+  color: string | null
+  course_count: number
+}
+
+async function handleAdminListCategories(req: Request): Promise<Response> {
+  const guard = await requireAdmin(req)
+  if (guard instanceof Response) return guard
+
+  const { data, error } = await supabase.from('categories').select('*').order('name')
+  if (error) return errorResponse(500, 'Failed to load categories: ' + error.message)
+
+  const rows = (data ?? []) as CategoryRow[]
+  return json({
+    categories: rows.map((c) => ({
+      id: c.id, name: c.name, slug: c.slug, description: c.description,
+      icon: c.icon ?? undefined, color: c.color ?? undefined, courseCount: c.course_count
+    }))
+  })
+}
+
+async function handleAdminListInstructors(req: Request): Promise<Response> {
+  const guard = await requireAdmin(req)
+  if (guard instanceof Response) return guard
+
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('id, name')
+    .in('role', ['instructor', 'admin', 'support'])
+    .order('name')
+  if (error) return errorResponse(500, 'Failed to load instructors: ' + error.message)
+
+  return json({ instructors: (data ?? []).map((p) => ({ id: p.id, name: p.name })) })
+}
+
+// ---------------------------------------------------------------------------
 // Router
 // ---------------------------------------------------------------------------
 
@@ -525,10 +790,34 @@ Deno.serve(async (req) => {
     case 'DELETE /admin/users/remove':
       response = await handleAdminDeleteUser(req)
       break
+    case 'GET /admin/courses':
+      response = await handleAdminListCourses(req)
+      break
+    case 'POST /admin/courses':
+      response = await handleAdminCreateCourse(req)
+      break
+    case 'PATCH /admin/courses':
+    case 'PATCH /admin/courses/remove':
+      response = await handleAdminUpdateCourse(req)
+      break
+    case 'DELETE /admin/courses':
+    case 'DELETE /admin/courses/remove':
+      response = await handleAdminDeleteCourse(req)
+      break
+    case 'GET /admin/categories':
+      response = await handleAdminListCategories(req)
+      break
+    case 'GET /admin/instructors':
+      response = await handleAdminListInstructors(req)
+      break
     default:
       if (/^\/admin\/users\/[^/]+$/.test(path)) {
         if (method === 'PATCH') response = await handleAdminUpdateUser(req)
         else if (method === 'DELETE') response = await handleAdminDeleteUser(req)
+        else response = errorResponse(404, 'API endpoint not found.')
+      } else if (/^\/admin\/courses\/[^/]+$/.test(path)) {
+        if (method === 'PATCH') response = await handleAdminUpdateCourse(req)
+        else if (method === 'DELETE') response = await handleAdminDeleteCourse(req)
         else response = errorResponse(404, 'API endpoint not found.')
       } else {
         response = errorResponse(404, 'API endpoint not found.')

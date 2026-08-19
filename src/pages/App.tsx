@@ -33,8 +33,9 @@ import { About, Blog, BlogPost, InstructorProfile, Instructors, Pricing, Support
 import { InstructorDashboard, InstructorStudents, InstructorAnalytics, InstructorEarnings } from './Instructor'
 import { InstructorCourses } from './InstructorCourses'
 import CourseStudio from './CourseStudio'
-import { AdminDashboard, AdminCourses, AdminCategories, AdminEnrollments } from './Admin'
+import { AdminDashboard, AdminCategories, AdminEnrollments } from './Admin'
 import AdminUsers from './AdminUsers'
+import AdminCourses from './AdminCourses'
 import { AdminCertificates, AdminOrders, AdminPayments, AdminAnnouncements, AdminReports, AdminAnalytics, AdminSettings } from './Admin2'
 
 function AuthLoader() {
