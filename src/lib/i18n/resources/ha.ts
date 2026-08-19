@@ -554,6 +554,11 @@ export default {
     keepGoing: 'Ci gaba!',
     coursesInProgress: 'Darussan da ke ci gaba',
     keepGoingSub: 'Ci gaba',
+    overallProgress: 'Ci gaban gaba ɗaya',
+    overallProgressBody: 'Kwasa-kwasan {{done}} cikin {{total}} an kammala',
+    inProgressCourses: 'Ana ci gaba',
+    completedCoursesShort: 'An kammala',
+    hoursShort: 'Sa\'o\'i',
     completedCourses: 'Darussan da aka kammala',
     completionPct: '{{pct}}% kammalawa',
     certificates: 'Takardun shaidar',
@@ -636,6 +641,8 @@ export default {
     post: 'Buga',
     questionPosted: 'An buga tambayar',
     questionPostedBody: 'Malamai da abokan karatu za su amsa nan ba da jimawa ba.',
+    autoplay: 'Autoplay next',
+    autoplayNextUp: 'Up next:',
     noQuestionsYet: 'Babu tambayoyi tukuna. Ka zama farkon wanda ya fara tattaunawa.'
   },
 

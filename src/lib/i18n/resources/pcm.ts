@@ -554,6 +554,11 @@ export default {
     keepGoing: 'Keep am going!',
     coursesInProgress: 'Courses wey still dey go',
     keepGoingSub: 'Keep going',
+    overallProgress: 'Overall progress',
+    overallProgressBody: '{{done}} out of {{total}} courses don finish',
+    inProgressCourses: 'De still dey go',
+    completedCoursesShort: 'Finish',
+    hoursShort: 'Hours',
     completedCourses: 'Courses wey you don finish',
     completionPct: '{{pct}}% finish',
     certificates: 'Certificates',
@@ -636,6 +641,8 @@ export default {
     post: 'Post',
     questionPosted: 'Question don post',
     questionPostedBody: 'Your teacher and your people go answer soon.',
+    autoplay: 'Autoplay next',
+    autoplayNextUp: 'Up next:',
     noQuestionsYet: 'No question yet. Be the first to start the discussion.'
   },
 

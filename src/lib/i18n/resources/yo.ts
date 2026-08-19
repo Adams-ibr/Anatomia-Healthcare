@@ -554,6 +554,11 @@ export default {
     keepGoing: 'Máa tẹ̀síwájú!',
     coursesInProgress: 'Àwọn ẹ̀kọ́ tó ń lọ lórí',
     keepGoingSub: 'Máa tẹ̀síwájú',
+    overallProgress: 'Ìtẹ̀síwájú lápapọ̀',
+    overallProgressBody: 'Àwọn ẹ̀kọ́ {{done}} nínú {{total}} ti parí',
+    inProgressCourses: 'Ó ń lọ lọ́wọ́',
+    completedCoursesShort: 'Tí ó parí',
+    hoursShort: 'Wákàtí',
     completedCourses: 'Àwọn ẹ̀kọ́ tó ti parí',
     completionPct: '{{pct}}% ìparí',
     certificates: 'Àwọn ìwé ẹ̀rí',
@@ -636,6 +641,8 @@ export default {
     post: 'Fi sílẹ̀',
     questionPosted: 'A ti fi ìbéèrè sílẹ̀',
     questionPostedBody: 'Àwọn olùkọ́ àti ẹlẹgbẹ́ máa dáhùn láìpẹ́.',
+    autoplay: 'Autoplay next',
+    autoplayNextUp: 'Up next:',
     noQuestionsYet: 'Kò sí ìbéèrè sẹ́yìn. Ìwọ ni kí ó kọ́kọ́ bẹ̀rẹ̀ ìjíròrò.'
   },
 

@@ -26,7 +26,7 @@ export default function StudentDashboard() {
     { day: 'Thu', hours: 2.5 }, { day: 'Fri', hours: 1 }, { day: 'Sat', hours: 3 }, { day: 'Sun', hours: 0 }
   ]
 
-  const firstCourse = active[0]
+  const overallProgress = mine.length ? Math.round(mine.reduce((a, e) => a + e.progress, 0) / mine.length) : 0
 
   return (
     <div className="space-y-8">
@@ -42,6 +42,58 @@ export default function StudentDashboard() {
             <p className="text-xs text-muted">{t('sdash.keepGoing')}</p>
           </div>
         </div>
+      </div>
+
+      <div className="card overflow-hidden">
+        <div className="flex flex-col gap-4 p-5 sm:p-6 lg:flex-row lg:items-center">
+          <div className="flex items-center gap-4">
+            <div className="relative h-16 w-16 shrink-0">
+              <svg viewBox="0 0 64 64" className="h-16 w-16 -rotate-90">
+                <circle cx="32" cy="32" r="26" fill="none" stroke="var(--line)" strokeWidth="8" />
+                <circle cx="32" cy="32" r="26" fill="none" stroke="var(--brand-500)" strokeWidth="8" strokeLinecap="round" strokeDasharray={`${overallProgress * 1.634} 163.4`} />
+              </svg>
+              <span className="absolute inset-0 flex items-center justify-center text-sm font-bold text-ink">{overallProgress}%</span>
+            </div>
+            <div>
+              <p className="font-display text-lg font-semibold text-ink">{t('sdash.overallProgress')}</p>
+              <p className="text-sm text-muted">{t('sdash.overallProgressBody', { done: completed.length, total: mine.length })}</p>
+            </div>
+          </div>
+          <div className="grid flex-1 gap-3 sm:grid-cols-3 lg:pl-6">
+            <div className="rounded-card border border-line p-3">
+              <p className="text-2xl font-bold text-ink">{inProgress.length}</p>
+              <p className="text-xs text-muted">{t('sdash.inProgressCourses')}</p>
+            </div>
+            <div className="rounded-card border border-line p-3">
+              <p className="text-2xl font-bold text-ink">{completed.length}</p>
+              <p className="text-xs text-muted">{t('sdash.completedCoursesShort')}</p>
+            </div>
+            <div className="rounded-card border border-line p-3">
+              <p className="text-2xl font-bold text-ink">{learningHours}</p>
+              <p className="text-xs text-muted">{t('sdash.hoursShort')}</p>
+            </div>
+          </div>
+        </div>
+        {mine.length > 0 && (
+          <div className="grid gap-4 border-t border-line bg-paper p-5 sm:grid-cols-2 lg:grid-cols-3 sm:p-6">
+            {mine.slice(0, 6).map((en) => {
+              const course = COURSES.find((c) => c.id === en.courseId)
+              if (!course) return null
+              const allLessons = course.sections.flatMap((s) => s.lessons)
+              const current = allLessons.find((l) => l.id === en.currentLessonId) ?? allLessons[0]
+              return (
+                <button key={en.id} onClick={() => nav(`/learning/${course.id}/${current.id}`)} className="group flex items-center gap-3 rounded-card border border-line bg-surface p-3 text-left transition-colors hover:border-brand-300">
+                  <img src={course.thumbnail} alt={course.title} className="h-10 w-14 shrink-0 rounded object-cover" />
+                  <div className="min-w-0 flex-1">
+                    <p className="line-clamp-1 text-sm font-medium text-ink group-hover:text-brand-700">{course.title}</p>
+                    <ProgressBar value={en.progress} className="mt-1.5 h-1.5" barClassName="bg-brand-500" />
+                  </div>
+                  <span className="text-xs font-semibold text-muted">{en.progress}%</span>
+                </button>
+              )
+            })}
+          </div>
+        )}
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

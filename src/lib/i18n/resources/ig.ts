@@ -554,6 +554,11 @@ export default {
     keepGoing: "Gaa n\'ihu!",
     coursesInProgress: "Ọmụmụ na-aga n\'ihu",
     keepGoingSub: "Gaa n\'ihu",
+    overallProgress: 'Ọganihu n\'ozuzu',
+    overallProgressBody: 'Ọmụmụ {{done}} n\'ime {{total}} agwụchara',
+    inProgressCourses: 'Na-aga n\'ihu',
+    completedCoursesShort: 'Agwụchara',
+    hoursShort: 'Elekere',
     completedCourses: 'Ọmụmụ emechara',
     completionPct: '{{pct}}% mmecha',
     certificates: 'Asambodo',
@@ -636,6 +641,8 @@ export default {
     post: 'Zipuo',
     questionPosted: 'Eziputala ajụjụ',
     questionPostedBody: "Ndị nkuzi na ndị ọgbọ ga-aza n\'oge adịghị anya.",
+    autoplay: 'Autoplay next',
+    autoplayNextUp: 'Up next:',
     noQuestionsYet: 'Enweghị ajụjụ. Bụrụ onye mbụ ịmalite mkparịta ụka.'
   },
 

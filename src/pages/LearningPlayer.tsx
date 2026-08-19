@@ -25,12 +25,12 @@ function LessonIcon({ type }: { type: Lesson['type'] }) {
   return <>{map[type] ?? <FileText className="h-4 w-4" />}</>
 }
 
-function VideoPlayer({ url, title }: { url?: string; title: string }) {
+function VideoPlayer({ url, title, onEnded, autoplayNext }: { url?: string; title: string; onEnded?: () => void; autoplayNext?: boolean }) {
   const [speed, setSpeed] = useState(1)
   if (!url) return null
   return (
     <div className="overflow-hidden rounded-card bg-black">
-      <video controls className="aspect-video w-full" poster={undefined}>
+      <video controls className="aspect-video w-full" poster={undefined} onEnded={onEnded}>
         <source src={url} type="video/mp4" />
       </video>
       <div className="flex items-center gap-1 border-t border-white/10 bg-black px-3 py-2 text-xs text-white/80">
@@ -52,6 +52,7 @@ export default function LearningPlayer() {
   const [tab, setTab] = useState('notes')
   const [curriculumOpen, setCurriculumOpen] = useState(false)
   const [completedFlash, setCompletedFlash] = useState(false)
+  const [autoplay, setAutoplay] = useState(false)
 
   const enrollment = useMemo(
     () => currentUser ? enrollments.find((e) => e.userId === currentUser.id && e.courseId === courseId) : null,
@@ -113,11 +114,17 @@ export default function LearningPlayer() {
     if (next) nav(`/learning/${course.id}/${next.id}`, { replace: true })
   }
 
+  const autoAdvance = () => {
+    if (autoplay && next) {
+      completeLesson(course.id, lesson.id)
+      nav(`/learning/${course.id}/${next.id}`, { replace: true })
+    }
+  }
+
   const renderContent = () => {
     if (lesson.type === 'video' || lesson.type === 'audio') {
-      return <VideoPlayer url={lesson.videoUrl} title={lesson.title} />
-    }
-    if (lesson.type === 'quiz' || lesson.type === 'exam') {
+      return <VideoPlayer url={lesson.videoUrl} title={lesson.title} onEnded={autoAdvance} autoplayNext={autoplay} />
+    }    if (lesson.type === 'quiz' || lesson.type === 'exam') {
       return (
         <div className="card flex flex-col items-center p-10 text-center">
           <div className="rounded-full bg-brand-50 p-5 text-brand-700">{lesson.type === 'exam' ? <Award className="h-10 w-10" /> : <Check className="h-10 w-10" />}</div>
@@ -176,6 +183,13 @@ export default function LearningPlayer() {
               <ProgressBar value={progress} className="bg-line/70" barClassName="bg-brand-500" />
               <span className="text-xs font-medium text-muted">{progress}%</span>
             </div>
+            <button
+              onClick={() => setAutoplay(!autoplay)}
+              className={cn('hidden items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors sm:flex', autoplay ? 'border-brand-500 bg-brand-50 text-brand-700' : 'border-line text-muted hover:text-ink')}
+              aria-pressed={autoplay}
+            >
+              <PlayCircle className="h-3.5 w-3.5" /> {t('player.autoplay')}
+            </button>
             <Button variant="outline" className="lg:hidden" onClick={() => setCurriculumOpen(!curriculumOpen)}>
               <ListVideo className="h-4 w-4" /> {t('player.curriculum')}
             </Button>
@@ -232,6 +246,14 @@ export default function LearningPlayer() {
 
           <div className="max-w-4xl">
             {renderContent()}
+
+            {autoplay && next && (
+              <div className="mt-3 flex items-center gap-2 rounded-card border border-brand-200 bg-brand-50 px-3 py-2 text-xs text-brand-700">
+                <PlayCircle className="h-3.5 w-3.5" />
+                <span>{t('player.autoplayNextUp')}</span>
+                <span className="font-semibold">{next.title}</span>
+              </div>
+            )}
 
             <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
               <Button variant="outline" onClick={() => prev ? nav(`/learning/${course.id}/${prev.id}`) : toast(t('player.atStart'), t('player.firstLesson'))} disabled={!prev}>

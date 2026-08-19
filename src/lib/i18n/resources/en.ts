@@ -554,6 +554,11 @@ export default {
     keepGoing: 'Keep it going!',
     coursesInProgress: 'Courses in progress',
     keepGoingSub: 'Keep going',
+    overallProgress: 'Overall progress',
+    overallProgressBody: '{{done}} of {{total}} courses completed',
+    inProgressCourses: 'In progress',
+    completedCoursesShort: 'Completed',
+    hoursShort: 'Hours',
     completedCourses: 'Completed courses',
     completionPct: '{{pct}}% completion',
     certificates: 'Certificates',
@@ -636,6 +641,8 @@ export default {
     post: 'Post',
     questionPosted: 'Question posted',
     questionPostedBody: 'Instructors and peers will respond shortly.',
+    autoplay: 'Autoplay next',
+    autoplayNextUp: 'Up next:',
     noQuestionsYet: 'No questions yet. Be the first to start the discussion.'
   },
 
