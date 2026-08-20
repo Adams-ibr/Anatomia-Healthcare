@@ -352,11 +352,21 @@ export const studentApi = {
     return apiFetch<{ enrollment: StudentEnrollment }>(`/api/auth/me/enrollments/${courseId}`, { method: 'PATCH', body: patch, token })
   },
 
-  checkout(token: string, input: { courseIds: string[]; paymentMethod?: string }): Promise<{
+  checkout(token: string, input: { courseIds: string[]; paymentMethod?: string; callbackUrl?: string }): Promise<{
+    order: StudentOrder
+    enrollments: StudentEnrollment[]
+    authorizationUrl?: string
+    reference?: string
+    publicKey?: string
+  }> {
+    return apiFetch<{ order: StudentOrder; enrollments: StudentEnrollment[]; authorizationUrl?: string; reference?: string; publicKey?: string }>('/api/auth/checkout', { method: 'POST', body: input, token })
+  },
+
+  verifyCheckout(token: string, reference: string): Promise<{
     order: StudentOrder
     enrollments: StudentEnrollment[]
   }> {
-    return apiFetch<{ order: StudentOrder; enrollments: StudentEnrollment[] }>('/api/auth/checkout', { method: 'POST', body: input, token })
+    return apiFetch<{ order: StudentOrder; enrollments: StudentEnrollment[] }>('/api/auth/checkout/verify', { method: 'POST', body: { reference }, token })
   },
 
   listOrders(token: string): Promise<{ orders: StudentOrder[] }> {

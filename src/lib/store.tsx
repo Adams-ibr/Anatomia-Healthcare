@@ -5,7 +5,7 @@ import { USERS, ALL_STUDENTS, INSTRUCTORS, seedEnrollments, CERTIFICATES, NOTIFI
 import { uid } from './utils'
 import { ApiError } from './api/client'
 import { authApi, getStoredToken, storeToken, clearStoredToken, studentApi } from './api/auth'
-import type { StudentEnrollment } from './api/auth'
+import type { StudentEnrollment, StudentOrder } from './api/auth'
 
 interface Toast {
   id: string
@@ -41,7 +41,8 @@ interface AppState {
   addToCart: (courseId: string) => void
   removeFromCart: (courseId: string) => void
   clearCart: () => void
-  checkout: (method: string) => void
+  checkout: (method: string) => Promise<'completed' | 'redirected'>
+  verifyCheckout: (reference: string) => Promise<{ ok: boolean; error?: string; enrollments?: StudentEnrollment[]; order?: StudentOrder }>
   markNotificationsRead: () => void
   sendMessage: (conversationId: string, toId: string, text: string) => void
   submitAssignment: (assignmentId: string, text: string, link?: string) => void
@@ -116,7 +117,7 @@ function toOrder(o: { id: string; userId: string; total: number; status: string;
     userId: o.userId,
     items: o.items,
     total: o.total,
-    status: (o.status === 'completed' || o.status === 'pending' || o.status === 'refunded') ? o.status : 'completed',
+    status: (o.status === 'completed' || o.status === 'pending' || o.status === 'refunded' || o.status === 'failed') ? o.status : 'completed',
     date: o.createdAt,
     paymentMethod: o.paymentMethod
   }
@@ -362,13 +363,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const clearCart = useCallback(() => setCart([]), [])
 
-  const checkout = useCallback(async (method: string) => {
-    if (!currentUser) return
+  const checkout = useCallback(async (method: string): Promise<'completed' | 'redirected'> => {
+    if (!currentUser) return 'completed'
     const token = getStoredToken()
     const courseIds = [...cart]
     if (token && courseIds.length > 0) {
       try {
-        const { enrollments: newEnrollments, order } = await studentApi.checkout(token, { courseIds, paymentMethod: method })
+        const result = await studentApi.checkout(token, {
+          courseIds,
+          paymentMethod: method,
+          callbackUrl: `${window.location.origin}/checkout`
+        })
+        if (result.authorizationUrl) {
+          window.location.assign(result.authorizationUrl)
+          return 'redirected'
+        }
+        const { enrollments: newEnrollments, order } = result
         setEnrollments((e) => {
           const next = [...e]
           newEnrollments.forEach((en) => {
@@ -378,7 +388,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         })
         setOrders((o) => [...o, toOrder({ ...order, userId: currentUser.id, items: order.items, createdAt: order.createdAt })])
         setCart([])
-        return
+        return 'completed'
       } catch {
         /* fall through to local */
       }
@@ -398,7 +408,28 @@ export function AppProvider({ children }: { children: ReactNode }) {
       date: new Date().toISOString(), paymentMethod: method
     }])
     setCart([])
+    return 'completed'
   }, [cart, currentUser])
+
+  const verifyCheckout = useCallback(async (reference: string) => {
+    const token = getStoredToken()
+    if (!currentUser || !token) return { ok: false, error: 'Not authenticated.' }
+    try {
+      const { order, enrollments: newEnrollments } = await studentApi.verifyCheckout(token, reference)
+      setEnrollments((e) => {
+        const next = [...e]
+        newEnrollments.forEach((en) => {
+          if (!next.some((x) => x.userId === currentUser.id && x.courseId === en.courseId)) next.push(toEnrollment(en))
+        })
+        return next
+      })
+      setOrders((o) => o.some((x) => x.id === order.id) ? o : [...o, toOrder({ ...order, userId: currentUser.id, items: order.items, createdAt: order.createdAt })])
+      setCart([])
+      return { ok: true, enrollments: newEnrollments, order }
+    } catch (err) {
+      return { ok: false, error: getErrorMessage(err) }
+    }
+  }, [currentUser])
 
   const markNotificationsRead = useCallback(() => {
     setNotifications((n) => n.map((x) => ({ ...x, read: true })))
@@ -484,7 +515,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     authStatus, currentUser, users, enrollments, wishlist, cart, notifications, conversations, messages,
     submissions, orders, certificates, toasts,
     login, register, logout, forgotPassword, resetPassword, verifyEmail, enroll, completeLesson,
-    setCurrentLesson, toggleWishlist, addToCart, removeFromCart, clearCart, checkout, markNotificationsRead,
+    setCurrentLesson, toggleWishlist, addToCart, removeFromCart, clearCart, checkout, verifyCheckout, markNotificationsRead,
     sendMessage, submitAssignment, toast, dismissToast, updateProfile, changePassword, deleteAccount,
     issueCertificate, resetAll
   }

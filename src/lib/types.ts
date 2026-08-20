@@ -309,7 +309,7 @@ export interface Order {
   userId: string
   items: { courseId: string; title: string; price: number }[]
   total: number
-  status: 'completed' | 'pending' | 'refunded'
+  status: 'completed' | 'pending' | 'refunded' | 'failed'
   date: string
   paymentMethod: string
 }

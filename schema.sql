@@ -23,7 +23,7 @@ create type public.course_level as enum ('Beginner', 'Intermediate', 'Advanced')
 create type public.lesson_type as enum ('video', 'article', 'pdf', 'audio', 'quiz', 'assignment', 'exam', 'project');
 create type public.enrollment_status as enum ('active', 'completed');
 create type public.assignment_status as enum ('open', 'graded', 'closed');
-create type public.order_status as enum ('completed', 'pending', 'refunded');
+create type public.order_status as enum ('completed', 'pending', 'refunded', 'failed');
 create type public.question_type as enum ('mc', 'multi', 'truefalse', 'short', 'essay', 'fill');
 
 -- -----------------------------------------------------------------------------
@@ -397,10 +397,12 @@ create table public.orders (
   total numeric(10,2) not null default 0,
   status public.order_status not null default 'pending',
   payment_method text not null default '',
+  payment_reference text,
   created_at timestamptz not null default now()
 );
 
 create index orders_user_idx on public.orders (user_id);
+create unique index orders_payment_ref_idx on public.orders (payment_reference) where payment_reference is not null;
 
 create table public.order_items (
   id uuid primary key default gen_random_uuid(),

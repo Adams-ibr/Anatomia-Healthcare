@@ -1,20 +1,49 @@
-import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { CheckCircle2, CreditCard, Lock, ShieldCheck, ShoppingBag } from 'lucide-react'
+import { CheckCircle2, Loader2, Lock, ShieldCheck, ShoppingBag } from 'lucide-react'
 import { COURSES } from '../lib/data'
 import { useApp } from '../lib/store'
-import { Avatar, Button, Input } from '../components/ui'
+import { Button, Input } from '../components/ui'
 import { formatPrice } from '../lib/utils'
 import { cn } from '../lib/utils'
 
 export default function Checkout() {
-  const { currentUser, cart, removeFromCart, checkout, toast } = useApp()
+  const { currentUser, cart, removeFromCart, checkout, verifyCheckout, toast } = useApp()
   const { t } = useTranslation()
   const nav = useNavigate()
-  const [method, setMethod] = useState('card')
-  const [card, setCard] = useState('')
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [processing, setProcessing] = useState(false)
   const [done, setDone] = useState(false)
+  const [failed, setFailed] = useState(false)
+  const [verifying, setVerifying] = useState(false)
+
+  const reference = searchParams.get('reference')
+
+  useEffect(() => {
+    if (!reference || !currentUser) return
+    let cancelled = false
+    setVerifying(true)
+    verifyCheckout(reference).then((res) => {
+      if (cancelled) return
+      setVerifying(false)
+      if (res.ok) {
+        setDone(true)
+        toast(t('checkout.paymentSuccessful'), t('checkout.welcomeAboard'))
+      } else {
+        setFailed(true)
+        toast(t('checkout.paymentFailed'), res.error, 'error')
+      }
+      const params = new URLSearchParams(searchParams)
+      params.delete('reference')
+      params.delete('trxref')
+      setSearchParams(params, { replace: true })
+    })
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reference, currentUser])
 
   const items = COURSES.filter((c) => cart.includes(c.id))
   const total = items.reduce((a, c) => a + (c.discountPrice ?? c.price), 0)
@@ -24,6 +53,18 @@ export default function Checkout() {
       <div className="container-page py-20 text-center">
         <h1 className="font-display text-2xl font-bold text-ink">{t('checkout.signInToCheckout')}</h1>
         <Button className="mt-4" onClick={() => nav(`/login?next=/checkout`)}>{t('checkout.logIn')}</Button>
+      </div>
+    )
+  }
+
+  if (verifying) {
+    return (
+      <div className="container-page py-20">
+        <div className="mx-auto max-w-md text-center">
+          <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-brand-50 text-brand-700"><Loader2 className="h-10 w-10 animate-spin" /></div>
+          <h1 className="mt-6 font-display text-2xl font-bold text-ink">{t('checkout.verifying')}</h1>
+          <p className="mt-2 text-sm text-muted">{t('checkout.verifyingDesc')}</p>
+        </div>
       </div>
     )
   }
@@ -44,6 +85,20 @@ export default function Checkout() {
     )
   }
 
+  const handlePurchase = async () => {
+    if (processing) return
+    setProcessing(true)
+    try {
+      const result = await checkout('paystack')
+      if (result === 'completed') {
+        setDone(true)
+        toast(t('checkout.paymentSuccessful'), t('checkout.welcomeAboard'))
+      }
+    } finally {
+      setProcessing(false)
+    }
+  }
+
   return (
     <div className="container-page py-10">
       <Link to="/courses" className="text-sm text-muted hover:text-brand-700">{t('checkout.continueBrowsing')}</Link>
@@ -53,21 +108,19 @@ export default function Checkout() {
         <div className="space-y-6">
           <div className="card p-6">
             <h2 className="mb-4 font-semibold text-ink">{t('checkout.paymentMethod')}</h2>
-            <div className="grid gap-2 sm:grid-cols-3">
-              {[['card', t('checkout.card'), <CreditCard key="c" className="h-5 w-5" />], ['paypal', t('checkout.paypal'), <span key="p" className="font-display text-base font-bold italic">Pay</span>], ['wallet', t('checkout.wallet'), <ShieldCheck key="w" className="h-5 w-5" />]].map(([id, label, icon]) => (
-                <button key={id as string} onClick={() => setMethod(id as string)} className={cn('flex items-center gap-2 rounded-control border p-4 text-sm font-medium transition-colors', method === id ? 'border-brand-500 bg-brand-50 text-brand-700' : 'border-line text-muted hover:text-ink')}>
-                  {icon as React.ReactNode} {label}
-                </button>
-              ))}
-            </div>
-            {method === 'card' && (
-              <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                <Input label={t('checkout.cardNumber')} value={card} onChange={(e) => setCard(e.target.value)} placeholder="4242 4242 4242 4242" inputMode="numeric" className="sm:col-span-2" />
-                <Input label={t('checkout.expiry')} placeholder="MM / YY" />
-                <Input label={t('checkout.cvc')} placeholder="123" />
-              </div>
+            <button
+              onClick={() => setFailed(false)}
+              className={cn('flex w-full items-center gap-3 rounded-control border p-4 text-left transition-colors', failed ? 'border-danger/40 bg-danger/5 text-danger' : 'border-brand-500 bg-brand-50 text-brand-700')}
+            >
+              <span className="flex h-9 w-14 items-center justify-center rounded-md bg-[#0ba4db] font-display text-sm font-bold text-white">Paystack</span>
+              <span className="text-sm font-medium">{t('checkout.paystack')}</span>
+              <ShieldCheck className="ml-auto h-5 w-5" />
+            </button>
+            {failed && (
+              <p className="mt-3 rounded-control border border-danger/30 bg-danger/5 px-4 py-3 text-sm text-danger">{t('checkout.paymentFailed')} {t('checkout.paymentFailedDesc')}</p>
             )}
-            <div className="mt-4 flex items-center gap-2 text-xs text-muted">
+            <p className="mt-4 text-sm text-muted">{t('checkout.paystackNote')}</p>
+            <div className="mt-3 flex items-center gap-2 text-xs text-muted">
               <Lock className="h-3.5 w-3.5" /> {t('checkout.encrypted')}
             </div>
           </div>
@@ -75,10 +128,10 @@ export default function Checkout() {
           <div className="card p-6">
             <h2 className="mb-4 font-semibold text-ink">{t('checkout.billingInfo')}</h2>
             <div className="grid gap-4 sm:grid-cols-2">
-              <Input label={t('checkout.fullName')} defaultValue={currentUser.name} />
-              <Input label={t('checkout.email')} defaultValue={currentUser.email} type="email" />
-              <Input label={t('checkout.country')} placeholder={t('checkout.countryPlaceholder')} />
+              <Input label={t('checkout.fullName')} defaultValue={currentUser.name} disabled />
+              <Input label={t('checkout.email')} defaultValue={currentUser.email} type="email" disabled />
             </div>
+            <p className="mt-3 text-xs text-muted">{t('checkout.billingNote')}</p>
           </div>
         </div>
 
@@ -94,7 +147,7 @@ export default function Checkout() {
                 </div>
               ) : items.map((c) => (
                 <div key={c.id} className="flex items-center gap-3">
-                  <Avatar name={c.title} size="sm" />
+                  <span className="flex h-9 w-9 items-center justify-center rounded-control bg-brand-50 text-xs font-semibold text-brand-700">H</span>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium text-ink">{c.title}</p>
                     <p className="text-xs text-muted">{formatPrice(c.discountPrice ?? c.price)}</p>
@@ -110,7 +163,13 @@ export default function Checkout() {
                   <div className="flex justify-between text-muted"><span>{t('checkout.discount')}</span><span className="text-success">-{formatPrice(items.reduce((a, c) => a + (c.price - (c.discountPrice ?? c.price)), 0))}</span></div>
                   <div className="flex justify-between text-base font-semibold text-ink"><span>{t('checkout.total')}</span><span>{formatPrice(total)}</span></div>
                 </div>
-                <Button className="mt-5 w-full py-3" disabled={total === 0} onClick={() => { checkout(method === 'card' ? `Card **** ${card.slice(-4) || '4242'}` : method); setDone(true); toast(t('checkout.paymentSuccessful'), t('checkout.welcomeAboard')) }}>{t('checkout.completePurchase')}</Button>
+                <Button className="mt-5 w-full py-3" disabled={processing} onClick={handlePurchase}>
+                  {processing ? (
+                    <span className="flex items-center justify-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> {t('checkout.redirecting')}</span>
+                  ) : (
+                    t('checkout.completePurchase')
+                  )}
+                </Button>
                 <p className="mt-3 flex items-center justify-center gap-1.5 text-xs text-muted"><ShieldCheck className="h-3.5 w-3.5 text-success" /> {t('checkout.guarantee')}</p>
               </>
             )}

@@ -3,6 +3,9 @@ import { createClient } from 'jsr:@supabase/supabase-js@2'
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
 const FRONTEND_URL = (Deno.env.get('FRONTEND_URL') ?? 'https://www.hamaacademy.com').replace(/\/+$/, '')
+const PAYSTACK_SECRET_KEY = Deno.env.get('PAYSTACK_SECRET_KEY') ?? ''
+const PAYSTACK_PUBLIC_KEY = Deno.env.get('PAYSTACK_PUBLIC_KEY') ?? ''
+const PAYSTACK_API = 'https://api.paystack.co'
 
 if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
   throw new Error('SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set')
@@ -115,6 +118,114 @@ async function readBody(req: Request): Promise<Record<string, unknown>> {
   } catch {
     return {}
   }
+}
+
+// ---------------------------------------------------------------------------
+// Paystack helpers
+// ---------------------------------------------------------------------------
+
+function paystackReference(): string {
+  return `HMA-${crypto.randomUUID().replace(/-/g, '').toUpperCase()}`
+}
+
+async function paystackInitialize(email: string, amountKobo: number, reference: string, callbackUrl: string, metadata: Record<string, unknown>) {
+  try {
+    const res = await fetch(`${PAYSTACK_API}/transaction/initialize`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${PAYSTACK_SECRET_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email,
+        amount: Math.round(amountKobo),
+        reference,
+        callback_url: callbackUrl,
+        metadata
+      })
+    })
+    const data = await res.json().catch(() => null)
+    if (!res.ok || !data?.status || !data?.data?.authorization_url) {
+      return { error: data?.message ?? 'Paystack could not initialize this payment.' }
+    }
+    return { data: data.data as { authorization_url: string; access_code: string; reference: string } }
+  } catch {
+    return { error: 'Could not reach Paystack. Please try again.' }
+  }
+}
+
+async function paystackVerify(reference: string) {
+  try {
+    const res = await fetch(`${PAYSTACK_API}/transaction/verify/${encodeURIComponent(reference)}`, {
+      headers: { Authorization: `Bearer ${PAYSTACK_SECRET_KEY}` }
+    })
+    const data = await res.json().catch(() => null)
+    if (!res.ok || !data?.status) {
+      return { error: data?.message ?? 'Paystack could not verify this payment.' }
+    }
+    return { data: data.data as { status: string; reference: string; amount: number; paid_at?: string } }
+  } catch {
+    return { error: 'Could not reach Paystack. Please try again.' }
+  }
+}
+
+async function paystackSignatureValid(req: Request, rawBody: string): Promise<boolean> {
+  const signature = req.headers.get('x-paystack-signature')
+  if (!signature || !PAYSTACK_SECRET_KEY) return false
+  try {
+    const key = await crypto.subtle.importKey(
+      'raw',
+      new TextEncoder().encode(PAYSTACK_SECRET_KEY),
+      { name: 'HMAC', hash: 'SHA-512' },
+      false,
+      ['sign']
+    )
+    const mac = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(rawBody))
+    const hex = [...new Uint8Array(mac)].map((b) => b.toString(16).padStart(2, '0')).join('')
+    return hex === signature
+  } catch {
+    return false
+  }
+}
+
+// Marks the order completed and creates enrollments for any course the user is
+// not yet enrolled in. Safe to call more than once (idempotent).
+async function finalizeOrder(orderId: string, userId: string, courseIds: string[]): Promise<{ created: number; skipped: number }> {
+  const { data: existing } = await supabase
+    .from('enrollments')
+    .select('course_id')
+    .eq('user_id', userId)
+    .in('course_id', courseIds)
+  const already = new Set((existing ?? []).map((e) => e.course_id))
+
+  const newIds = courseIds.filter((id) => !already.has(id))
+  let created = 0
+  if (newIds.length > 0) {
+    const { data: courses } = await supabase
+      .from('courses')
+      .select('id, discount_price, price')
+      .in('id', newIds)
+    const priceMap = new Map((courses ?? []).map((c) => [c.id, Number(c.discount_price ?? c.price) || 0]))
+
+    const { error } = await supabase.from('enrollments').insert(
+      newIds.map((courseId) => ({
+        user_id: userId,
+        course_id: courseId,
+        enrolled_at: new Date().toISOString(),
+        progress: 0,
+        status: 'active' as const,
+        completed_lessons: [] as string[],
+        price_paid: priceMap.get(courseId) ?? 0
+      }))
+    )
+    if (error) throw new Error('Failed to create enrollments: ' + error.message)
+    created = newIds.length
+  }
+
+  const { error: orderError } = await supabase
+    .from('orders')
+    .update({ status: 'completed' })
+    .eq('id', orderId)
+  if (orderError) throw new Error('Failed to mark order as completed: ' + orderError.message)
+
+  return { created, skipped: courseIds.length - created }
 }
 
 // ---------------------------------------------------------------------------
@@ -1307,7 +1418,7 @@ async function handleCheckout(req: Request): Promise<Response> {
   const guard = await requireUser(req)
   if (guard instanceof Response) return guard
 
-  const { courseIds, paymentMethod } = await readBody(req)
+  const { courseIds, paymentMethod, callbackUrl } = await readBody(req)
   if (!Array.isArray(courseIds) || courseIds.length === 0) return errorResponse(422, 'At least one course is required.')
   const ids = courseIds.filter((x): x is string => typeof x === 'string')
 
@@ -1325,12 +1436,63 @@ async function handleCheckout(req: Request): Promise<Response> {
   if (unpaid.length > 0 && !paymentMethod) return errorResponse(422, 'A payment method is required for paid courses.')
 
   const total = ids.reduce((sum, id) => sum + (Number(courseMap.get(id)!.discount_price ?? courseMap.get(id)!.price) || 0), 0)
+  const method = typeof paymentMethod === 'string' && paymentMethod ? paymentMethod : 'card'
 
+  if (total === 0) {
+    const { data: order, error: orderError } = await supabase.from('orders').insert({
+      user_id: guard.profile.id,
+      total: 0,
+      status: 'completed',
+      payment_method: 'free',
+      created_at: new Date().toISOString()
+    }).select('id').single()
+    if (orderError) return errorResponse(500, 'Failed to create order: ' + orderError.message)
+
+    const items = ids.map((courseId) => {
+      const c = courseMap.get(courseId)!
+      return { order_id: order.id, course_id: courseId, title: c.title, price: 0 }
+    })
+    const { error: itemsError } = await supabase.from('order_items').insert(items)
+    if (itemsError) return errorResponse(500, 'Failed to create order items: ' + itemsError.message)
+
+    const { data: existingEnrollments } = await supabase
+      .from('enrollments')
+      .select('course_id')
+      .eq('user_id', guard.profile.id)
+      .in('course_id', ids)
+    const alreadyEnrolled = new Set((existingEnrollments ?? []).map((e) => e.course_id))
+    const newIds = ids.filter((id) => !alreadyEnrolled.has(id))
+    if (newIds.length === 0) return errorResponse(409, 'You are already enrolled in all selected courses.')
+
+    const enrollRows = newIds.map((courseId) => ({
+      user_id: guard.profile.id,
+      course_id: courseId,
+      enrolled_at: new Date().toISOString(),
+      progress: 0,
+      status: 'active' as const,
+      completed_lessons: [] as string[],
+      price_paid: 0
+    }))
+    const { data: enrollData, error: enrollError } = await supabase.from('enrollments').insert(enrollRows).select('*')
+    if (enrollError) return errorResponse(500, 'Failed to create enrollments: ' + enrollError.message)
+
+    const rows = (enrollData ?? []) as EnrollmentRow[]
+    const coursesEmbedded = await loadEnrollmentCourses(rows)
+    return json({
+      order: { id: order.id, total, status: 'completed', paymentMethod: 'free', createdAt: new Date().toISOString() },
+      enrollments: rows.map((r, i) => mapEnrollment(r, coursesEmbedded[i]))
+    }, 201)
+  }
+
+  if (!PAYSTACK_SECRET_KEY) return errorResponse(503, 'Online payments are not configured yet. Please try again later.')
+
+  const reference = paystackReference()
   const { data: order, error: orderError } = await supabase.from('orders').insert({
     user_id: guard.profile.id,
     total,
-    status: 'completed',
-    payment_method: typeof paymentMethod === 'string' ? paymentMethod : 'card',
+    status: 'pending',
+    payment_method: 'paystack',
+    payment_reference: reference,
     created_at: new Date().toISOString()
   }).select('id').single()
   if (orderError) return errorResponse(500, 'Failed to create order: ' + orderError.message)
@@ -1340,35 +1502,120 @@ async function handleCheckout(req: Request): Promise<Response> {
     return { order_id: order.id, course_id: courseId, title: c.title, price: Number(c.discount_price ?? c.price) || 0 }
   })
   const { error: itemsError } = await supabase.from('order_items').insert(items)
-  if (itemsError) return errorResponse(500, 'Failed to create order items: ' + itemsError.message)
+  if (itemsError) {
+    await supabase.from('orders').update({ status: 'failed' }).eq('id', order.id)
+    return errorResponse(500, 'Failed to create order items: ' + itemsError.message)
+  }
 
-  const { data: existingEnrollments } = await supabase
-    .from('enrollments')
-    .select('course_id')
+  const init = await paystackInitialize(
+    guard.profile.email,
+    total * 100,
+    reference,
+    typeof callbackUrl === 'string' && callbackUrl ? callbackUrl : `${FRONTEND_URL}/checkout`,
+    { user_id: guard.profile.id, course_ids: ids }
+  )
+  if ('error' in init) {
+    await supabase.from('orders').update({ status: 'failed' }).eq('id', order.id)
+    return errorResponse(502, init.error)
+  }
+
+  return json({
+    order: { id: order.id, total, status: 'pending', paymentMethod: 'paystack', createdAt: new Date().toISOString() },
+    authorizationUrl: init.data.authorization_url,
+    reference,
+    publicKey: PAYSTACK_PUBLIC_KEY || undefined
+  }, 201)
+}
+
+async function handleCheckoutVerify(req: Request): Promise<Response> {
+  const guard = await requireUser(req)
+  if (guard instanceof Response) return guard
+
+  const { reference } = await readBody(req)
+  if (typeof reference !== 'string' || !reference) return errorResponse(422, 'Payment reference is required.')
+
+  const { data: order } = await supabase
+    .from('orders')
+    .select('*, order_items(course_id)')
+    .eq('payment_reference', reference)
     .eq('user_id', guard.profile.id)
-    .in('course_id', ids)
-  const alreadyEnrolled = new Set((existingEnrollments ?? []).map((e) => e.course_id))
-  const newIds = ids.filter((id) => !alreadyEnrolled.has(id))
-  if (newIds.length === 0) return errorResponse(409, 'You are already enrolled in all selected courses.')
+    .maybeSingle()
+  if (!order) return errorResponse(404, 'Order not found.')
 
-  const enrollRows = newIds.map((courseId) => ({
-    user_id: guard.profile.id,
-    course_id: courseId,
-    enrolled_at: new Date().toISOString(),
-    progress: 0,
-    status: 'active' as const,
-    completed_lessons: [] as string[],
-    price_paid: Number(courseMap.get(courseId)!.discount_price ?? courseMap.get(courseId)!.price) || 0
-  }))
-  const { data: enrollData, error: enrollError } = await supabase.from('enrollments').insert(enrollRows).select('*')
-  if (enrollError) return errorResponse(500, 'Failed to create enrollments: ' + enrollError.message)
+  if (order.status === 'completed') {
+    const { data: enrollData } = await supabase
+      .from('enrollments')
+      .select('*')
+      .eq('user_id', guard.profile.id)
+      .in('course_id', (order.order_items ?? []).map((it: { course_id: string }) => it.course_id))
+    const rows = (enrollData ?? []) as EnrollmentRow[]
+    const coursesEmbedded = await loadEnrollmentCourses(rows)
+    return json({
+      order: { id: order.id, total: Number(order.total), status: 'completed', paymentMethod: order.payment_method, createdAt: order.created_at },
+      enrollments: rows.map((r, i) => mapEnrollment(r, coursesEmbedded[i]))
+    })
+  }
 
+  const verified = await paystackVerify(reference)
+  if ('error' in verified) return errorResponse(502, verified.error)
+
+  if (verified.data.status !== 'success') {
+    return errorResponse(400, 'Payment was not completed. Your order is still pending — you can try again.')
+  }
+
+  const courseIds = (order.order_items ?? []).map((it: { course_id: string }) => it.course_id)
+  try {
+    await finalizeOrder(order.id, guard.profile.id, courseIds)
+  } catch (err) {
+    return errorResponse(500, err instanceof Error ? err.message : 'Failed to complete your order.')
+  }
+
+  const { data: enrollData } = await supabase
+    .from('enrollments')
+    .select('*')
+    .eq('user_id', guard.profile.id)
+    .in('course_id', courseIds)
   const rows = (enrollData ?? []) as EnrollmentRow[]
   const coursesEmbedded = await loadEnrollmentCourses(rows)
   return json({
-    order: { id: order.id, total, status: 'completed', paymentMethod: typeof paymentMethod === 'string' ? paymentMethod : 'card', createdAt: new Date().toISOString() },
+    order: { id: order.id, total: Number(order.total), status: 'completed', paymentMethod: order.payment_method, createdAt: order.created_at },
     enrollments: rows.map((r, i) => mapEnrollment(r, coursesEmbedded[i]))
-  }, 201)
+  })
+}
+
+async function handlePaystackWebhook(req: Request): Promise<Response> {
+  const rawBody = await req.text()
+  const valid = await paystackSignatureValid(req, rawBody)
+  if (!valid) return errorResponse(401, 'Invalid signature.')
+
+  let payload: { event?: string; data?: { reference?: string } }
+  try {
+    payload = JSON.parse(rawBody) as { event?: string; data?: { reference?: string } }
+  } catch {
+    return errorResponse(400, 'Invalid payload.')
+  }
+
+  if (payload.event !== 'charge.success' || !payload.data?.reference) {
+    return json({ received: true })
+  }
+
+  const { data: order } = await supabase
+    .from('orders')
+    .select('*, order_items(course_id)')
+    .eq('payment_reference', payload.data.reference)
+    .maybeSingle()
+  if (!order) return json({ received: true })
+
+  if (order.status !== 'completed') {
+    const courseIds = (order.order_items ?? []).map((it: { course_id: string }) => it.course_id)
+    try {
+      await finalizeOrder(order.id, order.user_id, courseIds)
+    } catch {
+      return errorResponse(500, 'Failed to complete the order.')
+    }
+  }
+
+  return json({ received: true })
 }
 
 async function handleMyOrders(req: Request): Promise<Response> {
@@ -1547,6 +1794,12 @@ Deno.serve(async (req) => {
       break
     case 'POST /checkout':
       response = await handleCheckout(req)
+      break
+    case 'POST /checkout/verify':
+      response = await handleCheckoutVerify(req)
+      break
+    case 'POST /webhook/paystack':
+      response = await handlePaystackWebhook(req)
       break
     case 'GET /admin/enrollments':
       response = await handleAdminListEnrollments(req)
