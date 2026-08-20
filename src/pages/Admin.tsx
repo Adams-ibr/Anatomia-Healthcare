@@ -2,25 +2,57 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Award, BookOpen, CheckCircle2, DollarSign, GraduationCap, Megaphone, ShoppingBag, TrendingUp, UserCog, Users } from 'lucide-react'
-import { Area, AreaChart, Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import { COURSES, ORDERS, ALL_STUDENTS, INSTRUCTORS } from '../lib/data'
+import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { useApp } from '../lib/store'
-import { getStoredToken, studentApi } from '../lib/api/auth'
-import { Avatar, Badge, Button, ProgressBar, StatCard } from '../components/ui'
+import { adminApi, courseApi, getStoredToken, studentApi } from '../lib/api/auth'
+import { Avatar, Badge, ProgressBar, StatCard } from '../components/ui'
 import { formatPrice } from '../lib/utils'
 
 export function AdminDashboard() {
-  const { users, enrollments } = useApp()
+  const { enrollments } = useApp()
   const { t } = useTranslation()
   const nav = useNavigate()
-  const students = users.filter((u) => u.role === 'student')
-  const instructors = users.filter((u) => u.role === 'instructor')
-  const revenue = ORDERS.reduce((a, o) => a + o.total, 0)
+  const [stats, setStats] = useState<{
+    users: number
+    students: number
+    instructors: number
+    revenue: number
+    courses: number
+    certificates: number
+    orders: number
+    monthly: { m: string; revenue: number }[]
+  } | null>(null)
 
-  const growth = useMemo(() => [
-    { month: 'Jan', users: 8000 }, { month: 'Feb', users: 9200 }, { month: 'Mar', users: 10800 },
-    { month: 'Apr', users: 12400 }, { month: 'May', users: 14200 }, { month: 'Jun', users: 16800 }
-  ], [])
+  useEffect(() => {
+    const token = getStoredToken()
+    if (!token) return
+    let cancelled = false
+    Promise.all([
+      adminApi.getPayments(token),
+      adminApi.listUsers(token, { page: 1, perPage: 1 }),
+      adminApi.listUsers(token, { page: 1, perPage: 1, role: 'student' }),
+      adminApi.listUsers(token, { page: 1, perPage: 1, role: 'instructor' }),
+      courseApi.listCourses(token, { page: 1, perPage: 1, status: 'all' }),
+      adminApi.listCertificates(token)
+    ]).then(([pay, users, students, instructors, courses, certs]) => {
+      if (cancelled) return
+      setStats({
+        users: users.total,
+        students: students.total,
+        instructors: instructors.total,
+        revenue: pay.grossRevenue,
+        courses: courses.total,
+        certificates: certs.certificates.length,
+        orders: pay.orderCount,
+        monthly: pay.monthly
+      })
+    }).catch(() => {})
+    return () => { cancelled = true }
+  }, [])
+
+  const completed = enrollments.filter((e) => e.status === 'completed').length
+  const completionRate = enrollments.length ? Math.round(completed / enrollments.length * 100) : 0
+  const growth = useMemo(() => stats?.monthly.map((m) => ({ month: m.m, users: Math.round(m.revenue) })) ?? [], [stats])
 
   return (
     <div className="space-y-8">
@@ -30,36 +62,40 @@ export function AdminDashboard() {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label={t('admin.totalUsers')} value={users.length.toLocaleString()} sub={t('admin.plusThisMonth')} icon={<Users className="h-5 w-5" />} />
-        <StatCard label={t('admin.students')} value={students.length.toLocaleString()} sub={t('admin.activeLearners')} icon={<GraduationCap className="h-5 w-5" />} />
-        <StatCard label={t('admin.instructors')} value={instructors.length.toLocaleString()} sub={t('admin.plusNewThisMonth')} icon={<UserCog className="h-5 w-5" />} />
-        <StatCard label={t('admin.revenue')} value={formatPrice(revenue)} sub={t('admin.allTime')} icon={<DollarSign className="h-5 w-5" />} />
+        <StatCard label={t('admin.totalUsers')} value={(stats?.users ?? 0).toLocaleString()} sub={t('admin.registered')} icon={<Users className="h-5 w-5" />} />
+        <StatCard label={t('admin.students')} value={(stats?.students ?? 0).toLocaleString()} sub={t('admin.activeLearners')} icon={<GraduationCap className="h-5 w-5" />} />
+        <StatCard label={t('admin.instructors')} value={(stats?.instructors ?? 0).toLocaleString()} sub={t('admin.plusNewThisMonth')} icon={<UserCog className="h-5 w-5" />} />
+        <StatCard label={t('admin.revenue')} value={formatPrice(stats?.revenue ?? 0)} sub={t('admin.allTime')} icon={<DollarSign className="h-5 w-5" />} />
       </div>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label={t('admin.courses')} value={COURSES.length} sub={t('admin.featuredCount', { count: COURSES.filter((c) => c.isFeatured).length })} icon={<BookOpen className="h-5 w-5" />} />
+        <StatCard label={t('admin.courses')} value={(stats?.courses ?? 0).toLocaleString()} sub={t('admin.publishedCount')} icon={<BookOpen className="h-5 w-5" />} />
         <StatCard label={t('admin.enrollments')} value={enrollments.length.toLocaleString()} sub={t('admin.platformWide')} icon={<TrendingUp className="h-5 w-5" />} />
-        <StatCard label={t('admin.certificatesIssued')} value="2,841" sub={t('admin.plusThisMonth')} icon={<Award className="h-5 w-5" />} />
-        <StatCard label={t('admin.completionRate')} value="68%" sub={t('admin.acrossAll')} icon={<CheckCircle2 className="h-5 w-5" />} />
+        <StatCard label={t('admin.certificatesIssued')} value={(stats?.certificates ?? 0).toLocaleString()} sub={t('admin.issuedAllTime')} icon={<Award className="h-5 w-5" />} />
+        <StatCard label={t('admin.completionRate')} value={`${completionRate}%`} sub={t('admin.acrossAll')} icon={<CheckCircle2 className="h-5 w-5" />} />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="card p-5 lg:col-span-2">
           <h2 className="mb-4 font-semibold text-ink">{t('admin.userGrowth')}</h2>
-          <ResponsiveContainer width="100%" height={260}>
-            <AreaChart data={growth} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
-              <defs>
-                <linearGradient id="userg" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="var(--brand-500)" stopOpacity={0.25} />
-                  <stop offset="100%" stopColor="var(--brand-500)" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--line)" vertical={false} />
-              <XAxis dataKey="month" tick={{ fontSize: 11, fill: 'var(--muted)' }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fontSize: 11, fill: 'var(--muted)' }} axisLine={false} tickLine={false} />
-              <Tooltip contentStyle={{ borderRadius: 8, border: '1px solid var(--line)', backgroundColor: 'var(--surface)', color: 'var(--ink)', fontSize: 12 }} />
-              <Area type="monotone" dataKey="users" stroke="var(--brand-500)" strokeWidth={2} fill="url(#userg)" />
-            </AreaChart>
-          </ResponsiveContainer>
+          {growth.length === 0 ? (
+            <p className="py-16 text-center text-sm text-muted">{t('admin.noData')}</p>
+          ) : (
+            <ResponsiveContainer width="100%" height={260}>
+              <AreaChart data={growth} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="userg" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="var(--brand-500)" stopOpacity={0.25} />
+                    <stop offset="100%" stopColor="var(--brand-500)" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--line)" vertical={false} />
+                <XAxis dataKey="month" tick={{ fontSize: 11, fill: 'var(--muted)' }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 11, fill: 'var(--muted)' }} axisLine={false} tickLine={false} />
+                <Tooltip contentStyle={{ borderRadius: 8, border: '1px solid var(--line)', backgroundColor: 'var(--surface)', color: 'var(--ink)', fontSize: 12 }} />
+                <Area type="monotone" dataKey="users" stroke="var(--brand-500)" strokeWidth={2} fill="url(#userg)" />
+              </AreaChart>
+            </ResponsiveContainer>
+          )}
         </div>
         <div className="card p-5">
           <h2 className="mb-4 font-semibold text-ink">{t('admin.quickActions')}</h2>
@@ -87,7 +123,7 @@ const ROLE_COLORS: Record<string, 'brand' | 'success' | 'warning' | 'danger' | '
 }
 
 export function AdminEnrollments() {
-  const { enrollments, toast } = useApp()
+  const { toast } = useApp()
   const { t } = useTranslation()
   const nav = useNavigate()
   const [remote, setRemote] = useState<{
@@ -113,40 +149,28 @@ export function AdminEnrollments() {
     return () => { cancelled = true }
   }, [t, toast])
 
-  const rows = (remote ?? enrollments.slice(0, 12).map((en) => ({
-    id: en.id,
-    userId: en.userId,
-    studentName: ALL_STUDENTS[0]?.name ?? 'Student',
-    courseId: en.courseId,
-    courseTitle: COURSES.find((c) => c.id === en.courseId)?.title ?? '',
-    enrolledAt: en.enrolledAt,
-    progress: en.progress,
-    status: en.status,
-    pricePaid: en.pricePaid
-  })))
+  const rows = remote ?? []
 
   return (
     <div className="space-y-6">
       <h1 className="font-display text-2xl font-bold text-ink">{t('admin.enrollments')}</h1>
-      <div className="card overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead>
-              <tr className="border-b border-line bg-paper text-xs uppercase tracking-wide text-muted">
-                <th className="px-5 py-3 font-semibold">{t('admin.students')}</th>
-                <th className="px-5 py-3 font-semibold">{t('admin.courses')}</th>
-                <th className="px-5 py-3 font-semibold">{t('admin.date')}</th>
-                <th className="px-5 py-3 font-semibold">{t('admin.progress')}</th>
-                <th className="px-5 py-3 font-semibold">{t('admin.status')}</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-line">
-              {rows.map((en) => {
-                const isRemote = remote !== null
-                const course = isRemote
-                  ? { id: en.courseId, title: en.courseTitle }
-                  : COURSES.find((c) => c.id === en.courseId)
-                return (
+      {rows.length === 0 ? (
+        <div className="card p-12 text-center text-sm text-muted">{t('admin.noData')}</div>
+      ) : (
+        <div className="card overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead>
+                <tr className="border-b border-line bg-paper text-xs uppercase tracking-wide text-muted">
+                  <th className="px-5 py-3 font-semibold">{t('admin.students')}</th>
+                  <th className="px-5 py-3 font-semibold">{t('admin.courses')}</th>
+                  <th className="px-5 py-3 font-semibold">{t('admin.date')}</th>
+                  <th className="px-5 py-3 font-semibold">{t('admin.progress')}</th>
+                  <th className="px-5 py-3 font-semibold">{t('admin.status')}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-line">
+                {rows.map((en) => (
                   <tr key={en.id} className="hover:bg-paper/60">
                     <td className="px-5 py-3">
                       <div className="flex items-center gap-2">
@@ -154,7 +178,7 @@ export function AdminEnrollments() {
                         <span className="font-medium text-ink">{en.studentName}</span>
                       </div>
                     </td>
-                    <td className="px-5 py-3 text-muted">{course?.title ?? en.courseId}</td>
+                    <td className="px-5 py-3 text-muted">{en.courseTitle || en.courseId}</td>
                     <td className="px-5 py-3 text-muted">{new Date(en.enrolledAt).toLocaleDateString()}</td>
                     <td className="px-5 py-3">
                       <div className="flex w-28 items-center gap-2">
@@ -164,12 +188,12 @@ export function AdminEnrollments() {
                     </td>
                     <td className="px-5 py-3"><Badge color={en.status === 'completed' ? 'success' : 'brand'}>{en.status}</Badge></td>
                   </tr>
-                )
-              })}
-            </tbody>
-          </table>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   )
 }

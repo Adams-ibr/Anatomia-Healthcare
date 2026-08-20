@@ -11,6 +11,7 @@ export default function ProfilePage() {
   const myCerts = certificates.filter((c) => c.userId === user.id)
   const completed = enrollments.filter((e) => e.userId === user.id && e.status === 'completed')
   const allStudents = users.filter((u) => u.role === 'student')
+  const learnedHours = Math.round(completed.length * 12 + enrollments.filter((e) => e.userId === user.id && e.status === 'active').reduce((a, e) => a + e.progress * 0.4, 0))
 
   return (
     <div className="space-y-6">
@@ -28,7 +29,7 @@ export default function ProfilePage() {
         <div className="flex gap-6 text-center">
           <div><p className="text-2xl font-bold text-ink">{completed.length}</p><p className="text-xs text-muted">{t('profile.courses')}</p></div>
           <div><p className="text-2xl font-bold text-ink">{myCerts.length}</p><p className="text-xs text-muted">{t('profile.certificates')}</p></div>
-          <div><p className="text-2xl font-bold text-ink">12h</p><p className="text-xs text-muted">{t('profile.learned')}</p></div>
+          <div><p className="text-2xl font-bold text-ink">{learnedHours}h</p><p className="text-xs text-muted">{t('profile.learned')}</p></div>
         </div>
       </div>
 
@@ -66,9 +67,9 @@ export default function ProfilePage() {
           <div className="card p-5">
             <div className="space-y-4">
               {[
-                ['thisWeek', '5h 30m'],
-                ['avgDaily', '45m'],
-                ['bestDay', 'Saturday']
+                ['thisWeek', '0h'],
+                ['avgDaily', '0m'],
+                ['bestDay', '—']
               ].map(([label, val]) => (
                 <div key={label} className="flex items-center justify-between">
                   <span className="text-sm text-muted">{t(`profile.${label}`)}</span>

@@ -1,9 +1,15 @@
 import type {
-  User, Category, Course, Enrollment, Assessment, Assignment, Submission,
-  Certificate, Notification, Conversation, Message, Discussion, Announcement,
-  LearningPath, BlogPost, Testimonial, FAQ, Plan, Order, Lesson
+  User, Category, Course, Lesson, LearningPath, BlogPost, Testimonial, FAQ, Plan
 } from './types'
 import { uid } from './utils'
+
+const t = (text: string, color: string) => {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360"><rect width="640" height="360" fill="${color}"/><text x="320" y="185" font-family="system-ui" font-size="26" fill="#ffffff" text-anchor="middle" opacity="0.9">${text}</text></svg>`
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`
+}
+const sec = (title: string, lessons: Lesson[]) => ({ id: uid('sec'), title, lessons })
+const L = (title: string, type: Lesson['type'], duration: number): Lesson => ({ id: uid('les'), title, type, duration, content: '' })
+const faq = (q: string, a: string) => ({ id: uid('faq'), q, a })
 
 export const CATEGORIES: Category[] = [
   { id: 'c1', name: 'Cybersecurity', slug: 'cybersecurity', description: 'Defensive and offensive security skills for the modern enterprise.', icon: 'Shield', courseCount: 6, color: '#1B4E9B' },
@@ -28,100 +34,6 @@ export const INSTRUCTORS: User[] = [
   { id: 'u_in_9', name: 'Laura Kim', email: 'laura.kim@defendhub.io', role: 'instructor', avatar: '', title: 'Digital Marketing Director', headline: 'Growth marketing for SaaS and education brands.', bio: 'Laura has scaled three startups from zero to six-figure MRR through content and lifecycle marketing.', skills: ['Growth', 'SEO', 'Email Marketing'], joinedAt: '2023-09-14', studentCount: 9600, courseCount: 1, rating: 4.7, isActive: true },
   { id: 'u_in_10', name: 'Tomás Ferreira', email: 'tomas.ferreira@defendhub.io', role: 'instructor', avatar: '', title: 'Data Engineer & Analytics Lead', headline: 'Turning raw data into decisions. Python, SQL, and dbt.', bio: 'Tomás has built analytics platforms for retail and logistics companies processing billions of events a day.', skills: ['SQL', 'Python', 'Data Pipelines'], joinedAt: '2023-10-02', studentCount: 5300, courseCount: 1, rating: 4.8, isActive: true }
 ]
-
-export const USERS: User[] = [
-  { id: 'u_admin_1', name: 'Rebecca Nkosi', email: 'admin@defendhub.io', password: 'admin123', role: 'admin', avatar: '', title: 'Platform Administrator', bio: 'Platform operations and content review.', joinedAt: '2023-01-05', isActive: true },
-  { id: 'u_st_1', name: 'John Adedeji', email: 'student@defendhub.io', password: 'student123', role: 'student', avatar: '', title: 'Aspiring Security Analyst', bio: 'Career-switching from IT support into security operations.', skills: ['Networking', 'Linux'], joinedAt: '2024-02-11', isActive: true },
-  { id: 'u_st_2', name: 'Grace Okonkwo', email: 'student2@defendhub.io', password: 'student123', role: 'student', avatar: '', title: 'Junior Developer', bio: 'Frontend developer sharpening backend and security skills.', skills: ['JavaScript', 'React'], joinedAt: '2024-03-08', isActive: true }
-]
-
-export const DEMO_STUDENTS: User[] = [
-  ['Noah Williams', 'Frontend Developer', ['React', 'CSS']],
-  ['Maya Thompson', 'IT Support Engineer', ['Linux', 'Networking']],
-  ['Liam Anderson', 'Data Analyst', ['SQL', 'Excel']],
-  ['Aisha Bello', 'Graduate Student', ['Python', 'Statistics']],
-  ['Ethan Moore', 'Software Engineer', ['Node.js', 'Docker']],
-  ['Chloe Davis', 'Product Manager', ['Strategy', 'Analytics']],
-  ['Lucas Martin', 'Security Intern', ['Networking', 'Linux']],
-  ['Hannah Wilson', 'DevOps Engineer', ['Kubernetes', 'CI/CD']],
-  ['Benjamin Taylor', 'Systems Administrator', ['Windows', 'Active Directory']],
-  ['Zoe Harris', 'UX Researcher', ['Research', 'Design']],
-  ['Daniel Clark', 'Mobile Developer', ['Swift', 'Kotlin']],
-  ['Emily Lewis', 'Marketing Specialist', ['SEO', 'Content']],
-  ['Samuel Walker', 'Network Engineer', ['Routing', 'Switching']],
-  ['Olivia Hall', 'Data Engineer', ['Python', 'dbt']],
-  ['Gabriel Young', 'QA Engineer', ['Testing', 'Automation']],
-  ['Sophia Allen', 'Business Analyst', ['SQL', 'Requirements']],
-  ['Ryan King', 'Cloud Administrator', ['AWS', 'Terraform']],
-  ['Isabella Wright', 'UX Designer', ['Figma', 'Prototyping']],
-  ['Matthew Scott', 'Security Consultant', ['Audit', 'Compliance']],
-  ['Ella Green', 'Data Scientist', ['Python', 'ML']],
-  ['Jack Baker', 'Backend Developer', ['Go', 'PostgreSQL']],
-  ['Amelia Adams', 'Product Designer', ['Design Systems', 'Figma']],
-  ['Henry Nelson', 'Platform Engineer', ['Kubernetes', 'AWS']],
-  ['Charlotte Hill', 'Growth Marketer', ['SEO', 'Email']],
-  ['Leo Carter', 'DevOps Intern', ['Docker', 'Linux']],
-  ['Mia Mitchell', 'Compliance Analyst', ['GRC', 'Audit']],
-  ['Alexander Perez', 'Full-Stack Developer', ['React', 'Node.js']],
-  ['Harper Roberts', 'Financial Analyst', ['Modeling', 'Excel']],
-  ['James Turner', 'Network Administrator', ['Cisco', 'Security']],
-  ['Evelyn Phillips', 'Machine Learning Engineer', ['Python', 'PyTorch']],
-  ['Logan Campbell', 'Site Reliability Engineer', ['Kubernetes', 'Observability']],
-  ['Abigail Parker', 'Content Strategist', ['SEO', 'Writing']],
-  ['Mason Evans', 'System Security Analyst', ['SIEM', 'Threat Intel']],
-  ['Victoria Collins', 'BI Developer', ['SQL', 'Power BI']],
-  ['Owen Stewart', 'Cloud Security Engineer', ['AWS', 'IAM']],
-  ['Lily Sanchez', 'Product Owner', ['Agile', 'Roadmapping']],
-  ['Elijah Morris', 'Pentester in Training', ['Burp Suite', 'Networking']],
-  ['Zoe Rivera', 'Data Analyst', ['Python', 'Pandas']],
-  ['Carter Cooper', 'Site Reliability Engineer', ['Terraform', 'AWS']],
-  ['Aria Richardson', 'UI Designer', ['Figma', 'Visual Design']],
-  ['Nathan Cox', 'Backend Engineer', ['Python', 'FastAPI']],
-  ['Hazel Howard', 'Incident Responder', ['Forensics', 'SIEM']],
-  ['Dylan Ward', 'Infrastructure Engineer', ['Linux', 'Ansible']],
-  ['Layla Brooks', 'Marketing Analyst', ['Analytics', 'SQL']],
-  ['Sebastian Gray', 'Junior Pentester', ['Web', 'OSCP path']],
-  ['Nora James', 'Product Analyst', ['SQL', 'Amplitude']],
-  ['Julian Watson', 'Database Administrator', ['PostgreSQL', 'Performance']],
-  ['Stella Bennett', 'Security Engineer', ['Cloud', 'Defense']],
-  ['Adrian Murphy', 'Full-Stack Developer', ['TypeScript', 'AWS']],
-  ['Riley Foster', 'Data Analyst', ['Excel', 'PowerBI']]
-].map(([name, title, skills], i) => ({
-  id: `u_st_seed_${i}`,
-  name: name as string,
-  email: `${(name as string).toLowerCase().replace(/[^a-z]+/g, '.')}@defendhub.io`,
-  password: 'student123',
-  role: 'student' as const,
-  avatar: '',
-  title: title as string,
-  bio: `${name} is learning on HamaAcademy to build real, job-ready skills.`,
-  skills: skills as string[],
-  joinedAt: `2024-${String((i % 12) + 1).padStart(2, '0')}-${String((i % 27) + 1).padStart(2, '0')}`,
-  isActive: true
-}))
-
-export const ALL_STUDENTS: User[] = [USERS[1], USERS[2], ...DEMO_STUDENTS]
-
-function t(slug: string, color: string): string {
-  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${color}"/><stop offset="1" stop-color="${color}" stop-opacity="0.55"/></linearGradient></defs><rect width="640" height="360" fill="url(#g)"/><g opacity="0.14" fill="#ffffff"><circle cx="540" cy="70" r="130"/><circle cx="80" cy="300" r="90"/><circle cx="420" cy="320" r="60"/></g><text x="32" y="190" font-family="Georgia,serif" font-size="34" fill="#ffffff">${slug.toUpperCase()}</text><text x="32" y="224" font-family="Arial" font-size="15" fill="#ffffff" opacity="0.75">HamaAcademy</text></svg>`)}`
-}
-
-function vid(duration: number): string {
-  return `https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/${['BigBuckBunny', 'ElephantsDream', 'ForBiggerBlazes', 'ForBiggerEscapes', 'ForBiggerFun', 'ForBiggerJoyrides', 'ForBiggerMeltdowns', 'Sintel', 'SubaruOutbackOnStreetAndDirt', 'TearsOfSteel'][Math.floor(Math.random() * 10)]}.mp4`
-}
-
-const L = (title: string, type: Lesson['type'], duration: number, text = ''): Lesson => ({
-  id: uid('lsn'), title, type, duration,
-  content: text || `<p>Welcome to <strong>${title}</strong>. In this lesson you will build practical, hands-on understanding through guided examples and exercises. Take your time, replay the material, and use the notes panel to capture what matters to you.</p><p>Every lesson in this course has been reviewed by industry practitioners so the material stays current with real working environments.</p>`,
-  videoUrl: type === 'video' || type === 'audio' ? vid(duration) : undefined,
-  resourceUrl: type === 'pdf' || type === 'project' ? '#download' : undefined
-})
-
-function sec(title: string, lessons: Lesson[]) {
-  return { id: uid('sec'), title, lessons }
-}
-
-function faq(q: string, a: string) { return { q, a } }
 
 export const COURSES: Course[] = [
   {
@@ -976,147 +888,6 @@ export const COURSES: Course[] = [
     ],
     faqs: [faq('Do I need the paid AWS tier?', 'A free-tier account covers all labs.')]
   }
-]
-
-export const COURSE_LESSONS: Lesson[] = COURSES.flatMap((c) => c.sections.flatMap((s) => s.lessons))
-
-export const ASSESSMENTS: Assessment[] = COURSES.map((c) => {
-  const q = c.sections.flatMap((s) => s.lessons).filter((l) => l.type === 'quiz' || l.type === 'exam')
-  return {
-    id: `as_${c.id}`,
-    courseId: c.id,
-    title: q.length ? `${c.title} Assessment` : `Assessment: ${c.title}`,
-    description: 'Demonstrate your mastery of the course material.',
-    timeLimit: 20,
-    passingScore: 70,
-    questions: [
-      { id: uid('q'), type: 'mc', question: 'Which concept is most fundamental to this course?', options: ['Correct integration', 'Memorization', 'Skipping prerequisites', 'None of the above'], answer: 'Correct integration', explanation: 'Applied understanding beats rote memory.' },
-      { id: uid('q'), type: 'truefalse', question: 'This course emphasizes practical, hands-on application.', options: ['True', 'False'], answer: 'True', explanation: 'Hands-on labs are a core part of the curriculum.' },
-      { id: uid('q'), type: 'mc', question: 'What should you do before taking the final assessment?', options: ['Complete all sections', 'Skip to the end', 'Guess randomly', 'Only watch videos'], answer: 'Complete all sections', explanation: 'The final assessment covers every section.' },
-      { id: uid('q'), type: 'multi', question: 'Which of the following are included in this course? (Select all that apply)', options: ['Video lessons', 'Hands-on labs', 'Downloadable resources', 'Teleportation'], answer: ['Video lessons', 'Hands-on labs', 'Downloadable resources'], explanation: 'The course includes videos, labs, and resources.' },
-      { id: uid('q'), type: 'fill', question: 'Consistent practice is the key to ______.', answer: 'mastery', explanation: 'Repetition with feedback builds durable skill.' },
-      { id: uid('q'), type: 'short', question: 'Explain in one sentence how you will apply this course in your role.', explanation: 'Any clear, actionable answer is accepted.' }
-    ],
-    retakeLimit: 3
-  }
-})
-
-export const ASSIGNMENTS: Assignment[] = COURSES.map((c, i) => ({
-  id: `asg_${c.id}`,
-  courseId: c.id,
-  sectionId: c.sections[1]?.id,
-  title: `${c.title} — Capstone Assignment`,
-  description: 'Apply everything you have learned to a realistic scenario. Complete the deliverable described in the brief, upload your work, and submit before the deadline.',
-  deadline: `2026-09-${String((i % 27) + 1).padStart(2, '0')}`,
-  points: 100,
-  resources: [{ name: 'Assignment brief.pdf', url: '#brief' }, { name: 'Template.docx', url: '#template' }],
-  status: 'open'
-}))
-
-export const SUBMISSIONS: Submission[] = [
-  {
-    id: uid('sub'), assignmentId: 'asg_cr_1', userId: 'u_st_1', text: 'Submitted my incident response playbook covering the simulated breach scenario.',
-    link: 'https://drive.example.com/playbook', submittedAt: '2026-08-10', grade: 92, feedback: 'Excellent structure and clear remediation steps. Watch the section on scope containment.',
-    returned: true
-  }
-]
-
-export const CERTIFICATES: Certificate[] = [
-  {
-    id: 'CERT-DHA-2024-0001', userId: 'u_st_1', courseId: 'cr_1', instructorId: 'u_in_1',
-    issuedAt: '2026-01-15', completionDate: '2026-01-14', verificationCode: 'DHA8F2K9Q1'
-  },
-  {
-    id: 'CERT-DHA-2024-0002', userId: 'u_st_1', courseId: 'cr_13', instructorId: 'u_in_2',
-    issuedAt: '2026-02-03', completionDate: '2026-02-02', verificationCode: 'DHA7R3M4N8'
-  },
-  {
-    id: 'CERT-DHA-2024-0003', userId: 'u_st_2', courseId: 'cr_5', instructorId: 'u_in_5',
-    issuedAt: '2026-01-28', completionDate: '2026-01-27', verificationCode: 'DHA4T6W2P0'
-  }
-]
-
-const DAY_MS = 86400000
-const now = Date.now()
-export const seedEnrollments = (): Enrollment[] => [
-  {
-    id: 'en_1', userId: 'u_st_1', courseId: 'cr_1', enrolledAt: new Date(now - 20 * DAY_MS).toISOString(),
-    progress: 78, status: 'active',
-    completedLessons: COURSES[0].sections.flatMap((s) => s.lessons).slice(0, 10).map((l) => l.id),
-    currentLessonId: COURSES[0].sections[3].lessons[0].id, pricePaid: 49
-  },
-  {
-    id: 'en_2', userId: 'u_st_1', courseId: 'cr_13', enrolledAt: new Date(now - 45 * DAY_MS).toISOString(),
-    progress: 100, status: 'completed',
-    completedLessons: COURSES[12].sections.flatMap((s) => s.lessons).map((l) => l.id),
-    certificateIssued: true, certificateId: 'CERT-DHA-2024-0002', pricePaid: 89
-  },
-  {
-    id: 'en_3', userId: 'u_st_1', courseId: 'cr_5', enrolledAt: new Date(now - 6 * DAY_MS).toISOString(),
-    progress: 22, status: 'active',
-    completedLessons: COURSES[4].sections[0].lessons.slice(0, 2).map((l) => l.id),
-    currentLessonId: COURSES[4].sections[0].lessons[2].id, pricePaid: 69
-  },
-  {
-    id: 'en_4', userId: 'u_st_1', courseId: 'cr_17', enrolledAt: new Date(now - 3 * DAY_MS).toISOString(),
-    progress: 8, status: 'active',
-    completedLessons: [], currentLessonId: COURSES[16].sections[0].lessons[0].id, pricePaid: 89
-  },
-  {
-    id: 'en_5', userId: 'u_st_2', courseId: 'cr_5', enrolledAt: new Date(now - 12 * DAY_MS).toISOString(),
-    progress: 100, status: 'completed',
-    completedLessons: COURSES[4].sections.flatMap((s) => s.lessons).map((l) => l.id),
-    certificateIssued: true, certificateId: 'CERT-DHA-2024-0003', pricePaid: 69
-  },
-  {
-    id: 'en_6', userId: 'u_st_2', courseId: 'cr_15', enrolledAt: new Date(now - 2 * DAY_MS).toISOString(),
-    progress: 0, status: 'active',
-    completedLessons: [], currentLessonId: COURSES[14].sections[0].lessons[0].id, pricePaid: 69
-  },
-  {
-    id: 'en_7', userId: 'u_st_1', courseId: 'cr_20', enrolledAt: new Date(now - 1 * DAY_MS).toISOString(),
-    progress: 0, status: 'active',
-    completedLessons: [], currentLessonId: COURSES[19].sections[0].lessons[0].id, pricePaid: 0
-  }
-]
-
-export const ORDERS: Order[] = [
-  { id: 'ORD-78231', userId: 'u_st_1', items: [{ courseId: 'cr_1', title: 'Cybersecurity Fundamentals', price: 49 }], total: 49, status: 'completed', date: '2026-01-15', paymentMethod: 'Card **** 4242' },
-  { id: 'ORD-78230', userId: 'u_st_1', items: [{ courseId: 'cr_13', title: 'Python for Security Professionals', price: 89 }], total: 89, status: 'completed', date: '2025-12-15', paymentMethod: 'Card **** 4242' },
-  { id: 'ORD-78229', userId: 'u_st_1', items: [{ courseId: 'cr_5', title: 'The Complete Full-Stack JavaScript Course', price: 69 }], total: 69, status: 'completed', date: '2026-01-05', paymentMethod: 'PayPal' }
-]
-
-export const NOTIFICATIONS: Notification[] = [
-  { id: 'nt_1', userId: 'u_st_1', type: 'assignment', title: 'Assignment deadline approaching', message: 'Your Cybersecurity Fundamentals capstone is due in 2 days.', read: false, createdAt: new Date(now - 2 * 3600000).toISOString(), link: '/assignments' },
-  { id: 'nt_2', userId: 'u_st_1', type: 'course', title: 'New lesson published', message: 'SIEM & Threat Hunting has a new lesson on KQL.', read: false, createdAt: new Date(now - 5 * 3600000).toISOString(), link: '/learning/cr_11' },
-  { id: 'nt_3', userId: 'u_st_1', type: 'certificate', title: 'Certificate issued', message: 'Your Python for Security certificate is ready to download.', read: true, createdAt: new Date(now - 3 * DAY_MS).toISOString(), link: '/certificates' },
-  { id: 'nt_4', userId: 'u_st_1', type: 'system', title: 'Welcome to HamaAcademy', message: 'Complete your first lesson to start your learning streak.', read: true, createdAt: new Date(now - 8 * DAY_MS).toISOString(), link: '/dashboard' }
-]
-
-export const CONVERSATIONS: Conversation[] = [
-  { id: 'cv_1', participants: ['u_st_1', 'u_in_1'], lastMessageAt: new Date(now - 3 * 3600000).toISOString() }
-]
-
-export const MESSAGES: Message[] = [
-  { id: 'ms_1', conversationId: 'cv_1', fromId: 'u_st_1', toId: 'u_in_1', text: 'Hi Dr. Okafor — I am stuck on the SIEM query in section 2. Could you point me in the right direction?', read: true, createdAt: new Date(now - 6 * 3600000).toISOString() },
-  { id: 'ms_2', conversationId: 'cv_1', fromId: 'u_in_1', toId: 'u_st_1', text: 'Great question! Make sure you filter on index before using eval — the field name differs in the lab dataset. Let me know if it still fails.', read: false, createdAt: new Date(now - 3 * 3600000).toISOString() }
-]
-
-export const DISCUSSIONS: Discussion[] = [
-  {
-    id: 'dc_1', courseId: 'cr_1', authorId: 'u_st_1', authorName: 'John Adedeji',
-    title: 'Firewall segmentation lab — can it run in VirtualBox?',
-    body: 'My lab machine is on a Mac. I could not get the segmentation environment running in VirtualBox. Anyone have a working setup?',
-    likes: 4,
-    answers: [
-      { id: 'an_1', authorId: 'u_in_1', authorName: 'Dr. Amara Okafor', text: 'VirtualBox works fine — just use the provided OVA and enable nested virtualization in your VM settings.', date: new Date(now - 1 * DAY_MS).toISOString() }
-    ],
-    createdAt: new Date(now - 3 * DAY_MS).toISOString()
-  }
-]
-
-export const ANNOUNCEMENTS: Announcement[] = [
-  { id: 'an_2', courseId: 'cr_1', title: 'New bonus module: SOC basics', body: 'A short bonus module on working in a SOC has been added for enrolled students.', createdAt: new Date(now - 4 * DAY_MS).toISOString(), authorId: 'u_in_1' }
 ]
 
 export const LEARNING_PATHS: LearningPath[] = [

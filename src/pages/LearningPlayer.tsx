@@ -5,7 +5,6 @@ import {
   Award, BookOpen, Check, ChevronDown, ChevronLeft, ChevronRight, CirclePlay,
   Download, FileText, ListVideo, MessageSquare, PlayCircle, StickyNote, X
 } from 'lucide-react'
-import { COURSES } from '../lib/data'
 import { useApp } from '../lib/store'
 import { getStoredToken, studentApi } from '../lib/api/auth'
 import { Badge, Button, ProgressBar, Rating, Tabs } from '../components/ui'
@@ -47,9 +46,8 @@ export default function LearningPlayer() {
   const nav = useNavigate()
   const { t } = useTranslation()
   const { currentUser, enrollments, completeLesson, setCurrentLesson, toast } = useApp()
-  const mockCourse = COURSES.find((c) => c.id === courseId)
   const [fullCourse, setFullCourse] = useState<Course | null>(null)
-  const course = fullCourse ?? mockCourse ?? (enrollments.find((e) => e.courseId === courseId)?.course as unknown as Course | undefined) ?? undefined
+  const course = fullCourse ?? (enrollments.find((e) => e.courseId === courseId)?.course as unknown as Course | undefined) ?? undefined
   const [notesOpen, setNotesOpen] = useState(false)
   const [notes, setNotes] = useState('')
   const [tab, setTab] = useState('notes')
@@ -58,7 +56,7 @@ export default function LearningPlayer() {
   const [autoplay, setAutoplay] = useState(false)
 
   useEffect(() => {
-    if (!courseId || mockCourse) return
+    if (!courseId) return
     let cancelled = false
     const token = getStoredToken()
     studentApi.getCourseFull(token, courseId)
@@ -96,7 +94,7 @@ export default function LearningPlayer() {
       })
       .catch(() => { /* fall back to mock/enrollment summary */ })
     return () => { cancelled = true }
-  }, [courseId, mockCourse])
+  }, [courseId])
 
   const enrollment = useMemo(
     () => currentUser ? enrollments.find((e) => e.userId === currentUser.id && e.courseId === courseId) : null,
@@ -149,7 +147,6 @@ export default function LearningPlayer() {
 
   const isDone = enrollment.completedLessons.includes(lesson.id)
   const progress = enrollment.progress
-  const discussion = courseId ? COURSES.length : 0
 
   const markComplete = () => {
     completeLesson(course.id, lesson.id)
@@ -175,7 +172,7 @@ export default function LearningPlayer() {
           <h2 className="mt-4 font-display text-xl font-semibold text-ink">{lesson.type === 'exam' ? t('player.finalAssessment') : t('player.knowledgeCheck')}</h2>
           <p className="mt-2 max-w-md text-sm text-muted">{lesson.type === 'exam' ? t('player.finalAssessmentDesc') : t('player.knowledgeCheckDesc')}</p>
           <div className="mt-6 flex gap-3">
-            <Button onClick={() => { const a = COURSES; const assessment = a.find((c) => c.id === courseId); nav(assessment ? `/assessments/as_${course.id}` : '/assessments') }}>{t('player.start', { type: lesson.type })}</Button>
+            <Button onClick={() => nav('/assessments')}>{t('player.start', { type: lesson.type })}</Button>
             <Button variant="outline" onClick={markComplete}>{t('player.markAsComplete')}</Button>
           </div>
         </div>
@@ -219,7 +216,7 @@ export default function LearningPlayer() {
             <Link to="/my-learning" className="rounded p-1.5 text-muted hover:bg-line/40 hover:text-ink" aria-label={t('player.backToMyLearningAria')}><ChevronLeft className="h-5 w-5" /></Link>
             <div className="hidden sm:block">
               <Link to={`/courses/${course.slug}`} className="text-sm font-semibold text-ink hover:text-brand-700">{course.title}</Link>
-              <p className="text-xs text-muted">{course.instructorId === 'u_in_1' ? 'Dr. Amara Okafor' : 'Instructor'} · <Rating value={course.rating} size="xs" /></p>
+              <p className="text-xs text-muted">{course.instructorName || 'Instructor'} · <Rating value={course.rating} size="xs" /></p>
             </div>
           </div>
           <div className="flex items-center gap-2">

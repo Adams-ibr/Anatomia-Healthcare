@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { Award, Download, DollarSign, FileText, Megaphone, Receipt, RefreshCcw, Settings, ShieldCheck, TrendingUp, Users } from 'lucide-react'
+import { Award, BookOpen, Download, DollarSign, FileText, Megaphone, Receipt, RefreshCcw, Settings, ShieldCheck, ShoppingBag, TrendingUp, Users } from 'lucide-react'
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import { CATEGORIES, COURSES, ORDERS } from '../lib/data'
+import { CATEGORIES, COURSES } from '../lib/data'
 import { useApp } from '../lib/store'
-import { adminApi, getStoredToken } from '../lib/api/auth'
+import { adminApi, courseApi, getStoredToken } from '../lib/api/auth'
 import { Badge, Button, Input, ProgressBar, StatCard, Tabs } from '../components/ui'
 import { formatPrice, timeAgo } from '../lib/utils'
 
@@ -94,15 +94,7 @@ export function AdminOrders() {
     if (!token) return
     adminApi.listOrders(token)
       .then((res) => setRows(res.orders))
-      .catch(() => setRows(ORDERS.map((o) => ({
-        id: o.id,
-        customerName: o.userId === 'u_st_1' ? 'John Adedeji' : 'Customer',
-        total: o.total,
-        status: o.status,
-        paymentMethod: o.paymentMethod,
-        createdAt: o.date,
-        items: o.items.map((it) => ({ courseId: it.courseId, title: it.title, price: it.price }))
-      }))))
+      .catch(() => setRows([]))
   }
 
   useEffect(() => { load() }, [])
@@ -415,36 +407,61 @@ function BarChart3Icon() {
 
 export function AdminAnalytics() {
   const { t } = useTranslation()
-  const data = [
-    { m: 'Jan', enrollments: 3200 }, { m: 'Feb', enrollments: 3800 }, { m: 'Mar', enrollments: 4100 },
-    { m: 'Apr', enrollments: 4600 }, { m: 'May', enrollments: 5200 }, { m: 'Jun', enrollments: 5800 }
-  ]
+  const [stats, setStats] = useState<{
+    users: number
+    courses: number
+    revenue: number
+    orders: number
+    monthly: { m: string; revenue: number }[]
+  } | null>(null)
+
+  useEffect(() => {
+    const token = getStoredToken()
+    if (!token) return
+    let cancelled = false
+    Promise.all([
+      adminApi.getPayments(token),
+      adminApi.listUsers(token, { page: 1, perPage: 1 }),
+      courseApi.listCourses(token, { page: 1, perPage: 1, status: 'all' })
+    ]).then(([pay, users, courses]) => {
+      if (cancelled) return
+      setStats({ users: users.total, courses: courses.total, revenue: pay.grossRevenue, orders: pay.orderCount, monthly: pay.monthly })
+    }).catch(() => {})
+    return () => { cancelled = true }
+  }, [])
+
+  const data = (stats?.monthly ?? []).map((m) => ({ m: m.m, revenue: Math.round(m.revenue) }))
+
   return (
     <div className="space-y-6">
       <h1 className="font-display text-2xl font-bold text-ink">{t('admin2.analytics')}</h1>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label={t('admin2.activeUsers30')} value="18,240" sub={t('admin2.plus14MoM')} icon={<Users className="h-5 w-5" />} />
-        <StatCard label={t('admin2.retention90')} value="62%" sub={t('admin2.studentsReturning')} icon={<TrendingUp className="h-5 w-5" />} />
-        <StatCard label={t('admin2.avgSession')} value="24m" sub={t('admin2.perLearner')} icon={<FileText className="h-5 w-5" />} />
-        <StatCard label={t('admin2.nps')} value="+58" sub={t('admin2.learnerSatisfaction')} icon={<Award className="h-5 w-5" />} />
+        <StatCard label={t('admin2.totalUsers')} value={(stats?.users ?? 0).toLocaleString()} sub={t('admin2.registeredUsers')} icon={<Users className="h-5 w-5" />} />
+        <StatCard label={t('admin2.totalCourses')} value={(stats?.courses ?? 0).toLocaleString()} sub={t('admin2.publishedCourses')} icon={<BookOpen className="h-5 w-5" />} />
+        <StatCard label={t('admin2.orders')} value={(stats?.orders ?? 0).toLocaleString()} sub={t('admin2.allOrders')} icon={<ShoppingBag className="h-5 w-5" />} />
+        <StatCard label={t('admin2.revenue')} value={formatPrice(stats?.revenue ?? 0)} sub={t('admin2.allTime')} icon={<TrendingUp className="h-5 w-5" />} />
       </div>
       <div className="card p-5">
-        <h2 className="mb-4 font-semibold text-ink">{t('admin2.platformEnrollment')}</h2>
-        <ResponsiveContainer width="100%" height={280}>
-          <AreaChart data={data} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
-            <defs>
-              <linearGradient id="enrg" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="var(--brand-500)" stopOpacity={0.25} />
-                <stop offset="100%" stopColor="var(--brand-500)" stopOpacity={0} />
-              </linearGradient>
-            </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="var(--line)" vertical={false} />
-            <XAxis dataKey="m" tick={{ fontSize: 11, fill: 'var(--muted)' }} axisLine={false} tickLine={false} />
-            <YAxis tick={{ fontSize: 11, fill: 'var(--muted)' }} axisLine={false} tickLine={false} />
-            <Tooltip contentStyle={{ borderRadius: 8, border: '1px solid var(--line)', backgroundColor: 'var(--surface)', color: 'var(--ink)', fontSize: 12 }} />
-            <Area type="monotone" dataKey="enrollments" stroke="var(--brand-500)" strokeWidth={2} fill="url(#enrg)" />
-          </AreaChart>
-        </ResponsiveContainer>
+        <h2 className="mb-4 font-semibold text-ink">{t('admin2.platformRevenue')}</h2>
+        {data.length === 0 ? (
+          <p className="py-16 text-center text-sm text-muted">{t('admin2.noData')}</p>
+        ) : (
+          <ResponsiveContainer width="100%" height={280}>
+            <AreaChart data={data} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
+              <defs>
+                <linearGradient id="enrg" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="var(--brand-500)" stopOpacity={0.25} />
+                  <stop offset="100%" stopColor="var(--brand-500)" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--line)" vertical={false} />
+              <XAxis dataKey="m" tick={{ fontSize: 11, fill: 'var(--muted)' }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fontSize: 11, fill: 'var(--muted)' }} axisLine={false} tickLine={false} />
+              <Tooltip contentStyle={{ borderRadius: 8, border: '1px solid var(--line)', backgroundColor: 'var(--surface)', color: 'var(--ink)', fontSize: 12 }} formatter={(v) => [formatPrice(Number(v)), t('admin2.revenue')]} />
+              <Area type="monotone" dataKey="revenue" stroke="var(--brand-500)" strokeWidth={2} fill="url(#enrg)" />
+            </AreaChart>
+          </ResponsiveContainer>
+        )}
       </div>
     </div>
   )

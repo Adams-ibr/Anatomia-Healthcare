@@ -1,8 +1,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react'
-import { ASSIGNMENTS, COURSES } from '../lib/data'
-import { cn, formatDate } from '../lib/utils'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { cn } from '../lib/utils'
 
 export default function Calendar() {
   const { t, i18n } = useTranslation()
@@ -12,11 +11,7 @@ export default function Calendar() {
   const daysInMonth = new Date(year, m + 1, 0).getDate()
   const firstDay = new Date(year, m, 1).getDay()
   const today = new Date()
-  const deadlines = ASSIGNMENTS.slice(0, 5).map((a) => ({
-    day: new Date(a.deadline).getDate(),
-    title: a.title,
-    courseId: a.courseId
-  }))
+  const deadlines: { day: number; title: string; courseId: string }[] = []
   const monthName = month.toLocaleDateString(i18n.language, { month: 'long', year: 'numeric' })
   const dayNames = Array.from({ length: 7 }).map((_, i) => new Date(2024, 0, i + 1).toLocaleDateString(i18n.language, { weekday: 'short' }))
 
@@ -58,21 +53,7 @@ export default function Calendar() {
 
       <div>
         <h2 className="mb-3 text-lg font-semibold text-ink">{t('cal.upcomingDeadlines')}</h2>
-        <div className="space-y-2">
-          {ASSIGNMENTS.slice(0, 5).map((a) => {
-            const course = COURSES.find((c) => c.id === a.courseId)
-            return (
-              <div key={a.id} className="card flex items-center gap-3 p-4">
-                <div className="rounded-card bg-danger/10 p-2.5 text-danger"><AlertCircle className="h-5 w-5" /></div>
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-ink">{a.title}</p>
-                  <p className="text-xs text-muted">{course?.title} · {t('cal.points', { count: a.points })}</p>
-                </div>
-                <span className="text-xs text-danger">{t('cal.due', { date: formatDate(a.deadline) })}</span>
-              </div>
-            )
-          })}
-        </div>
+        <div className="card p-8 text-center text-sm text-muted">{t('cal.noDeadlines')}</div>
       </div>
     </div>
   )

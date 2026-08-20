@@ -5,7 +5,6 @@ import {
   Award, BookOpen, Check, CheckCircle2, ChevronRight, CirclePlay, Clock, FileText,
   Flag, GraduationCap, ListVideo, PlayCircle, Play, Sparkles, Target, Trophy
 } from 'lucide-react'
-import { COURSES } from '../lib/data'
 import { useApp } from '../lib/store'
 import { getStoredToken, studentApi } from '../lib/api/auth'
 import { Badge, Button, ProgressBar, Rating } from '../components/ui'
@@ -31,12 +30,11 @@ export default function CourseStudy() {
   const nav = useNavigate()
   const { t } = useTranslation()
   const { currentUser, enrollments, certificates } = useApp()
-  const mockCourse = COURSES.find((c) => c.id === courseId)
   const [fullCourse, setFullCourse] = useState<Course | null>(null)
-  const course = fullCourse ?? mockCourse ?? (enrollments.find((e) => e.courseId === courseId)?.course as unknown as Course | undefined) ?? null
+  const course = fullCourse ?? (enrollments.find((e) => e.courseId === courseId)?.course as unknown as Course | undefined) ?? null
 
   useEffect(() => {
-    if (!courseId || mockCourse) return
+    if (!courseId) return
     let cancelled = false
     const token = getStoredToken()
     studentApi.getCourseFull(token, courseId)
@@ -75,7 +73,7 @@ export default function CourseStudy() {
       })
       .catch(() => { /* fall back to mock/enrollment summary */ })
     return () => { cancelled = true }
-  }, [courseId, mockCourse])
+  }, [courseId])
 
   const enrollment = useMemo(
     () => currentUser ? enrollments.find((e) => e.userId === currentUser.id && e.courseId === courseId) : null,

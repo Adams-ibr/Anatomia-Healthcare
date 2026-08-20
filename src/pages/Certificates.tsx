@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Award, CheckCircle2, Download, Link2, Loader2, QrCode, Share2 } from 'lucide-react'
-import { COURSES } from '../lib/data'
 import { useApp } from '../lib/store'
 import { authApi } from '../lib/api/auth'
 import { Button } from '../components/ui'
@@ -15,7 +14,7 @@ export function CertificateDetail() {
   const { t } = useTranslation()
   const nav = useNavigate()
   const cert = certificates.find((c) => c.id === id)
-  const course = cert ? cert.course ?? COURSES.find((c) => c.id === cert.courseId) : null
+  const course = cert ? cert.course ?? null : null
 
   if (!cert || !course) {
     return (
@@ -111,7 +110,7 @@ export function VerifyCertificate() {
     } catch {
       const local = certificates.find((c) => c.id === value || c.verificationCode === value)
       if (local) {
-        const course = COURSES.find((c) => c.id === local.courseId)
+        const course = local.course
         setResult({
           certificate: {
             id: local.id,

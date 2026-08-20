@@ -978,6 +978,42 @@ async function handleGetCourseFull(req: Request): Promise<Response> {
   return json(content)
 }
 
+async function handleListCourses(req: Request): Promise<Response> {
+  const url = new URL(req.url)
+  const category = url.searchParams.get('category') ?? 'all'
+  const search = (url.searchParams.get('search') ?? '').trim().toLowerCase()
+
+  let query = supabase
+    .from('courses')
+    .select('*, categories(id,name), instructors:profiles!courses_instructor_id_fkey(id,name)')
+    .eq('status', 'published')
+  if (category !== 'all') query = query.eq('category_id', category)
+  if (search) query = query.or(`title.ilike.%${search}%,subtitle.ilike.%${search}%,description.ilike.%${search}%`)
+
+  const { data, error } = await query.order('created_at', { ascending: false }).limit(100)
+  if (error) return errorResponse(500, 'Failed to load courses: ' + error.message)
+  return json({ courses: (data ?? []).map((c) => mapCourse(c as CourseRow)) })
+}
+
+async function handleListCategories(req: Request): Promise<Response> {
+  const { data, error } = await supabase.from('categories').select('*').order('name')
+  if (error) return errorResponse(500, 'Failed to load categories: ' + error.message)
+  return json({ categories: (data ?? []).map((c) => mapCategory(c as CategoryRow)) })
+}
+
+async function handleMyCourses(req: Request): Promise<Response> {
+  const guard = await requireUser(req)
+  if (guard instanceof Response) return guard
+
+  const { data, error } = await supabase
+    .from('courses')
+    .select('*, categories(id,name), instructors:profiles!courses_instructor_id_fkey(id,name)')
+    .eq('instructor_id', guard.profile.id)
+    .order('created_at', { ascending: false })
+  if (error) return errorResponse(500, 'Failed to load courses: ' + error.message)
+  return json({ courses: (data ?? []).map((c) => mapCourse(c as CourseRow)) })
+}
+
 async function handleAdminSaveCourseContent(req: Request): Promise<Response> {
   const guard = await requireAdmin(req)
   if (guard instanceof Response) return guard
@@ -2221,6 +2257,16 @@ Deno.serve(async (req) => {
       break
     case 'POST /me/notifications/read':
       response = await handleMarkNotificationsRead(req)
+      break
+    case 'GET /courses':
+    case 'GET /courses/list':
+      response = await handleListCourses(req)
+      break
+    case 'GET /me/courses':
+      response = await handleMyCourses(req)
+      break
+    case 'GET /categories':
+      response = await handleListCategories(req)
       break
     default:
       if (/^\/admin\/users\/[^/]+$/.test(path)) {

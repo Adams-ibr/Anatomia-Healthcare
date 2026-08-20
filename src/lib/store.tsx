@@ -1,7 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { User, AuthUser, Enrollment, Notification, Conversation, Message, Submission, Order, Certificate } from './types'
-import { USERS, ALL_STUDENTS, INSTRUCTORS, seedEnrollments, CERTIFICATES, NOTIFICATIONS, CONVERSATIONS, MESSAGES, SUBMISSIONS, ORDERS } from './data'
 import { uid } from './utils'
 import { ApiError } from './api/client'
 import { authApi, getStoredToken, storeToken, clearStoredToken, studentApi } from './api/auth'
@@ -75,8 +74,6 @@ function save(key: string, value: unknown) {
   }
 }
 
-const allUsers = [...USERS, ...INSTRUCTORS, ...ALL_STUDENTS]
-
 function getErrorMessage(err: unknown): string {
   if (err instanceof ApiError) return err.message
   return 'Something went wrong. Please try again.'
@@ -124,18 +121,18 @@ function toOrder(o: { id: string; userId: string; total: number; status: string;
 }
 
 export function AppProvider({ children }: { children: ReactNode }) {
-  const [users, setUsers] = useState<User[]>(() => load('users', allUsers))
+  const [users, setUsers] = useState<User[]>([])
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null)
   const [authStatus, setAuthStatus] = useState<'loading' | 'authenticated' | 'unauthenticated'>('loading')
-  const [enrollments, setEnrollments] = useState<Enrollment[]>(() => load('enrollments', seedEnrollments()))
-  const [wishlist, setWishlist] = useState<string[]>(() => load('wishlist', ['cr_17', 'cr_19']))
+  const [enrollments, setEnrollments] = useState<Enrollment[]>([])
+  const [wishlist, setWishlist] = useState<string[]>(() => load('wishlist', []))
   const [cart, setCart] = useState<string[]>(() => load('cart', []))
-  const [notifications, setNotifications] = useState<Notification[]>(() => load('notifications', NOTIFICATIONS))
-  const [conversations, setConversations] = useState<Conversation[]>(() => load('conversations', CONVERSATIONS))
-  const [messages, setMessages] = useState<Message[]>(() => load('messages', MESSAGES))
-  const [submissions, setSubmissions] = useState<Submission[]>(() => load('submissions', SUBMISSIONS))
-  const [orders, setOrders] = useState<Order[]>(() => load('orders', ORDERS))
-  const [certificates, setCertificates] = useState<Certificate[]>(() => load('certificates', CERTIFICATES))
+  const [notifications, setNotifications] = useState<Notification[]>([])
+  const [conversations, setConversations] = useState<Conversation[]>([])
+  const [messages, setMessages] = useState<Message[]>([])
+  const [submissions, setSubmissions] = useState<Submission[]>([])
+  const [orders, setOrders] = useState<Order[]>([])
+  const [certificates, setCertificates] = useState<Certificate[]>([])
   const [toasts, setToasts] = useState<Toast[]>([])
   const timers = useRef<Record<string, number>>({})
 

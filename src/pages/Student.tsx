@@ -1,11 +1,12 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { ArrowRight, Award, CheckCircle2, Clock, PlayCircle } from 'lucide-react'
-import { COURSES } from '../lib/data'
 import { useApp } from '../lib/store'
+import { publicApi } from '../lib/api/auth'
 import { Badge, ProgressBar, Rating, Tabs } from '../components/ui'
 import { formatPrice, printCertificate } from '../lib/utils'
+import type { AdminCourse } from '../lib/api/auth'
 
 export default function MyLearning() {
   const { currentUser, enrollments } = useApp()
@@ -39,7 +40,7 @@ export default function MyLearning() {
       ) : (
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {list.map((en) => {
-            const course = en.course ?? COURSES.find((c) => c.id === en.courseId)
+            const course = en.course
             if (!course) return null
             return (
               <div key={en.id} className="card flex flex-col overflow-hidden">
@@ -77,7 +78,11 @@ export function Wishlist() {
   const { currentUser, wishlist, removeFromCart, cart, addToCart, toast, enrollments } = useApp()
   const { t } = useTranslation()
   const nav = useNavigate()
-  const courses = COURSES.filter((c) => wishlist.includes(c.id))
+  const [all, setAll] = useState<AdminCourse[]>([])
+  useEffect(() => {
+    publicApi.listCourses().then((r) => setAll(r.courses)).catch(() => {})
+  }, [])
+  const courses = all.filter((c) => wishlist.includes(c.id))
 
   return (
     <div className="space-y-6">
@@ -149,7 +154,7 @@ export function Certificates() {
       ) : (
         <div className="grid gap-5 sm:grid-cols-2">
 {mine.map((cert) => {
-            const course = cert.course ?? COURSES.find((c) => c.id === cert.courseId)
+            const course = cert.course
             if (!course) return null
             return (
               <div key={cert.id} className="card overflow-hidden">

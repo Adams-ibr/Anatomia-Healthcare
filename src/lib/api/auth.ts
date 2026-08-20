@@ -56,6 +56,20 @@ export interface AdminListParams {
   perPage?: number
 }
 
+export const publicApi = {
+  listCourses(params: { category?: string; search?: string } = {}): Promise<AdminCourseListResult> {
+    const qs = new URLSearchParams()
+    if (params.category) qs.set('category', params.category)
+    if (params.search) qs.set('search', params.search)
+    const query = qs.toString()
+    return apiFetch<AdminCourseListResult>(`/api/auth/courses${query ? `?${query}` : ''}`)
+  },
+
+  listCategories(): Promise<{ categories: AdminCategory[] }> {
+    return apiFetch<{ categories: AdminCategory[] }>('/api/auth/categories')
+  }
+}
+
 export const adminApi = {
   listUsers(token: string, params: AdminListParams = {}): Promise<AdminUserListResult> {
     const qs = new URLSearchParams()
@@ -482,6 +496,10 @@ export const studentApi = {
 
   getCourseFull(token: string | null, id: string): Promise<{ course: AdminCourseFull }> {
     return apiFetch<{ course: AdminCourseFull }>(`/api/auth/courses/${id}/full`, { token })
+  },
+
+  listMyCourses(token: string): Promise<{ courses: AdminCourse[] }> {
+    return apiFetch<{ courses: AdminCourse[] }>('/api/auth/me/courses', { token })
   },
 
   enroll(token: string, input: { courseId: string; paymentMethod?: string }): Promise<{ enrollment: StudentEnrollment }> {

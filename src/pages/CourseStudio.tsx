@@ -6,7 +6,6 @@ import {
   GripVertical, HelpCircle, ImagePlus, Layers, ListChecks, Loader2, Plus, Save, Settings2, Sparkles, Trash2, Video
 } from 'lucide-react'
 import type { AssessmentQuestion, Course, CourseStatus, LessonType } from '../lib/types'
-import { ASSESSMENTS, CATEGORIES as MOCK_CATEGORIES, COURSES } from '../lib/data'
 import { courseApi, getStoredToken, type AdminCategory, type AdminCourseFull } from '../lib/api/auth'
 import { useApp } from '../lib/store'
 import { Badge, Button, Input } from '../components/ui'
@@ -109,55 +108,6 @@ function blank(): StudioDraft {
     ],
     assessments: [],
     faqs: []
-  }
-}
-
-function fromCourse(c: Course): StudioDraft {
-  return {
-    title: c.title,
-    subtitle: c.subtitle,
-    description: c.description,
-    longDescription: c.longDescription,
-    categoryId: c.categoryId,
-    level: c.level,
-    language: c.language,
-    thumbnail: c.thumbnail,
-    price: String(c.price ?? 0),
-    discountPrice: c.discountPrice != null ? String(c.discountPrice) : '',
-    hasCertificate: c.hasCertificate,
-    status: c.status,
-    objectives: c.objectives.map((o) => o.text),
-    requirements: c.requirements.map((r) => r.text),
-    sections: c.sections.map((s) => ({
-      id: s.id,
-      title: s.title,
-      lessons: s.lessons.map((l) => ({
-        id: l.id,
-        title: l.title,
-        type: l.type,
-        duration: l.duration,
-        content: l.content,
-        videoUrl: l.videoUrl,
-        resourceUrl: l.resourceUrl
-      }))
-    })),
-    assessments: ASSESSMENTS.filter((a) => a.courseId === c.id).map((a) => ({
-      id: a.id,
-      title: a.title,
-      description: a.description,
-      timeLimit: a.timeLimit,
-      passingScore: a.passingScore,
-      retakeLimit: a.retakeLimit,
-      questions: a.questions.map((q) => ({
-        id: q.id,
-        type: q.type,
-        question: q.question,
-        options: q.options ?? [],
-        answer: typeof q.answer === 'string' ? q.answer : (q.answer ?? []).join('|'),
-        explanation: q.explanation ?? ''
-      }))
-    })),
-    faqs: c.faqs.map((f, i) => ({ id: uid('faq'), q: f.q, a: f.a }))
   }
 }
 
@@ -267,7 +217,6 @@ export default function CourseStudio() {
   const { currentUser, toast } = useApp()
   const isEdit = Boolean(id)
   const key = `dha:studio:${id ?? 'new'}`
-  const existing = useMemo(() => COURSES.find((c) => c.id === id), [id])
 
   const [categories, setCategories] = useState<AdminCategory[]>([])
   const [loading, setLoading] = useState(Boolean(id))
@@ -281,7 +230,7 @@ export default function CourseStudio() {
         if (p && p.title !== undefined && Array.isArray(p.sections)) return p as StudioDraft
       } catch { /* ignore */ }
     }
-    return isEdit && existing ? fromCourse(existing) : blank()
+    return blank()
   })
   const [saveState, setSaveState] = useState<'saved' | 'dirty' | 'saving'>('saved')
   const [sel, setSel] = useState<Selection>(null)
@@ -636,7 +585,7 @@ export default function CourseStudio() {
               <div>
                 <label className="label-base">{t('instrCourses.category')}</label>
                 <select value={draft.categoryId} onChange={(e) => patch({ categoryId: e.target.value })} className="input-base">
-                  {(categories.length > 0 ? categories : MOCK_CATEGORIES).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
               </div>
               <div>
@@ -952,7 +901,7 @@ export default function CourseStudio() {
             </div>
             <div className="space-y-4 p-6">
               <div className="flex items-center gap-2">
-                <Badge color="brand">{(categories.length > 0 ? categories : MOCK_CATEGORIES).find((c) => c.id === draft.categoryId)?.name}</Badge>
+                <Badge color="brand">{categories.find((c) => c.id === draft.categoryId)?.name}</Badge>
                 <Badge color="ink">{preview.level}</Badge>
                 {preview.hasCertificate && <Badge color="success">{t('cards.certificate')}</Badge>}
               </div>
