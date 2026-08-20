@@ -1,16 +1,43 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Award, Download, DollarSign, FileText, Megaphone, Receipt, RefreshCcw, Settings, ShieldCheck, TrendingUp, Users } from 'lucide-react'
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { CATEGORIES, COURSES, ORDERS } from '../lib/data'
 import { useApp } from '../lib/store'
+import { adminApi, getStoredToken } from '../lib/api/auth'
 import { Badge, Button, Input, ProgressBar, StatCard, Tabs } from '../components/ui'
 import { formatPrice, timeAgo } from '../lib/utils'
 
 export function AdminCertificates() {
   const { certificates } = useApp()
   const { t } = useTranslation()
+  const [rows, setRows] = useState<{
+    id: string
+    studentName: string
+    courseTitle: string
+    issuedAt: string
+    verificationCode: string
+  }[] | null>(null)
+
+  useEffect(() => {
+    const token = getStoredToken()
+    if (!token) return
+    let cancelled = false
+    adminApi.listCertificates(token)
+      .then((res) => { if (!cancelled) setRows(res.certificates) })
+      .catch(() => { /* fall back to local */ })
+    return () => { cancelled = true }
+  }, [])
+
+  const list = rows ?? certificates.map((c) => ({
+    id: c.id,
+    studentName: '',
+    courseTitle: c.course?.title ?? COURSES.find((x) => x.id === c.courseId)?.title ?? '',
+    issuedAt: c.issuedAt,
+    verificationCode: c.verificationCode
+  }))
+
   return (
     <div className="space-y-6">
       <h1 className="font-display text-2xl font-bold text-ink">{t('admin2.certificates')}</h1>
@@ -19,7 +46,7 @@ export function AdminCertificates() {
           <table className="w-full text-left text-sm">
             <thead>
               <tr className="border-b border-line bg-paper text-xs uppercase tracking-wide text-muted">
-                <th className="px-5 py-3 font-semibold">{t('admin2.certificateId')}</th>
+                <th className="px-5 py-3 font-semibold">{t('admin2.student')}</th>
                 <th className="px-5 py-3 font-semibold">{t('admin2.course')}</th>
                 <th className="px-5 py-3 font-semibold">{t('admin2.issued')}</th>
                 <th className="px-5 py-3 font-semibold">{t('admin2.code')}</th>
@@ -27,20 +54,20 @@ export function AdminCertificates() {
               </tr>
             </thead>
             <tbody className="divide-y divide-line">
-              {certificates.map((c) => {
-                const course = COURSES.find((x) => x.id === c.courseId)
-                return (
-                  <tr key={c.id} className="hover:bg-paper/60">
-                    <td className="px-5 py-3 font-mono text-xs font-medium text-ink">{c.id}</td>
-                    <td className="px-5 py-3 text-muted">{course?.title}</td>
-                    <td className="px-5 py-3 text-muted">{new Date(c.issuedAt).toLocaleDateString()}</td>
-                    <td className="px-5 py-3 font-mono text-xs text-muted">{c.verificationCode}</td>
-                    <td className="px-5 py-3 text-right">
-                      <Link to={`/verify-certificate/${c.id}`} className="text-sm font-medium text-brand-700 hover:underline">{t('admin2.verify')}</Link>
-                    </td>
-                  </tr>
-                )
-              })}
+              {list.map((c) => (
+                <tr key={c.id} className="hover:bg-paper/60">
+                  <td className="px-5 py-3 font-medium text-ink">{c.studentName || t('admin2.student')}</td>
+                  <td className="px-5 py-3 text-muted">{c.courseTitle}</td>
+                  <td className="px-5 py-3 text-muted">{new Date(c.issuedAt).toLocaleDateString()}</td>
+                  <td className="px-5 py-3 font-mono text-xs text-muted">{c.verificationCode}</td>
+                  <td className="px-5 py-3 text-right">
+                    <Link to={`/verify-certificate/${c.verificationCode}`} className="text-sm font-medium text-brand-700 hover:underline">{t('admin2.verify')}</Link>
+                  </td>
+                </tr>
+              ))}
+              {list.length === 0 && (
+                <tr><td colSpan={5} className="px-5 py-10 text-center text-sm text-muted">{t('admin2.empty')}</td></tr>
+              )}
             </tbody>
           </table>
         </div>
@@ -52,6 +79,50 @@ export function AdminCertificates() {
 export function AdminOrders() {
   const { toast } = useApp()
   const { t } = useTranslation()
+  const [rows, setRows] = useState<{
+    id: string
+    customerName: string
+    total: number
+    status: string
+    paymentMethod: string
+    createdAt: string
+    items: { courseId: string; title: string; price: number }[]
+  }[] | null>(null)
+
+  const load = () => {
+    const token = getStoredToken()
+    if (!token) return
+    adminApi.listOrders(token)
+      .then((res) => setRows(res.orders))
+      .catch(() => setRows(ORDERS.map((o) => ({
+        id: o.id,
+        customerName: o.userId === 'u_st_1' ? 'John Adedeji' : 'Customer',
+        total: o.total,
+        status: o.status,
+        paymentMethod: o.paymentMethod,
+        createdAt: o.date,
+        items: o.items.map((it) => ({ courseId: it.courseId, title: it.title, price: it.price }))
+      }))))
+  }
+
+  useEffect(() => { load() }, [])
+
+  const refund = async (id: string) => {
+    if (!window.confirm(t('admin2.refundConfirm'))) return
+    const token = getStoredToken()
+    if (!token) return
+    try {
+      await adminApi.refundOrder(token, id)
+      toast(t('admin2.refundIssued'), id, 'info')
+      load()
+    } catch (err) {
+      toast(t('admin2.refundFailed'), err instanceof Error ? err.message : '', 'error')
+    }
+  }
+
+  const statusColor = (s: string) => s === 'completed' ? 'success' : s === 'pending' ? 'warning' : s === 'refunded' ? 'brand' : 'danger'
+  const statusLabel = (s: string) => s === 'completed' ? t('orders.completed') : s === 'pending' ? t('orders.pending') : s === 'refunded' ? t('orders.refunded') : t('orders.failed')
+
   return (
     <div className="space-y-6">
       <h1 className="font-display text-2xl font-bold text-ink">{t('admin2.orders')}</h1>
@@ -70,19 +141,26 @@ export function AdminOrders() {
               </tr>
             </thead>
             <tbody className="divide-y divide-line">
-              {ORDERS.map((o) => (
+              {(rows ?? []).map((o) => (
                 <tr key={o.id} className="hover:bg-paper/60">
                   <td className="px-5 py-3 font-mono text-xs font-medium text-ink">{o.id}</td>
-                  <td className="px-5 py-3 text-muted">{o.userId === 'u_st_1' ? 'John Adedeji' : 'Customer'}</td>
+                  <td className="px-5 py-3 text-muted">{o.customerName}</td>
                   <td className="px-5 py-3 text-muted">{t('admin2.coursesCount', { count: o.items.length })}</td>
                   <td className="px-5 py-3 font-semibold text-ink">{formatPrice(o.total)}</td>
                   <td className="px-5 py-3 text-muted">{o.paymentMethod}</td>
-                  <td className="px-5 py-3"><Badge color={o.status === 'completed' ? 'success' : 'warning'}>{o.status}</Badge></td>
+                  <td className="px-5 py-3"><Badge color={statusColor(o.status)}>{statusLabel(o.status)}</Badge></td>
                   <td className="px-5 py-3 text-right">
-                    <button onClick={() => toast(t('admin2.refundIssued'), `${o.id} — ${formatPrice(o.total)}`, 'info')} className="text-xs font-medium text-warning hover:underline">{t('admin2.refund')}</button>
+                    {o.status === 'completed' ? (
+                      <button onClick={() => refund(o.id)} className="text-xs font-medium text-warning hover:underline">{t('admin2.refund')}</button>
+                    ) : (
+                      <span className="text-xs text-muted">—</span>
+                    )}
                   </td>
                 </tr>
               ))}
+              {(rows ?? []).length === 0 && (
+                <tr><td colSpan={7} className="px-5 py-10 text-center text-sm text-muted">{t('admin2.empty')}</td></tr>
+              )}
             </tbody>
           </table>
         </div>

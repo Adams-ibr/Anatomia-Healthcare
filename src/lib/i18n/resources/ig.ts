@@ -1207,6 +1207,18 @@ export default {
     deleteCourseWarning: 'Enweghị ike ịtụgharị ihe a.'
   },
 
+  orders: {
+    title: 'Iwu m',
+    subtitle: 'Soro ịzụta gị na akụkọ ịkwụ ụgwọ.',
+    emptyTitle: 'Enweghị iwu',
+    emptyMessage: "Mgbe ị zụtara ọmụmụ, iwu gị ga-apụta ebe a.",
+    browseCourses: 'Chọọ ọmụmụ',
+    completed: 'Emechara',
+    pending: 'Na-echere',
+    failed: 'Dara',
+    refunded: 'Akụghachila'
+  },
+
   admin2: {
     certificates: 'Asambodo',
     certificateId: 'ID Asambodo',
@@ -1215,6 +1227,10 @@ export default {
     code: 'Koodu',
     action: 'Omume',
     verify: 'Nyochaa',
+    student: 'Nwa akwụkwọ',
+    empty: 'Ọ dịghị ihe ebe a.',
+    refundConfirm: "Akwụghachi iwu a? A ga-akwụghachiri onye ahịa.",
+    refundFailed: 'Nkwụghachi dara',
     orders: 'Iwu',
     order: 'Iwu',
     customer: 'Onye ahịa',

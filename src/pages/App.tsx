@@ -16,7 +16,7 @@ import Register from './Register'
 import ForgotPassword, { ResetPassword } from './Auth'
 import VerifyEmail from './VerifyEmail'
 import StudentDashboard from './StudentDashboard'
-import MyLearning, { Wishlist, Certificates } from './Student'
+import MyLearning, { Wishlist, Certificates, Orders } from './Student'
 import { CertificateDetail, VerifyCertificate } from './Certificates'
 import { Assignments, Assessments, AssessmentPlayer } from './Assessments'
 import LearningPlayer from './LearningPlayer'
@@ -133,6 +133,7 @@ const STUDENT_NAV: NavItem[] = [
   { label: 'Discover', to: '/courses', icon: I(NAV_ICONS.search) },
   { label: 'Wishlist', to: '/wishlist', icon: I(NAV_ICONS.heart) },
   { label: 'Certificates', to: '/certificates', icon: I(NAV_ICONS.cert) },
+  { label: 'My Orders', to: '/orders', icon: I(NAV_ICONS.cart) },
   { label: 'Assignments', to: '/assignments', icon: I(NAV_ICONS.assign) },
   { label: 'Assessments', to: '/assessments', icon: I(NAV_ICONS.assess) },
   { label: 'Calendar', to: '/calendar', icon: I(NAV_ICONS.cal) },
@@ -208,6 +209,7 @@ export default function App() {
             <Route path="/wishlist" element={<Wishlist />} />
             <Route path="/certificates" element={<Certificates />} />
             <Route path="/certificates/:id" element={<CertificateDetail />} />
+            <Route path="/orders" element={<Orders />} />
             <Route path="/assignments" element={<Assignments />} />
             <Route path="/assessments" element={<Assessments />} />
             <Route path="/assessments/:id" element={<AssessmentPlayer />} />

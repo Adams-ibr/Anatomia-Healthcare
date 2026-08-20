@@ -181,7 +181,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         instructorId: c.instructorId,
         issuedAt: c.issuedAt,
         completionDate: c.completionDate,
-        verificationCode: c.verificationCode
+        verificationCode: c.verificationCode,
+        course: c.course
       })))
     } catch {
       /* keep local fallback data when offline */

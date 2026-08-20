@@ -205,6 +205,13 @@ export interface Certificate {
   issuedAt: string
   completionDate: string
   verificationCode: string
+  course?: {
+    id: string
+    title: string
+    slug: string
+    thumbnail?: string
+    subtitle?: string
+  }
 }
 
 export interface Notification {

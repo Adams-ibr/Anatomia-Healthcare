@@ -5,7 +5,7 @@ import { ArrowRight, Award, CheckCircle2, Clock, PlayCircle } from 'lucide-react
 import { COURSES } from '../lib/data'
 import { useApp } from '../lib/store'
 import { Badge, ProgressBar, Rating, Tabs } from '../components/ui'
-import { formatPrice } from '../lib/utils'
+import { formatPrice, printCertificate } from '../lib/utils'
 
 export default function MyLearning() {
   const { currentUser, enrollments } = useApp()
@@ -129,7 +129,7 @@ export function Wishlist() {
 }
 
 export function Certificates() {
-  const { currentUser, certificates, enrollments, toast } = useApp()
+  const { currentUser, certificates } = useApp()
   const { t } = useTranslation()
   const nav = useNavigate()
   const mine = certificates.filter((c) => c.userId === currentUser!.id)
@@ -149,8 +149,7 @@ export function Certificates() {
       ) : (
         <div className="grid gap-5 sm:grid-cols-2">
 {mine.map((cert) => {
-            const enrollment = enrollments.find((e) => e.certificateId === cert.id)
-            const course = enrollment?.course ?? COURSES.find((c) => c.id === cert.courseId)
+            const course = cert.course ?? COURSES.find((c) => c.id === cert.courseId)
             if (!course) return null
             return (
               <div key={cert.id} className="card overflow-hidden">
@@ -171,7 +170,20 @@ export function Certificates() {
                 </div>
                 <div className="flex gap-2 p-4">
                   <button onClick={() => nav(`/certificates/${cert.id}`)} className="btn-primary flex-1">{t('mycert.viewCertificate')}</button>
-                  <button onClick={() => { navigator.clipboard?.writeText(cert.verificationCode || cert.id); toast(t('mycert.clipboardSaved')) }} className="btn-outline flex-1">{t('mycert.download')}</button>
+                  <button
+                    onClick={() => {
+                      printCertificate({
+                        title: course.title,
+                        studentName: currentUser!.name,
+                        verificationCode: cert.verificationCode || cert.id,
+                        completionDate: cert.completionDate,
+                        certId: cert.id
+                      })
+                    }}
+                    className="btn-outline flex-1"
+                  >
+                    {t('mycert.download')}
+                  </button>
                 </div>
               </div>
             )
@@ -184,4 +196,56 @@ export function Certificates() {
 
 export function CertificateView() {
   return <></>
+}
+
+export function Orders() {
+  const { currentUser, orders } = useApp()
+  const { t } = useTranslation()
+  const mine = orders.filter((o) => o.userId === currentUser!.id)
+
+  const statusColor = (s: string) => s === 'completed' ? 'success' : s === 'pending' ? 'warning' : s === 'refunded' ? 'brand' : 'danger'
+  const statusLabel = (s: string) => s === 'completed' ? t('orders.completed') : s === 'pending' ? t('orders.pending') : s === 'refunded' ? t('orders.refunded') : t('orders.failed')
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="font-display text-2xl font-bold text-ink">{t('orders.title')}</h1>
+        <p className="mt-1 text-sm text-muted">{t('orders.subtitle')}</p>
+      </div>
+      {mine.length === 0 ? (
+        <div className="card p-12 text-center">
+          <p className="font-display text-lg font-semibold text-ink">{t('orders.emptyTitle')}</p>
+          <p className="mt-1 text-sm text-muted">{t('orders.emptyMessage')}</p>
+          <Link to="/courses" className="btn-primary mt-4">{t('orders.browseCourses')}</Link>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {mine.map((o) => (
+            <div key={o.id} className="card overflow-hidden">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line bg-paper px-5 py-3">
+                <div className="flex flex-wrap items-center gap-3">
+                  <span className="font-mono text-xs font-medium text-ink">{o.id}</span>
+                  <span className="text-xs text-muted">{new Date(o.date).toLocaleDateString()}</span>
+                  <Badge color={statusColor(o.status)}>{statusLabel(o.status)}</Badge>
+                </div>
+                <div className="text-sm font-bold text-ink">{formatPrice(o.total)}</div>
+              </div>
+              <div className="divide-y divide-line">
+                {o.items.map((it, i) => (
+                  <div key={i} className="flex items-center gap-3 px-5 py-3">
+                    <span className="flex h-9 w-9 items-center justify-center rounded-control bg-brand-50 text-xs font-semibold text-brand-700">H</span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium text-ink">{it.title}</p>
+                      <p className="text-xs text-muted">{o.paymentMethod}</p>
+                    </div>
+                    <span className="text-sm font-semibold text-ink">{formatPrice(it.price)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
 }

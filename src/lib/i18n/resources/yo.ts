@@ -1207,6 +1207,18 @@ export default {
     deleteCourseWarning: 'A kò lè ṣàtúnṣe ìgbésẹ̀ yìí.'
   },
 
+  orders: {
+    title: 'Àwọn àṣẹ mi',
+    subtitle: 'Máa tọ̀ àwọn ìrà rẹ àti ìtàn ìsanwó rẹ.',
+    emptyTitle: 'Kò sí àṣẹ rẹ́ẹ̀',
+    emptyMessage: 'Nígbà tí o bá ra ẹ̀kọ́, àwọn àṣẹ rẹ yóò fara hàn níbí.',
+    browseCourses: 'Ṣàwárí àwọn ẹ̀kọ́',
+    completed: 'Ó ti parí',
+    pending: 'Ó ń dúró',
+    failed: 'Ó kùnà',
+    refunded: 'A ti san owó padà'
+  },
+
   admin2: {
     certificates: 'Àwọn ìwé ẹ̀rí',
     certificateId: 'ID ìwé ẹ̀rí',
@@ -1215,6 +1227,10 @@ export default {
     code: 'Kóòdù',
     action: 'Ìgbésẹ̀',
     verify: 'Rí dájú',
+    student: 'Akẹ́kọ̀ọ́',
+    empty: 'Kò sí ohun kankan níbí.',
+    refundConfirm: 'Ṣé a ó san owó àṣẹ yìí padà? A ó dá ìsanwó padà fún oníbàárà.',
+    refundFailed: 'Síṣan owó padà kùnà',
     orders: 'Àwọn àṣẹ',
     order: 'Àṣẹ',
     customer: 'Oníbàárà',

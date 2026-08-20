@@ -1207,6 +1207,18 @@ export default {
     deleteCourseWarning: 'Ba za a iya juyar da wannan aikin ba.'
   },
 
+  orders: {
+    title: 'Umarnina',
+    subtitle: 'Bibiyi sayayyarka da tarihin biyan kuɗi.',
+    emptyTitle: 'Har yanzu babu umarni',
+    emptyMessage: 'Lokacin da ka sayi darasi, umarninka za su bayyana a nan.',
+    browseCourses: 'Bincika darussa',
+    completed: 'An kammala',
+    pending: 'Ana jira',
+    failed: 'Ya gaza',
+    refunded: 'An maido kuɗi'
+  },
+
   admin2: {
     certificates: 'Takaddun shaida',
     certificateId: 'Lambar takardar shaidar',
@@ -1215,6 +1227,10 @@ export default {
     code: 'Lamba',
     action: 'Aiki',
     verify: 'Tabbatar',
+    student: 'Ɗalibi',
+    empty: 'Babu komai a nan tukuna.',
+    refundConfirm: 'A maido kuɗin wannan umarni? Za a mayar da biyan kuɗi ga abokin ciniki.',
+    refundFailed: 'Maido kuɗi ya gaza',
     orders: 'Umarni',
     order: 'Umarni',
     customer: 'Abokin ciniki',

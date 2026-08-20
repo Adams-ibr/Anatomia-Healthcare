@@ -1207,6 +1207,18 @@ export default {
     deleteCourseWarning: 'This action cannot be undone.'
   },
 
+  orders: {
+    title: 'My Orders',
+    subtitle: 'Track your purchases and payment history.',
+    emptyTitle: 'No orders yet',
+    emptyMessage: 'When you purchase a course, your orders will appear here.',
+    browseCourses: 'Browse courses',
+    completed: 'Completed',
+    pending: 'Pending',
+    failed: 'Failed',
+    refunded: 'Refunded'
+  },
+
   admin2: {
     certificates: 'Certificates',
     certificateId: 'Certificate ID',
@@ -1215,6 +1227,10 @@ export default {
     code: 'Code',
     action: 'Action',
     verify: 'Verify',
+    student: 'Student',
+    empty: 'Nothing here yet.',
+    refundConfirm: 'Refund this order? Payment will be returned to the customer.',
+    refundFailed: 'Refund failed',
     orders: 'Orders',
     order: 'Order',
     customer: 'Customer',

@@ -76,3 +76,57 @@ export function discountPercent(price: number, discount?: number) {
   if (!discount || discount >= price) return 0
   return Math.round(((price - discount) / price) * 100)
 }
+
+export function printCertificate(opts: {
+  title: string
+  studentName: string
+  verificationCode: string
+  completionDate: string
+  certId: string
+}) {
+  const { title, studentName, verificationCode, completionDate, certId } = opts
+  const origin = typeof window !== 'undefined' ? window.location.origin : ''
+  const date = new Date(completionDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+
+  const w = window.open('', '_blank', 'width=900,height=700')
+  if (!w) return
+  w.document.write(`<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>Certificate — ${title}</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #e8e6e0; display: flex; align-items: center; justify-content: center; min-height: 100vh; font-family: Georgia, 'Times New Roman', serif; padding: 24px; }
+  .cert { position: relative; width: 100%; max-width: 820px; background: #FBF9F3; border: 2px solid #1B4E9B; padding: 56px 48px; text-align: center; overflow: hidden; }
+  .cert::before { content: ''; position: absolute; inset: 10px; border: 1px solid #1B4E9B; opacity: .6; pointer-events: none; }
+  img.logo { height: 52px; width: auto; }
+  .kicker { margin-top: 40px; font-size: 12px; letter-spacing: .3em; text-transform: uppercase; color: #555; }
+  .line { margin: 24px auto; width: 90px; height: 2px; background: #1B4E9B; }
+  .name { margin-top: 16px; font-size: 34px; font-weight: 700; color: #111; }
+  .body { margin-top: 24px; font-size: 15px; color: #555; }
+  .course { margin-top: 10px; font-size: 26px; font-weight: 700; color: #1B4E9B; }
+  .meta { margin-top: 48px; display: flex; justify-content: space-between; align-items: flex-end; font-size: 12px; color: #555; }
+  .meta b { display: block; margin-bottom: 4px; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: #111; }
+  @media print { body { background: #fff; padding: 0; } .cert { max-width: 100%; } }
+</style>
+</head>
+<body>
+  <div class="cert">
+    <div><img class="logo" src="${origin}/logo.png" alt="HamaAcademy" /></div>
+    <div class="kicker">Certificate of Completion</div>
+    <div class="line"></div>
+    <div class="name">${studentName}</div>
+    <div class="body">has successfully completed the course</div>
+    <div class="course">${title}</div>
+    <div class="meta">
+      <div><b>Certificate ID</b>${certId}</div>
+      <div><b>Completion Date</b>${date}</div>
+      <div><b>Verification Code</b>${verificationCode}</div>
+    </div>
+  </div>
+  <script>window.onload = function () { window.focus(); setTimeout(function () { window.print(); }, 300); }<\/script>
+</body>
+</html>`)
+  w.document.close()
+}

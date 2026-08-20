@@ -1207,6 +1207,18 @@ export default {
     deleteCourseWarning: 'You no fit undo dis one.'
   },
 
+  orders: {
+    title: 'My Orders',
+    subtitle: 'Follow your buys and payment history.',
+    emptyTitle: 'No order yet',
+    emptyMessage: 'When you buy course, your orders go show here.',
+    browseCourses: 'Find courses',
+    completed: 'Don finish',
+    pending: 'Dey wait',
+    failed: 'E don fail',
+    refunded: 'Refund don give'
+  },
+
   admin2: {
     certificates: 'Certificates',
     certificateId: 'Certificate ID',
@@ -1215,6 +1227,10 @@ export default {
     code: 'Code',
     action: 'Action',
     verify: 'Verify',
+    student: 'Student',
+    empty: 'Nothing dey here.',
+    refundConfirm: 'Refund dis order? We go return money to customer.',
+    refundFailed: 'Refund no work',
     orders: 'Orders',
     order: 'Order',
     customer: 'Customer',

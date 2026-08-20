@@ -1651,7 +1651,7 @@ async function handleMyCertificates(req: Request): Promise<Response> {
 
   const { data, error } = await supabase
     .from('certificates')
-    .select('*')
+    .select('*, courses(id, title, slug, thumbnail, subtitle)')
     .eq('user_id', guard.profile.id)
     .order('issued_at', { ascending: false })
   if (error) return errorResponse(500, 'Failed to load certificates: ' + error.message)
@@ -1663,9 +1663,65 @@ async function handleMyCertificates(req: Request): Promise<Response> {
     instructorId: c.instructor_id,
     issuedAt: c.issued_at,
     completionDate: c.completion_date,
-    verificationCode: c.verification_code
+    verificationCode: c.verification_code,
+    course: c.courses ? {
+      id: c.courses.id,
+      title: c.courses.title,
+      slug: c.courses.slug,
+      thumbnail: c.courses.thumbnail ?? undefined,
+      subtitle: c.courses.subtitle ?? undefined
+    } : undefined
   }))
   return json({ certificates })
+}
+
+async function handleVerifyCertificate(req: Request): Promise<Response> {
+  const url = new URL(req.url)
+  const idOrCode = url.pathname.split('/').filter(Boolean).at(-1) ?? ''
+  if (!idOrCode) return errorResponse(422, 'Certificate id or code is required.')
+
+  const select = '*, courses(id, title, slug, subtitle, has_certificate), profiles!certificates_user_id_fkey(id, name)'
+
+  let data: Record<string, unknown> | null = null
+  let error: { message: string } | null = null
+  const { data: byCode, error: codeError } = await supabase
+    .from('certificates')
+    .select(select)
+    .eq('verification_code', idOrCode)
+    .maybeSingle()
+  data = byCode as Record<string, unknown> | null
+  error = codeError
+
+  if (!data && !error && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idOrCode)) {
+    const { data: byId, error: idError } = await supabase
+      .from('certificates')
+      .select(select)
+      .eq('id', idOrCode)
+      .maybeSingle()
+    data = byId as Record<string, unknown> | null
+    error = idError
+  }
+
+  if (error) return errorResponse(500, 'Failed to verify certificate: ' + error.message)
+  if (!data) return errorResponse(404, 'No certificate matches that id or code.')
+
+  return json({
+    certificate: {
+      id: data.id,
+      userId: data.user_id,
+      courseId: data.course_id,
+      issuedAt: data.issued_at,
+      completionDate: data.completion_date,
+      verificationCode: data.verification_code
+    },
+    course: data.courses ? {
+      id: data.courses.id,
+      title: data.courses.title,
+      slug: data.courses.slug,
+      subtitle: data.courses.subtitle ?? undefined
+    } : null,
+    student: data.profiles ? { id: data.profiles.id, name: data.profiles.name } : null
+  })
 }
 
 async function handleAdminListEnrollments(req: Request): Promise<Response> {
@@ -1692,6 +1748,111 @@ async function handleAdminListEnrollments(req: Request): Promise<Response> {
     pricePaid: Number(e.price_paid)
   }))
   return json({ enrollments })
+}
+
+async function handleAdminListCertificates(req: Request): Promise<Response> {
+  const guard = await requireAdmin(req)
+  if (guard instanceof Response) return guard
+
+  const { data, error } = await supabase
+    .from('certificates')
+    .select('*, courses(id, title, thumbnail), profiles!certificates_user_id_fkey(id, name)')
+    .order('issued_at', { ascending: false })
+    .limit(100)
+  if (error) return errorResponse(500, 'Failed to load certificates: ' + error.message)
+
+  const certificates = (data ?? []).map((c) => ({
+    id: c.id,
+    userId: c.user_id,
+    studentName: c.profiles?.name ?? 'Student',
+    courseId: c.course_id,
+    courseTitle: c.courses?.title ?? '',
+    courseThumbnail: c.courses?.thumbnail ?? undefined,
+    issuedAt: c.issued_at,
+    completionDate: c.completion_date,
+    verificationCode: c.verification_code
+  }))
+  return json({ certificates })
+}
+
+async function handleAdminListOrders(req: Request): Promise<Response> {
+  const guard = await requireAdmin(req)
+  if (guard instanceof Response) return guard
+
+  const { data, error } = await supabase
+    .from('orders')
+    .select('*, order_items(*), profiles!orders_user_id_fkey(id, name)')
+    .order('created_at', { ascending: false })
+    .limit(100)
+  if (error) return errorResponse(500, 'Failed to load orders: ' + error.message)
+
+  const orders = (data ?? []).map((o) => ({
+    id: o.id,
+    userId: o.user_id,
+    customerName: o.profiles?.name ?? 'Customer',
+    total: Number(o.total),
+    status: o.status,
+    paymentMethod: o.payment_method,
+    reference: o.payment_reference ?? undefined,
+    createdAt: o.created_at,
+    items: (o.order_items ?? []).map((it: { course_id: string; title: string; price: number }) => ({
+      courseId: it.course_id,
+      title: it.title,
+      price: Number(it.price)
+    }))
+  }))
+  return json({ orders })
+}
+
+async function handleAdminRefundOrder(req: Request): Promise<Response> {
+  const guard = await requireAdmin(req)
+  if (guard instanceof Response) return guard
+
+  const url = new URL(req.url)
+  const orderId = url.pathname.split('/').filter(Boolean).at(-2) ?? ''
+  if (!orderId) return errorResponse(422, 'Order id is required.')
+
+  const { data: order, error: loadError } = await supabase
+    .from('orders')
+    .select('*')
+    .eq('id', orderId)
+    .single()
+  if (loadError || !order) return errorResponse(404, 'Order not found.')
+  if (order.status === 'refunded') return errorResponse(409, 'This order has already been refunded.')
+
+  if (order.payment_reference && PAYSTACK_SECRET_KEY) {
+    try {
+      const res = await fetch(`${PAYSTACK_API}/transaction/refund`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${PAYSTACK_SECRET_KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ transaction: order.payment_reference })
+      })
+      const data = await res.json().catch(() => null)
+      if (!res.ok || !data?.status) {
+        return errorResponse(502, data?.message ?? 'Paystack could not process the refund.')
+      }
+    } catch {
+      return errorResponse(502, 'Could not reach Paystack to process the refund.')
+    }
+  }
+
+  const { error: updateError } = await supabase
+    .from('orders')
+    .update({ status: 'refunded' })
+    .eq('id', order.id)
+  if (updateError) return errorResponse(500, 'Failed to refund order: ' + updateError.message)
+
+  return json({
+    order: {
+      id: order.id,
+      userId: order.user_id,
+      total: Number(order.total),
+      status: 'refunded',
+      paymentMethod: order.payment_method,
+      reference: order.payment_reference ?? undefined,
+      createdAt: order.created_at
+    }
+  })
 }
 
 // ---------------------------------------------------------------------------
@@ -1804,6 +1965,12 @@ Deno.serve(async (req) => {
     case 'GET /admin/enrollments':
       response = await handleAdminListEnrollments(req)
       break
+    case 'GET /admin/certificates':
+      response = await handleAdminListCertificates(req)
+      break
+    case 'GET /admin/orders':
+      response = await handleAdminListOrders(req)
+      break
     default:
       if (/^\/admin\/users\/[^/]+$/.test(path)) {
         if (method === 'PATCH') response = await handleAdminUpdateUser(req)
@@ -1828,6 +1995,12 @@ Deno.serve(async (req) => {
       } else if (/^\/admin\/categories\/[^/]+$/.test(path)) {
         if (method === 'PATCH') response = await handleAdminUpdateCategory(req)
         else if (method === 'DELETE') response = await handleAdminDeleteCategory(req)
+        else response = errorResponse(404, 'API endpoint not found.')
+      } else if (/^\/admin\/orders\/[^/]+\/refund$/.test(path)) {
+        if (method === 'POST') response = await handleAdminRefundOrder(req)
+        else response = errorResponse(404, 'API endpoint not found.')
+      } else if (/^\/verify-certificate\/[^/]+$/.test(path)) {
+        if (method === 'GET') response = await handleVerifyCertificate(req)
         else response = errorResponse(404, 'API endpoint not found.')
       } else {
         response = errorResponse(404, 'API endpoint not found.')

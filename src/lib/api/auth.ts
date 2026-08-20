@@ -78,6 +78,66 @@ export const adminApi = {
 
   deleteUser(token: string, id: string): Promise<unknown> {
     return apiFetch<unknown>(`/api/auth/admin/users/${id}`, { method: 'DELETE', token })
+  },
+
+  listCertificates(token: string): Promise<{
+    certificates: {
+      id: string
+      userId: string
+      studentName: string
+      courseId: string
+      courseTitle: string
+      courseThumbnail?: string
+      issuedAt: string
+      completionDate: string
+      verificationCode: string
+    }[]
+  }> {
+    return apiFetch<{ certificates: unknown[] }>('/api/auth/admin/certificates', { token }) as Promise<{
+      certificates: {
+        id: string
+        userId: string
+        studentName: string
+        courseId: string
+        courseTitle: string
+        courseThumbnail?: string
+        issuedAt: string
+        completionDate: string
+        verificationCode: string
+      }[]
+    }>
+  },
+
+  listOrders(token: string): Promise<{
+    orders: {
+      id: string
+      userId: string
+      customerName: string
+      total: number
+      status: string
+      paymentMethod: string
+      reference?: string
+      createdAt: string
+      items: { courseId: string; title: string; price: number }[]
+    }[]
+  }> {
+    return apiFetch<{ orders: unknown[] }>('/api/auth/admin/orders', { token }) as Promise<{
+      orders: {
+        id: string
+        userId: string
+        customerName: string
+        total: number
+        status: string
+        paymentMethod: string
+        reference?: string
+        createdAt: string
+        items: { courseId: string; title: string; price: number }[]
+      }[]
+    }>
+  },
+
+  refundOrder(token: string, id: string): Promise<{ order: { id: string; status: string } }> {
+    return apiFetch<{ order: { id: string; status: string } }>(`/api/auth/admin/orders/${id}/refund`, { method: 'POST', token })
   }
 }
 
@@ -330,6 +390,26 @@ export interface StudentCertificate {
   issuedAt: string
   completionDate: string
   verificationCode: string
+  course?: {
+    id: string
+    title: string
+    slug: string
+    thumbnail?: string
+    subtitle?: string
+  }
+}
+
+export interface PublicCertificate {
+  certificate: {
+    id: string
+    userId: string
+    courseId: string
+    issuedAt: string
+    completionDate: string
+    verificationCode: string
+  }
+  course: { id: string; title: string; slug: string; subtitle?: string } | null
+  student: { id: string; name: string } | null
 }
 
 export const studentApi = {
@@ -431,6 +511,10 @@ export const authApi = {
 
   verifyEmail(token: string): Promise<{ message?: string }> {
     return apiFetch<{ message?: string }>('/api/auth/verify-email', { method: 'POST', body: { token } })
+  },
+
+  verifyCertificate(idOrCode: string): Promise<PublicCertificate> {
+    return apiFetch<PublicCertificate>(`/api/auth/verify-certificate/${encodeURIComponent(idOrCode)}`)
   },
 
   me(token: string): Promise<{ user: AuthUser }> {
