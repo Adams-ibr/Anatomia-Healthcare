@@ -7,6 +7,12 @@ const PAYSTACK_SECRET_KEY = Deno.env.get('PAYSTACK_SECRET_KEY') ?? ''
 const PAYSTACK_PUBLIC_KEY = Deno.env.get('PAYSTACK_PUBLIC_KEY') ?? ''
 const PAYSTACK_API = 'https://api.paystack.co'
 
+const SMTP_HOST = Deno.env.get('SMTP_HOST') ?? 'smtp.zoho.com'
+const SMTP_PORT = Number(Deno.env.get('SMTP_PORT') ?? 465)
+const SMTP_USER = Deno.env.get('SMTP_USER') ?? 'info@hamaacademy.com'
+const SMTP_PASS = Deno.env.get('SMTP_PASS') ?? ''
+const SMTP_SENDER_NAME = Deno.env.get('SMTP_SENDER_NAME') ?? 'Hama Academy'
+
 if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
   throw new Error('SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set')
 }
@@ -35,6 +41,185 @@ function json(body: unknown, status = 200): Response {
 
 function errorResponse(status: number, message: string): Response {
   return json({ error: message }, status)
+}
+
+// ---------------------------------------------------------------------------
+// Email delivery via SMTP (Zoho)
+// ---------------------------------------------------------------------------
+
+interface SmtpResult {
+  code: number
+  text: string
+}
+
+/** Minimal SMTP client for sending one message over implicit-TLS (465). */
+async function smtpSend(to: string, subject: string, html: string): Promise<void> {
+  if (!SMTP_PASS) throw new Error('SMTP_PASS is not configured')
+
+  const conn = await Deno.connectTls({ hostname: SMTP_HOST, port: SMTP_PORT })
+  const encoder = new TextEncoder()
+  const decoder = new TextDecoder()
+
+  let buffer = new Uint8Array(0)
+  const readLine = async (): Promise<SmtpResult> => {
+    while (true) {
+      const idx = buffer.indexOf(0x0a)
+      if (idx !== -1) {
+        const line = decoder.decode(buffer.slice(0, idx + 1)).replace(/\r?\n$/, '')
+        buffer = buffer.slice(idx + 1)
+        return { code: parseInt(line.slice(0, 3), 10), text: line }
+      }
+      const chunk = new Uint8Array(1024)
+      const n = await conn.read(chunk)
+      if (n === null) throw new Error('SMTP connection closed unexpectedly')
+      const next = new Uint8Array(buffer.length + n)
+      next.set(buffer)
+      next.set(chunk.subarray(0, n), buffer.length)
+      buffer = next
+    }
+  }
+
+  const readReply = async (): Promise<SmtpResult> => {
+    let last: SmtpResult | null = null
+    while (true) {
+      const line = await readLine()
+      last = line
+      // "250-" is a continuation line; the response ends when the 4th char is a space.
+      if (line.text.length < 4 || line.text[3] !== '-') break
+    }
+    return last!
+  }
+
+  const cmd = async (line: string): Promise<SmtpResult> => {
+    await conn.write(encoder.encode(line + '\r\n'))
+    return readReply()
+  }
+
+  const greet = await readReply()
+  if (greet.code >= 400) throw new Error('SMTP greeting failed: ' + greet.text)
+
+  const ehlo = await cmd('EHLO hamaacademy.com')
+  if (ehlo.code >= 400) throw new Error('EHLO failed: ' + ehlo.text)
+
+  const auth = await cmd(`AUTH LOGIN ${btoa(SMTP_USER)}`)
+  if (auth.code !== 334) throw new Error('AUTH LOGIN failed: ' + auth.text)
+  const authPass = await cmd(btoa(SMTP_PASS))
+  if (authPass.code !== 235) throw new Error('AUTH failed: ' + authPass.text)
+
+  const from = await cmd(`MAIL FROM:<${SMTP_USER}>`)
+  if (from.code >= 400) throw new Error('MAIL FROM failed: ' + from.text)
+
+  const rcpt = await cmd(`RCPT TO:<${to}>`)
+  if (rcpt.code >= 400) throw new Error('RCPT TO failed: ' + rcpt.text)
+
+  const data = await cmd('DATA')
+  if (data.code !== 354) throw new Error('DATA failed: ' + data.text)
+
+  const fromAddr = `${SMTP_SENDER_NAME.replace(/[<>]/g, '')} <${SMTP_USER}>`
+  const message = [
+    `From: ${fromAddr}`,
+    `To: <${to}>`,
+    `Subject: ${subject}`,
+    'MIME-Version: 1.0',
+    'Content-Type: text/html; charset=UTF-8',
+    'Content-Transfer-Encoding: 7bit',
+    '',
+    html
+  ].join('\r\n')
+
+  await conn.write(encoder.encode(message.replace(/\r?\n/g, '\r\n') + '\r\n.\r\n'))
+  const end = await readLine()
+  if (end.code >= 400) throw new Error('Message rejected: ' + end.text)
+
+  try { await cmd('QUIT') } catch { /* ignore */ }
+  conn.close()
+}
+
+function emailShell(
+  heading: string,
+  bodyHtml: string,
+  buttonLabel: string,
+  buttonUrl: string,
+  noteHtml: string
+): string {
+  return `<!DOCTYPE html>
+<html lang="en"><body style="margin:0;padding:0;background:#f4f6f9">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f6f9;padding:24px 0">
+<tr><td align="center">
+<table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;font-family:Arial,Helvetica,sans-serif;border:1px solid #e4e8ef">
+<tr><td style="background:#1B4E9B;padding:24px 32px">
+<span style="color:#ffffff;font-size:22px;font-weight:bold">HamaAcademy</span>
+</td></tr>
+<tr><td style="padding:32px">
+<h1 style="margin:0 0 16px;font-size:20px;color:#111827">${heading}</h1>
+<p style="margin:0 0 16px;color:#374151;font-size:14px;line-height:1.6">${bodyHtml}</p>
+<table role="presentation" cellpadding="0" cellspacing="0" style="margin:24px 0"><tr><td style="border-radius:8px;background:#1B4E9B">
+<a href="${buttonUrl}" style="display:inline-block;padding:12px 28px;color:#ffffff;font-size:14px;font-weight:bold;text-decoration:none">${buttonLabel}</a>
+</td></tr></table>
+<p style="margin:0;color:#6b7280;font-size:12px;line-height:1.6">${noteHtml}</p>
+</td></tr>
+<tr><td style="background:#f8fafc;padding:20px 32px;text-align:center;color:#7a8699;font-size:12px;line-height:1.6">
+&copy; 2026 HamaAcademy &middot; Learn skills that take you further<br/>
+<a href="https://www.hamaacademy.com" style="color:#1B4E9B;text-decoration:none">Visit our website</a>
+</td></tr>
+</table>
+</td></tr></table></body></html>`
+}
+
+type EmailKind = 'signup' | 'recovery'
+
+function buildEmail(kind: EmailKind, link: string): { subject: string; html: string } {
+  if (kind === 'signup') {
+    return {
+      subject: 'Confirm your email to activate your Hama Academy account',
+      html: emailShell(
+        'Welcome to Hama Academy! &#128075;',
+        'Thanks for signing up. Please confirm your email address to activate your account and start learning.',
+        'Confirm email address',
+        link,
+        'This link expires in 30 minutes. If you didn\'t create a Hama Academy account, you can safely ignore this email.'
+      )
+    }
+  }
+  return {
+    subject: 'Reset your Hama Academy password',
+    html: emailShell(
+      'Reset your password',
+      'We received a request to reset the password for your Hama Academy account. Click below to choose a new one.',
+      'Reset password',
+      link,
+      'This link expires in 30 minutes. If you didn\'t request this, you can safely ignore this email.'
+    )
+  }
+}
+
+/** Generate a signup/recovery link WITHOUT having GoTrue email it, then deliver it via SMTP. */
+async function generateAndEmailLink(kind: EmailKind, email: string, extra: Record<string, unknown> = {}): Promise<void> {
+  const params: Record<string, unknown> = {
+    type: kind === 'signup' ? 'signup' : 'recovery',
+    email,
+    should_send_email: false,
+    ...extra
+  }
+  const res = await fetch(`${SUPABASE_URL}/auth/v1/admin/generate_link`, {
+    method: 'POST',
+    headers: {
+      apikey: SERVICE_ROLE_KEY,
+      Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(params)
+  })
+  if (!res.ok) {
+    const errText = await res.text()
+    throw new Error(`generate_link failed (${res.status}): ${errText.slice(0, 200)}`)
+  }
+  const body = await res.json()
+  const link = body?.action_link
+  if (!link) throw new Error('generate_link returned no action_link')
+
+  const mail = buildEmail(kind, link)
+  await smtpSend(email, mail.subject, mail.html)
 }
 
 type Role = 'student' | 'instructor' | 'admin' | 'support'
@@ -268,14 +453,15 @@ async function handleRegister(req: Request): Promise<Response> {
   if (profileError) return errorResponse(500, 'Failed to create profile: ' + profileError.message)
 
   // admin.createUser does not send the confirmation email automatically —
-  // generate a signup link, which emails the confirmation to the user.
-  const { error: linkError } = await supabase.auth.admin.generateLink({
-    type: 'signup',
-    email,
-    password,
-    data: { name: name.trim(), role: chosenRole }
-  })
-  if (linkError) return errorResponse(500, 'Account created but we could not send the confirmation email: ' + linkError.message)
+  // generate a signup link (without GoTrue mailing it) and deliver it via Zoho SMTP.
+  try {
+    await generateAndEmailLink('signup', email, {
+      password,
+      data: { name: name.trim(), role: chosenRole }
+    })
+  } catch (e) {
+    return errorResponse(500, 'Account created but we could not send the confirmation email: ' + (e as Error).message)
+  }
 
   const profile = await getProfile(data.user!.id)
   if (!profile) return errorResponse(500, 'Account created but profile could not be loaded.')
@@ -592,9 +778,13 @@ async function handleForgotPassword(req: Request): Promise<Response> {
   if (!isEmail(email)) return errorResponse(422, 'A valid email is required.')
 
   // Do not leak whether the account exists — same response either way.
-  await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${FRONTEND_URL}/reset-password`
-  })
+  try {
+    await generateAndEmailLink('recovery', email, {
+      options: { redirect_to: `${FRONTEND_URL}/reset-password` }
+    })
+  } catch {
+    // Account may not exist, or send failed — respond identically either way.
+  }
 
   return json({ message: 'If that email exists, a reset link has been sent.' })
 }
