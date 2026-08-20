@@ -27,13 +27,13 @@ create type public.order_status as enum ('completed', 'pending', 'refunded', 'fa
 create type public.question_type as enum ('mc', 'multi', 'truefalse', 'short', 'essay', 'fill');
 
 -- -----------------------------------------------------------------------------
--- Profiles (one row per auth.users entry; auto-created on signup)
+-- Profiles — the self-contained user account table (no Supabase Auth/GoTrue)
 -- -----------------------------------------------------------------------------
 
 create table public.profiles (
-  id uuid primary key references auth.users (id) on delete cascade,
+  id uuid primary key default gen_random_uuid(),
   name text not null,
-  email text not null,
+  email text not null unique,
   role public.app_role not null default 'student',
   avatar text,
   title text,
@@ -45,32 +45,18 @@ create table public.profiles (
   course_count integer not null default 0,
   rating numeric(2,1) not null default 0,
   is_active boolean not null default true,
-  joined_at timestamptz not null default now()
+  joined_at timestamptz not null default now(),
+  password_hash text not null default '',
+  email_confirmed boolean not null default false,
+  confirmation_token_hash text,
+  confirmation_token_expires_at timestamptz,
+  reset_token_hash text,
+  reset_token_expires_at timestamptz,
+  last_sign_in_at timestamptz
 );
 
 create index profiles_role_idx on public.profiles (role);
 create index profiles_email_idx on public.profiles (email);
-
--- Auto-create a profile row when a new auth user signs up.
-create function public.handle_new_user()
-returns trigger
-language plpgsql security definer set search_path = public
-as $$
-begin
-  insert into public.profiles (id, name, email)
-  values (
-    new.id,
-    coalesce(new.raw_user_meta_data ->> 'name', split_part(new.email, '@', 1)),
-    new.email
-  )
-  on conflict (id) do nothing;
-  return new;
-end;
-$$;
-
-create trigger on_auth_user_created
-  after insert on auth.users
-  for each row execute procedure public.handle_new_user();
 
 -- -----------------------------------------------------------------------------
 -- Categories
@@ -487,11 +473,12 @@ create table public.user_preferences (
 create table public.user_sessions (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references public.profiles (id) on delete cascade,
-  token_jti text not null,
+  token_hash text not null unique,
   user_agent text not null default '',
   ip text not null default '',
   is_revoked boolean not null default false,
   created_at timestamptz not null default now(),
+  expires_at timestamptz not null default (now() + interval '30 days'),
   last_seen_at timestamptz not null default now()
 );
 

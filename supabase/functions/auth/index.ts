@@ -44,6 +44,86 @@ function errorResponse(status: number, message: string): Response {
 }
 
 // ---------------------------------------------------------------------------
+// Custom auth (no GoTrue): password hashing, session & email tokens
+// ---------------------------------------------------------------------------
+
+const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000
+const EMAIL_TOKEN_TTL_MS = 30 * 60 * 1000
+
+function toB64(bytes: Uint8Array): string {
+  let s = ''
+  for (const b of bytes) s += String.fromCharCode(b)
+  return btoa(s)
+}
+
+function fromB64(b64: string): Uint8Array {
+  const bin = atob(b64)
+  const bytes = new Uint8Array(bin.length)
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i)
+  return bytes
+}
+
+function randomHex(bytes = 32): string {
+  const arr = crypto.getRandomValues(new Uint8Array(bytes))
+  return [...arr].map((b) => b.toString(16).padStart(2, '0')).join('')
+}
+
+async function sha256Hex(input: string): Promise<string> {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(input))
+  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('')
+}
+
+async function hashPassword(password: string): Promise<string> {
+  const iterations = 100_000
+  const salt = crypto.getRandomValues(new Uint8Array(16))
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveBits'])
+  const bits = await crypto.subtle.deriveBits({ name: 'PBKDF2', hash: 'SHA-256', salt, iterations }, key, 256)
+  return `pbkdf2$${iterations}$${toB64(salt)}$${toB64(new Uint8Array(bits))}`
+}
+
+async function verifyPassword(password: string, stored: string): Promise<boolean> {
+  if (!stored) return false
+  const [scheme, iterStr, saltB64, hashB64] = stored.split('$')
+  if (scheme !== 'pbkdf2' || !iterStr || !saltB64 || !hashB64) return false
+  const iterations = parseInt(iterStr, 10)
+  const salt = fromB64(saltB64)
+  const expected = fromB64(hashB64)
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveBits'])
+  const bits = await crypto.subtle.deriveBits({ name: 'PBKDF2', hash: 'SHA-256', salt, iterations }, key, expected.byteLength * 8)
+  const actual = new Uint8Array(bits)
+  if (actual.byteLength !== expected.byteLength) return false
+  let diff = 0
+  for (let i = 0; i < actual.byteLength; i++) diff |= actual[i] ^ expected[i]
+  return diff === 0
+}
+
+async function createSession(req: Request, userId: string): Promise<string> {
+  const token = randomHex(32)
+  const tokenHash = await sha256Hex(token)
+  const ua = (req.headers.get('user-agent') ?? '').slice(0, 300)
+  const ip = (req.headers.get('x-forwarded-for')?.split(',')[0] ?? req.headers.get('cf-connecting-ip') ?? '').trim().slice(0, 64)
+  await supabase.from('user_sessions').insert({
+    user_id: userId,
+    token_hash: tokenHash,
+    user_agent: ua,
+    ip,
+    expires_at: new Date(Date.now() + SESSION_TTL_MS).toISOString()
+  })
+  return token
+}
+
+async function currentSessionHash(req: Request): Promise<string | null> {
+  const token = bearerToken(req)
+  if (!token) return null
+  return sha256Hex(token)
+}
+
+async function findProfileByEmail(email: string): Promise<ProfileRow | null> {
+  const { data } = await supabase.from('profiles').select('*').eq('email', email.toLowerCase()).maybeSingle()
+  return (data as ProfileRow | null) ?? null
+}
+
+// ---------------------------------------------------------------------------
 // Email delivery via SMTP (Zoho)
 // ---------------------------------------------------------------------------
 
@@ -193,30 +273,26 @@ function buildEmail(kind: EmailKind, link: string): { subject: string; html: str
   }
 }
 
-/** Generate a signup/recovery link WITHOUT having GoTrue email it, then deliver it via SMTP. */
+/** Generate a signup/recovery link using our own token store, then deliver it via SMTP. */
 async function generateAndEmailLink(kind: EmailKind, email: string, extra: Record<string, unknown> = {}): Promise<void> {
-  const params: Record<string, unknown> = {
-    type: kind === 'signup' ? 'signup' : 'recovery',
-    email,
-    should_send_email: false,
-    ...extra
+  const rawToken = randomHex(32)
+  const tokenHash = await sha256Hex(rawToken)
+  const expiresAt = new Date(Date.now() + EMAIL_TOKEN_TTL_MS).toISOString()
+
+  const patch: Record<string, unknown> = {}
+  if (kind === 'signup') {
+    patch.confirmation_token_hash = tokenHash
+    patch.confirmation_token_expires_at = expiresAt
+  } else {
+    patch.reset_token_hash = tokenHash
+    patch.reset_token_expires_at = expiresAt
   }
-  const res = await fetch(`${SUPABASE_URL}/auth/v1/admin/generate_link`, {
-    method: 'POST',
-    headers: {
-      apikey: SERVICE_ROLE_KEY,
-      Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify(params)
-  })
-  if (!res.ok) {
-    const errText = await res.text()
-    throw new Error(`generate_link failed (${res.status}): ${errText.slice(0, 200)}`)
-  }
-  const body = await res.json()
-  const link = body?.action_link
-  if (!link) throw new Error('generate_link returned no action_link')
+  const { error } = await supabase.from('profiles').update(patch).eq('email', email.toLowerCase())
+  if (error) throw new Error('Failed to store email token: ' + error.message)
+
+  const link = kind === 'signup'
+    ? `${FRONTEND_URL}/verify-email?token=${encodeURIComponent(rawToken)}`
+    : `${FRONTEND_URL}/reset-password?token=${encodeURIComponent(rawToken)}`
 
   const mail = buildEmail(kind, link)
   await smtpSend(email, mail.subject, mail.html)
@@ -240,6 +316,13 @@ interface ProfileRow {
   rating: number
   is_active: boolean
   joined_at: string
+  password_hash?: string
+  email_confirmed?: boolean
+  confirmation_token_hash?: string | null
+  confirmation_token_expires_at?: string | null
+  reset_token_hash?: string | null
+  reset_token_expires_at?: string | null
+  last_sign_in_at?: string | null
 }
 
 function mapProfile(p: ProfileRow) {
@@ -267,19 +350,6 @@ async function getProfile(id: string): Promise<ProfileRow | null> {
   return (data as ProfileRow | null) ?? null
 }
 
-// Creates the profile row on demand if it's missing (e.g. signup trigger absent
-// or accounts created before grants were in place). Self-healing for login/me.
-async function ensureProfile(user: { id: string; email?: string }): Promise<{ profile: ProfileRow | null; error?: string }> {
-  const existing = await getProfile(user.id)
-  if (existing) return { profile: existing }
-  const { error } = await supabase.from('profiles').upsert(
-    { id: user.id, name: (user.email?.split('@')[0] ?? 'User') || 'User', email: user.email ?? '', role: 'student' },
-    { onConflict: 'id' }
-  )
-  if (error) return { profile: null, error: error.message }
-  return { profile: await getProfile(user.id) }
-}
-
 function bearerToken(req: Request): string | null {
   const match = /^Bearer\s+(.+)$/i.exec(req.headers.get('authorization') ?? '')
   return match ? match[1] : null
@@ -288,9 +358,18 @@ function bearerToken(req: Request): string | null {
 async function authUser(req: Request): Promise<{ id: string; email?: string } | null> {
   const token = bearerToken(req)
   if (!token) return null
-  const { data, error } = await supabase.auth.getUser(token)
-  if (error || !data.user) return null
-  return { id: data.user.id, email: data.user.email }
+  const tokenHash = await sha256Hex(token)
+  const { data, error } = await supabase
+    .from('user_sessions')
+    .select('user_id, expires_at, is_revoked')
+    .eq('token_hash', tokenHash)
+    .eq('is_revoked', false)
+    .maybeSingle()
+  if (error || !data) return null
+  if (data.expires_at && new Date(data.expires_at).getTime() < Date.now()) return null
+  const profile = await getProfile(data.user_id)
+  if (!profile) return null
+  return { id: profile.id, email: profile.email }
 }
 
 function isEmail(v: unknown): v is string {
@@ -426,44 +505,33 @@ async function handleRegister(req: Request): Promise<Response> {
   if (role !== undefined && role !== 'student' && role !== 'instructor') return errorResponse(422, 'Role must be "student" or "instructor".')
 
   const chosenRole: 'student' | 'instructor' = role === 'instructor' ? 'instructor' : 'student'
+  const normalizedEmail = email.toLowerCase()
 
-  const { data, error } = await supabase.auth.admin.createUser({
-    email,
-    password,
-    email_confirm: false,
-    user_metadata: { name: name.trim(), role: chosenRole }
+  const existing = await findProfileByEmail(normalizedEmail)
+  if (existing) return errorResponse(409, 'An account with this email already exists.')
+
+  const id = crypto.randomUUID()
+  const passwordHash = await hashPassword(password)
+
+  const { error: profileError } = await supabase.from('profiles').insert({
+    id,
+    name: name.trim(),
+    email: normalizedEmail,
+    role: chosenRole,
+    password_hash: passwordHash
   })
-  if (error) {
-    if (/already registered/i.test(error.message)) return errorResponse(409, 'An account with this email already exists.')
-    return errorResponse(400, error.message)
-  }
+  if (profileError) return errorResponse(500, 'Failed to create account: ' + profileError.message)
 
-  if (chosenRole === 'instructor') {
-    const { error: roleError } = await supabase
-      .from('profiles')
-      .update({ role: 'instructor' })
-      .eq('id', data.user!.id)
-    if (roleError) return errorResponse(500, 'Failed to assign role.')
-  }
-
-  // Ensure the profile row exists even if the signup trigger isn't installed.
-  const { error: profileError } = await supabase
-    .from('profiles')
-    .upsert({ id: data.user!.id, name: name.trim(), email, role: chosenRole }, { onConflict: 'id' })
-  if (profileError) return errorResponse(500, 'Failed to create profile: ' + profileError.message)
-
-  // admin.createUser does not send the confirmation email automatically —
-  // generate a signup link (without GoTrue mailing it) and deliver it via Zoho SMTP.
+  // Store a confirmation token and deliver the confirmation email via Zoho SMTP.
   try {
-    await generateAndEmailLink('signup', email, {
-      password,
+    await generateAndEmailLink('signup', normalizedEmail, {
       data: { name: name.trim(), role: chosenRole }
     })
   } catch (e) {
     return errorResponse(500, 'Account created but we could not send the confirmation email: ' + (e as Error).message)
   }
 
-  const profile = await getProfile(data.user!.id)
+  const profile = await getProfile(id)
   if (!profile) return errorResponse(500, 'Account created but profile could not be loaded.')
 
   return json({ user: mapProfile(profile), pendingConfirmation: true }, 201)
@@ -473,27 +541,27 @@ async function handleLogin(req: Request): Promise<Response> {
   const { email, password } = await readBody(req)
   if (!isEmail(email) || typeof password !== 'string' || !password) return errorResponse(422, 'Email and password are required.')
 
-  const { data, error } = await supabase.auth.signInWithPassword({ email, password })
-  if (error) {
-    if (/not confirmed/i.test(error.message)) return errorResponse(403, 'Please confirm your email address before signing in.')
-    return errorResponse(401, 'Invalid email or password.')
-  }
+  const profile = await findProfileByEmail(email)
+  if (!profile) return errorResponse(401, 'Invalid email or password.')
 
-  const { profile, error: profileErr } = await ensureProfile({ id: data.user.id, email: data.user.email })
-  if (!profile) return errorResponse(401, profileErr ?? 'No profile found for this account.')
+  if (profile.email_confirmed === false) return errorResponse(403, 'Please confirm your email address before signing in.')
   if (!profile.is_active) return errorResponse(403, 'This account has been disabled.')
 
-  await recordSession(req, data.user.id, data.session.access_token)
+  const ok = await verifyPassword(password, profile.password_hash ?? '')
+  if (!ok) return errorResponse(401, 'Invalid email or password.')
 
-  return json({ user: mapProfile(profile), token: data.session.access_token })
+  const token = await createSession(req, profile.id)
+  await supabase.from('profiles').update({ last_sign_in_at: new Date().toISOString() }).eq('id', profile.id)
+
+  return json({ user: mapProfile(profile), token })
 }
 
 async function handleMe(req: Request): Promise<Response> {
   const user = await authUser(req)
   if (!user) return errorResponse(401, 'Not authenticated.')
 
-  const { profile, error: profileErr } = await ensureProfile(user)
-  if (!profile) return errorResponse(401, profileErr ?? 'No profile found for this account.')
+  const profile = await getProfile(user.id)
+  if (!profile) return errorResponse(401, 'No profile found for this account.')
 
   return json({ user: mapProfile(profile) })
 }
@@ -501,37 +569,23 @@ async function handleMe(req: Request): Promise<Response> {
 async function handleLogout(req: Request): Promise<Response> {
   const token = bearerToken(req)
   if (token) {
-    const jti = jtiFromToken(token)
-    if (jti) {
-      await supabase.from('user_sessions').update({ is_revoked: true }).eq('token_jti', jti)
-    }
-    try {
-      await supabase.auth.admin.signOut(token)
-    } catch {
-      /* best effort */
-    }
+    const tokenHash = await sha256Hex(token)
+    await supabase.from('user_sessions').update({ is_revoked: true }).eq('token_hash', tokenHash)
   }
   return new Response(null, { status: 204, headers: corsHeaders })
-}
-
-function jtiFromToken(token: string | null): string | null {
-  if (!token) return null
-  try {
-    const payload = JSON.parse(atob(token.split('.')[1]))
-    if (typeof payload.jti === 'string') return payload.jti
-    if (typeof payload.session_id === 'string') return payload.session_id
-    if (typeof payload.sid === 'string') return payload.sid
-    return null
-  } catch {
-    return null
-  }
 }
 
 async function recordSession(req: Request, userId: string, token: string): Promise<void> {
   try {
     const ua = (req.headers.get('user-agent') ?? '').slice(0, 300)
     const ip = (req.headers.get('x-forwarded-for')?.split(',')[0] ?? req.headers.get('cf-connecting-ip') ?? '').trim().slice(0, 64)
-    await supabase.from('user_sessions').insert({ user_id: userId, token_jti: jtiFromToken(token) ?? token.slice(0, 32), user_agent: ua, ip })
+    await supabase.from('user_sessions').insert({
+      user_id: userId,
+      token_hash: await sha256Hex(token),
+      user_agent: ua,
+      ip,
+      expires_at: new Date(Date.now() + SESSION_TTL_MS).toISOString()
+    })
   } catch {
     /* best effort */
   }
@@ -557,11 +611,6 @@ async function handleProfile(req: Request): Promise<Response> {
     if (error) return errorResponse(400, error.message)
   }
 
-  if (patch.name !== undefined) {
-    const metadata = { ...(user.user_metadata ?? {}), name: patch.name }
-    await supabase.auth.admin.updateUserById(user.id, { user_metadata: metadata })
-  }
-
   const profile = await getProfile(user.id)
   if (!profile) return errorResponse(500, 'Profile could not be loaded.')
 
@@ -570,7 +619,7 @@ async function handleProfile(req: Request): Promise<Response> {
 
 async function handleChangePassword(req: Request): Promise<Response> {
   const user = await authUser(req)
-  if (!user || !user.email) return errorResponse(401, 'Not authenticated.')
+  if (!user) return errorResponse(401, 'Not authenticated.')
 
   const { currentPassword, newPassword } = await readBody(req)
   if (typeof currentPassword !== 'string' || typeof newPassword !== 'string') {
@@ -578,10 +627,14 @@ async function handleChangePassword(req: Request): Promise<Response> {
   }
   if (newPassword.length < 8) return errorResponse(422, 'New password must be at least 8 characters.')
 
-  const check = await supabase.auth.signInWithPassword({ email: user.email, password: currentPassword })
-  if (check.error) return errorResponse(400, 'Current password is incorrect.')
+  const profile = await getProfile(user.id)
+  if (!profile) return errorResponse(401, 'No profile found for this account.')
 
-  const { error } = await supabase.auth.admin.updateUserById(user.id, { password: newPassword })
+  const ok = await verifyPassword(currentPassword, profile.password_hash ?? '')
+  if (!ok) return errorResponse(400, 'Current password is incorrect.')
+
+  const passwordHash = await hashPassword(newPassword)
+  const { error } = await supabase.from('profiles').update({ password_hash: passwordHash }).eq('id', user.id)
   if (error) return errorResponse(400, error.message)
 
   return json({ message: 'Password updated.' })
@@ -591,7 +644,7 @@ async function handleDeleteAccount(req: Request): Promise<Response> {
   const user = await authUser(req)
   if (!user) return errorResponse(401, 'Not authenticated.')
 
-  const { error } = await supabase.auth.admin.deleteUser(user.id)
+  const { error } = await supabase.from('profiles').delete().eq('id', user.id)
   if (error) return errorResponse(400, error.message)
 
   return new Response(null, { status: 204, headers: corsHeaders })
@@ -682,20 +735,19 @@ async function handleChangeEmail(req: Request): Promise<Response> {
   if (typeof password !== 'string' || !password) return errorResponse(422, 'Your current password is required.')
   if (newEmail.toLowerCase() === user.email.toLowerCase()) return errorResponse(422, 'New email is the same as your current email.')
 
-  const check = await supabase.auth.signInWithPassword({ email: user.email, password })
-  if (check.error) return errorResponse(400, 'Current password is incorrect.')
+  const profile = await getProfile(user.id)
+  if (!profile) return errorResponse(401, 'No profile found for this account.')
 
-  const { error: updateError } = await supabase.auth.admin.updateUserById(user.id, {
-    email: newEmail,
-    email_confirm: true,
-    user_metadata: { ...(user.user_metadata ?? {}), email: newEmail }
-  })
+  const ok = await verifyPassword(password, profile.password_hash ?? '')
+  if (!ok) return errorResponse(400, 'Current password is incorrect.')
+
+  const dup = await findProfileByEmail(newEmail)
+  if (dup && dup.id !== user.id) return errorResponse(409, 'An account with this email already exists.')
+
+  const { error: updateError } = await supabase.from('profiles').update({ email: newEmail.toLowerCase() }).eq('id', user.id)
   if (updateError) return errorResponse(400, updateError.message)
 
-  const { error: profileError } = await supabase.from('profiles').update({ email: newEmail }).eq('id', user.id)
-  if (profileError) return errorResponse(500, 'Failed to update profile email: ' + profileError.message)
-
-  return json({ message: 'Email updated.', email: newEmail })
+  return json({ message: 'Email updated.', email: newEmail.toLowerCase() })
 }
 
 async function handleUploadAvatar(req: Request): Promise<Response> {
@@ -729,10 +781,10 @@ async function handleMySessions(req: Request): Promise<Response> {
   const user = await authUser(req)
   if (!user) return errorResponse(401, 'Not authenticated.')
 
-  const currentJti = jtiFromToken(bearerToken(req))
+  const currentHash = await currentSessionHash(req)
   const { data, error } = await supabase
     .from('user_sessions')
-    .select('id, token_jti, user_agent, ip, is_revoked, created_at, last_seen_at')
+    .select('id, token_hash, user_agent, ip, is_revoked, created_at, last_seen_at, expires_at')
     .eq('user_id', user.id)
     .order('last_seen_at', { ascending: false })
     .limit(50)
@@ -744,7 +796,8 @@ async function handleMySessions(req: Request): Promise<Response> {
     ip: s.ip,
     createdAt: s.created_at,
     lastSeenAt: s.last_seen_at,
-    current: currentJti ? s.token_jti === currentJti : false,
+    expiresAt: s.expires_at,
+    current: currentHash ? s.token_hash === currentHash : false,
     revoked: s.is_revoked
   }))
   return json({ sessions })
@@ -754,21 +807,15 @@ async function handleRevokeSessions(req: Request): Promise<Response> {
   const user = await authUser(req)
   if (!user) return errorResponse(401, 'Not authenticated.')
 
-  const token = bearerToken(req)
-  if (!token) return errorResponse(400, 'No session token found.')
-
-  const currentJti = jtiFromToken(token)
-  if (currentJti) {
+  const currentHash = await currentSessionHash(req)
+  if (currentHash) {
     const { error } = await supabase
       .from('user_sessions')
       .update({ is_revoked: true })
       .eq('user_id', user.id)
-      .neq('token_jti', currentJti)
+      .neq('token_hash', currentHash)
     if (error) return errorResponse(500, 'Failed to revoke sessions: ' + error.message)
   }
-
-  const { error: signOutError } = await supabase.auth.admin.signOut(token, 'others')
-  if (signOutError) return errorResponse(500, 'Failed to revoke sessions: ' + signOutError.message)
 
   return json({ message: 'Other sessions signed out.' })
 }
@@ -779,9 +826,7 @@ async function handleForgotPassword(req: Request): Promise<Response> {
 
   // Do not leak whether the account exists — same response either way.
   try {
-    await generateAndEmailLink('recovery', email, {
-      options: { redirect_to: `${FRONTEND_URL}/reset-password` }
-    })
+    await generateAndEmailLink('recovery', email)
   } catch {
     // Account may not exist, or send failed — respond identically either way.
   }
@@ -794,10 +839,22 @@ async function handleResetPassword(req: Request): Promise<Response> {
   if (typeof token !== 'string' || !token) return errorResponse(400, 'Invalid or expired reset token.')
   if (typeof password !== 'string' || password.length < 8) return errorResponse(422, 'Password must be at least 8 characters.')
 
-  const { data, error } = await supabase.auth.verifyOtp({ token_hash: token, type: 'recovery' })
-  if (error || !data.user) return errorResponse(400, 'Invalid or expired reset token.')
+  const tokenHash = await sha256Hex(token)
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('id, reset_token_hash, reset_token_expires_at')
+    .eq('reset_token_hash', tokenHash)
+    .maybeSingle()
+  if (error || !data) return errorResponse(400, 'Invalid or expired reset token.')
+  if (!data.reset_token_expires_at || new Date(data.reset_token_expires_at).getTime() < Date.now()) {
+    return errorResponse(400, 'Invalid or expired reset token.')
+  }
 
-  const { error: pwError } = await supabase.auth.admin.updateUserById(data.user.id, { password })
+  const passwordHash = await hashPassword(password)
+  const { error: pwError } = await supabase
+    .from('profiles')
+    .update({ password_hash: passwordHash, reset_token_hash: null, reset_token_expires_at: null })
+    .eq('id', data.id)
   if (pwError) return errorResponse(400, pwError.message)
 
   return json({ message: 'Password updated.' })
@@ -807,8 +864,22 @@ async function handleVerifyEmail(req: Request): Promise<Response> {
   const { token } = await readBody(req)
   if (typeof token !== 'string' || !token) return errorResponse(400, 'Invalid or expired verification token.')
 
-  const { error } = await supabase.auth.verifyOtp({ token_hash: token, type: 'email' })
-  if (error) return errorResponse(400, 'Invalid or expired verification token.')
+  const tokenHash = await sha256Hex(token)
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('id, confirmation_token_hash, confirmation_token_expires_at')
+    .eq('confirmation_token_hash', tokenHash)
+    .maybeSingle()
+  if (error || !data) return errorResponse(400, 'Invalid or expired verification token.')
+  if (!data.confirmation_token_expires_at || new Date(data.confirmation_token_expires_at).getTime() < Date.now()) {
+    return errorResponse(400, 'Invalid or expired verification token.')
+  }
+
+  const { error: updError } = await supabase
+    .from('profiles')
+    .update({ email_confirmed: true, confirmation_token_hash: null, confirmation_token_expires_at: null })
+    .eq('id', data.id)
+  if (updError) return errorResponse(400, updError.message)
 
   return json({ message: 'Email verified.' })
 }
@@ -867,12 +938,9 @@ async function handleAdminListUsers(req: Request): Promise<Response> {
   if (error) return errorResponse(500, 'Failed to load users: ' + error.message)
 
   const rows = (data ?? []) as ProfileRow[]
-  const users = await Promise.all(rows.map(async (r) => {
-    const { data: au } = await supabase.auth.admin.getUserById(r.id)
-    return {
-      ...mapProfile(r),
-      lastSignInAt: au?.user?.last_sign_in_at ?? undefined
-    }
+  const users = rows.map((r) => ({
+    ...mapProfile(r),
+    lastSignInAt: r.last_sign_in_at ?? undefined
   }))
 
   return json({ users, total: count ?? rows.length, page, perPage, hasMore: (count ?? 0) > offset + rows.length })
@@ -891,24 +959,24 @@ async function handleAdminCreateUser(req: Request): Promise<Response> {
     return errorResponse(422, 'Role must be student, instructor, admin or support.')
   }
 
-  const { data, error } = await supabase.auth.admin.createUser({
-    email,
-    password,
-    email_confirm: true,
-    user_metadata: { name: name.trim(), role }
-  })
-  if (error) {
-    if (/already registered/i.test(error.message)) return errorResponse(409, 'An account with this email already exists.')
-    return errorResponse(400, error.message)
-  }
+  const id = crypto.randomUUID()
+  const passwordHash = await hashPassword(password)
+  const normalizedEmail = email.toLowerCase()
 
-  const { error: profileError } = await supabase.from('profiles').upsert(
-    { id: data.user!.id, name: name.trim(), email, role },
-    { onConflict: 'id' }
-  )
+  const existing = await findProfileByEmail(normalizedEmail)
+  if (existing) return errorResponse(409, 'An account with this email already exists.')
+
+  const { error: profileError } = await supabase.from('profiles').insert({
+    id,
+    name: name.trim(),
+    email: normalizedEmail,
+    role,
+    password_hash: passwordHash,
+    email_confirmed: true
+  })
   if (profileError) return errorResponse(500, 'Failed to create profile: ' + profileError.message)
 
-  const profile = await getProfile(data.user!.id)
+  const profile = await getProfile(id)
   if (!profile) return errorResponse(500, 'Account created but profile could not be loaded.')
 
   return json({ user: mapProfile(profile) }, 201)
@@ -952,19 +1020,6 @@ async function handleAdminUpdateUser(req: Request): Promise<Response> {
   const { error } = await supabase.from('profiles').update(patch).eq('id', id)
   if (error) return errorResponse(500, 'Failed to update user: ' + error.message)
 
-  if (patch.is_active !== undefined) {
-    // Keep GoTrue ban state in sync so suspended users cannot sign in.
-    const { error: banError } = await supabase.auth.admin.updateUserById(id, {
-      ban_duration: patch.is_active ? 'none' : '87600h'
-    })
-    if (banError) return errorResponse(500, 'Failed to update account status: ' + banError.message)
-  }
-
-  if (patch.name !== undefined) {
-    const metadata = { name: patch.name, role: patch.role ?? target.role }
-    await supabase.auth.admin.updateUserById(id, { user_metadata: metadata })
-  }
-
   const profile = await getProfile(id)
   return json({ user: profile ? mapProfile(profile) : null })
 }
@@ -982,7 +1037,7 @@ async function handleAdminDeleteUser(req: Request): Promise<Response> {
 
   if (id === guard.profile.id) return errorResponse(400, 'You cannot delete your own account.')
 
-  const { error } = await supabase.auth.admin.deleteUser(id)
+  const { error } = await supabase.from('profiles').delete().eq('id', id)
   if (error) return errorResponse(500, 'Failed to delete user: ' + error.message)
 
   return new Response(null, { status: 204, headers: corsHeaders })
