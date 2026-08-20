@@ -1,12 +1,43 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { BookOpen, Calendar, CheckCircle2, Clock, Flame, GraduationCap, Trophy, Award, ArrowRight } from 'lucide-react'
+import { BookOpen, Calendar, CheckCircle2, Clock, Flame, GraduationCap, Trophy, Award, ArrowRight, Megaphone } from 'lucide-react'
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { COURSES } from '../lib/data'
 import { useApp } from '../lib/store'
+import { studentApi, getStoredToken } from '../lib/api/auth'
 import { Avatar, Badge, ProgressBar, StatCard } from '../components/ui'
-import { greeting } from '../lib/utils'
+import { greeting, timeAgo } from '../lib/utils'
+
+function Announcements() {
+  const { t } = useTranslation()
+  const [items, setItems] = useState<{ id: string; title: string; body: string; authorName: string; createdAt: string }[]>([])
+  useEffect(() => {
+    const token = getStoredToken()
+    if (!token) return
+    studentApi.listAnnouncements(token)
+      .then((res) => setItems(res.announcements))
+      .catch(() => {})
+  }, [])
+  if (items.length === 0) return null
+  return (
+    <div>
+      <h2 className="mb-3 text-lg font-semibold text-ink">{t('sdash.announcements')}</h2>
+      <div className="space-y-3">
+        {items.map((a) => (
+          <div key={a.id} className="card flex items-start gap-3 p-4">
+            <div className="rounded-card bg-brand-50 p-2.5 text-brand-700"><Megaphone className="h-4 w-4" /></div>
+            <div className="flex-1">
+              <p className="text-sm font-medium text-ink">{a.title}</p>
+              {a.body && <p className="mt-0.5 text-sm text-muted">{a.body}</p>}
+              <p className="mt-1 text-xs text-muted">{timeAgo(a.createdAt)} · {a.authorName}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
 
 export default function StudentDashboard() {
   const { currentUser, enrollments, certificates } = useApp()
@@ -43,6 +74,8 @@ export default function StudentDashboard() {
           </div>
         </div>
       </div>
+
+      <Announcements />
 
       <div className="card overflow-hidden">
         <div className="flex flex-col gap-4 p-5 sm:p-6 lg:flex-row lg:items-center">

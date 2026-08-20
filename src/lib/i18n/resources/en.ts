@@ -592,7 +592,8 @@ export default {
     hoursAgo: '{{count}}h ago',
     daysAgo: '{{count}}d ago',
     weekAgo: '{{count}}w ago',
-    yesterday: 'Yesterday'
+    yesterday: 'Yesterday',
+    announcements: 'Announcements'
   },
 
   player: {
@@ -1317,7 +1318,25 @@ export default {
     weeklyDigest: 'Weekly digest',
     preferenceToggled: 'Preference toggled',
     enabled: 'Enabled',
-    securityNote: 'Audit logging, role-based access, and security policies are enforced server-side in production.'
+    securityNote: 'Audit logging, role-based access, and security policies are enforced server-side in production.',
+    paymentsLoading: 'Live revenue from Paystack and on-platform orders.',
+    ordersCount_one: '{{count}} order',
+    ordersCount_other: '{{count}} orders',
+    completedOrders: '{{count}} completed',
+    netRevenue: 'Net revenue',
+    afterRefunds: 'After refunds',
+    refundedOrders: '{{count}} refunded',
+    byMethod: 'By payment method',
+    transactionsCount: '{{count}} transactions',
+    recentTransactions: 'Recent transactions',
+    noOrders: 'No orders yet.',
+    posting: 'Posting…',
+    postedBy: 'Posted by',
+    delete: 'Delete',
+    deleteConfirm: 'Delete this announcement?',
+    announcementDeleted: 'Announcement deleted',
+    postFailed: 'Failed to post announcement',
+    announcementsEmpty: 'No announcements yet.'
   },
 
   mktg: {

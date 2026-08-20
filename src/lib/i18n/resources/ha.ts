@@ -592,7 +592,8 @@ export default {
     hoursAgo: '{{count}}h da suka wuce',
     daysAgo: '{{count}}d da suka wuce',
     weekAgo: '{{count}}w da suka wuce',
-    yesterday: 'Jiya'
+    yesterday: 'Jiya',
+    announcements: 'Sanarwa'
   },
 
   player: {
@@ -1317,7 +1318,25 @@ export default {
     weeklyDigest: 'Taƙaitaccen mako-mako',
     preferenceToggled: 'An canza zaɓi',
     enabled: 'Aiki',
-    securityNote: 'Ana aiwatar da rajistar bita, samun dama bisa matsayi, da manufofin tsaro a gefen uwar garken a samarwa.'
+    securityNote: 'Ana aiwatar da rajistar bita, samun dama bisa matsayi, da manufofin tsaro a gefen uwar garken a samarwa.',
+    paymentsLoading: 'Kudade masu rai daga Paystack da umarni na dandali.',
+    ordersCount_one: '{{count}} umarni',
+    ordersCount_other: '{{count}} umarni',
+    completedOrders: '{{count}} sun kammala',
+    netRevenue: 'Kudaden da aka samu',
+    afterRefunds: 'Bayan mayarwa',
+    refundedOrders: '{{count}} an mayar',
+    byMethod: 'Ta hanyar biya',
+    transactionsCount: '{{count}} ma’amaloli',
+    recentTransactions: 'Ma’amaloli na baya-bayan nan',
+    noOrders: 'Babu umarni tukuna.',
+    posting: 'Ana aikawa…',
+    postedBy: 'An aika daga',
+    delete: 'Share',
+    deleteConfirm: 'Share wannan sanarwa?',
+    announcementDeleted: 'An share sanarwa',
+    postFailed: 'An kasa aika sanarwa',
+    announcementsEmpty: 'Babu sanarwa tukuna.'
   },
 
   mktg: {

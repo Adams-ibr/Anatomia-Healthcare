@@ -364,7 +364,7 @@ create index discussion_answers_discussion_idx on public.discussion_answers (dis
 
 create table public.announcements (
   id uuid primary key default gen_random_uuid(),
-  course_id uuid not null references public.courses (id) on delete cascade,
+  course_id uuid references public.courses (id) on delete cascade,
   author_id uuid not null references public.profiles (id) on delete cascade,
   title text not null,
   body text not null default '',

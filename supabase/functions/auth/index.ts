@@ -1856,6 +1856,239 @@ async function handleAdminRefundOrder(req: Request): Promise<Response> {
 }
 
 // ---------------------------------------------------------------------------
+// Payments dashboard
+// ---------------------------------------------------------------------------
+
+const INSTRUCTOR_SHARE = 0.7
+
+async function handleAdminPayments(req: Request): Promise<Response> {
+  const guard = await requireAdmin(req)
+  if (guard instanceof Response) return guard
+
+  const { data, error } = await supabase
+    .from('orders')
+    .select('id, total, status, payment_method, created_at')
+    .order('created_at', { ascending: false })
+  if (error) return errorResponse(500, 'Failed to load payment data: ' + error.message)
+
+  const orders = (data ?? []) as {
+    id: string
+    total: number
+    status: string
+    payment_method: string | null
+    created_at: string
+  }[]
+
+  let gross = 0
+  let refunds = 0
+  let completed = 0
+  let refundedCount = 0
+  const byMethod: Record<string, { count: number; revenue: number }> = {}
+  const monthStart = new Date()
+  monthStart.setMonth(monthStart.getMonth() - 5)
+  monthStart.setDate(1)
+  monthStart.setHours(0, 0, 0, 0)
+  const monthly: { m: string; revenue: number }[] = []
+  for (let i = 0; i < 6; i++) {
+    const d = new Date(monthStart.getFullYear(), monthStart.getMonth() + i, 1)
+    monthly.push({ m: d.toLocaleString('en-US', { month: 'short' }), revenue: 0 })
+  }
+
+  for (const o of orders) {
+    const total = Number(o.total) || 0
+    if (o.status === 'completed') {
+      gross += total
+      completed++
+      const method = o.payment_method || 'other'
+      byMethod[method] = byMethod[method] ?? { count: 0, revenue: 0 }
+      byMethod[method].count++
+      byMethod[method].revenue += total
+      const d = new Date(o.created_at)
+      if (d >= monthStart) {
+        const idx = (d.getFullYear() - monthStart.getFullYear()) * 12 + (d.getMonth() - monthStart.getMonth())
+        if (idx >= 0 && idx < 6) monthly[idx].revenue += total
+      }
+    } else if (o.status === 'refunded') {
+      refunds += total
+      refundedCount++
+    }
+  }
+
+  const net = gross - refunds
+  const recent = orders.slice(0, 5).map((o) => ({
+    id: o.id,
+    total: Number(o.total) || 0,
+    status: o.status,
+    paymentMethod: o.payment_method ?? 'other',
+    createdAt: o.created_at
+  }))
+
+  return json({
+    grossRevenue: gross,
+    netRevenue: net,
+    refunds,
+    instructorPayouts: Math.round(gross * INSTRUCTOR_SHARE),
+    orderCount: orders.length,
+    completedCount: completed,
+    refundedCount,
+    monthly,
+    byMethod,
+    recent
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Announcements
+// ---------------------------------------------------------------------------
+
+async function handleAdminListAnnouncements(req: Request): Promise<Response> {
+  const guard = await requireAdmin(req)
+  if (guard instanceof Response) return guard
+
+  const { data, error } = await supabase
+    .from('announcements')
+    .select('*, profiles!announcements_author_id_fkey(id, name), courses(id, title)')
+    .order('created_at', { ascending: false })
+    .limit(50)
+  if (error) return errorResponse(500, 'Failed to load announcements: ' + error.message)
+
+  const announcements = (data ?? []).map((a) => ({
+    id: a.id,
+    authorId: a.author_id,
+    authorName: a.profiles?.name ?? 'Admin',
+    courseId: a.course_id ?? undefined,
+    courseTitle: a.courses?.title ?? undefined,
+    title: a.title,
+    body: a.body,
+    createdAt: a.created_at
+  }))
+  return json({ announcements })
+}
+
+async function handleAdminCreateAnnouncement(req: Request): Promise<Response> {
+  const guard = await requireAdmin(req)
+  if (guard instanceof Response) return guard
+
+  let body: { title?: string; message?: string; courseId?: string | null }
+  try {
+    body = await req.json()
+  } catch {
+    return errorResponse(400, 'Invalid JSON body.')
+  }
+  const title = (body.title ?? '').trim()
+  const message = (body.message ?? '').trim()
+  if (!title) return errorResponse(422, 'Announcement title is required.')
+
+  const { data: announcement, error: insertError } = await supabase
+    .from('announcements')
+    .insert({
+      author_id: guard.profile.id,
+      course_id: body.courseId || null,
+      title,
+      body: message
+    })
+    .select('*')
+    .single()
+  if (insertError || !announcement) {
+    return errorResponse(500, 'Failed to create announcement: ' + (insertError?.message ?? 'unknown error'))
+  }
+
+  const { data: users } = await supabase.from('profiles').select('id')
+  const userIds = (users ?? []).map((u: { id: string }) => u.id)
+  if (userIds.length > 0) {
+    const rows = userIds.map((uid: string) => ({
+      user_id: uid,
+      type: 'announcement',
+      title,
+      message,
+      link: '/notifications'
+    }))
+    for (let i = 0; i < rows.length; i += 500) {
+      await supabase.from('notifications').insert(rows.slice(i, i + 500))
+    }
+  }
+
+  return json({ announcement: { id: announcement.id, title, body: message, createdAt: announcement.created_at } })
+}
+
+async function handleAdminDeleteAnnouncement(req: Request): Promise<Response> {
+  const guard = await requireAdmin(req)
+  if (guard instanceof Response) return guard
+
+  const url = new URL(req.url)
+  const id = url.pathname.split('/').filter(Boolean).at(-1) ?? ''
+  if (!id) return errorResponse(422, 'Announcement id is required.')
+
+  const { error } = await supabase.from('announcements').delete().eq('id', id)
+  if (error) return errorResponse(500, 'Failed to delete announcement: ' + error.message)
+  return json({ ok: true })
+}
+
+async function handleMyAnnouncements(req: Request): Promise<Response> {
+  const guard = await requireUser(req)
+  if (guard instanceof Response) return guard
+
+  const { data, error } = await supabase
+    .from('announcements')
+    .select('*, profiles!announcements_author_id_fkey(id, name), courses(id, title)')
+    .is('course_id', null)
+    .order('created_at', { ascending: false })
+    .limit(20)
+  if (error) return errorResponse(500, 'Failed to load announcements: ' + error.message)
+
+  const announcements = (data ?? []).map((a) => ({
+    id: a.id,
+    authorName: a.profiles?.name ?? 'HamaAcademy',
+    title: a.title,
+    body: a.body,
+    createdAt: a.created_at
+  }))
+  return json({ announcements })
+}
+
+// ---------------------------------------------------------------------------
+// Notifications
+// ---------------------------------------------------------------------------
+
+async function handleMyNotifications(req: Request): Promise<Response> {
+  const guard = await requireUser(req)
+  if (guard instanceof Response) return guard
+
+  const { data, error } = await supabase
+    .from('notifications')
+    .select('*')
+    .eq('user_id', guard.profile.id)
+    .order('created_at', { ascending: false })
+    .limit(50)
+  if (error) return errorResponse(500, 'Failed to load notifications: ' + error.message)
+
+  const notifications = (data ?? []).map((n) => ({
+    id: n.id,
+    userId: n.user_id,
+    type: n.type,
+    title: n.title,
+    message: n.message,
+    read: n.is_read,
+    link: n.link ?? undefined,
+    createdAt: n.created_at
+  }))
+  return json({ notifications })
+}
+
+async function handleMarkNotificationsRead(req: Request): Promise<Response> {
+  const guard = await requireUser(req)
+  if (guard instanceof Response) return guard
+
+  const { error } = await supabase
+    .from('notifications')
+    .update({ is_read: true })
+    .eq('user_id', guard.profile.id)
+    .eq('is_read', false)
+  if (error) return errorResponse(500, 'Failed to update notifications: ' + error.message)
+  return json({ ok: true })
+}
+
+// ---------------------------------------------------------------------------
 // Router
 // ---------------------------------------------------------------------------
 
@@ -1971,6 +2204,24 @@ Deno.serve(async (req) => {
     case 'GET /admin/orders':
       response = await handleAdminListOrders(req)
       break
+    case 'GET /admin/payments':
+      response = await handleAdminPayments(req)
+      break
+    case 'GET /admin/announcements':
+      response = await handleAdminListAnnouncements(req)
+      break
+    case 'POST /admin/announcements':
+      response = await handleAdminCreateAnnouncement(req)
+      break
+    case 'GET /me/announcements':
+      response = await handleMyAnnouncements(req)
+      break
+    case 'GET /me/notifications':
+      response = await handleMyNotifications(req)
+      break
+    case 'POST /me/notifications/read':
+      response = await handleMarkNotificationsRead(req)
+      break
     default:
       if (/^\/admin\/users\/[^/]+$/.test(path)) {
         if (method === 'PATCH') response = await handleAdminUpdateUser(req)
@@ -1998,6 +2249,9 @@ Deno.serve(async (req) => {
         else response = errorResponse(404, 'API endpoint not found.')
       } else if (/^\/admin\/orders\/[^/]+\/refund$/.test(path)) {
         if (method === 'POST') response = await handleAdminRefundOrder(req)
+        else response = errorResponse(404, 'API endpoint not found.')
+      } else if (/^\/admin\/announcements\/[^/]+$/.test(path)) {
+        if (method === 'DELETE') response = await handleAdminDeleteAnnouncement(req)
         else response = errorResponse(404, 'API endpoint not found.')
       } else if (/^\/verify-certificate\/[^/]+$/.test(path)) {
         if (method === 'GET') response = await handleVerifyCertificate(req)

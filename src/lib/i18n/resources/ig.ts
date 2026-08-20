@@ -592,7 +592,8 @@ export default {
     hoursAgo: '{{count}}h gara aga',
     daysAgo: '{{count}}d gara aga',
     weekAgo: '{{count}}w gara aga',
-    yesterday: 'Ụnyaahụ'
+    yesterday: 'Ụnyaahụ',
+    announcements: 'Mgbasa ozi'
   },
 
   player: {
@@ -1317,7 +1318,25 @@ export default {
     weeklyDigest: 'Nchịkọta izu',
     preferenceToggled: 'Agbanwewere mmasị',
     enabled: 'Na-arụ ọrụ',
-    securityNote: "A na-eme ndekọ nyocha, ohere dabere na ọrụ, na amụma nchebe n'akụkụ sava na mmepụta."
+    securityNote: "A na-eme ndekọ nyocha, ohere dabere na ọrụ, na amụma nchebe n'akụkụ sava na mmepụta.",
+    paymentsLoading: 'Ego dị ndụ site na Paystack na iwu n’elu ikpo.',
+    ordersCount_one: 'ihe {{count}}',
+    ordersCount_other: 'ihe {{count}}',
+    completedOrders: '{{count}} mezuru',
+    netRevenue: 'Ego a na-enweta',
+    afterRefunds: 'Mgbe nloghachi gasịrị',
+    refundedOrders: '{{count}} eweghachiri',
+    byMethod: 'Site n’ụzọ ịkwụ ụgwọ',
+    transactionsCount: 'azụmahịa {{count}}',
+    recentTransactions: 'Azụmahịa na-adịbeghị anya',
+    noOrders: 'Enweghị ihe ọ bụla.',
+    posting: 'Na-ebipụta…',
+    postedBy: 'Bipụtara site',
+    delete: 'Hichapụ',
+    deleteConfirm: 'Hichapụ mgbasa ozi a?',
+    announcementDeleted: 'Ehichapụrụ mgbasa ozi',
+    postFailed: 'Enweghị ike bipụta mgbasa ozi',
+    announcementsEmpty: 'Enweghị mgbasa ozi.'
   },
 
   mktg: {

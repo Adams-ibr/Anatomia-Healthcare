@@ -167,10 +167,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const hydrateStudentData = useCallback(async (token: string) => {
     try {
-      const [enRes, ordersRes, certsRes] = await Promise.all([
+      const [enRes, ordersRes, certsRes, notifRes] = await Promise.all([
         studentApi.listEnrollments(token),
         studentApi.listOrders(token),
-        studentApi.listCertificates(token)
+        studentApi.listCertificates(token),
+        studentApi.listNotifications(token)
       ])
       setEnrollments(enRes.enrollments.map(toEnrollment))
       setOrders(ordersRes.orders.map(toOrder))
@@ -183,6 +184,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
         completionDate: c.completionDate,
         verificationCode: c.verificationCode,
         course: c.course
+      })))
+      setNotifications(notifRes.notifications.map((n) => ({
+        id: n.id,
+        userId: n.userId,
+        type: n.type,
+        title: n.title,
+        message: n.message,
+        read: n.read,
+        createdAt: n.createdAt,
+        link: n.link
       })))
     } catch {
       /* keep local fallback data when offline */
@@ -434,6 +445,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const markNotificationsRead = useCallback(() => {
     setNotifications((n) => n.map((x) => ({ ...x, read: true })))
+    const token = getStoredToken()
+    if (token) studentApi.markNotificationsRead(token).catch(() => {})
   }, [])
 
   const sendMessage = useCallback((conversationId: string, toId: string, text: string) => {

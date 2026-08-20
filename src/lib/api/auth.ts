@@ -138,6 +138,69 @@ export const adminApi = {
 
   refundOrder(token: string, id: string): Promise<{ order: { id: string; status: string } }> {
     return apiFetch<{ order: { id: string; status: string } }>(`/api/auth/admin/orders/${id}/refund`, { method: 'POST', token })
+  },
+
+  getPayments(token: string): Promise<{
+    grossRevenue: number
+    netRevenue: number
+    refunds: number
+    instructorPayouts: number
+    orderCount: number
+    completedCount: number
+    refundedCount: number
+    monthly: { m: string; revenue: number }[]
+    byMethod: Record<string, { count: number; revenue: number }>
+    recent: { id: string; total: number; status: string; paymentMethod: string; createdAt: string }[]
+  }> {
+    return apiFetch<Record<string, unknown>>('/api/auth/admin/payments', { token }) as unknown as Promise<{
+      grossRevenue: number
+      netRevenue: number
+      refunds: number
+      instructorPayouts: number
+      orderCount: number
+      completedCount: number
+      refundedCount: number
+      monthly: { m: string; revenue: number }[]
+      byMethod: Record<string, { count: number; revenue: number }>
+      recent: { id: string; total: number; status: string; paymentMethod: string; createdAt: string }[]
+    }>
+  },
+
+  listAnnouncements(token: string): Promise<{
+    announcements: {
+      id: string
+      authorId: string
+      authorName: string
+      courseId?: string
+      courseTitle?: string
+      title: string
+      body: string
+      createdAt: string
+    }[]
+  }> {
+    return apiFetch<{ announcements: unknown[] }>('/api/auth/admin/announcements', { token }) as Promise<{
+      announcements: {
+        id: string
+        authorId: string
+        authorName: string
+        courseId?: string
+        courseTitle?: string
+        title: string
+        body: string
+        createdAt: string
+      }[]
+    }>
+  },
+
+  createAnnouncement(token: string, input: { title: string; message?: string; courseId?: string }): Promise<{
+    announcement: { id: string; title: string; body: string; createdAt: string }
+  }> {
+    return apiFetch<{ announcement: { id: string; title: string; body: string; createdAt: string } }>(
+      '/api/auth/admin/announcements', { method: 'POST', body: input, token })
+  },
+
+  deleteAnnouncement(token: string, id: string): Promise<{ ok: boolean }> {
+    return apiFetch<{ ok: boolean }>(`/api/auth/admin/announcements/${id}`, { method: 'DELETE', token })
   }
 }
 
@@ -485,6 +548,56 @@ export const studentApi = {
         pricePaid: number
       }[]
     }>
+  },
+
+  listAnnouncements(token: string): Promise<{
+    announcements: {
+      id: string
+      authorName: string
+      title: string
+      body: string
+      createdAt: string
+    }[]
+  }> {
+    return apiFetch<{ announcements: unknown[] }>('/api/auth/me/announcements', { token }) as Promise<{
+      announcements: {
+        id: string
+        authorName: string
+        title: string
+        body: string
+        createdAt: string
+      }[]
+    }>
+  },
+
+  listNotifications(token: string): Promise<{
+    notifications: {
+      id: string
+      userId: string
+      type: string
+      title: string
+      message: string
+      read: boolean
+      link?: string
+      createdAt: string
+    }[]
+  }> {
+    return apiFetch<{ notifications: unknown[] }>('/api/auth/me/notifications', { token }) as Promise<{
+      notifications: {
+        id: string
+        userId: string
+        type: string
+        title: string
+        message: string
+        read: boolean
+        link?: string
+        createdAt: string
+      }[]
+    }>
+  },
+
+  markNotificationsRead(token: string): Promise<{ ok: boolean }> {
+    return apiFetch<{ ok: boolean }>('/api/auth/me/notifications/read', { method: 'POST', token })
   }
 }
 

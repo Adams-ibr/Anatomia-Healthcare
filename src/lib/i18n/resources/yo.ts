@@ -592,7 +592,8 @@ export default {
     hoursAgo: '{{count}}w kọjá',
     daysAgo: '{{count}}ọ kọjá',
     weekAgo: '{{count}}s kọjá',
-    yesterday: 'Àná'
+    yesterday: 'Àná',
+    announcements: 'Àwọn ìkéde'
   },
 
   player: {
@@ -1317,7 +1318,25 @@ export default {
     weeklyDigest: 'Àkópọ̀ ọ̀sẹ̀',
     preferenceToggled: 'A ti yí ààyò padà',
     enabled: 'Ó ń ṣiṣẹ́',
-    securityNote: 'Wíwọlé ìgbàtí ìgbàtí, ìwọ̀nú tó dá lórí ipò, àti àwọn ìlànà ààbò ni a ń mú ṣẹ̀ ní ẹ̀gbẹ́ olùpèsè nígbà ìgbékalẹ̀.'
+    securityNote: 'Wíwọlé ìgbàtí ìgbàtí, ìwọ̀nú tó dá lórí ipò, àti àwọn ìlànà ààbò ni a ń mú ṣẹ̀ ní ẹ̀gbẹ́ olùpèsè nígbà ìgbékalẹ̀.',
+    paymentsLoading: 'Owó tí ń bá lọ láti Paystack àti àwọn àṣẹ orí pẹpẹ.',
+    ordersCount_one: '{{count}} àṣẹ',
+    ordersCount_other: '{{count}} àṣẹ',
+    completedOrders: '{{count}} ti parí',
+    netRevenue: 'Owó tó kù',
+    afterRefunds: 'Lẹ́yìn àtúnsọ',
+    refundedOrders: '{{count}} ti dá',
+    byMethod: 'Nípa ọ̀nà sísanwó',
+    transactionsCount: '{{count}} ìwúlò',
+    recentTransactions: 'Àwọn ìwúlò tó ṣẹ̀ṣẹ̀ wáyé',
+    noOrders: 'Kò sí àṣẹ kan síbẹ̀.',
+    posting: 'Ń gbé jáde…',
+    postedBy: 'Ti gbé jáde látọwọ́',
+    delete: 'Parẹ́',
+    deleteConfirm: 'Parẹ́ ìkéde yìí?',
+    announcementDeleted: 'A ti parẹ́ ìkéde',
+    postFailed: 'Kò ṣeé gbé ìkéde jáde',
+    announcementsEmpty: 'Kò sí ìkéde kan síbẹ̀.'
   },
 
   mktg: {

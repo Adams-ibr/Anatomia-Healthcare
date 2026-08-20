@@ -171,29 +171,112 @@ export function AdminOrders() {
 
 export function AdminPayments() {
   const { t } = useTranslation()
-  const data = [
-    { m: 'Jan', revenue: 8200 }, { m: 'Feb', revenue: 9400 }, { m: 'Mar', revenue: 11100 },
-    { m: 'Apr', revenue: 13200 }, { m: 'May', revenue: 14800 }, { m: 'Jun', revenue: 16900 }
+  const [data, setData] = useState<{
+    grossRevenue: number
+    netRevenue: number
+    refunds: number
+    instructorPayouts: number
+    orderCount: number
+    completedCount: number
+    refundedCount: number
+    monthly: { m: string; revenue: number }[]
+    byMethod: Record<string, { count: number; revenue: number }>
+    recent: { id: string; total: number; status: string; paymentMethod: string; createdAt: string }[]
+  } | null>(null)
+
+  useEffect(() => {
+    const token = getStoredToken()
+    if (!token) return
+    adminApi.getPayments(token).then(setData).catch(() => {})
+  }, [])
+
+  const statusColor = (s: string) => s === 'completed' ? 'success' : s === 'pending' ? 'warning' : s === 'refunded' ? 'brand' : 'danger'
+  const statusLabel = (s: string) => s === 'completed' ? t('orders.completed') : s === 'pending' ? t('orders.pending') : s === 'refunded' ? t('orders.refunded') : t('orders.failed')
+  const monthly = data?.monthly ?? [
+    { m: '—', revenue: 0 }, { m: '—', revenue: 0 }, { m: '—', revenue: 0 },
+    { m: '—', revenue: 0 }, { m: '—', revenue: 0 }, { m: '—', revenue: 0 }
   ]
+  const methods = Object.entries(data?.byMethod ?? {})
+  const hasOrders = data != null
+
   return (
     <div className="space-y-6">
-      <h1 className="font-display text-2xl font-bold text-ink">{t('admin2.payments')}</h1>
-      <div className="grid gap-4 sm:grid-cols-3">
-        <StatCard label={t('admin2.grossRevenue')} value={formatPrice(73600)} sub={t('admin2.last6Months')} icon={<DollarSign className="h-5 w-5" />} />
-        <StatCard label={t('admin2.instructorPayouts')} value={formatPrice(51500)} sub={t('admin2.revenueShare')} icon={<TrendingUp className="h-5 w-5" />} />
-        <StatCard label={t('admin2.refunds')} value={formatPrice(890)} sub={t('admin2.pctGross')} icon={<RefreshCcw className="h-5 w-5" />} />
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="font-display text-2xl font-bold text-ink">{t('admin2.payments')}</h1>
+          <p className="mt-1 text-sm text-muted">{t('admin2.paymentsLoading')}</p>
+        </div>
+        <Badge color="line">{t('admin2.ordersCount', { count: data?.orderCount ?? 0 })}</Badge>
       </div>
-      <div className="card p-5">
-        <h2 className="mb-4 font-semibold text-ink">{t('admin2.monthlyRevenue')}</h2>
-        <ResponsiveContainer width="100%" height={260}>
-          <BarChart data={data} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="var(--line)" vertical={false} />
-            <XAxis dataKey="m" tick={{ fontSize: 11, fill: 'var(--muted)' }} axisLine={false} tickLine={false} />
-            <YAxis tick={{ fontSize: 11, fill: 'var(--muted)' }} axisLine={false} tickLine={false} />
-            <Tooltip contentStyle={{ borderRadius: 8, border: '1px solid var(--line)', backgroundColor: 'var(--surface)', color: 'var(--ink)', fontSize: 12 }} formatter={(v) => formatPrice(Number(v))} />
-            <Bar dataKey="revenue" fill="var(--brand-500)" radius={[4, 4, 0, 0]} />
-          </BarChart>
-        </ResponsiveContainer>
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <StatCard label={t('admin2.grossRevenue')} value={formatPrice(data?.grossRevenue ?? 0)} sub={t('admin2.completedOrders', { count: data?.completedCount ?? 0 })} icon={<DollarSign className="h-5 w-5" />} />
+        <StatCard label={t('admin2.netRevenue')} value={formatPrice(data?.netRevenue ?? 0)} sub={t('admin2.afterRefunds')} icon={<TrendingUp className="h-5 w-5" />} />
+        <StatCard label={t('admin2.instructorPayouts')} value={formatPrice(data?.instructorPayouts ?? 0)} sub={t('admin2.revenueShare')} icon={<Users className="h-5 w-5" />} />
+        <StatCard label={t('admin2.refunds')} value={formatPrice(data?.refunds ?? 0)} sub={t('admin2.refundedOrders', { count: data?.refundedCount ?? 0 })} icon={<RefreshCcw className="h-5 w-5" />} />
+      </div>
+      <div className="grid gap-4 lg:grid-cols-5">
+        <div className="card p-5 lg:col-span-3">
+          <h2 className="mb-4 font-semibold text-ink">{t('admin2.monthlyRevenue')}</h2>
+          <ResponsiveContainer width="100%" height={240}>
+            <BarChart data={monthly} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--line)" vertical={false} />
+              <XAxis dataKey="m" tick={{ fontSize: 11, fill: 'var(--muted)' }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fontSize: 11, fill: 'var(--muted)' }} axisLine={false} tickLine={false} />
+              <Tooltip contentStyle={{ borderRadius: 8, border: '1px solid var(--line)', backgroundColor: 'var(--surface)', color: 'var(--ink)', fontSize: 12 }} formatter={(v) => formatPrice(Number(v))} />
+              <Bar dataKey="revenue" fill="var(--brand-500)" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+        <div className="card p-5 lg:col-span-2">
+          <h2 className="mb-4 font-semibold text-ink">{t('admin2.byMethod')}</h2>
+          {methods.length === 0 ? (
+            <p className="py-6 text-center text-sm text-muted">{hasOrders ? t('admin2.empty') : t('admin2.paymentsLoading')}</p>
+          ) : (
+            <div className="space-y-3">
+              {methods.map(([m, s]) => (
+                <div key={m} className="flex items-center justify-between rounded-card border border-line bg-paper px-4 py-3">
+                  <div>
+                    <p className="text-sm font-medium capitalize text-ink">{m}</p>
+                    <p className="text-xs text-muted">{t('admin2.transactionsCount', { count: s.count })}</p>
+                  </div>
+                  <p className="font-semibold text-ink">{formatPrice(s.revenue)}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+      <div className="card overflow-hidden">
+        <div className="flex items-center justify-between border-b border-line px-5 py-4">
+          <h2 className="font-semibold text-ink">{t('admin2.recentTransactions')}</h2>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <thead>
+              <tr className="border-b border-line bg-paper text-xs uppercase tracking-wide text-muted">
+                <th className="px-5 py-3 font-semibold">{t('admin2.order')}</th>
+                <th className="px-5 py-3 font-semibold">{t('admin2.total')}</th>
+                <th className="px-5 py-3 font-semibold">{t('admin2.payment')}</th>
+                <th className="px-5 py-3 font-semibold">{t('admin2.status')}</th>
+                <th className="px-5 py-3 font-semibold">{t('admin2.issued')}</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-line">
+              {(data?.recent ?? []).map((o) => (
+                <tr key={o.id} className="hover:bg-paper/60">
+                  <td className="px-5 py-3 font-mono text-xs font-medium text-ink">{o.id.slice(0, 8)}…</td>
+                  <td className="px-5 py-3 font-semibold text-ink">{formatPrice(o.total)}</td>
+                  <td className="px-5 py-3 text-muted">{o.paymentMethod}</td>
+                  <td className="px-5 py-3"><Badge color={statusColor(o.status)}>{statusLabel(o.status)}</Badge></td>
+                  <td className="px-5 py-3 text-muted">{timeAgo(o.createdAt)}</td>
+                </tr>
+              ))}
+              {(data?.recent ?? []).length === 0 && (
+                <tr><td colSpan={5} className="px-5 py-10 text-center text-sm text-muted">{t('admin2.noOrders')}</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
       <div className="rounded-card border border-line bg-paper p-4 text-xs text-muted">
         {t('admin2.paymentsNote')}
@@ -207,6 +290,56 @@ export function AdminAnnouncements() {
   const { t } = useTranslation()
   const [title, setTitle] = useState('')
   const [body, setBody] = useState('')
+  const [posting, setPosting] = useState(false)
+  const [rows, setRows] = useState<{
+    id: string
+    authorName: string
+    title: string
+    body: string
+    createdAt: string
+  }[] | null>(null)
+
+  const load = () => {
+    const token = getStoredToken()
+    if (!token) return
+    adminApi.listAnnouncements(token)
+      .then((res) => setRows(res.announcements))
+      .catch(() => {})
+  }
+
+  useEffect(() => { load() }, [])
+
+  const post = async () => {
+    if (!title.trim() || posting) return
+    const token = getStoredToken()
+    if (!token) return
+    setPosting(true)
+    try {
+      await adminApi.createAnnouncement(token, { title, message: body })
+      toast(t('admin2.announcementPosted'), t('admin2.sentAllUsers'))
+      setTitle('')
+      setBody('')
+      load()
+    } catch (err) {
+      toast(t('admin2.postFailed'), err instanceof Error ? err.message : '', 'error')
+    } finally {
+      setPosting(false)
+    }
+  }
+
+  const remove = async (id: string) => {
+    if (!window.confirm(t('admin2.deleteConfirm'))) return
+    const token = getStoredToken()
+    if (!token) return
+    try {
+      await adminApi.deleteAnnouncement(token, id)
+      toast(t('admin2.announcementDeleted'))
+      load()
+    } catch (err) {
+      toast(t('admin2.postFailed'), err instanceof Error ? err.message : '', 'error')
+    }
+  }
+
   return (
     <div className="space-y-6">
       <h1 className="font-display text-2xl font-bold text-ink">{t('admin2.announcements')}</h1>
@@ -218,20 +351,24 @@ export function AdminAnnouncements() {
             <label className="label-base">{t('admin2.message')}</label>
             <textarea value={body} onChange={(e) => setBody(e.target.value)} rows={4} className="input-base" placeholder={t('admin2.messagePlaceholder')} />
           </div>
-          <Button onClick={() => { if (!title.trim()) return; toast(t('admin2.announcementPosted'), t('admin2.sentAllUsers')); setTitle(''); setBody('') }}>{t('admin2.postAnnouncement')}</Button>
+          <Button onClick={post} disabled={!title.trim() || posting}>{posting ? t('admin2.posting') : t('admin2.postAnnouncement')}</Button>
         </div>
       </div>
       <div className="space-y-3">
-        {[[t('admin2.annNew'), '2h ago', 'system'], [t('admin2.annMaint'), '1d ago', 'system'], [t('admin2.annWelcome'), '3d ago', 'community']].map(([tt, time, kind]) => (
-          <div key={tt} className="card flex items-start gap-3 p-4">
+        {(rows ?? []).map((a) => (
+          <div key={a.id} className="card flex items-start gap-3 p-4">
             <div className="rounded-card bg-brand-50 p-2.5 text-brand-700"><Megaphone className="h-4 w-4" /></div>
             <div className="flex-1">
-              <p className="text-sm font-medium text-ink">{tt}</p>
-              <p className="mt-0.5 text-xs text-muted">{time} {t('admin2.sentToAll')}</p>
+              <p className="text-sm font-medium text-ink">{a.title}</p>
+              {a.body && <p className="mt-0.5 text-sm text-muted">{a.body}</p>}
+              <p className="mt-1 text-xs text-muted">{timeAgo(a.createdAt)} · {t('admin2.postedBy')} {a.authorName}</p>
             </div>
-            <Badge color="line">{kind}</Badge>
+            <button onClick={() => remove(a.id)} className="text-xs font-medium text-danger hover:underline">{t('admin2.delete')}</button>
           </div>
         ))}
+        {(rows ?? []).length === 0 && (
+          <div className="card p-12 text-center text-sm text-muted">{t('admin2.announcementsEmpty')}</div>
+        )}
       </div>
     </div>
   )
