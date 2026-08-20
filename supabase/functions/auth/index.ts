@@ -290,6 +290,8 @@ async function handleLogin(req: Request): Promise<Response> {
   if (!profile) return errorResponse(401, profileErr ?? 'No profile found for this account.')
   if (!profile.is_active) return errorResponse(403, 'This account has been disabled.')
 
+  await recordSession(req, data.user.id, data.session.access_token)
+
   return json({ user: mapProfile(profile), token: data.session.access_token })
 }
 
@@ -306,6 +308,10 @@ async function handleMe(req: Request): Promise<Response> {
 async function handleLogout(req: Request): Promise<Response> {
   const token = bearerToken(req)
   if (token) {
+    const jti = jtiFromToken(token)
+    if (jti) {
+      await supabase.from('user_sessions').update({ is_revoked: true }).eq('token_jti', jti)
+    }
     try {
       await supabase.auth.admin.signOut(token)
     } catch {
@@ -313,6 +319,29 @@ async function handleLogout(req: Request): Promise<Response> {
     }
   }
   return new Response(null, { status: 204, headers: corsHeaders })
+}
+
+function jtiFromToken(token: string | null): string | null {
+  if (!token) return null
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]))
+    if (typeof payload.jti === 'string') return payload.jti
+    if (typeof payload.session_id === 'string') return payload.session_id
+    if (typeof payload.sid === 'string') return payload.sid
+    return null
+  } catch {
+    return null
+  }
+}
+
+async function recordSession(req: Request, userId: string, token: string): Promise<void> {
+  try {
+    const ua = (req.headers.get('user-agent') ?? '').slice(0, 300)
+    const ip = (req.headers.get('x-forwarded-for')?.split(',')[0] ?? req.headers.get('cf-connecting-ip') ?? '').trim().slice(0, 64)
+    await supabase.from('user_sessions').insert({ user_id: userId, token_jti: jtiFromToken(token) ?? token.slice(0, 32), user_agent: ua, ip })
+  } catch {
+    /* best effort */
+  }
 }
 
 const PROFILE_FIELDS = ['name', 'avatar', 'title', 'bio', 'skills', 'headline', 'website'] as const
@@ -333,6 +362,11 @@ async function handleProfile(req: Request): Promise<Response> {
   if (Object.keys(patch).length > 0) {
     const { error } = await supabase.from('profiles').update(patch).eq('id', user.id)
     if (error) return errorResponse(400, error.message)
+  }
+
+  if (patch.name !== undefined) {
+    const metadata = { ...(user.user_metadata ?? {}), name: patch.name }
+    await supabase.auth.admin.updateUserById(user.id, { user_metadata: metadata })
   }
 
   const profile = await getProfile(user.id)
@@ -368,6 +402,182 @@ async function handleDeleteAccount(req: Request): Promise<Response> {
   if (error) return errorResponse(400, error.message)
 
   return new Response(null, { status: 204, headers: corsHeaders })
+}
+
+// ---------------------------------------------------------------------------
+// Account management (self-service)
+// ---------------------------------------------------------------------------
+
+const PREFERENCE_BOOLS = [
+  'email_notifications',
+  'course_notifications',
+  'assignment_notifications',
+  'marketing_notifications',
+  'public_profile',
+  'show_learning',
+  'show_skills'
+] as const
+
+async function handleMyPreferences(req: Request): Promise<Response> {
+  const user = await authUser(req)
+  if (!user) return errorResponse(401, 'Not authenticated.')
+
+  const { data, error } = await supabase
+    .from('user_preferences')
+    .select('*')
+    .eq('user_id', user.id)
+    .maybeSingle()
+  if (error) return errorResponse(500, 'Failed to load preferences: ' + error.message)
+
+  return json({
+    preferences: {
+      emailNotifications: data?.email_notifications ?? true,
+      courseNotifications: data?.course_notifications ?? true,
+      assignmentNotifications: data?.assignment_notifications ?? true,
+      marketingNotifications: data?.marketing_notifications ?? false,
+      publicProfile: data?.public_profile ?? true,
+      showLearning: data?.show_learning ?? true,
+      showSkills: data?.show_skills ?? true,
+      language: data?.language ?? 'en',
+      updatedAt: data?.updated_at ?? null
+    }
+  })
+}
+
+async function handleUpdateMyPreferences(req: Request): Promise<Response> {
+  const user = await authUser(req)
+  if (!user) return errorResponse(401, 'Not authenticated.')
+
+  const body = await readBody(req)
+  const patch: Record<string, unknown> = {}
+  for (const key of PREFERENCE_BOOLS) {
+    const camel = key.replace(/_([a-z])/g, (_, c: string) => c.toUpperCase())
+    if (typeof body[camel] === 'boolean') patch[key] = body[camel]
+  }
+  if (typeof body.language === 'string' && /^[a-z]{2}(-[A-Za-z]+)?$/.test(body.language)) patch.language = body.language
+  patch.updated_at = new Date().toISOString()
+
+  const { data, error } = await supabase
+    .from('user_preferences')
+    .upsert({ user_id: user.id, ...patch }, { onConflict: 'user_id' })
+    .select('*')
+    .single()
+  if (error) return errorResponse(500, 'Failed to save preferences: ' + error.message)
+
+  return json({
+    preferences: {
+      emailNotifications: data.email_notifications,
+      courseNotifications: data.course_notifications,
+      assignmentNotifications: data.assignment_notifications,
+      marketingNotifications: data.marketing_notifications,
+      publicProfile: data.public_profile,
+      showLearning: data.show_learning,
+      showSkills: data.show_skills,
+      language: data.language,
+      updatedAt: data.updated_at
+    }
+  })
+}
+
+async function handleChangeEmail(req: Request): Promise<Response> {
+  const user = await authUser(req)
+  if (!user) return errorResponse(401, 'Not authenticated.')
+  if (!user.email) return errorResponse(400, 'Your account has no email address.')
+
+  const { newEmail, password } = await readBody(req)
+  if (typeof newEmail !== 'string' || !isEmail(newEmail)) return errorResponse(422, 'A valid new email is required.')
+  if (typeof password !== 'string' || !password) return errorResponse(422, 'Your current password is required.')
+  if (newEmail.toLowerCase() === user.email.toLowerCase()) return errorResponse(422, 'New email is the same as your current email.')
+
+  const check = await supabase.auth.signInWithPassword({ email: user.email, password })
+  if (check.error) return errorResponse(400, 'Current password is incorrect.')
+
+  const { error: updateError } = await supabase.auth.admin.updateUserById(user.id, {
+    email: newEmail,
+    email_confirm: true,
+    user_metadata: { ...(user.user_metadata ?? {}), email: newEmail }
+  })
+  if (updateError) return errorResponse(400, updateError.message)
+
+  const { error: profileError } = await supabase.from('profiles').update({ email: newEmail }).eq('id', user.id)
+  if (profileError) return errorResponse(500, 'Failed to update profile email: ' + profileError.message)
+
+  return json({ message: 'Email updated.', email: newEmail })
+}
+
+async function handleUploadAvatar(req: Request): Promise<Response> {
+  const user = await authUser(req)
+  if (!user) return errorResponse(401, 'Not authenticated.')
+
+  const body = await readBody(req)
+  const dataUrl = typeof body.dataUrl === 'string' ? body.dataUrl : ''
+  const match = /^data:image\/(png|jpeg|jpg|webp|gif);base64,(.+)$/i.exec(dataUrl)
+  if (!match) return errorResponse(422, 'Provide a valid base64 image data URL.')
+
+  const ext = match[1].toLowerCase() === 'jpg' ? 'jpg' : match[1].toLowerCase() === 'jpeg' ? 'jpg' : match[1].toLowerCase() === 'webp' ? 'webp' : match[1].toLowerCase() === 'gif' ? 'gif' : 'png'
+  const bytes = Uint8Array.from(atob(match[2]), (c) => c.charCodeAt(0))
+  if (bytes.byteLength > 2 * 1024 * 1024) return errorResponse(413, 'Image must be 2 MB or smaller.')
+
+  const path = `${user.id}/${Date.now()}.${ext}`
+  const { error: uploadError } = await supabase.storage.from('avatars').upload(path, bytes, {
+    contentType: `image/${ext === 'jpg' ? 'jpeg' : ext}`,
+    upsert: true
+  })
+  if (uploadError) return errorResponse(500, 'Failed to upload avatar: ' + uploadError.message)
+
+  const avatar = `${SUPABASE_URL}/storage/v1/object/public/avatars/${path}`
+  const { error: profileError } = await supabase.from('profiles').update({ avatar }).eq('id', user.id)
+  if (profileError) return errorResponse(500, 'Failed to update avatar: ' + profileError.message)
+
+  return json({ avatar })
+}
+
+async function handleMySessions(req: Request): Promise<Response> {
+  const user = await authUser(req)
+  if (!user) return errorResponse(401, 'Not authenticated.')
+
+  const currentJti = jtiFromToken(bearerToken(req))
+  const { data, error } = await supabase
+    .from('user_sessions')
+    .select('id, token_jti, user_agent, ip, is_revoked, created_at, last_seen_at')
+    .eq('user_id', user.id)
+    .order('last_seen_at', { ascending: false })
+    .limit(50)
+  if (error) return errorResponse(500, 'Failed to load sessions: ' + error.message)
+
+  const sessions = (data ?? []).map((s) => ({
+    id: s.id,
+    userAgent: s.user_agent,
+    ip: s.ip,
+    createdAt: s.created_at,
+    lastSeenAt: s.last_seen_at,
+    current: currentJti ? s.token_jti === currentJti : false,
+    revoked: s.is_revoked
+  }))
+  return json({ sessions })
+}
+
+async function handleRevokeSessions(req: Request): Promise<Response> {
+  const user = await authUser(req)
+  if (!user) return errorResponse(401, 'Not authenticated.')
+
+  const token = bearerToken(req)
+  if (!token) return errorResponse(400, 'No session token found.')
+
+  const currentJti = jtiFromToken(token)
+  if (currentJti) {
+    const { error } = await supabase
+      .from('user_sessions')
+      .update({ is_revoked: true })
+      .eq('user_id', user.id)
+      .neq('token_jti', currentJti)
+    if (error) return errorResponse(500, 'Failed to revoke sessions: ' + error.message)
+  }
+
+  const { error: signOutError } = await supabase.auth.admin.signOut(token, 'others')
+  if (signOutError) return errorResponse(500, 'Failed to revoke sessions: ' + signOutError.message)
+
+  return json({ message: 'Other sessions signed out.' })
 }
 
 async function handleForgotPassword(req: Request): Promise<Response> {
@@ -2473,6 +2683,24 @@ Deno.serve(async (req) => {
       break
     case 'POST /change-password':
       response = await handleChangePassword(req)
+      break
+    case 'GET /me/preferences':
+      response = await handleMyPreferences(req)
+      break
+    case 'PUT /me/preferences':
+      response = await handleUpdateMyPreferences(req)
+      break
+    case 'POST /me/email':
+      response = await handleChangeEmail(req)
+      break
+    case 'POST /me/avatar':
+      response = await handleUploadAvatar(req)
+      break
+    case 'GET /me/sessions':
+      response = await handleMySessions(req)
+      break
+    case 'POST /me/sessions/revoke':
+      response = await handleRevokeSessions(req)
       break
     case 'DELETE /account':
       response = await handleDeleteAccount(req)

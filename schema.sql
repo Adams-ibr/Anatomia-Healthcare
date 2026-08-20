@@ -468,6 +468,36 @@ create table public.plans (
 );
 
 -- -----------------------------------------------------------------------------
+-- User preferences (per-account notification, privacy and language settings)
+-- -----------------------------------------------------------------------------
+
+create table public.user_preferences (
+  user_id uuid primary key references public.profiles (id) on delete cascade,
+  email_notifications boolean not null default true,
+  course_notifications boolean not null default true,
+  assignment_notifications boolean not null default true,
+  marketing_notifications boolean not null default false,
+  public_profile boolean not null default true,
+  show_learning boolean not null default true,
+  show_skills boolean not null default true,
+  language text not null default 'en',
+  updated_at timestamptz not null default now()
+);
+
+create table public.user_sessions (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references public.profiles (id) on delete cascade,
+  token_jti text not null,
+  user_agent text not null default '',
+  ip text not null default '',
+  is_revoked boolean not null default false,
+  created_at timestamptz not null default now(),
+  last_seen_at timestamptz not null default now()
+);
+
+create index user_sessions_user_idx on public.user_sessions (user_id, last_seen_at desc);
+
+-- -----------------------------------------------------------------------------
 -- Platform settings (single row)
 -- -----------------------------------------------------------------------------
 
@@ -492,6 +522,10 @@ insert into public.platform_settings (id) values (true) on conflict (id) do noth
 
 grant all on public.platform_settings to service_role, postgres;
 grant select on public.platform_settings to anon, authenticated;
+grant all on public.user_preferences to service_role, postgres;
+grant select, insert, update, delete on public.user_preferences to authenticated;
+grant all on public.user_sessions to service_role, postgres;
+grant select, insert, update, delete on public.user_sessions to authenticated;
 
 -- -----------------------------------------------------------------------------
 -- Row Level Security (enable + base policies)
@@ -529,6 +563,8 @@ alter table public.blog_posts enable row level security;
 alter table public.testimonials enable row level security;
 alter table public.plans enable row level security;
 alter table public.platform_settings enable row level security;
+alter table public.user_preferences enable row level security;
+alter table public.user_sessions enable row level security;
 
 -- Public catalog reads
 create policy "Public catalog read" on public.categories for select using (true);
@@ -548,6 +584,10 @@ create policy "Public content read" on public.blog_posts for select using (true)
 create policy "Public content read" on public.testimonials for select using (true);
 create policy "Public content read" on public.plans for select using (true);
 create policy "Platform settings read" on public.platform_settings for select using (true);
+create policy "Own preferences read" on public.user_preferences for select using (auth.uid() = user_id);
+create policy "Own preferences write" on public.user_preferences for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+create policy "Own sessions read" on public.user_sessions for select using (auth.uid() = user_id);
+create policy "Own sessions write" on public.user_sessions for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
 -- Self-service policies for authenticated users
 create policy "Own profile read/write" on public.profiles for select using (auth.uid() = id);

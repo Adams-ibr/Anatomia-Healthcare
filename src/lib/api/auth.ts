@@ -730,5 +730,45 @@ export const authApi = {
 
   deleteAccount(token: string): Promise<unknown> {
     return apiFetch<unknown>('/api/auth/account', { method: 'DELETE', token })
+  },
+
+  getPreferences(token: string): Promise<{ preferences: UserPreferences }> {
+    return apiFetch<{ preferences: UserPreferences }>('/api/auth/me/preferences', { token })
+  },
+
+  updatePreferences(token: string, input: Partial<UserPreferences>): Promise<{ preferences: UserPreferences }> {
+    return apiFetch<{ preferences: UserPreferences }>('/api/auth/me/preferences', { method: 'PUT', body: input, token })
+  },
+
+  changeEmail(token: string, input: { newEmail: string; password: string }): Promise<{ message?: string; email: string }> {
+    return apiFetch<{ message?: string; email: string }>('/api/auth/me/email', { method: 'POST', body: input, token })
+  },
+
+  uploadAvatar(token: string, dataUrl: string): Promise<{ avatar: string }> {
+    return apiFetch<{ avatar: string }>('/api/auth/me/avatar', { method: 'POST', body: { dataUrl }, token })
+  },
+
+  listSessions(token: string): Promise<{
+    sessions: { id: string; userAgent: string; ip: string; createdAt: string; lastSeenAt: string; current: boolean; revoked?: boolean }[]
+  }> {
+    return apiFetch<{ sessions: unknown[] }>('/api/auth/me/sessions', { token }) as Promise<{
+      sessions: { id: string; userAgent: string; ip: string; createdAt: string; lastSeenAt: string; current: boolean; revoked?: boolean }[]
+    }>
+  },
+
+  revokeSessions(token: string): Promise<{ message?: string }> {
+    return apiFetch<{ message?: string }>('/api/auth/me/sessions/revoke', { method: 'POST', token })
   }
+}
+
+export interface UserPreferences {
+  emailNotifications: boolean
+  courseNotifications: boolean
+  assignmentNotifications: boolean
+  marketingNotifications: boolean
+  publicProfile: boolean
+  showLearning: boolean
+  showSkills: boolean
+  language: string
+  updatedAt?: string | null
 }

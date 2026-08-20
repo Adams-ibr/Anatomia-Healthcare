@@ -4,7 +4,7 @@ import type { User, AuthUser, Enrollment, Notification, Conversation, Message, S
 import { uid } from './utils'
 import { ApiError } from './api/client'
 import { authApi, getStoredToken, storeToken, clearStoredToken, studentApi } from './api/auth'
-import type { StudentEnrollment, StudentOrder } from './api/auth'
+import type { StudentEnrollment, StudentOrder, UserPreferences } from './api/auth'
 
 interface Toast {
   id: string
@@ -50,6 +50,10 @@ interface AppState {
   updateProfile: (patch: Partial<AuthUser>) => Promise<{ ok: boolean; error?: string }>
   changePassword: (currentPassword: string, newPassword: string) => Promise<{ ok: boolean; error?: string }>
   deleteAccount: () => Promise<{ ok: boolean; error?: string }>
+  updatePreferences: (patch: Partial<UserPreferences>) => Promise<{ ok: boolean; error?: string }>
+  changeEmail: (newEmail: string, password: string) => Promise<{ ok: boolean; error?: string }>
+  uploadAvatar: (dataUrl: string) => Promise<{ ok: boolean; error?: string; avatar?: string }>
+  revokeSessions: () => Promise<{ ok: boolean; error?: string }>
   issueCertificate: (courseId: string) => void
   resetAll: () => void
 }
@@ -502,6 +506,52 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, [currentUser])
 
+  const updatePreferences = useCallback(async (patch: Partial<UserPreferences>) => {
+    const token = getStoredToken()
+    if (!currentUser || !token) return { ok: false, error: 'You must be logged in.' }
+    try {
+      await authApi.updatePreferences(token, patch)
+      return { ok: true }
+    } catch (err) {
+      return { ok: false, error: getErrorMessage(err) }
+    }
+  }, [currentUser])
+
+  const changeEmail = useCallback(async (newEmail: string, password: string) => {
+    const token = getStoredToken()
+    if (!currentUser || !token) return { ok: false, error: 'You must be logged in.' }
+    try {
+      const res = await authApi.changeEmail(token, { newEmail, password })
+      setCurrentUser((u) => (u ? { ...u, email: res.email } : u))
+      return { ok: true }
+    } catch (err) {
+      return { ok: false, error: getErrorMessage(err) }
+    }
+  }, [currentUser])
+
+  const uploadAvatar = useCallback(async (dataUrl: string) => {
+    const token = getStoredToken()
+    if (!currentUser || !token) return { ok: false, error: 'You must be logged in.' }
+    try {
+      const res = await authApi.uploadAvatar(token, dataUrl)
+      setCurrentUser((u) => (u ? { ...u, avatar: res.avatar } : u))
+      return { ok: true, avatar: res.avatar }
+    } catch (err) {
+      return { ok: false, error: getErrorMessage(err) }
+    }
+  }, [currentUser])
+
+  const revokeSessions = useCallback(async () => {
+    const token = getStoredToken()
+    if (!currentUser || !token) return { ok: false, error: 'You must be logged in.' }
+    try {
+      await authApi.revokeSessions(token)
+      return { ok: true }
+    } catch (err) {
+      return { ok: false, error: getErrorMessage(err) }
+    }
+  }, [currentUser])
+
   const issueCertificate = useCallback((courseId: string) => {
     if (!currentUser) return
     setCertificates((c) => {
@@ -528,6 +578,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     login, register, logout, forgotPassword, resetPassword, verifyEmail, enroll, completeLesson,
     setCurrentLesson, toggleWishlist, addToCart, removeFromCart, clearCart, checkout, verifyCheckout, markNotificationsRead,
     sendMessage, submitAssignment, toast, dismissToast, updateProfile, changePassword, deleteAccount,
+    updatePreferences, changeEmail, uploadAvatar, revokeSessions,
     issueCertificate, resetAll
   }
 
