@@ -468,6 +468,32 @@ create table public.plans (
 );
 
 -- -----------------------------------------------------------------------------
+-- Platform settings (single row)
+-- -----------------------------------------------------------------------------
+
+create table public.platform_settings (
+  id boolean primary key default true constraint platform_settings_singleton check (id),
+  platform_name text not null default 'HamaAcademy',
+  support_email text not null default '',
+  default_currency text not null default 'USD',
+  instructor_share integer not null default 70,
+  primary_color text not null default '#1B4E9B',
+  tagline text not null default '',
+  refund_window_days integer not null default 7,
+  passing_score integer not null default 70,
+  welcome_email boolean not null default true,
+  completion_email boolean not null default true,
+  assignment_reminders boolean not null default true,
+  weekly_digest boolean not null default false,
+  updated_at timestamptz not null default now()
+);
+
+insert into public.platform_settings (id) values (true) on conflict (id) do nothing;
+
+grant all on public.platform_settings to service_role, postgres;
+grant select on public.platform_settings to anon, authenticated;
+
+-- -----------------------------------------------------------------------------
 -- Row Level Security (enable + base policies)
 -- -----------------------------------------------------------------------------
 
@@ -502,6 +528,7 @@ alter table public.learning_paths enable row level security;
 alter table public.blog_posts enable row level security;
 alter table public.testimonials enable row level security;
 alter table public.plans enable row level security;
+alter table public.platform_settings enable row level security;
 
 -- Public catalog reads
 create policy "Public catalog read" on public.categories for select using (true);
@@ -520,6 +547,7 @@ create policy "Public content read" on public.learning_paths for select using (t
 create policy "Public content read" on public.blog_posts for select using (true);
 create policy "Public content read" on public.testimonials for select using (true);
 create policy "Public content read" on public.plans for select using (true);
+create policy "Platform settings read" on public.platform_settings for select using (true);
 
 -- Self-service policies for authenticated users
 create policy "Own profile read/write" on public.profiles for select using (auth.uid() = id);

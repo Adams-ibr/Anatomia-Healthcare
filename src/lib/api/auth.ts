@@ -67,6 +67,14 @@ export const publicApi = {
 
   listCategories(): Promise<{ categories: AdminCategory[] }> {
     return apiFetch<{ categories: AdminCategory[] }>('/api/auth/categories')
+  },
+
+  getSettings(): Promise<{
+    settings: { platformName: string; tagline: string; primaryColor: string; supportEmail: string; defaultCurrency: string; paystackPublicKey?: string }
+  }> {
+    return apiFetch<{ settings: unknown }>('/api/auth/settings') as unknown as Promise<{
+      settings: { platformName: string; tagline: string; primaryColor: string; supportEmail: string; defaultCurrency: string; paystackPublicKey?: string }
+    }>
   }
 }
 
@@ -215,7 +223,67 @@ export const adminApi = {
 
   deleteAnnouncement(token: string, id: string): Promise<{ ok: boolean }> {
     return apiFetch<{ ok: boolean }>(`/api/auth/admin/announcements/${id}`, { method: 'DELETE', token })
+  },
+
+  getReports(token: string): Promise<{
+    users: { total: number; students: number; instructors: number; admins: number; newThisMonth: number; monthly: { m: string; count: number }[] }
+    courses: { total: number; published: number; pending: number; drafts: number; archived: number; avgRating: number; totalReviews: number; top: { id: string; title: string; studentCount: number; rating: number }[] }
+    revenue: { gross: number; net: number; refunds: number; payouts: number; orderCount: number; completed: number; refunded: number; avgOrderValue: number }
+    certificates: { total: number; thisMonth: number; monthly: { m: string; count: number }[] }
+    assessments: { totalAssessments: number; attempts: number; passed: number; passRate: number }
+  }> {
+    return apiFetch<{ users: unknown; courses: unknown; revenue: unknown; certificates: unknown; assessments: unknown }>('/api/auth/admin/reports', { token }) as unknown as ReturnType<typeof adminApi.getReports>
+  },
+
+  getAnalytics(token: string): Promise<{
+    users: { total: number; monthly: { m: string; count: number }[] }
+    enrollments: { total: number; active: number; completed: number; monthly: { m: string; count: number }[] }
+    revenue: { gross: number; net: number; refunds: number; monthly: { m: string; revenue: number }[] }
+    courses: { total: number; published: number; byCategory: { id: string; name: string; count: number; students: number }[] }
+    certificates: { total: number; monthly: { m: string; count: number }[] }
+  }> {
+    return apiFetch<{ users: unknown; enrollments: unknown; revenue: unknown; courses: unknown; certificates: unknown }>('/api/auth/admin/analytics', { token }) as unknown as Promise<{
+      users: { total: number; monthly: { m: string; count: number }[] }
+      enrollments: { total: number; active: number; completed: number; monthly: { m: string; count: number }[] }
+      revenue: { gross: number; net: number; refunds: number; monthly: { m: string; revenue: number }[] }
+      courses: { total: number; published: number; byCategory: { id: string; name: string; count: number; students: number }[] }
+      certificates: { total: number; monthly: { m: string; count: number }[] }
+    }>
+  },
+
+  listAssessmentAttempts(token: string): Promise<{
+    attempts: { id: string; studentName: string; assessmentTitle: string; courseTitle?: string; score: number; passed: boolean; attemptedAt: string }[]
+  }> {
+    return apiFetch<{ attempts: unknown[] }>('/api/auth/admin/assessment-attempts', { token }) as Promise<{
+      attempts: { id: string; studentName: string; assessmentTitle: string; courseTitle?: string; score: number; passed: boolean; attemptedAt: string }[]
+    }>
+  },
+
+  getSettings(token: string): Promise<{ settings: PlatformSettings }> {
+    return apiFetch<{ settings: PlatformSettings }>('/api/auth/admin/settings', { token })
+  },
+
+  updateSettings(token: string, input: Partial<PlatformSettings>): Promise<{ settings: PlatformSettings }> {
+    return apiFetch<{ settings: PlatformSettings }>('/api/auth/admin/settings', { method: 'PUT', body: input, token })
   }
+}
+
+export interface PlatformSettings {
+  platformName: string
+  supportEmail: string
+  defaultCurrency: string
+  instructorShare: number
+  primaryColor: string
+  tagline: string
+  refundWindowDays: number
+  passingScore: number
+  welcomeEmail: boolean
+  completionEmail: boolean
+  assignmentReminders: boolean
+  weeklyDigest: boolean
+  paymentProvider: string
+  paystackPublicKey?: string
+  updatedAt?: string
 }
 
 export type CourseStatus = 'published' | 'draft' | 'pending' | 'approved' | 'archived'

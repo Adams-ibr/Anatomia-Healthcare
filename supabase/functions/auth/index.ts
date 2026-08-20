@@ -2125,6 +2125,319 @@ async function handleMarkNotificationsRead(req: Request): Promise<Response> {
 }
 
 // ---------------------------------------------------------------------------
+// Admin: reports
+// ---------------------------------------------------------------------------
+
+function monthlyBuckets(months: number): { m: string; start: Date; key: number; count?: number; revenue?: number }[] {
+  const start = new Date()
+  start.setDate(1)
+  start.setHours(0, 0, 0, 0)
+  start.setMonth(start.getMonth() - (months - 1))
+  const buckets: { m: string; start: Date; key: number; count?: number; revenue?: number }[] = []
+  for (let i = 0; i < months; i++) {
+    const d = new Date(start.getFullYear(), start.getMonth() + i, 1)
+    buckets.push({ m: d.toLocaleString('en-US', { month: 'short' }), start: d, key: d.getFullYear() * 12 + d.getMonth() })
+  }
+  return buckets
+}
+
+function bucketIndex(d: Date, buckets: { m: string; start: Date; key: number; count?: number; revenue?: number }[]): number {
+  const key = d.getFullYear() * 12 + d.getMonth()
+  return buckets.findIndex((b) => b.key === key)
+}
+
+async function handleAdminReports(req: Request): Promise<Response> {
+  const guard = await requireAdmin(req)
+  if (guard instanceof Response) return guard
+
+  const [profilesRes, coursesRes, ordersRes, certsRes, assessmentsRes, attemptsRes] = await Promise.all([
+    supabase.from('profiles').select('id, role, is_active, joined_at'),
+    supabase.from('courses').select('id, title, status, rating, review_count, student_count'),
+    supabase.from('orders').select('id, total, status, created_at'),
+    supabase.from('certificates').select('id, issued_at'),
+    supabase.from('assessments').select('id'),
+    supabase.from('assessment_attempts').select('score, passed, attempted_at')
+  ])
+  if (profilesRes.error) return errorResponse(500, 'Failed to load reports: ' + profilesRes.error.message)
+  if (coursesRes.error) return errorResponse(500, 'Failed to load reports: ' + coursesRes.error.message)
+  if (ordersRes.error) return errorResponse(500, 'Failed to load reports: ' + ordersRes.error.message)
+  if (certsRes.error) return errorResponse(500, 'Failed to load reports: ' + certsRes.error.message)
+  if (assessmentsRes.error) return errorResponse(500, 'Failed to load reports: ' + assessmentsRes.error.message)
+  if (attemptsRes.error) return errorResponse(500, 'Failed to load reports: ' + attemptsRes.error.message)
+
+  const profiles = (profilesRes.data ?? []) as { id: string; role: string; is_active: boolean; joined_at: string }[]
+  const courses = (coursesRes.data ?? []) as { id: string; title: string; status: string; rating: number; review_count: number; student_count: number }[]
+  const orders = (ordersRes.data ?? []) as { id: string; total: number; status: string; created_at: string }[]
+  const certificates = (certsRes.data ?? []) as { id: string; issued_at: string }[]
+  const attempts = (attemptsRes.data ?? []) as { score: number; passed: boolean; attempted_at: string }[]
+
+  const now = new Date()
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
+
+  const userBuckets = monthlyBuckets(6)
+  const total = profiles.length
+  const students = profiles.filter((p) => p.role === 'student').length
+  const instructors = profiles.filter((p) => p.role === 'instructor').length
+  const admins = profiles.filter((p) => p.role === 'admin').length
+  const newThisMonth = profiles.filter((p) => new Date(p.joined_at) >= monthStart).length
+  for (const p of profiles) {
+    const i = bucketIndex(new Date(p.joined_at), userBuckets)
+    if (i >= 0) userBuckets[i].count = (userBuckets[i].count ?? 0) + 1
+  }
+
+  const published = courses.filter((c) => c.status === 'published').length
+  const pending = courses.filter((c) => c.status === 'pending').length
+  const drafts = courses.filter((c) => c.status === 'draft').length
+  const archived = courses.filter((c) => c.status === 'archived').length
+  const avgRating = courses.length ? courses.reduce((a, c) => a + Number(c.rating), 0) / courses.length : 0
+  const totalReviews = courses.reduce((a, c) => a + c.review_count, 0)
+  const topCourses = [...courses].sort((a, b) => b.student_count - a.student_count).slice(0, 5).map((c) => ({
+    id: c.id, title: c.title, studentCount: c.student_count, rating: Number(c.rating)
+  }))
+
+  let gross = 0
+  let refunds = 0
+  let completed = 0
+  let refunded = 0
+  for (const o of orders) {
+    const t = Number(o.total) || 0
+    if (o.status === 'completed') { gross += t; completed++ }
+    else if (o.status === 'refunded') { refunds += t; refunded++ }
+  }
+  const avgOrderValue = completed ? Math.round((gross / completed) * 100) / 100 : 0
+
+  const certBuckets = monthlyBuckets(6)
+  const certThisMonth = certificates.filter((c) => new Date(c.issued_at) >= monthStart).length
+  for (const c of certificates) {
+    const i = bucketIndex(new Date(c.issued_at), certBuckets)
+    if (i >= 0) certBuckets[i].count = (certBuckets[i].count ?? 0) + 1
+  }
+
+  const passedAttempts = attempts.filter((a) => a.passed).length
+  const passRate = attempts.length ? Math.round((passedAttempts / attempts.length) * 100) : 0
+
+  const settings = await loadSettings()
+  const instructorShare = settings?.instructor_share ?? 70
+
+  return json({
+    users: {
+      total, students, instructors, admins, newThisMonth,
+      monthly: userBuckets.map((b) => ({ m: b.m, count: b.count ?? 0 }))
+    },
+    courses: { total: courses.length, published, pending, drafts, archived, avgRating: Math.round(avgRating * 10) / 10, totalReviews, top: topCourses },
+    revenue: { gross, net: gross - refunds, refunds, payouts: Math.round((gross - refunds) * instructorShare / 100), orderCount: orders.length, completed, refunded, avgOrderValue },
+    certificates: { total: certificates.length, thisMonth: certThisMonth, monthly: certBuckets.map((b) => ({ m: b.m, count: b.count ?? 0 })) },
+    assessments: { totalAssessments: (assessmentsRes.data ?? []).length, attempts: attempts.length, passed: passedAttempts, passRate }
+  })
+}
+
+async function handleAdminAssessmentAttempts(req: Request): Promise<Response> {
+  const guard = await requireAdmin(req)
+  if (guard instanceof Response) return guard
+
+  const { data, error } = await supabase
+    .from('assessment_attempts')
+    .select('id, score, passed, attempted_at, user_id, assessment_id, assessments!assessment_attempts_assessment_id_fkey(id, title, course_id, courses(id, title)), profiles!assessment_attempts_user_id_fkey(id, name)')
+    .order('attempted_at', { ascending: false })
+    .limit(500)
+  if (error) return errorResponse(500, 'Failed to load assessment attempts: ' + error.message)
+
+  const attempts = (data ?? []).map((a) => ({
+    id: a.id,
+    studentName: a.profiles?.name ?? 'Unknown',
+    assessmentTitle: a.assessments?.title ?? 'Assessment',
+    courseId: a.assessments?.course_id ?? null,
+    courseTitle: a.assessments?.courses?.title ?? null,
+    score: a.score,
+    passed: a.passed,
+    attemptedAt: a.attempted_at
+  }))
+  return json({ attempts })
+}
+
+// ---------------------------------------------------------------------------
+// Admin: analytics
+// ---------------------------------------------------------------------------
+
+async function handleAdminAnalytics(req: Request): Promise<Response> {
+  const guard = await requireAdmin(req)
+  if (guard instanceof Response) return guard
+
+  const [usersRes, enrRes, ordersRes, coursesRes, certsRes] = await Promise.all([
+    supabase.from('profiles').select('id, joined_at'),
+    supabase.from('enrollments').select('id, status, enrolled_at'),
+    supabase.from('orders').select('id, total, status, created_at'),
+    supabase.from('courses').select('id, status, category_id, student_count, categories!courses_category_id_fkey(id, name)'),
+    supabase.from('certificates').select('id, issued_at')
+  ])
+  if (usersRes.error) return errorResponse(500, 'Failed to load analytics: ' + usersRes.error.message)
+  if (enrRes.error) return errorResponse(500, 'Failed to load analytics: ' + enrRes.error.message)
+  if (ordersRes.error) return errorResponse(500, 'Failed to load analytics: ' + ordersRes.error.message)
+  if (coursesRes.error) return errorResponse(500, 'Failed to load analytics: ' + coursesRes.error.message)
+  if (certsRes.error) return errorResponse(500, 'Failed to load analytics: ' + certsRes.error.message)
+
+  const users = (usersRes.data ?? []) as { id: string; joined_at: string }[]
+  const enrollments = (enrRes.data ?? []) as { id: string; status: string; enrolled_at: string }[]
+  const orders = (ordersRes.data ?? []) as { id: string; total: number; status: string; created_at: string }[]
+  const courses = (coursesRes.data ?? []) as { id: string; status: string; category_id: string; student_count: number; categories?: { id: string; name: string } | null }[]
+
+  const userBuckets = monthlyBuckets(6)
+  for (const u of users) {
+    const i = bucketIndex(new Date(u.joined_at), userBuckets)
+    if (i >= 0) userBuckets[i].count = (userBuckets[i].count ?? 0) + 1
+  }
+
+  const enrBuckets = monthlyBuckets(6)
+  const active = enrollments.filter((e) => e.status === 'active').length
+  const completed = enrollments.filter((e) => e.status === 'completed').length
+  for (const e of enrollments) {
+    const i = bucketIndex(new Date(e.enrolled_at), enrBuckets)
+    if (i >= 0) enrBuckets[i].count = (enrBuckets[i].count ?? 0) + 1
+  }
+
+  const revBuckets = monthlyBuckets(6)
+  let gross = 0
+  let refunds = 0
+  for (const o of orders) {
+    const t = Number(o.total) || 0
+    if (o.status === 'completed') {
+      gross += t
+      const i = bucketIndex(new Date(o.created_at), revBuckets)
+      if (i >= 0) revBuckets[i].revenue = (revBuckets[i].revenue ?? 0) + t
+    } else if (o.status === 'refunded') refunds += t
+  }
+
+  const certBuckets = monthlyBuckets(6)
+  for (const c of certsRes.data ?? []) {
+    const i = bucketIndex(new Date((c as { issued_at: string }).issued_at), certBuckets)
+    if (i >= 0) certBuckets[i].count = (certBuckets[i].count ?? 0) + 1
+  }
+
+  const byCategory: { id: string; name: string; count: number; students: number }[] = []
+  const catMap = new Map<string, { id: string; name: string; count: number; students: number }>()
+  for (const c of courses) {
+    const key = c.category_id
+    if (!catMap.has(key)) {
+      catMap.set(key, { id: key, name: c.categories?.name ?? 'Uncategorized', count: 0, students: 0 })
+      byCategory.push(catMap.get(key)!)
+    }
+    const cat = catMap.get(key)!
+    cat.count++
+    cat.students += c.student_count
+  }
+
+  return json({
+    users: { total: users.length, monthly: userBuckets.map((b) => ({ m: b.m, count: b.count ?? 0 })) },
+    enrollments: { total: enrollments.length, active, completed, monthly: enrBuckets.map((b) => ({ m: b.m, count: b.count ?? 0 })) },
+    revenue: { gross, net: gross - refunds, refunds, monthly: revBuckets.map((b) => ({ m: b.m, revenue: Math.round(b.revenue ?? 0) })) },
+    courses: { total: courses.length, published: courses.filter((c) => c.status === 'published').length, byCategory },
+    certificates: { total: (certsRes.data ?? []).length, monthly: certBuckets.map((b) => ({ m: b.m, count: b.count ?? 0 })) }
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Admin: settings
+// ---------------------------------------------------------------------------
+
+interface SettingsRow {
+  platform_name: string
+  support_email: string
+  default_currency: string
+  instructor_share: number
+  primary_color: string
+  tagline: string
+  refund_window_days: number
+  passing_score: number
+  welcome_email: boolean
+  completion_email: boolean
+  assignment_reminders: boolean
+  weekly_digest: boolean
+  updated_at: string
+}
+
+function mapSettings(s: SettingsRow) {
+  return {
+    platformName: s.platform_name,
+    supportEmail: s.support_email,
+    defaultCurrency: s.default_currency,
+    instructorShare: s.instructor_share,
+    primaryColor: s.primary_color,
+    tagline: s.tagline,
+    refundWindowDays: s.refund_window_days,
+    passingScore: s.passing_score,
+    welcomeEmail: s.welcome_email,
+    completionEmail: s.completion_email,
+    assignmentReminders: s.assignment_reminders,
+    weeklyDigest: s.weekly_digest,
+    paymentProvider: 'paystack',
+    updatedAt: s.updated_at
+  }
+}
+
+async function loadSettings(): Promise<SettingsRow | null> {
+  const { data, error } = await supabase.from('platform_settings').select('*').eq('id', true).maybeSingle()
+  if (error || !data) return null
+  return data as SettingsRow
+}
+
+async function handleAdminGetSettings(req: Request): Promise<Response> {
+  const guard = await requireAdmin(req)
+  if (guard instanceof Response) return guard
+  const settings = await loadSettings()
+  if (!settings) return errorResponse(500, 'Platform settings are not configured.')
+  return json({ settings: { ...mapSettings(settings), paystackPublicKey: PAYSTACK_PUBLIC_KEY } })
+}
+
+async function handleAdminUpdateSettings(req: Request): Promise<Response> {
+  const guard = await requireAdmin(req)
+  if (guard instanceof Response) return guard
+
+  const body = await readBody(req)
+  const patch: Record<string, unknown> = {}
+  if (typeof body.platformName === 'string' && body.platformName.trim()) patch.platform_name = body.platformName.trim()
+  if (typeof body.supportEmail === 'string') patch.support_email = body.supportEmail.trim()
+  if (typeof body.defaultCurrency === 'string' && body.defaultCurrency.trim()) patch.default_currency = body.defaultCurrency.trim()
+  if (body.instructorShare !== undefined && typeof body.instructorShare === 'number') patch.instructor_share = Math.min(100, Math.max(0, Math.round(body.instructorShare)))
+  if (typeof body.primaryColor === 'string' && /^#[0-9a-fA-F]{6}$/.test(body.primaryColor)) patch.primary_color = body.primaryColor
+  if (typeof body.tagline === 'string') patch.tagline = body.tagline.trim()
+  if (body.refundWindowDays !== undefined && typeof body.refundWindowDays === 'number') patch.refund_window_days = Math.max(0, Math.round(body.refundWindowDays))
+  if (body.passingScore !== undefined && typeof body.passingScore === 'number') patch.passing_score = Math.min(100, Math.max(0, Math.round(body.passingScore)))
+  if (typeof body.welcomeEmail === 'boolean') patch.welcome_email = body.welcomeEmail
+  if (typeof body.completionEmail === 'boolean') patch.completion_email = body.completionEmail
+  if (typeof body.assignmentReminders === 'boolean') patch.assignment_reminders = body.assignmentReminders
+  if (typeof body.weeklyDigest === 'boolean') patch.weekly_digest = body.weeklyDigest
+  patch.updated_at = new Date().toISOString()
+
+  if (Object.keys(patch).length <= 1) return json({ settings: mapSettings((await loadSettings()) as SettingsRow) })
+
+  const { data, error } = await supabase
+    .from('platform_settings')
+    .update(patch)
+    .eq('id', true)
+    .select('*')
+    .single()
+  if (error) return errorResponse(500, 'Failed to save settings: ' + error.message)
+  return json({ settings: mapSettings(data as SettingsRow) })
+}
+
+async function handlePublicSettings(req: Request): Promise<Response> {
+  const { data, error } = await supabase.from('platform_settings').select('*').eq('id', true).maybeSingle()
+  if (error) return errorResponse(500, 'Failed to load settings: ' + error.message)
+  if (!data) return errorResponse(500, 'Platform settings are not configured.')
+  const settings = data as SettingsRow
+  return json({
+    settings: {
+      platformName: settings.platform_name,
+      tagline: settings.tagline,
+      primaryColor: settings.primary_color,
+      supportEmail: settings.support_email,
+      defaultCurrency: settings.default_currency,
+      paystackPublicKey: PAYSTACK_PUBLIC_KEY
+    }
+  })
+}
+
+// ---------------------------------------------------------------------------
 // Router
 // ---------------------------------------------------------------------------
 
@@ -2267,6 +2580,24 @@ Deno.serve(async (req) => {
       break
     case 'GET /categories':
       response = await handleListCategories(req)
+      break
+    case 'GET /settings':
+      response = await handlePublicSettings(req)
+      break
+    case 'GET /admin/reports':
+      response = await handleAdminReports(req)
+      break
+    case 'GET /admin/analytics':
+      response = await handleAdminAnalytics(req)
+      break
+    case 'GET /admin/assessment-attempts':
+      response = await handleAdminAssessmentAttempts(req)
+      break
+    case 'GET /admin/settings':
+      response = await handleAdminGetSettings(req)
+      break
+    case 'PUT /admin/settings':
+      response = await handleAdminUpdateSettings(req)
       break
     default:
       if (/^\/admin\/users\/[^/]+$/.test(path)) {
