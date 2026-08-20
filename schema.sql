@@ -505,7 +505,7 @@ create table public.platform_settings (
   id boolean primary key default true constraint platform_settings_singleton check (id),
   platform_name text not null default 'HamaAcademy',
   support_email text not null default '',
-  default_currency text not null default 'USD',
+  default_currency text not null default 'NGN',
   instructor_share integer not null default 70,
   primary_color text not null default '#1B4E9B',
   tagline text not null default '',

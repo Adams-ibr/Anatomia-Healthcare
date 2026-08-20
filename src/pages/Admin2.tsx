@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { Award, BookOpen, Download, DollarSign, FileText, Megaphone, RefreshCcw, ShieldCheck, TrendingUp, Users } from 'lucide-react'
+import { Award, Banknote, BookOpen, Download, FileText, Megaphone, RefreshCcw, ShieldCheck, TrendingUp, Users } from 'lucide-react'
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { CATEGORIES, COURSES } from '../lib/data'
 import { useApp } from '../lib/store'
@@ -204,7 +204,7 @@ export function AdminPayments() {
         <Badge color="line">{t('admin2.ordersCount', { count: data?.orderCount ?? 0 })}</Badge>
       </div>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label={t('admin2.grossRevenue')} value={formatPrice(data?.grossRevenue ?? 0)} sub={t('admin2.completedOrders', { count: data?.completedCount ?? 0 })} icon={<DollarSign className="h-5 w-5" />} />
+        <StatCard label={t('admin2.grossRevenue')} value={formatPrice(data?.grossRevenue ?? 0)} sub={t('admin2.completedOrders', { count: data?.completedCount ?? 0 })} icon={<Banknote className="h-5 w-5" />} />
         <StatCard label={t('admin2.netRevenue')} value={formatPrice(data?.netRevenue ?? 0)} sub={t('admin2.afterRefunds')} icon={<TrendingUp className="h-5 w-5" />} />
         <StatCard label={t('admin2.instructorPayouts')} value={formatPrice(data?.instructorPayouts ?? 0)} sub={t('admin2.revenueShare')} icon={<Users className="h-5 w-5" />} />
         <StatCard label={t('admin2.refunds')} value={formatPrice(data?.refunds ?? 0)} sub={t('admin2.refundedOrders', { count: data?.refundedCount ?? 0 })} icon={<RefreshCcw className="h-5 w-5" />} />
@@ -544,7 +544,7 @@ export function AdminReports() {
             <div className="card p-5">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="rounded-card bg-brand-50 p-2.5 text-brand-700"><DollarSign className="h-4 w-4" /></div>
+                  <div className="rounded-card bg-brand-50 p-2.5 text-brand-700"><Banknote className="h-4 w-4" /></div>
                   <div>
                     <p className="font-semibold text-ink">{t('admin2.revenueSummary')}</p>
                     <p className="text-xs text-muted">{t('admin2.revenueSummaryDesc')}</p>

@@ -41,7 +41,7 @@ export const COURSES: Course[] = [
     description: 'Learn the core principles of protecting systems, networks, and data.',
     longDescription: 'This course gives you a complete mental model of modern cybersecurity: how attackers operate, how defenders think, and how you can secure real environments. Through hands-on labs and realistic scenarios, you will leave able to speak the language of security and contribute from day one.',
     categoryId: 'c1', instructorId: 'u_in_1', thumbnail: t('Cybersecurity Fundamentals', '#1B4E9B'),
-    price: 89, discountPrice: 49, rating: 4.9, reviewCount: 1240, studentCount: 8640, duration: 18,
+    price: 44500, discountPrice: 24500, rating: 4.9, reviewCount: 1240, studentCount: 8640, duration: 18,
     level: 'Beginner', language: 'English', lastUpdated: '2025-11-02', hasCertificate: true,
     isFeatured: true, isTrending: true, isNew: false, status: 'published',
     objectives: [
@@ -90,7 +90,7 @@ export const COURSES: Course[] = [
     description: 'Master reconnaissance, exploitation, and reporting on authorized targets.',
     longDescription: 'Learn the ethical hacker methodology end to end: reconnaissance, scanning, exploitation, and reporting. You will practice in a fully legal, contained lab environment and finish with the confidence to pursue OSCP-style certification paths.',
     categoryId: 'c1', instructorId: 'u_in_2', thumbnail: t('Penetration Testing', '#123564'),
-    price: 129, discountPrice: 79, rating: 4.8, reviewCount: 870, studentCount: 6120, duration: 24,
+    price: 64500, discountPrice: 39500, rating: 4.8, reviewCount: 870, studentCount: 6120, duration: 24,
     level: 'Intermediate', language: 'English', lastUpdated: '2026-01-15', hasCertificate: true,
     isFeatured: true, isTrending: true, isNew: false, status: 'published',
     objectives: [
@@ -132,7 +132,7 @@ export const COURSES: Course[] = [
     description: 'Build, evaluate, and deploy machine learning models with scikit-learn and PyTorch.',
     longDescription: 'A complete, project-driven introduction to machine learning. You will learn the statistics behind the models, build them with Python, and deploy them responsibly. By the end you will have three portfolio projects.',
     categoryId: 'c3', instructorId: 'u_in_3', thumbnail: t('Machine Learning', '#4F7FBE'),
-    price: 99, rating: 4.9, reviewCount: 1560, studentCount: 12400, duration: 30,
+    price: 49500, rating: 4.9, reviewCount: 1560, studentCount: 12400, duration: 30,
     level: 'Intermediate', language: 'English', lastUpdated: '2025-12-05', hasCertificate: true,
     isFeatured: true, isTrending: false, isNew: false, status: 'published',
     objectives: [
@@ -177,7 +177,7 @@ export const COURSES: Course[] = [
     description: 'Architect production workloads on AWS with practical, exam-aligned content.',
     longDescription: 'From VPC design to serverless, this course teaches you how to architect AWS solutions that are secure, resilient, and cost-aware. Includes hands-on labs and a practice architectural review.',
     categoryId: 'c4', instructorId: 'u_in_4', thumbnail: t('AWS Architecture', '#16417F'),
-    price: 119, discountPrice: 89, rating: 4.7, reviewCount: 640, studentCount: 4580, duration: 26,
+    price: 59500, discountPrice: 44500, rating: 4.7, reviewCount: 640, studentCount: 4580, duration: 26,
     level: 'Intermediate', language: 'English', lastUpdated: '2025-11-20', hasCertificate: true,
     isFeatured: false, isTrending: true, isNew: false, status: 'published',
     objectives: [
@@ -219,7 +219,7 @@ export const COURSES: Course[] = [
     description: 'Build and deploy full-stack applications with the modern JavaScript stack.',
     longDescription: 'A project-based journey from HTML/CSS foundations to deploying a full-stack app. You will build a real product across the course using React, Node.js, PostgreSQL, and TypeScript — and deploy it to the cloud.',
     categoryId: 'c2', instructorId: 'u_in_5', thumbnail: t('Full-Stack JS', '#123564'),
-    price: 109, discountPrice: 69, rating: 4.8, reviewCount: 2100, studentCount: 18900, duration: 42,
+    price: 54500, discountPrice: 34500, rating: 4.8, reviewCount: 2100, studentCount: 18900, duration: 42,
     level: 'Beginner', language: 'English', lastUpdated: '2026-01-10', hasCertificate: true,
     isFeatured: true, isTrending: true, isNew: false, status: 'published',
     objectives: [
@@ -264,7 +264,7 @@ export const COURSES: Course[] = [
     description: 'Secure Linux systems from first boot to production lockdown.',
     longDescription: 'Hands-on hardening of Linux servers: identity, access controls, hardening kernel and services, auditing, and monitoring. Includes live config walkthroughs and hardening checklists.',
     categoryId: 'c1', instructorId: 'u_in_1', thumbnail: t('Linux Hardening', '#1B4E9B'),
-    price: 79, rating: 4.8, reviewCount: 490, studentCount: 3820, duration: 16,
+    price: 39500, rating: 4.8, reviewCount: 490, studentCount: 3820, duration: 16,
     level: 'Intermediate', language: 'English', lastUpdated: '2025-10-28', hasCertificate: true,
     isFeatured: false, isTrending: false, isNew: false, status: 'published',
     objectives: [
@@ -301,7 +301,7 @@ export const COURSES: Course[] = [
     description: 'A practical introduction to pandas, NumPy, and data visualization.',
     longDescription: 'Turn messy data into clear decisions. This course teaches the full analysis workflow: loading, cleaning, exploring, and visualizing data with pandas and matplotlib, plus a capstone on a real dataset.',
     categoryId: 'c3', instructorId: 'u_in_10', thumbnail: t('Data Analysis', '#5B6472'),
-    price: 79, discountPrice: 49, rating: 4.8, reviewCount: 780, studentCount: 6850, duration: 22,
+    price: 39500, discountPrice: 24500, rating: 4.8, reviewCount: 780, studentCount: 6850, duration: 22,
     level: 'Beginner', language: 'English', lastUpdated: '2025-12-15', hasCertificate: true,
     isFeatured: false, isTrending: true, isNew: false, status: 'published',
     objectives: [
@@ -339,7 +339,7 @@ export const COURSES: Course[] = [
     description: 'Deploy, scale, and troubleshoot Kubernetes clusters with confidence.',
     longDescription: 'Operational Kubernetes from the ground up: pods, deployments, services, storage, security, and debugging real incidents. Includes a local kind cluster throughout so you practice every concept.',
     categoryId: 'c4', instructorId: 'u_in_6', thumbnail: t('Kubernetes for Ops', '#0E294E'),
-    price: 99, rating: 4.6, reviewCount: 320, studentCount: 2900, duration: 20,
+    price: 49500, rating: 4.6, reviewCount: 320, studentCount: 2900, duration: 20,
     level: 'Intermediate', language: 'English', lastUpdated: '2025-11-08', hasCertificate: true,
     isFeatured: false, isTrending: false, isNew: false, status: 'published',
     objectives: [
@@ -376,7 +376,7 @@ export const COURSES: Course[] = [
     description: 'The complete design process from research to polished interface.',
     longDescription: 'Learn the end-to-end product design process: user research, wireframes, visual design, prototyping, and handing off to engineers. Build a portfolio case study as you go.',
     categoryId: 'c6', instructorId: 'u_in_7', thumbnail: t('UI/UX Design', '#8AADD9'),
-    price: 69, discountPrice: 39, rating: 4.8, reviewCount: 430, studentCount: 3950, duration: 20,
+    price: 34500, discountPrice: 19500, rating: 4.8, reviewCount: 430, studentCount: 3950, duration: 20,
     level: 'Beginner', language: 'English', lastUpdated: '2025-12-20', hasCertificate: true,
     isFeatured: false, isTrending: false, isNew: true, status: 'published',
     objectives: [
@@ -413,7 +413,7 @@ export const COURSES: Course[] = [
     description: 'Model revenue, costs, and cash flow in Excel from scratch.',
     longDescription: 'For analysts and founders: build a complete three-statement financial model, project scenarios, and present results confidently. Real company templates included.',
     categoryId: 'c7', instructorId: 'u_in_8', thumbnail: t('Financial Modeling', '#8AADD9'),
-    price: 89, discountPrice: 59, rating: 4.9, reviewCount: 520, studentCount: 4100, duration: 18,
+    price: 44500, discountPrice: 29500, rating: 4.9, reviewCount: 520, studentCount: 4100, duration: 18,
     level: 'Intermediate', language: 'English', lastUpdated: '2025-11-30', hasCertificate: true,
     isFeatured: false, isTrending: false, isNew: false, status: 'published',
     objectives: [
@@ -450,7 +450,7 @@ export const COURSES: Course[] = [
     description: 'Master SIEM analytics and proactive threat hunting in Splunk and Elastic.',
     longDescription: 'Go beyond alerts. Learn how to query, correlate, and hunt across logs to detect the attacks that slip past signature-based defenses. Hands-on with realistic security telemetry.',
     categoryId: 'c1', instructorId: 'u_in_1', thumbnail: t('SIEM & Threat Hunting', '#1B4E9B'),
-    price: 109, rating: 4.9, reviewCount: 380, studentCount: 2980, duration: 22,
+    price: 54500, rating: 4.9, reviewCount: 380, studentCount: 2980, duration: 22,
     level: 'Advanced', language: 'English', lastUpdated: '2026-01-05', hasCertificate: true,
     isFeatured: false, isTrending: true, isNew: true, status: 'published',
     objectives: [
@@ -487,7 +487,7 @@ export const COURSES: Course[] = [
     description: 'Build a full-funnel growth engine for your product.',
     longDescription: 'A playbook for sustainable growth: positioning, SEO, content, lifecycle email, and experimentation. Work through a real growth plan for your own product by the end.',
     categoryId: 'c5', instructorId: 'u_in_9', thumbnail: t('Growth Marketing', '#B7791F'),
-    price: 69, discountPrice: 39, rating: 4.7, reviewCount: 290, studentCount: 2600, duration: 16,
+    price: 34500, discountPrice: 19500, rating: 4.7, reviewCount: 290, studentCount: 2600, duration: 16,
     level: 'Beginner', language: 'English', lastUpdated: '2025-12-10', hasCertificate: true,
     isFeatured: false, isTrending: false, isNew: false, status: 'published',
     objectives: [
@@ -524,7 +524,7 @@ export const COURSES: Course[] = [
     description: 'Script your way to faster investigations and stronger defenses.',
     longDescription: 'Learn Python through a security lens: log parsing, port scanning, API automation, and simple detections. Perfect for SOC analysts and pentesters who want to automate.',
     categoryId: 'c2', instructorId: 'u_in_2', thumbnail: t('Python for Security', '#123564'),
-    price: 89, rating: 4.8, reviewCount: 340, studentCount: 3100, duration: 18,
+    price: 44500, rating: 4.8, reviewCount: 340, studentCount: 3100, duration: 18,
     level: 'Beginner', language: 'English', lastUpdated: '2025-11-25', hasCertificate: true,
     isFeatured: false, isTrending: false, isNew: false, status: 'published',
     objectives: [
@@ -561,7 +561,7 @@ export const COURSES: Course[] = [
     description: 'Learn discovery, roadmapping, and delivery as a PM.',
     longDescription: 'The modern PM toolkit: customer discovery, prioritization frameworks, roadmaps, and working with engineers and designers. Build a product one-pager and roadmap for your own idea.',
     categoryId: 'c5', instructorId: 'u_in_7', thumbnail: t('Product Management', '#16417F'),
-    price: 79, discountPrice: 49, rating: 4.6, reviewCount: 220, studentCount: 2100, duration: 14,
+    price: 39500, discountPrice: 24500, rating: 4.6, reviewCount: 220, studentCount: 2100, duration: 14,
     level: 'Beginner', language: 'English', lastUpdated: '2025-12-01', hasCertificate: true,
     isFeatured: false, isTrending: false, isNew: false, status: 'published',
     objectives: [
@@ -597,7 +597,7 @@ export const COURSES: Course[] = [
     description: 'Identity, data, and network security across the big three clouds.',
     longDescription: 'Cloud-specific security for practitioners: shared responsibility, identity (IAM), data protection, network segmentation, and continuous compliance. Hands-on with AWS while covering patterns across clouds.',
     categoryId: 'c1', instructorId: 'u_in_4', thumbnail: t('Cloud Security', '#4F7FBE'),
-    price: 99, discountPrice: 69, rating: 4.8, reviewCount: 410, studentCount: 3650, duration: 20,
+    price: 49500, discountPrice: 34500, rating: 4.8, reviewCount: 410, studentCount: 3650, duration: 20,
     level: 'Intermediate', language: 'English', lastUpdated: '2025-12-18', hasCertificate: true,
     isFeatured: true, isTrending: false, isNew: false, status: 'published',
     objectives: [
@@ -635,7 +635,7 @@ export const COURSES: Course[] = [
     description: 'Advanced TypeScript patterns for real applications.',
     longDescription: 'Go beyond basics: generics, type guards, utility types, and architecture patterns that make large codebases maintainable. Build a fully-typed application as the course project.',
     categoryId: 'c2', instructorId: 'u_in_5', thumbnail: t('TypeScript Pro', '#123564'),
-    price: 69, discountPrice: 45, rating: 4.8, reviewCount: 380, studentCount: 4200, duration: 16,
+    price: 34500, discountPrice: 22500, rating: 4.8, reviewCount: 380, studentCount: 4200, duration: 16,
     level: 'Advanced', language: 'English', lastUpdated: '2025-12-22', hasCertificate: true,
     isFeatured: false, isTrending: false, isNew: false, status: 'published',
     objectives: [
@@ -671,7 +671,7 @@ export const COURSES: Course[] = [
     description: 'OWASP Top 10, hands-on, in a legal lab.',
     longDescription: 'Walk through the OWASP Top 10 with real labs: SQLi, XSS, IDOR, SSRF, and more. Learn how they work, how to find them, and how to write remediation guidance for developers.',
     categoryId: 'c1', instructorId: 'u_in_2', thumbnail: t('Web Hacking', '#0A1E38'),
-    price: 129, discountPrice: 89, rating: 4.8, reviewCount: 520, studentCount: 4700, duration: 26,
+    price: 64500, discountPrice: 44500, rating: 4.8, reviewCount: 520, studentCount: 4700, duration: 26,
     level: 'Intermediate', language: 'English', lastUpdated: '2026-01-20', hasCertificate: true,
     isFeatured: true, isTrending: true, isNew: true, status: 'published',
     objectives: [
@@ -709,7 +709,7 @@ export const COURSES: Course[] = [
     description: 'Level up from formulas to modern Excel analytics.',
     longDescription: 'Modern Excel analytics: Power Query for data transformation, Power Pivot for data modeling, and interactive dashboards. Ideal for analysts and ops professionals.',
     categoryId: 'c3', instructorId: 'u_in_8', thumbnail: t('Excel Analytics', '#5B6472'),
-    price: 49, discountPrice: 29, rating: 4.7, reviewCount: 310, studentCount: 2900, duration: 12,
+    price: 24500, discountPrice: 14500, rating: 4.7, reviewCount: 310, studentCount: 2900, duration: 12,
     level: 'Beginner', language: 'English', lastUpdated: '2025-11-15', hasCertificate: true,
     isFeatured: false, isTrending: false, isNew: false, status: 'published',
     objectives: [
@@ -745,7 +745,7 @@ export const COURSES: Course[] = [
     description: 'Forensics, evidence handling, and DFIR workflows.',
     longDescription: 'Learn DFIR end to end: evidence acquisition, disk and memory forensics, log correlation, and writing investigation reports that stand up to scrutiny.',
     categoryId: 'c1', instructorId: 'u_in_1', thumbnail: t('Digital Forensics', '#1B4E9B'),
-    price: 119, rating: 4.9, reviewCount: 260, studentCount: 2350, duration: 24,
+    price: 59500, rating: 4.9, reviewCount: 260, studentCount: 2350, duration: 24,
     level: 'Advanced', language: 'English', lastUpdated: '2026-01-25', hasCertificate: true,
     isFeatured: false, isTrending: false, isNew: true, status: 'published',
     objectives: [
@@ -783,7 +783,7 @@ export const COURSES: Course[] = [
     description: 'The complete SQL skill set for analysts and engineers.',
     longDescription: 'From basic SELECT to window functions and query optimization. Master the SQL every data role needs, with real-world datasets and practice problems throughout.',
     categoryId: 'c3', instructorId: 'u_in_10', thumbnail: t('SQL for Data', '#4F7FBE'),
-    price: 59, discountPrice: 35, rating: 4.8, reviewCount: 450, studentCount: 5100, duration: 14,
+    price: 29500, discountPrice: 17500, rating: 4.8, reviewCount: 450, studentCount: 5100, duration: 14,
     level: 'Beginner', language: 'English', lastUpdated: '2025-12-25', hasCertificate: true,
     isFeatured: false, isTrending: true, isNew: false, status: 'published',
     objectives: [
@@ -821,7 +821,7 @@ export const COURSES: Course[] = [
     description: 'Technical writing, talks, and stakeholder communication.',
     longDescription: 'Soft skills with hard ROI: clear technical writing, effective presentations, and communicating up the org. Practice with feedback on every assignment.',
     categoryId: 'c8', instructorId: 'u_in_9', thumbnail: t('Communication', '#B7791F'),
-    price: 39, discountPrice: 19, rating: 4.6, reviewCount: 180, studentCount: 1900, duration: 10,
+    price: 19500, discountPrice: 9500, rating: 4.6, reviewCount: 180, studentCount: 1900, duration: 10,
     level: 'Beginner', language: 'English', lastUpdated: '2025-12-05', hasCertificate: true,
     isFeatured: false, isTrending: false, isNew: false, status: 'published',
     objectives: [
@@ -856,7 +856,7 @@ export const COURSES: Course[] = [
     description: 'Lambda, event bridges, and durable workflows — done right.',
     longDescription: 'Architect event-driven, serverless systems: Lambda best practices, event-driven design, async patterns, and pitfalls. Build a real event-driven pipeline.',
     categoryId: 'c4', instructorId: 'u_in_4', thumbnail: t('Serverless', '#0E294E'),
-    price: 89, discountPrice: 59, rating: 4.7, reviewCount: 240, studentCount: 2200, duration: 16,
+    price: 44500, discountPrice: 29500, rating: 4.7, reviewCount: 240, studentCount: 2200, duration: 16,
     level: 'Intermediate', language: 'English', lastUpdated: '2025-12-12', hasCertificate: true,
     isFeatured: false, isTrending: false, isNew: false, status: 'published',
     objectives: [
@@ -959,12 +959,12 @@ export const PLANS: Plan[] = [
     features: ['Access to free courses', 'Basic progress tracking', 'Certificates for eligible free courses', 'Community access']
   },
   {
-    id: 'pl_premium', name: 'Premium', price: 29, period: 'month', description: 'Everything you need to go deep and get certified.',
+    id: 'pl_premium', name: 'Premium', price: 5000, period: 'month', description: 'Everything you need to go deep and get certified.',
     features: ['All courses included', 'Certificates with verification', 'Advanced assessments & labs', 'Learning paths & career tracks', 'Priority support', 'Community & events'],
     highlight: true
   },
   {
-    id: 'pl_business', name: 'Business', price: 499, period: 'month', description: 'For teams and institutions building a learning culture.',
+    id: 'pl_business', name: 'Business', price: 50000, period: 'month', description: 'For teams and institutions building a learning culture.',
     features: ['Everything in Premium', 'Team & organization management', 'Organization analytics dashboard', 'Private courses & content', 'Administrative controls', 'Dedicated success manager']
   }
 ]

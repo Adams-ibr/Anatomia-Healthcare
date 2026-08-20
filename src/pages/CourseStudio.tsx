@@ -93,7 +93,7 @@ function blank(): StudioDraft {
     level: 'Beginner',
     language: 'English',
     thumbnail: '',
-    price: '49',
+    price: '15000',
     discountPrice: '',
     hasCertificate: true,
     status: 'draft',

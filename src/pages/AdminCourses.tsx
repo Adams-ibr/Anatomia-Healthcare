@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
-  AlertTriangle, BookOpen, CheckCircle2, ChevronLeft, ChevronRight, CircleDollarSign,
+  AlertTriangle, BookOpen, CheckCircle2, ChevronLeft, ChevronRight, Banknote,
   Clock3, CloudDownload, FileText, Flag, Layers, Loader2, PencilLine, Plus, Search, Star,
   Trash2
 } from 'lucide-react'
@@ -467,7 +467,7 @@ function CreateCourseModal({ open, onClose, busy, categories, instructors, onCre
           <div>
             <label className="label-base">{t('admin.price')}</label>
             <div className="relative">
-              <CircleDollarSign className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
+              <Banknote className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
               <input type="number" min="0" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="0" className="input-base pl-9" />
             </div>
           </div>
@@ -565,7 +565,7 @@ function EditCourseModal({ course, busy, categories, onClose, onSave }: {
           <div>
             <label className="label-base">{t('admin.price')}</label>
             <div className="relative">
-              <CircleDollarSign className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
+              <Banknote className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
               <input type="number" min="0" value={price} onChange={(e) => setPrice(e.target.value)} className="input-base pl-9" />
             </div>
           </div>
