@@ -278,6 +278,126 @@ export const courseApi = {
   }
 }
 
+export interface StudentEnrollment {
+  id: string
+  userId: string
+  courseId: string
+  enrolledAt: string
+  progress: number
+  status: 'active' | 'completed'
+  completedLessons: string[]
+  currentLessonId?: string
+  certificateIssued?: boolean
+  certificateId?: string
+  pricePaid: number
+  course?: {
+    id: string
+    slug: string
+    title: string
+    subtitle?: string
+    description?: string
+    thumbnail?: string
+    price: number
+    discountPrice?: number
+    rating: number
+    reviewCount: number
+    studentCount: number
+    duration: number
+    level: string
+    language?: string
+    instructorName?: string
+    categoryName?: string
+    hasCertificate?: boolean
+    status?: string
+  }
+}
+
+export interface StudentOrder {
+  id: string
+  userId: string
+  total: number
+  status: string
+  paymentMethod: string
+  createdAt: string
+  items: { courseId: string; title: string; price: number }[]
+}
+
+export interface StudentCertificate {
+  id: string
+  userId: string
+  courseId: string
+  instructorId: string
+  issuedAt: string
+  completionDate: string
+  verificationCode: string
+}
+
+export const studentApi = {
+  listEnrollments(token: string): Promise<{ enrollments: StudentEnrollment[] }> {
+    return apiFetch<{ enrollments: StudentEnrollment[] }>('/api/auth/me/enrollments', { token })
+  },
+
+  getCourseFull(token: string | null, id: string): Promise<{ course: AdminCourseFull }> {
+    return apiFetch<{ course: AdminCourseFull }>(`/api/auth/courses/${id}/full`, { token })
+  },
+
+  enroll(token: string, input: { courseId: string; paymentMethod?: string }): Promise<{ enrollment: StudentEnrollment }> {
+    return apiFetch<{ enrollment: StudentEnrollment }>('/api/auth/me/enrollments', { method: 'POST', body: input, token })
+  },
+
+  updateEnrollment(token: string, courseId: string, patch: {
+    completedLessons?: string[]
+    currentLessonId?: string
+  }): Promise<{ enrollment: StudentEnrollment }> {
+    return apiFetch<{ enrollment: StudentEnrollment }>(`/api/auth/me/enrollments/${courseId}`, { method: 'PATCH', body: patch, token })
+  },
+
+  checkout(token: string, input: { courseIds: string[]; paymentMethod?: string }): Promise<{
+    order: StudentOrder
+    enrollments: StudentEnrollment[]
+  }> {
+    return apiFetch<{ order: StudentOrder; enrollments: StudentEnrollment[] }>('/api/auth/checkout', { method: 'POST', body: input, token })
+  },
+
+  listOrders(token: string): Promise<{ orders: StudentOrder[] }> {
+    return apiFetch<{ orders: StudentOrder[] }>('/api/auth/me/orders', { token })
+  },
+
+  listCertificates(token: string): Promise<{ certificates: StudentCertificate[] }> {
+    return apiFetch<{ certificates: StudentCertificate[] }>('/api/auth/me/certificates', { token })
+  },
+
+  listAdminEnrollments(token: string): Promise<{
+    enrollments: {
+      id: string
+      userId: string
+      studentName: string
+      courseId: string
+      courseTitle: string
+      courseThumbnail?: string
+      enrolledAt: string
+      progress: number
+      status: string
+      pricePaid: number
+    }[]
+  }> {
+    return apiFetch<{ enrollments: unknown[] }>('/api/auth/admin/enrollments', { token }) as Promise<{
+      enrollments: {
+        id: string
+        userId: string
+        studentName: string
+        courseId: string
+        courseTitle: string
+        courseThumbnail?: string
+        enrolledAt: string
+        progress: number
+        status: string
+        pricePaid: number
+      }[]
+    }>
+  }
+}
+
 export const authApi = {
   register(input: { name: string; email: string; password: string; role: RegisterRole }): Promise<AuthSession> {
     return apiFetch<AuthSession>('/api/auth/register', { method: 'POST', body: input })

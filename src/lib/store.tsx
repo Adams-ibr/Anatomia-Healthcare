@@ -4,7 +4,8 @@ import type { User, AuthUser, Enrollment, Notification, Conversation, Message, S
 import { USERS, ALL_STUDENTS, INSTRUCTORS, seedEnrollments, CERTIFICATES, NOTIFICATIONS, CONVERSATIONS, MESSAGES, SUBMISSIONS, ORDERS } from './data'
 import { uid } from './utils'
 import { ApiError } from './api/client'
-import { authApi, getStoredToken, storeToken, clearStoredToken } from './api/auth'
+import { authApi, getStoredToken, storeToken, clearStoredToken, studentApi } from './api/auth'
+import type { StudentEnrollment } from './api/auth'
 
 interface Toast {
   id: string
@@ -92,6 +93,35 @@ function normalizeUser(user: AuthUser): AuthUser {
   }
 }
 
+function toEnrollment(e: StudentEnrollment): Enrollment {
+  return {
+    id: e.id,
+    userId: e.userId,
+    courseId: e.courseId,
+    enrolledAt: e.enrolledAt,
+    progress: e.progress,
+    status: e.status,
+    completedLessons: e.completedLessons,
+    currentLessonId: e.currentLessonId,
+    certificateIssued: e.certificateIssued,
+    certificateId: e.certificateId,
+    pricePaid: e.pricePaid,
+    course: e.course
+  }
+}
+
+function toOrder(o: { id: string; userId: string; total: number; status: string; paymentMethod: string; createdAt: string; items: { courseId: string; title: string; price: number }[] }): Order {
+  return {
+    id: o.id,
+    userId: o.userId,
+    items: o.items,
+    total: o.total,
+    status: (o.status === 'completed' || o.status === 'pending' || o.status === 'refunded') ? o.status : 'completed',
+    date: o.createdAt,
+    paymentMethod: o.paymentMethod
+  }
+}
+
 export function AppProvider({ children }: { children: ReactNode }) {
   const [users, setUsers] = useState<User[]>(() => load('users', allUsers))
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null)
@@ -134,6 +164,29 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => () => Object.values(timers.current).forEach((t) => clearTimeout(t)), [])
 
+  const hydrateStudentData = useCallback(async (token: string) => {
+    try {
+      const [enRes, ordersRes, certsRes] = await Promise.all([
+        studentApi.listEnrollments(token),
+        studentApi.listOrders(token),
+        studentApi.listCertificates(token)
+      ])
+      setEnrollments(enRes.enrollments.map(toEnrollment))
+      setOrders(ordersRes.orders.map(toOrder))
+      setCertificates(certsRes.certificates.map((c) => ({
+        id: c.id,
+        userId: c.userId,
+        courseId: c.courseId,
+        instructorId: c.instructorId,
+        issuedAt: c.issuedAt,
+        completionDate: c.completionDate,
+        verificationCode: c.verificationCode
+      })))
+    } catch {
+      /* keep local fallback data when offline */
+    }
+  }, [])
+
   useEffect(() => {
     const token = getStoredToken()
     if (!token) {
@@ -146,6 +199,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         if (cancelled) return
         setCurrentUser(normalizeUser(user))
         setAuthStatus('authenticated')
+        hydrateStudentData(token)
       })
       .catch(() => {
         if (cancelled) return
@@ -156,7 +210,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [hydrateStudentData])
 
   const login = useCallback(async (email: string, password: string) => {
     try {
@@ -164,11 +218,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
       storeToken(token)
       setCurrentUser(normalizeUser(user))
       setAuthStatus('authenticated')
+      hydrateStudentData(token)
       return { ok: true, user: normalizeUser(user) }
     } catch (err) {
       return { ok: false, error: getErrorMessage(err) }
     }
-  }, [])
+  }, [hydrateStudentData])
 
   const register = useCallback(async (name: string, email: string, password: string, role: 'student' | 'instructor') => {
     try {
@@ -176,11 +231,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
       storeToken(token)
       setCurrentUser(normalizeUser(user))
       setAuthStatus('authenticated')
+      hydrateStudentData(token)
       return { ok: true, user: normalizeUser(user) }
     } catch (err) {
       return { ok: false, error: getErrorMessage(err) }
     }
-  }, [])
+  }, [hydrateStudentData])
 
   const logout = useCallback(async () => {
     const token = getStoredToken()
@@ -223,9 +279,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  const enroll = useCallback((courseId: string) => {
+  const enroll = useCallback(async (courseId: string) => {
     const userId = currentUser?.id
+    const token = getStoredToken()
     if (!userId) return
+    if (token) {
+      try {
+        const { enrollment } = await studentApi.enroll(token, { courseId })
+        setEnrollments((e) => e.some((x) => x.userId === userId && x.courseId === courseId) ? e : [...e, toEnrollment(enrollment)])
+        return
+      } catch {
+        /* fall through to local */
+      }
+    }
     setEnrollments((e) => {
       if (e.some((x) => x.userId === userId && x.courseId === courseId)) return e
       const en: Enrollment = {
@@ -236,8 +302,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     })
   }, [currentUser])
 
-  const completeLesson = useCallback((courseId: string, lessonId: string) => {
+  const completeLesson = useCallback(async (courseId: string, lessonId: string) => {
     const userId = currentUser?.id
+    const token = getStoredToken()
     if (!userId) return
     setEnrollments((e) => e.map((en) => {
       if (en.userId !== userId || en.courseId !== courseId) return en
@@ -246,14 +313,39 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const progress = Math.min(100, Math.round((completedLessons.length / 12) * 100) + Math.round((completedLessons.length * 100) / 120))
       return { ...en, completedLessons, progress, status: progress >= 100 ? 'completed' : en.status }
     }))
-  }, [currentUser])
+    if (token) {
+      try {
+        const current = enrollments.find((x) => x.userId === userId && x.courseId === courseId)
+        const completedLessons = [...(current?.completedLessons ?? []), lessonId]
+        const { enrollment } = await studentApi.updateEnrollment(token, courseId, { completedLessons })
+        setEnrollments((e) => e.map((en) => en.courseId === courseId && en.userId === userId ? toEnrollment(enrollment) : en))
+        if (enrollment.status === 'completed') {
+          const certsRes = await studentApi.listCertificates(token)
+          setCertificates(certsRes.certificates.map((c) => ({
+            id: c.id, userId: c.userId, courseId: c.courseId, instructorId: c.instructorId,
+            issuedAt: c.issuedAt, completionDate: c.completionDate, verificationCode: c.verificationCode
+          })))
+        }
+      } catch {
+        /* keep local state */
+      }
+    }
+  }, [currentUser, enrollments])
 
-  const setCurrentLesson = useCallback((courseId: string, lessonId: string) => {
+  const setCurrentLesson = useCallback(async (courseId: string, lessonId: string) => {
     const userId = currentUser?.id
+    const token = getStoredToken()
     if (!userId) return
     setEnrollments((e) => e.map((en) =>
       en.userId === userId && en.courseId === courseId ? { ...en, currentLessonId: lessonId } : en
     ))
+    if (token) {
+      try {
+        await studentApi.updateEnrollment(token, courseId, { currentLessonId: lessonId })
+      } catch {
+        /* keep local state */
+      }
+    }
   }, [currentUser])
 
   const toggleWishlist = useCallback((courseId: string) => {
@@ -270,8 +362,27 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const clearCart = useCallback(() => setCart([]), [])
 
-  const checkout = useCallback((method: string) => {
+  const checkout = useCallback(async (method: string) => {
     if (!currentUser) return
+    const token = getStoredToken()
+    const courseIds = [...cart]
+    if (token && courseIds.length > 0) {
+      try {
+        const { enrollments: newEnrollments, order } = await studentApi.checkout(token, { courseIds, paymentMethod: method })
+        setEnrollments((e) => {
+          const next = [...e]
+          newEnrollments.forEach((en) => {
+            if (!next.some((x) => x.userId === currentUser.id && x.courseId === en.courseId)) next.push(toEnrollment(en))
+          })
+          return next
+        })
+        setOrders((o) => [...o, toOrder({ ...order, userId: currentUser.id, items: order.items, createdAt: order.createdAt })])
+        setCart([])
+        return
+      } catch {
+        /* fall through to local */
+      }
+    }
     setEnrollments((e) => {
       const next = [...e]
       cart.forEach((courseId) => {

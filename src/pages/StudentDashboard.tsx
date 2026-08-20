@@ -77,12 +77,12 @@ export default function StudentDashboard() {
         {mine.length > 0 && (
           <div className="grid gap-4 border-t border-line bg-paper p-5 sm:grid-cols-2 lg:grid-cols-3 sm:p-6">
             {mine.slice(0, 6).map((en) => {
-              const course = COURSES.find((c) => c.id === en.courseId)
+              const course = en.course ?? COURSES.find((c) => c.id === en.courseId)
               if (!course) return null
-              const allLessons = course.sections.flatMap((s) => s.lessons)
+              const allLessons = 'sections' in course ? (course as typeof COURSES[number]).sections.flatMap((s) => s.lessons) : []
               const current = allLessons.find((l) => l.id === en.currentLessonId) ?? allLessons[0]
               return (
-                <button key={en.id} onClick={() => nav(`/learning/${course.id}/${current.id}`)} className="group flex items-center gap-3 rounded-card border border-line bg-surface p-3 text-left transition-colors hover:border-brand-300">
+                <button key={en.id} onClick={() => nav(current && course.slug ? `/learning/${course.id}/${current.id}` : `/learning/${course.id}`)} className="group flex items-center gap-3 rounded-card border border-line bg-surface p-3 text-left transition-colors hover:border-brand-300">
                   <img src={course.thumbnail} alt={course.title} className="h-10 w-14 shrink-0 rounded object-cover" />
                   <div className="min-w-0 flex-1">
                     <p className="line-clamp-1 text-sm font-medium text-ink group-hover:text-brand-700">{course.title}</p>
@@ -118,19 +118,19 @@ export default function StudentDashboard() {
           ) : (
             <div className="grid gap-4 sm:grid-cols-2">
               {active.slice(0, 4).map((en) => {
-                const course = COURSES.find((c) => c.id === en.courseId)
+                const course = en.course ?? COURSES.find((c) => c.id === en.courseId)
                 if (!course) return null
-                const allLessons = course.sections.flatMap((s) => s.lessons)
+                const allLessons = 'sections' in course ? (course as typeof COURSES[number]).sections.flatMap((s) => s.lessons) : []
                 const current = allLessons.find((l) => l.id === en.currentLessonId) ?? allLessons[0]
                 return (
-                  <button key={en.id} onClick={() => nav(`/learning/${course.id}/${current.id}`)} className="card group flex flex-col overflow-hidden text-left transition-shadow hover:shadow-lift">
+                  <button key={en.id} onClick={() => nav(current && course.slug ? `/learning/${course.id}/${current.id}` : `/learning/${course.id}`)} className="card group flex flex-col overflow-hidden text-left transition-shadow hover:shadow-lift">
                     <div className="relative aspect-video bg-brand-900">
                       <img src={course.thumbnail} alt={course.title} className="h-full w-full object-cover" />
                       <span className="absolute bottom-2 left-2 rounded-full bg-surface/95 px-2 py-0.5 text-xs font-semibold text-ink">{en.progress}%</span>
                     </div>
                     <div className="flex flex-1 flex-col gap-2 p-4">
                       <p className="line-clamp-1 font-semibold text-ink">{course.title}</p>
-                      <p className="text-xs text-muted">{t('sdash.continueColon', { title: current.title })}</p>
+                      <p className="text-xs text-muted">{current ? t('sdash.continueColon', { title: current.title }) : t('sdash.continueColon', { title: course.title })}</p>
                       <ProgressBar value={en.progress} className="mt-auto" />
                     </div>
                   </button>

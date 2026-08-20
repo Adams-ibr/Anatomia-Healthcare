@@ -130,6 +130,26 @@ export interface Enrollment {
   certificateIssued?: boolean
   certificateId?: string
   pricePaid: number
+  course?: {
+    id: string
+    slug: string
+    title: string
+    subtitle?: string
+    description?: string
+    thumbnail?: string
+    price: number
+    discountPrice?: number
+    rating: number
+    reviewCount: number
+    studentCount: number
+    duration: number
+    level: string
+    language?: string
+    instructorName?: string
+    categoryName?: string
+    hasCertificate?: boolean
+    status?: string
+  }
 }
 
 export interface AssessmentQuestion {

@@ -1,10 +1,11 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Award, BookOpen, CheckCircle2, DollarSign, GraduationCap, Megaphone, ShoppingBag, TrendingUp, UserCog, Users } from 'lucide-react'
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { COURSES, ORDERS, ALL_STUDENTS, INSTRUCTORS } from '../lib/data'
 import { useApp } from '../lib/store'
+import { getStoredToken, studentApi } from '../lib/api/auth'
 import { Avatar, Badge, Button, ProgressBar, StatCard } from '../components/ui'
 import { formatPrice } from '../lib/utils'
 
@@ -86,9 +87,44 @@ const ROLE_COLORS: Record<string, 'brand' | 'success' | 'warning' | 'danger' | '
 }
 
 export function AdminEnrollments() {
-  const { enrollments } = useApp()
+  const { enrollments, toast } = useApp()
   const { t } = useTranslation()
   const nav = useNavigate()
+  const [remote, setRemote] = useState<{
+    id: string
+    userId: string
+    studentName: string
+    courseId: string
+    courseTitle: string
+    courseThumbnail?: string
+    enrolledAt: string
+    progress: number
+    status: string
+    pricePaid: number
+  }[] | null>(null)
+
+  useEffect(() => {
+    const token = getStoredToken()
+    if (!token) return
+    let cancelled = false
+    studentApi.listAdminEnrollments(token)
+      .then((res) => { if (!cancelled) setRemote(res.enrollments) })
+      .catch(() => { if (!cancelled) toast(t('admin.errorGeneric'), t('admin.loadFailed'), 'error') })
+    return () => { cancelled = true }
+  }, [t, toast])
+
+  const rows = (remote ?? enrollments.slice(0, 12).map((en) => ({
+    id: en.id,
+    userId: en.userId,
+    studentName: ALL_STUDENTS[0]?.name ?? 'Student',
+    courseId: en.courseId,
+    courseTitle: COURSES.find((c) => c.id === en.courseId)?.title ?? '',
+    enrolledAt: en.enrolledAt,
+    progress: en.progress,
+    status: en.status,
+    pricePaid: en.pricePaid
+  })))
+
   return (
     <div className="space-y-6">
       <h1 className="font-display text-2xl font-bold text-ink">{t('admin.enrollments')}</h1>
@@ -105,18 +141,20 @@ export function AdminEnrollments() {
               </tr>
             </thead>
             <tbody className="divide-y divide-line">
-              {enrollments.slice(0, 12).map((en) => {
-                const course = COURSES.find((c) => c.id === en.courseId)
-                const student = ALL_STUDENTS[0] ?? { name: 'Student' }
+              {rows.map((en) => {
+                const isRemote = remote !== null
+                const course = isRemote
+                  ? { id: en.courseId, title: en.courseTitle }
+                  : COURSES.find((c) => c.id === en.courseId)
                 return (
                   <tr key={en.id} className="hover:bg-paper/60">
                     <td className="px-5 py-3">
                       <div className="flex items-center gap-2">
-                        <Avatar name={student.name} size="xs" />
-                        <span className="font-medium text-ink">{student.name}</span>
+                        <Avatar name={en.studentName} size="xs" />
+                        <span className="font-medium text-ink">{en.studentName}</span>
                       </div>
                     </td>
-                    <td className="px-5 py-3 text-muted">{course?.title}</td>
+                    <td className="px-5 py-3 text-muted">{course?.title ?? en.courseId}</td>
                     <td className="px-5 py-3 text-muted">{new Date(en.enrolledAt).toLocaleDateString()}</td>
                     <td className="px-5 py-3">
                       <div className="flex w-28 items-center gap-2">

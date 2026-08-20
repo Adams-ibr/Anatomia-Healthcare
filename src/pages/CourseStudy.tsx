@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
@@ -7,9 +7,10 @@ import {
 } from 'lucide-react'
 import { COURSES } from '../lib/data'
 import { useApp } from '../lib/store'
+import { getStoredToken, studentApi } from '../lib/api/auth'
 import { Badge, Button, ProgressBar, Rating } from '../components/ui'
 import { cn, formatDuration } from '../lib/utils'
-import type { Lesson } from '../lib/types'
+import type { Course, Lesson } from '../lib/types'
 
 function LessonIcon({ type }: { type: Lesson['type'] }) {
   const map: Record<string, React.ReactNode> = {
@@ -30,7 +31,51 @@ export default function CourseStudy() {
   const nav = useNavigate()
   const { t } = useTranslation()
   const { currentUser, enrollments, certificates } = useApp()
-  const course = COURSES.find((c) => c.id === courseId)
+  const mockCourse = COURSES.find((c) => c.id === courseId)
+  const [fullCourse, setFullCourse] = useState<Course | null>(null)
+  const course = fullCourse ?? mockCourse ?? (enrollments.find((e) => e.courseId === courseId)?.course as unknown as Course | undefined) ?? null
+
+  useEffect(() => {
+    if (!courseId || mockCourse) return
+    let cancelled = false
+    const token = getStoredToken()
+    studentApi.getCourseFull(token, courseId)
+      .then(({ course: full }) => {
+        if (cancelled || !full) return
+        const sections = (full.sections ?? []).map((s) => ({
+          id: s.id,
+          title: s.title,
+          lessons: (s.lessons ?? []).map((l) => ({
+            id: l.id, title: l.title, type: l.type as Lesson['type'], duration: l.duration,
+            content: l.content, videoUrl: l.videoUrl, resourceUrl: l.resourceUrl
+          }))
+        }))
+        setFullCourse({
+          ...full,
+          price: full.price ?? 0,
+          discountPrice: full.discountPrice,
+          rating: full.rating ?? 0,
+          reviewCount: full.reviewCount ?? 0,
+          studentCount: full.studentCount ?? 0,
+          duration: full.duration ?? 0,
+          level: full.level as Course['level'],
+          language: full.language ?? 'en',
+          lastUpdated: full.lastUpdated ?? '',
+          hasCertificate: full.hasCertificate ?? false,
+          isFeatured: full.isFeatured ?? false,
+          isTrending: full.isTrending ?? false,
+          isNew: full.isNew ?? false,
+          status: full.status ?? 'published',
+          objectives: (full.objectives ?? []).map((o) => ({ text: o })),
+          requirements: (full.requirements ?? []).map((r) => ({ text: r })),
+          sections,
+          reviews: [],
+          faqs: full.faqs ?? []
+        } as unknown as Course)
+      })
+      .catch(() => { /* fall back to mock/enrollment summary */ })
+    return () => { cancelled = true }
+  }, [courseId, mockCourse])
 
   const enrollment = useMemo(
     () => currentUser ? enrollments.find((e) => e.userId === currentUser.id && e.courseId === courseId) : null,

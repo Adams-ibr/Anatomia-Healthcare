@@ -308,6 +308,14 @@ async function requireAdmin(req: Request): Promise<{ profile: ProfileRow } | Res
   return { profile }
 }
 
+async function requireUser(req: Request): Promise<{ profile: ProfileRow } | Response> {
+  const user = await authUser(req)
+  if (!user) return errorResponse(401, 'Not authenticated.')
+  const profile = await getProfile(user.id)
+  if (!profile) return errorResponse(401, 'No profile found for this account.')
+  return { profile }
+}
+
 interface AdminUserRow extends ProfileRow {
   lastSignInAt?: string
 }
@@ -531,6 +539,37 @@ function mapCourse(c: CourseRow) {
 
 function slugify(value: string): string {
   return (value ?? '').toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+}
+
+interface EnrollmentRow {
+  id: string
+  user_id: string
+  course_id: string
+  enrolled_at: string
+  progress: number
+  status: string
+  completed_lessons: string[]
+  current_lesson_id: string | null
+  certificate_issued: boolean
+  certificate_id: string | null
+  price_paid: number
+}
+
+function mapEnrollment(e: EnrollmentRow, course?: Record<string, unknown>) {
+  return {
+    id: e.id,
+    userId: e.user_id,
+    courseId: e.course_id,
+    enrolledAt: e.enrolled_at,
+    progress: e.progress,
+    status: e.status,
+    completedLessons: e.completed_lessons ?? [],
+    currentLessonId: e.current_lesson_id ?? undefined,
+    certificateIssued: e.certificate_issued,
+    certificateId: e.certificate_id ?? undefined,
+    pricePaid: Number(e.price_paid),
+    course: course ?? undefined
+  }
 }
 
 async function handleAdminListCourses(req: Request): Promise<Response> {
@@ -817,6 +856,17 @@ async function handleAdminGetCourseFull(req: Request): Promise<Response> {
   return json(content)
 }
 
+async function handleGetCourseFull(req: Request): Promise<Response> {
+  const url = new URL(req.url)
+  const id = url.pathname.split('/').filter(Boolean).at(-2) ?? ''
+  if (!id) return errorResponse(422, 'Course id is required.')
+
+  const content = await loadCourseContent(id)
+  if (!content) return errorResponse(404, 'Course not found.')
+  if (content.course.status !== 'published') return errorResponse(404, 'Course not found.')
+  return json(content)
+}
+
 async function handleAdminSaveCourseContent(req: Request): Promise<Response> {
   const guard = await requireAdmin(req)
   if (guard instanceof Response) return guard
@@ -1074,6 +1124,330 @@ async function handleAdminListInstructors(req: Request): Promise<Response> {
 }
 
 // ---------------------------------------------------------------------------
+// Enrollment / learning handlers
+// ---------------------------------------------------------------------------
+
+async function loadEnrollmentCourses(rows: EnrollmentRow[]): Promise<Record<string, unknown>[]> {
+  if (rows.length === 0) return []
+  const ids = [...new Set(rows.map((r) => r.course_id))]
+  const { data } = await supabase
+    .from('courses')
+    .select('*, categories(id,name), instructors:profiles!courses_instructor_id_fkey(id,name)')
+    .in('id', ids)
+  const courses = (data ?? []) as CourseRow[]
+  const byId = new Map(courses.map((c) => [c.id, mapCourse(c)]))
+  return rows.map((r) => byId.get(r.course_id) ?? {})
+}
+
+async function countLessons(courseId: string): Promise<number> {
+  const { data: sections } = await supabase.from('course_sections').select('id').eq('course_id', courseId)
+  const sectionIds = (sections ?? []).map((s) => s.id)
+  if (sectionIds.length === 0) return 0
+  const { count } = await supabase
+    .from('lessons')
+    .select('id', { count: 'exact', head: true })
+    .in('section_id', sectionIds)
+  return count ?? 0
+}
+
+async function issueCertificate(courseId: string, userId: string): Promise<string | null> {
+  const { data: course } = await supabase.from('courses').select('id, instructor_id, title, has_certificate').eq('id', courseId).single()
+  if (!course || !course.has_certificate) return null
+  const verificationCode = `CERT-${Date.now().toString(36).toUpperCase()}${Math.random().toString(36).slice(2, 8).toUpperCase()}`
+  const { data, error } = await supabase.from('certificates').insert({
+    user_id: userId,
+    course_id: courseId,
+    instructor_id: course.instructor_id ?? userId,
+    issued_at: new Date().toISOString(),
+    completion_date: new Date().toISOString(),
+    verification_code: verificationCode
+  }).select('id').single()
+  if (error) return null
+  return data.id
+}
+
+async function handleMyEnrollments(req: Request): Promise<Response> {
+  const guard = await requireUser(req)
+  if (guard instanceof Response) return guard
+
+  const { data, error } = await supabase
+    .from('enrollments')
+    .select('*')
+    .eq('user_id', guard.profile.id)
+    .order('enrolled_at', { ascending: false })
+  if (error) return errorResponse(500, 'Failed to load enrollments: ' + error.message)
+
+  const rows = (data ?? []) as EnrollmentRow[]
+  const courses = await loadEnrollmentCourses(rows)
+  return json({ enrollments: rows.map((r, i) => mapEnrollment(r, courses[i])) })
+}
+
+async function handleEnroll(req: Request): Promise<Response> {
+  const guard = await requireUser(req)
+  if (guard instanceof Response) return guard
+
+  const { courseId, paymentMethod } = await readBody(req)
+  if (typeof courseId !== 'string' || !courseId.trim()) return errorResponse(422, 'Course id is required.')
+
+  const { data: course } = await supabase
+    .from('courses')
+    .select('id, price, discount_price, status')
+    .eq('id', courseId)
+    .single()
+  if (!course) return errorResponse(404, 'Course not found.')
+  if (course.status !== 'published') return errorResponse(409, 'This course is not available for enrollment yet.')
+
+  const { data: existing } = await supabase
+    .from('enrollments')
+    .select('id')
+    .eq('user_id', guard.profile.id)
+    .eq('course_id', courseId)
+    .maybeSingle()
+  if (existing) return errorResponse(409, 'You are already enrolled in this course.')
+
+  const price = Number(course.discount_price ?? course.price) || 0
+  if (price > 0 && !paymentMethod) return errorResponse(422, 'A payment method is required for paid courses.')
+
+  const { data, error } = await supabase.from('enrollments').insert({
+    user_id: guard.profile.id,
+    course_id: courseId,
+    enrolled_at: new Date().toISOString(),
+    progress: 0,
+    status: 'active',
+    completed_lessons: [],
+    price_paid: price
+  }).select('*').single()
+  if (error) return errorResponse(500, 'Failed to enroll: ' + error.message)
+
+  if (price > 0) {
+    await supabase.from('orders').insert({
+      user_id: guard.profile.id,
+      total: price,
+      status: 'completed',
+      payment_method: typeof paymentMethod === 'string' ? paymentMethod : 'card'
+    }).select('id').single().then(async ({ data: order }) => {
+      if (order) {
+        await supabase.from('order_items').insert({
+          order_id: order.id,
+          course_id: courseId,
+          title: '',
+          price
+        })
+      }
+    })
+  }
+
+  const courseInfo = (await loadEnrollmentCourses([data as EnrollmentRow]))[0]
+  return json({ enrollment: mapEnrollment(data as EnrollmentRow, courseInfo) }, 201)
+}
+
+async function handleUpdateEnrollment(req: Request): Promise<Response> {
+  const guard = await requireUser(req)
+  if (guard instanceof Response) return guard
+
+  const url = new URL(req.url)
+  const courseId = url.pathname.split('/').filter(Boolean).at(-1) ?? ''
+  if (!courseId) return errorResponse(422, 'Course id is required.')
+
+  const { data: enrollment } = await supabase
+    .from('enrollments')
+    .select('*')
+    .eq('user_id', guard.profile.id)
+    .eq('course_id', courseId)
+    .single()
+  if (!enrollment) return errorResponse(404, 'Enrollment not found.')
+
+  const body = await readBody(req)
+  const completedLessons = Array.isArray(body.completedLessons)
+    ? (body.completedLessons as unknown[]).filter((x): x is string => typeof x === 'string')
+    : (enrollment.completed_lessons ?? [])
+  const currentLessonId = typeof body.currentLessonId === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(body.currentLessonId)
+    ? body.currentLessonId
+    : undefined
+
+  const total = await countLessons(courseId)
+  const unique = [...new Set(completedLessons)]
+  const progress = total > 0 ? Math.min(100, Math.round((unique.length / total) * 100)) : (enrollment.progress ?? 0)
+  const status = progress >= 100 ? 'completed' : 'active'
+
+  const patch: Record<string, unknown> = {
+    completed_lessons: unique,
+    progress,
+    status
+  }
+  if (currentLessonId) patch.current_lesson_id = currentLessonId
+
+  const { data, error } = await supabase.from('enrollments').update(patch).eq('id', enrollment.id).select('*').single()
+  if (error) return errorResponse(500, 'Failed to update enrollment: ' + error.message)
+
+  const updated = data as EnrollmentRow
+  let certificateIssued = updated.certificate_issued
+  let certificateId = updated.certificate_id
+
+  if (status === 'completed' && !certificateIssued) {
+    const certId = await issueCertificate(courseId, guard.profile.id)
+    if (certId) {
+      certificateIssued = true
+      certificateId = certId
+      await supabase.from('enrollments').update({ certificate_issued: true, certificate_id: certId }).eq('id', enrollment.id)
+    }
+  }
+
+  const courseInfo = (await loadEnrollmentCourses([updated]))[0]
+  return json({
+    enrollment: {
+      ...mapEnrollment(updated, courseInfo),
+      certificateIssued,
+      certificateId: certificateId ?? undefined
+    }
+  })
+}
+
+async function handleCheckout(req: Request): Promise<Response> {
+  const guard = await requireUser(req)
+  if (guard instanceof Response) return guard
+
+  const { courseIds, paymentMethod } = await readBody(req)
+  if (!Array.isArray(courseIds) || courseIds.length === 0) return errorResponse(422, 'At least one course is required.')
+  const ids = courseIds.filter((x): x is string => typeof x === 'string')
+
+  const { data: courses } = await supabase
+    .from('courses')
+    .select('id, title, price, discount_price, status')
+    .in('id', ids)
+  const courseMap = new Map((courses ?? []).map((c) => [c.id, c]))
+  if ((courses ?? []).length !== ids.length) return errorResponse(404, 'One or more courses were not found.')
+
+  const unpaid = ids.filter((id) => {
+    const c = courseMap.get(id)!
+    return (Number(c.discount_price ?? c.price) || 0) > 0
+  })
+  if (unpaid.length > 0 && !paymentMethod) return errorResponse(422, 'A payment method is required for paid courses.')
+
+  const total = ids.reduce((sum, id) => sum + (Number(courseMap.get(id)!.discount_price ?? courseMap.get(id)!.price) || 0), 0)
+
+  const { data: order, error: orderError } = await supabase.from('orders').insert({
+    user_id: guard.profile.id,
+    total,
+    status: 'completed',
+    payment_method: typeof paymentMethod === 'string' ? paymentMethod : 'card',
+    created_at: new Date().toISOString()
+  }).select('id').single()
+  if (orderError) return errorResponse(500, 'Failed to create order: ' + orderError.message)
+
+  const items = ids.map((courseId) => {
+    const c = courseMap.get(courseId)!
+    return { order_id: order.id, course_id: courseId, title: c.title, price: Number(c.discount_price ?? c.price) || 0 }
+  })
+  const { error: itemsError } = await supabase.from('order_items').insert(items)
+  if (itemsError) return errorResponse(500, 'Failed to create order items: ' + itemsError.message)
+
+  const { data: existingEnrollments } = await supabase
+    .from('enrollments')
+    .select('course_id')
+    .eq('user_id', guard.profile.id)
+    .in('course_id', ids)
+  const alreadyEnrolled = new Set((existingEnrollments ?? []).map((e) => e.course_id))
+  const newIds = ids.filter((id) => !alreadyEnrolled.has(id))
+  if (newIds.length === 0) return errorResponse(409, 'You are already enrolled in all selected courses.')
+
+  const enrollRows = newIds.map((courseId) => ({
+    user_id: guard.profile.id,
+    course_id: courseId,
+    enrolled_at: new Date().toISOString(),
+    progress: 0,
+    status: 'active' as const,
+    completed_lessons: [] as string[],
+    price_paid: Number(courseMap.get(courseId)!.discount_price ?? courseMap.get(courseId)!.price) || 0
+  }))
+  const { data: enrollData, error: enrollError } = await supabase.from('enrollments').insert(enrollRows).select('*')
+  if (enrollError) return errorResponse(500, 'Failed to create enrollments: ' + enrollError.message)
+
+  const rows = (enrollData ?? []) as EnrollmentRow[]
+  const coursesEmbedded = await loadEnrollmentCourses(rows)
+  return json({
+    order: { id: order.id, total, status: 'completed', paymentMethod: typeof paymentMethod === 'string' ? paymentMethod : 'card', createdAt: new Date().toISOString() },
+    enrollments: rows.map((r, i) => mapEnrollment(r, coursesEmbedded[i]))
+  }, 201)
+}
+
+async function handleMyOrders(req: Request): Promise<Response> {
+  const guard = await requireUser(req)
+  if (guard instanceof Response) return guard
+
+  const { data, error } = await supabase
+    .from('orders')
+    .select('*, order_items(*)')
+    .eq('user_id', guard.profile.id)
+    .order('created_at', { ascending: false })
+  if (error) return errorResponse(500, 'Failed to load orders: ' + error.message)
+
+  const orders = (data ?? []).map((o) => ({
+    id: o.id,
+    userId: o.user_id,
+    total: Number(o.total),
+    status: o.status,
+    paymentMethod: o.payment_method,
+    createdAt: o.created_at,
+    items: (o.order_items ?? []).map((it: { course_id: string; title: string; price: number }) => ({
+      courseId: it.course_id,
+      title: it.title,
+      price: Number(it.price)
+    }))
+  }))
+  return json({ orders })
+}
+
+async function handleMyCertificates(req: Request): Promise<Response> {
+  const guard = await requireUser(req)
+  if (guard instanceof Response) return guard
+
+  const { data, error } = await supabase
+    .from('certificates')
+    .select('*')
+    .eq('user_id', guard.profile.id)
+    .order('issued_at', { ascending: false })
+  if (error) return errorResponse(500, 'Failed to load certificates: ' + error.message)
+
+  const certificates = (data ?? []).map((c) => ({
+    id: c.id,
+    userId: c.user_id,
+    courseId: c.course_id,
+    instructorId: c.instructor_id,
+    issuedAt: c.issued_at,
+    completionDate: c.completion_date,
+    verificationCode: c.verification_code
+  }))
+  return json({ certificates })
+}
+
+async function handleAdminListEnrollments(req: Request): Promise<Response> {
+  const guard = await requireAdmin(req)
+  if (guard instanceof Response) return guard
+
+  const { data, error } = await supabase
+    .from('enrollments')
+    .select('*, courses(id, title, thumbnail), profiles!enrollments_user_id_fkey(id, name)')
+    .order('enrolled_at', { ascending: false })
+    .limit(100)
+  if (error) return errorResponse(500, 'Failed to load enrollments: ' + error.message)
+
+  const enrollments = (data ?? []).map((e) => ({
+    id: e.id,
+    userId: e.user_id,
+    studentName: e.profiles?.name ?? 'Student',
+    courseId: e.course_id,
+    courseTitle: e.courses?.title ?? '',
+    courseThumbnail: e.courses?.thumbnail ?? undefined,
+    enrolledAt: e.enrolled_at,
+    progress: e.progress,
+    status: e.status,
+    pricePaid: Number(e.price_paid)
+  }))
+  return json({ enrollments })
+}
+
+// ---------------------------------------------------------------------------
 // Router
 // ---------------------------------------------------------------------------
 
@@ -1159,6 +1533,24 @@ Deno.serve(async (req) => {
     case 'GET /admin/instructors':
       response = await handleAdminListInstructors(req)
       break
+    case 'GET /me/enrollments':
+      response = await handleMyEnrollments(req)
+      break
+    case 'POST /me/enrollments':
+      response = await handleEnroll(req)
+      break
+    case 'GET /me/orders':
+      response = await handleMyOrders(req)
+      break
+    case 'GET /me/certificates':
+      response = await handleMyCertificates(req)
+      break
+    case 'POST /checkout':
+      response = await handleCheckout(req)
+      break
+    case 'GET /admin/enrollments':
+      response = await handleAdminListEnrollments(req)
+      break
     default:
       if (/^\/admin\/users\/[^/]+$/.test(path)) {
         if (method === 'PATCH') response = await handleAdminUpdateUser(req)
@@ -1173,6 +1565,12 @@ Deno.serve(async (req) => {
       } else if (/^\/admin\/courses\/[^/]+$/.test(path)) {
         if (method === 'PATCH') response = await handleAdminUpdateCourse(req)
         else if (method === 'DELETE') response = await handleAdminDeleteCourse(req)
+        else response = errorResponse(404, 'API endpoint not found.')
+      } else if (/^\/courses\/[^/]+\/full$/.test(path)) {
+        if (method === 'GET') response = await handleGetCourseFull(req)
+        else response = errorResponse(404, 'API endpoint not found.')
+      } else if (/^\/me\/enrollments\/[^/]+$/.test(path)) {
+        if (method === 'PATCH') response = await handleUpdateEnrollment(req)
         else response = errorResponse(404, 'API endpoint not found.')
       } else if (/^\/admin\/categories\/[^/]+$/.test(path)) {
         if (method === 'PATCH') response = await handleAdminUpdateCategory(req)

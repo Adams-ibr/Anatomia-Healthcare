@@ -39,7 +39,7 @@ export default function MyLearning() {
       ) : (
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {list.map((en) => {
-            const course = COURSES.find((c) => c.id === en.courseId)
+            const course = en.course ?? COURSES.find((c) => c.id === en.courseId)
             if (!course) return null
             return (
               <div key={en.id} className="card flex flex-col overflow-hidden">
@@ -129,7 +129,7 @@ export function Wishlist() {
 }
 
 export function Certificates() {
-  const { currentUser, certificates } = useApp()
+  const { currentUser, certificates, enrollments, toast } = useApp()
   const { t } = useTranslation()
   const nav = useNavigate()
   const mine = certificates.filter((c) => c.userId === currentUser!.id)
@@ -148,8 +148,9 @@ export function Certificates() {
         </div>
       ) : (
         <div className="grid gap-5 sm:grid-cols-2">
-          {mine.map((cert) => {
-            const course = COURSES.find((c) => c.id === cert.courseId)
+{mine.map((cert) => {
+            const enrollment = enrollments.find((e) => e.certificateId === cert.id)
+            const course = enrollment?.course ?? COURSES.find((c) => c.id === cert.courseId)
             if (!course) return null
             return (
               <div key={cert.id} className="card overflow-hidden">
@@ -164,13 +165,13 @@ export function Certificates() {
                     <p className="mt-2 text-sm text-brand-200">{t('mycert.awardedTo', { name: currentUser!.name })}</p>
                   </div>
                   <div className="mt-8 flex items-center justify-between text-[11px] text-brand-200">
-                    <span>ID: {cert.id}</span>
+                    <span>ID: {cert.verificationCode || cert.id}</span>
                     <span>{new Date(cert.completionDate).toLocaleDateString()}</span>
                   </div>
                 </div>
                 <div className="flex gap-2 p-4">
                   <button onClick={() => nav(`/certificates/${cert.id}`)} className="btn-primary flex-1">{t('mycert.viewCertificate')}</button>
-                  <button onClick={() => { navigator.clipboard?.writeText(cert.id); alert(t('mycert.clipboardSaved')) }} className="btn-outline flex-1">{t('mycert.download')}</button>
+                  <button onClick={() => { navigator.clipboard?.writeText(cert.verificationCode || cert.id); toast(t('mycert.clipboardSaved')) }} className="btn-outline flex-1">{t('mycert.download')}</button>
                 </div>
               </div>
             )
