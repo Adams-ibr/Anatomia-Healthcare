@@ -267,6 +267,16 @@ async function handleRegister(req: Request): Promise<Response> {
     .upsert({ id: data.user!.id, name: name.trim(), email, role: chosenRole }, { onConflict: 'id' })
   if (profileError) return errorResponse(500, 'Failed to create profile: ' + profileError.message)
 
+  // admin.createUser does not send the confirmation email automatically —
+  // generate a signup link, which emails the confirmation to the user.
+  const { error: linkError } = await supabase.auth.admin.generateLink({
+    type: 'signup',
+    email,
+    password,
+    data: { name: name.trim(), role: chosenRole }
+  })
+  if (linkError) return errorResponse(500, 'Account created but we could not send the confirmation email: ' + linkError.message)
+
   const profile = await getProfile(data.user!.id)
   if (!profile) return errorResponse(500, 'Account created but profile could not be loaded.')
 
