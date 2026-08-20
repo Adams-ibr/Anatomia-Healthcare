@@ -6,6 +6,11 @@ export interface AuthSession {
   token: string
 }
 
+export interface RegisterResponse {
+  user: AuthUser
+  pendingConfirmation?: boolean
+}
+
 const TOKEN_KEY = 'dha:token'
 
 export function getStoredToken(): string | null {
@@ -688,8 +693,8 @@ export const studentApi = {
 }
 
 export const authApi = {
-  register(input: { name: string; email: string; password: string; role: RegisterRole }): Promise<AuthSession> {
-    return apiFetch<AuthSession>('/api/auth/register', { method: 'POST', body: input })
+  register(input: { name: string; email: string; password: string; role: RegisterRole }): Promise<RegisterResponse> {
+    return apiFetch<RegisterResponse>('/api/auth/register', { method: 'POST', body: input })
   },
 
   login(input: { email: string; password: string }): Promise<AuthSession> {

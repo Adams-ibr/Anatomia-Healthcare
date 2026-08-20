@@ -188,7 +188,12 @@ export default {
       haveAccount: 'Enwere gị akaụntụ?',
       logIn: 'Banye',
       created: 'Emepụtara akaụntụ',
-      welcomeBody: 'Nnọọ na HamaAcademy, {{name}}!'
+      welcomeBody: 'Nnọọ na HamaAcademy, {{name}}!',
+      checkEmailTitle: 'Lelee igbe ozi gị',
+      checkEmailBody: 'Anyị ezigaala njikọ nkwenye gaa {{email}}. Pịa ya iji mee akaụntụ gị rụọ ọrụ — ị ga-enwe ike ịbanye ma ọ bụrụ na akwado ya.',
+      checkEmailHint: 'Njikọ a na-agwụ n’ime nkeji 30. Ọ bụrụ na ị hụghị ya, lelee spam ma ọ bụ folders.',
+      backToForm: 'Laghachi na ndebanye aha',
+
     },
     forgot: {
       title: 'Chefuru okwuntụhie?',

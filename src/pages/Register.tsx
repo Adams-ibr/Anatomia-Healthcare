@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { Eye, EyeOff, UserPlus } from 'lucide-react'
+import { Eye, EyeOff, MailCheck, UserPlus } from 'lucide-react'
 import { AuthShell } from '../components/AuthShell'
 import { useApp } from '../lib/store'
 import { Button, Input } from '../components/ui'
@@ -22,6 +22,7 @@ export default function Register() {
   const [show, setShow] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [pending, setPending] = useState('')
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -31,10 +32,27 @@ export default function Register() {
     setLoading(true)
     const res = await register(name, email, password, role)
     setLoading(false)
-    if (!res.ok || !res.user) { setError(res.error ?? t('auth.register.failed')); return }
-    toast(t('auth.register.created'), t('auth.register.welcomeBody', { name: res.user.name.split(' ')[0] }))
-    const target = next && next.startsWith('/') ? next : homePath(res.user.role)
+    if (!res.ok) { setError(res.error ?? t('auth.register.failed')); return }
+    if (res.pendingConfirmation) { setPending(email); return }
+    toast(t('auth.register.created'), t('auth.register.welcomeBody', { name: res.user!.name.split(' ')[0] }))
+    const target = next && next.startsWith('/') ? next : homePath(res.user!.role)
     nav(target)
+  }
+
+  if (pending) {
+    return (
+      <AuthShell
+        title={t('auth.register.checkEmailTitle')}
+        subtitle={t('auth.register.checkEmailBody', { email: pending })}
+        footer={<><Link to="/login" className="font-medium text-brand-700 hover:underline">{t('auth.register.logIn')}</Link></>}
+      >
+        <div className="flex flex-col items-center gap-4 py-4 text-center">
+          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-success/10 text-success"><MailCheck className="h-8 w-8" /></div>
+          <p className="text-sm text-muted">{t('auth.register.checkEmailHint')}</p>
+          <Button variant="outline" className="w-full" onClick={() => setPending('')}>{t('auth.register.backToForm')}</Button>
+        </div>
+      </AuthShell>
+    )
   }
 
   return (

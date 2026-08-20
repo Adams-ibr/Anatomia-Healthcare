@@ -188,7 +188,12 @@ export default {
       haveAccount: 'Already have an account?',
       logIn: 'Log in',
       created: 'Account created',
-      welcomeBody: 'Welcome to HamaAcademy, {{name}}!'
+      welcomeBody: 'Welcome to HamaAcademy, {{name}}!',
+      checkEmailTitle: 'Check your inbox',
+      checkEmailBody: 'We\'ve sent a confirmation link to {{email}}. Click it to activate your account — you\'ll be able to log in once it\'s confirmed.',
+      checkEmailHint: 'The link expires in 30 minutes. If you don\'t see it, check your spam or promotions folder.',
+      backToForm: 'Back to registration',
+
     },
     forgot: {
       title: 'Forgot your password?',

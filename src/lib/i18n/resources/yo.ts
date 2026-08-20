@@ -188,7 +188,12 @@ export default {
       haveAccount: 'Ó ti ní àkọọ́lẹ̀ tẹ́lẹ̀?',
       logIn: 'Wo inú',
       created: 'A ti dá àkọọ́lẹ̀',
-      welcomeBody: 'Káàbọ̀ sí HamaAcademy, {{name}}!'
+      welcomeBody: 'Káàbọ̀ sí HamaAcademy, {{name}}!',
+      checkEmailTitle: 'Ṣàyẹ̀wò apoti ifiranṣẹ rẹ',
+      checkEmailBody: 'A ti fi ọ̀nà ìfẹ̀sí rán sí {{email}}. Tẹ ibẹ̀ láti mú àkọ́lé rẹ ṣiṣẹ́ — o lè wọlé nígbà tí a bá fẹ̀sí.',
+      checkEmailHint: 'Ọ̀nà náà tópin lẹ́yìn ìṣẹ́jú 30. Bí o kò bá rí i, ṣàyẹ̀wò ìwọ̀n àìfẹ́.',
+      backToForm: 'Padà sí ìforúkọsílẹ̀',
+
     },
     forgot: {
       title: 'Gbàgbé ọ̀rọ̀ àsìírí rẹ?',

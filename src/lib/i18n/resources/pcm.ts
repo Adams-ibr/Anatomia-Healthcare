@@ -188,7 +188,12 @@ export default {
       haveAccount: 'You don get account?',
       logIn: 'Log in',
       created: 'Account don create',
-      welcomeBody: 'Welcome to HamaAcademy, {{name}}!'
+      welcomeBody: 'Welcome to HamaAcademy, {{name}}!',
+      checkEmailTitle: 'Check your inbox',
+      checkEmailBody: 'We don send confirmation link to {{email}}. Click am make we activate your account — you go fit login once e don confirm.',
+      checkEmailHint: 'The link dey expire for 30 minutes. If you no see am, check spam or promotions folder.',
+      backToForm: 'Go back to registration',
+
     },
     forgot: {
       title: 'You forget your password?',

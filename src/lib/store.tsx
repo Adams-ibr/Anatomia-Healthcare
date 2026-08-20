@@ -28,7 +28,7 @@ interface AppState {
   certificates: Certificate[]
   toasts: Toast[]
   login: (email: string, password: string) => Promise<{ ok: boolean; error?: string; user?: AuthUser }>
-  register: (name: string, email: string, password: string, role: 'student' | 'instructor') => Promise<{ ok: boolean; error?: string; user?: AuthUser }>
+  register: (name: string, email: string, password: string, role: 'student' | 'instructor') => Promise<{ ok: boolean; error?: string; user?: AuthUser; pendingConfirmation?: boolean }>
   logout: () => Promise<void>
   forgotPassword: (email: string) => Promise<{ ok: boolean; error?: string }>
   resetPassword: (token: string, password: string) => Promise<{ ok: boolean; error?: string }>
@@ -241,16 +241,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const register = useCallback(async (name: string, email: string, password: string, role: 'student' | 'instructor') => {
     try {
-      const { user, token } = await authApi.register({ name, email, password, role })
-      storeToken(token)
-      setCurrentUser(normalizeUser(user))
-      setAuthStatus('authenticated')
-      hydrateStudentData(token)
-      return { ok: true, user: normalizeUser(user) }
+      const { user, pendingConfirmation } = await authApi.register({ name, email, password, role })
+      return { ok: true, user: normalizeUser(user), pendingConfirmation: !!pendingConfirmation }
     } catch (err) {
       return { ok: false, error: getErrorMessage(err) }
     }
-  }, [hydrateStudentData])
+  }, [])
 
   const logout = useCallback(async () => {
     const token = getStoredToken()

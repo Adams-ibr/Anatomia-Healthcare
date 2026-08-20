@@ -188,7 +188,12 @@ export default {
       haveAccount: 'Kana da asusu?',
       logIn: 'Shiga',
       created: 'An ƙirƙiri asusu',
-      welcomeBody: 'Barka da zuwa HamaAcademy, {{name}}!'
+      welcomeBody: 'Barka da zuwa HamaAcademy, {{name}}!',
+      checkEmailTitle: 'Duba akwatin saƙonninka',
+      checkEmailBody: 'Mun aika muku da hanyar tabbatarwa zuwa {{email}}. Danna ta don kunna asusunku — za ku iya shiga bayan an tabbatar.',
+      checkEmailHint: 'Hanyar ta ƙare cikin mintuna 30. Idan ba ku gan ta ba, duba spam ko akwatin talla.',
+      backToForm: 'Koma ga rajista',
+
     },
     forgot: {
       title: 'An manta da kalmar sirri?',

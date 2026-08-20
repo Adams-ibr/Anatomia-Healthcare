@@ -245,7 +245,7 @@ async function handleRegister(req: Request): Promise<Response> {
   const { data, error } = await supabase.auth.admin.createUser({
     email,
     password,
-    email_confirm: true,
+    email_confirm: false,
     user_metadata: { name: name.trim(), role: chosenRole }
   })
   if (error) {
@@ -267,13 +267,10 @@ async function handleRegister(req: Request): Promise<Response> {
     .upsert({ id: data.user!.id, name: name.trim(), email, role: chosenRole }, { onConflict: 'id' })
   if (profileError) return errorResponse(500, 'Failed to create profile: ' + profileError.message)
 
-  const session = await supabase.auth.signInWithPassword({ email, password })
-  if (session.error) return errorResponse(500, 'Account created but login failed. Please sign in.')
-
   const profile = await getProfile(data.user!.id)
   if (!profile) return errorResponse(500, 'Account created but profile could not be loaded.')
 
-  return json({ user: mapProfile(profile), token: session.data.session!.access_token }, 201)
+  return json({ user: mapProfile(profile), pendingConfirmation: true }, 201)
 }
 
 async function handleLogin(req: Request): Promise<Response> {
