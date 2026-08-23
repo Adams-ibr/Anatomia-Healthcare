@@ -54,7 +54,7 @@ export function CourseCard({ course, large, compact }: { course: Course; large?:
         <div className="mt-auto flex items-center gap-3 pt-2 text-xs text-muted">
           <span className="flex items-center gap-1"><Users className="h-3.5 w-3.5" />{course.studentCount.toLocaleString()}</span>
           <span className="flex items-center gap-1"><Clock className="h-3.5 w-3.5" />{formatDuration(course.duration * 60)}</span>
-          {!compact && <span className="flex items-center gap-1"><BookOpen className="h-3.5 w-3.5" />{t('cards.sections', { count: course.sections.length })}</span>}
+          {!compact && <span className="flex items-center gap-1"><BookOpen className="h-3.5 w-3.5" />{t('cards.sections', { count: course.sections?.length ?? 0 })}</span>}
         </div>
 
         <div className="flex items-center justify-between pt-1">
