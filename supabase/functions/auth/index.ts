@@ -1455,6 +1455,7 @@ async function handleGetCourseFull(req: Request): Promise<Response> {
 
 async function handleListCourses(req: Request): Promise<Response> {
   const url = new URL(req.url)
+  const slug = url.searchParams.get('slug')
   const category = url.searchParams.get('category') ?? 'all'
   const search = (url.searchParams.get('search') ?? '').trim().toLowerCase()
 
@@ -1462,6 +1463,11 @@ async function handleListCourses(req: Request): Promise<Response> {
     .from('courses')
     .select('*, categories(id,name), instructors:profiles!courses_instructor_id_fkey(id,name)')
     .eq('status', 'published')
+  if (slug) {
+    const { data: course, error } = await supabase.from('courses').select('*').eq('slug', slug).single()
+    if (error) return errorResponse(404, 'Course not found.')
+    return json(mapCourse(course as CourseRow))
+  }
   if (category !== 'all') query = query.eq('category_id', category)
   if (search) query = query.or(`title.ilike.%${search}%,subtitle.ilike.%${search}%,description.ilike.%${search}%`)
 

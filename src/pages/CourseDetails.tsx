@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
@@ -12,6 +12,7 @@ import { CourseCard } from '../components/cards'
 import { Accordion, Avatar, Badge, Button, Rating } from '../components/ui'
 import { discountPercent, formatDuration, formatPrice, timeAgo } from '../lib/utils'
 import { cn } from '../lib/utils'
+import { publicApi } from '../lib/api/auth'
 
 const TYPE_ICON: Record<string, React.ReactNode> = {
   video: <PlayCircle className="h-4 w-4" />,
@@ -25,7 +26,7 @@ const TYPE_ICON: Record<string, React.ReactNode> = {
 }
 
 function CodeIcon() {
-  return <span className="text-xs font-bold">&lt;/&gt;</span>
+  return <span className="text-xs font-bold" />
 }
 
 const INSTRUCTOR_NAMES: Record<string, string> = {
@@ -35,26 +36,39 @@ const INSTRUCTOR_NAMES: Record<string, string> = {
 }
 
 export default function CourseDetails() {
-const { slug } = useParams() || {}
-  // Normalize slug - remove leading/trailing slashes and whitespace
-  const normalizedSlug = slug?.trim().replace(/^\/|\/$/g, '')
+  const { slug } = useParams()
   const nav = useNavigate()
   const { t } = useTranslation()
   const { currentUser, enrollments, wishlist, toggleWishlist, enroll, toast, addToCart } = useApp()
-  // Try exact match first, then case-insensitive match, then partial match
-  let course: Course | undefined
-  if (normalizedSlug) {
-    course = COURSES.find((c) => c.slug === normalizedSlug)
-    if (!course) {
-      course = COURSES.find((c) => c.slug.toLowerCase() === normalizedSlug?.toLowerCase())
-    }
-    if (!course) {
-      course = COURSES.find((c) => c.slug?.includes(normalizedSlug ?? ''))
-    }
-  }
-  const [tab, setTab] = useState('overview')
 
-  const instructor = useMemo(() => course ? { id: course.instructorId, name: course.instructorId.replace('u_in_', 'Instructor '), rating: 4.8, students: 8000 } : null, [course])
+  // Normalize slug - remove leading/trailing slashes and whitespace
+  const normalizedSlug = slug?.trim().replace(/^\/|\/$/g, '')
+  const [course, setCourse] = useState<Course | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    ;(async () => {
+      if (!normalizedSlug) {
+        setLoading(false)
+        return
+      }
+      try {
+        const result = await publicApi.getCourseFull(normalizedSlug)
+        setCourse(result.course)
+      } catch (err) {
+        console.error('Failed to fetch course:', err)
+      }
+      setLoading(false)
+    })()
+  }, [normalizedSlug])
+
+  if (loading) {
+    return (
+      <div className="container-page py-20">
+        <h1 className="font-display text-2xl font-bold text-ink">{t('course.loading')}</h1>
+      </div>
+    )
+  }
 
   if (!course) {
     return (
@@ -65,6 +79,8 @@ const { slug } = useParams() || {}
     )
   }
 
+  const instructor = useMemo(() => course ? { id: course.instructorId, name: course.instructorId.replace('u_in_', 'Instructor '), rating: 4.8, students: 8000 } : null, [course])
+
   const category = CATEGORIES.find((c) => c.id === course.categoryId)
   const saved = wishlist.includes(course.id)
   const totalLessons = course.sections.reduce((a, s) => a + s.lessons.length, 0)
@@ -73,11 +89,6 @@ const { slug } = useParams() || {}
   const disc = discountPercent(course.price, course.discountPrice)
   const displayPrice = course.discountPrice ?? course.price
   const related = COURSES.filter((c) => c.categoryId === course.categoryId && c.id !== course.id).slice(0, 4)
-  const instructorUser = useMemo(() => {
-    const u = COURSES[0]
-    void u
-    return null
-  }, [])
 
   const handleEnroll = () => {
     if (!currentUser) { nav(`/login?next=/courses/${course.slug}`); return }
@@ -205,7 +216,7 @@ const { slug } = useParams() || {}
                     </div>
                   </div>
                   <div>
-                    <h2 className="mb-3 text-xl font-semibold text-ink">{t('course.requirements')}</h2>
+                    <h2 className="mb-4 text-xl font-semibold text-ink">{t('course.requirements')}</h2>
                     <ul className="space-y-2">
                       {course.requirements.map((r) => (
                         <li key={r.id} className="flex items-start gap-2.5 text-sm text-ink">
@@ -307,6 +318,17 @@ const { slug } = useParams() || {}
                   </div>
                 </div>
               )}
+
+              {related.length > 0 && (
+                <section className="border-t border-line bg-surface py-12">
+                  <div className="container-page">
+                    <h2 className="mb-6 text-xl font-semibold text-ink">{t('course.moreIn', { name: category?.name })}</h2>
+                    <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+                      {related.map((c) => <CourseCard key={c.id} course={c} />)}
+                    </div>
+                  </div>
+                </section>
+              )}
             </div>
           </div>
 
@@ -326,17 +348,6 @@ const { slug } = useParams() || {}
           </aside>
         </div>
       </section>
-
-      {related.length > 0 && (
-        <section className="border-t border-line bg-surface py-12">
-          <div className="container-page">
-            <h2 className="mb-6 text-xl font-semibold text-ink">{t('course.moreIn', { name: category?.name })}</h2>
-            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-              {related.map((c) => <CourseCard key={c.id} course={c} />)}
-            </div>
-          </div>
-        </section>
-      )}
     </div>
   )
 }

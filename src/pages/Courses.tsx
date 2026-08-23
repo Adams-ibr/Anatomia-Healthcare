@@ -8,6 +8,7 @@ import { cn } from '../lib/utils'
 import { EASE, Reveal } from '../lib/motion'
 import { motion } from 'framer-motion'
 import { publicApi } from '../lib/api/auth'
+import { CATEGORIES as DATA_CATEGORIES, COURSES as DATA_COURSES } from '../lib/data'
 import type { Course } from '../lib/types'
 
 const LEVELS = ['Beginner', 'Intermediate', 'Advanced'] as const
@@ -113,6 +114,27 @@ export default function Courses() {
         setCourses(mapped as MappedCourse[])
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load courses')
+        // Fall back to data.js when API calls fail
+        setCategories(DATA_CATEGORIES.map((c: any) => ({ id: c.id, name: c.name, slug: c.slug, description: c.description })))
+        setCourses(DATA_COURSES.map((c: any) => ({
+          id: c.id,
+          slug: c.slug,
+          title: c.title,
+          subtitle: c.subtitle,
+          description: c.description,
+          price: c.price,
+          discountPrice: c.discountPrice,
+          rating: c.rating,
+          reviewCount: c.reviewCount,
+          studentCount: c.studentCount,
+          level: c.level,
+          language: c.language,
+          hasCertificate: c.hasCertificate,
+          isFeatured: c.isFeatured,
+          isTrending: c.isTrending,
+          isNew: c.isNew,
+          categoryName: c.categoryName
+        })))
       } finally {
         setLoading(false)
       }

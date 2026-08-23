@@ -74,6 +74,10 @@ export const publicApi = {
     return apiFetch<{ categories: AdminCategory[] }>('/api/auth/categories')
   },
 
+  getCourseFull(slug: string): Promise<{ course: AdminCourse }> {
+    return apiFetch<{ course: AdminCourse }>(`/api/auth/courses?slug=${slug}`)
+  },
+
   getSettings(): Promise<{
     settings: { platformName: string; tagline: string; primaryColor: string; supportEmail: string; defaultCurrency: string; paystackPublicKey?: string }
   }> {
