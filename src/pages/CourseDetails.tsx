@@ -36,18 +36,20 @@ const INSTRUCTOR_NAMES: Record<string, string> = {
 
 export default function CourseDetails() {
 const { slug } = useParams() || {}
+  // Normalize slug - remove leading/trailing slashes and whitespace
+  const normalizedSlug = slug?.trim().replace(/^\/|\/$/g, '')
   const nav = useNavigate()
   const { t } = useTranslation()
   const { currentUser, enrollments, wishlist, toggleWishlist, enroll, toast, addToCart } = useApp()
   // Try exact match first, then case-insensitive match, then partial match
   let course: Course | undefined
-  if (slug) {
-    course = COURSES.find((c) => c.slug === slug)
+  if (normalizedSlug) {
+    course = COURSES.find((c) => c.slug === normalizedSlug)
     if (!course) {
-      course = COURSES.find((c) => c.slug.toLowerCase() === slug?.toLowerCase())
+      course = COURSES.find((c) => c.slug.toLowerCase() === normalizedSlug?.toLowerCase())
     }
     if (!course) {
-      course = COURSES.find((c) => c.slug?.includes(slug ?? ''))
+      course = COURSES.find((c) => c.slug?.includes(normalizedSlug ?? ''))
     }
   }
   const [tab, setTab] = useState('overview')
