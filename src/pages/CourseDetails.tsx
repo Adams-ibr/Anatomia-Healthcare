@@ -6,6 +6,7 @@ import {
   Info, ListVideo, MessageSquare, PlayCircle, RotateCcw, ShieldCheck, Users
 } from 'lucide-react'
 import { CATEGORIES, COURSES } from '../lib/data'
+import { Course } from '../lib/types'
 import { useApp } from '../lib/store'
 import { CourseCard } from '../components/cards'
 import { Accordion, Avatar, Badge, Button, Rating } from '../components/ui'
@@ -34,11 +35,21 @@ const INSTRUCTOR_NAMES: Record<string, string> = {
 }
 
 export default function CourseDetails() {
-  const { slug } = useParams()
+const { slug } = useParams() || {}
   const nav = useNavigate()
   const { t } = useTranslation()
   const { currentUser, enrollments, wishlist, toggleWishlist, enroll, toast, addToCart } = useApp()
-  const course = COURSES.find((c) => c.slug === slug)
+  // Try exact match first, then case-insensitive match, then partial match
+  let course: Course | undefined
+  if (slug) {
+    course = COURSES.find((c) => c.slug === slug)
+    if (!course) {
+      course = COURSES.find((c) => c.slug.toLowerCase() === slug?.toLowerCase())
+    }
+    if (!course) {
+      course = COURSES.find((c) => c.slug?.includes(slug ?? ''))
+    }
+  }
   const [tab, setTab] = useState('overview')
 
   const instructor = useMemo(() => course ? { id: course.instructorId, name: course.instructorId.replace('u_in_', 'Instructor '), rating: 4.8, students: 8000 } : null, [course])
