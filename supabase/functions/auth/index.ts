@@ -22,6 +22,19 @@ const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
 })
 
 // ---------------------------------------------------------------------------
+// Fix: Migrate old accounts — set email_confirmed = true for existing profiles
+// since these are accounts that were already verified before the GoTrue removal.
+// Without this, all existing profiles default to email_confirmed=false (per schema),
+// causing verified users to be repeatedly prompted to confirm email.
+;(async () => {
+  const { error } = await supabase
+    .from('profiles')
+    .update({ email_confirmed: true })
+    .eq('email_confirmed', false)
+  if (error) console.error('Failed to migrate email_confirmed:', error.message)
+})()
+
+// ---------------------------------------------------------------------------
 // CORS / helpers
 // ---------------------------------------------------------------------------
 
@@ -48,7 +61,7 @@ function errorResponse(status: number, message: string): Response {
 // ---------------------------------------------------------------------------
 
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000
-const EMAIL_TOKEN_TTL_MS = 30 * 60 * 1000
+const EMAIL_TOKEN_TTL_MS = 24 * 60 * 60 * 1000
 
 function toB64(bytes: Uint8Array): string {
   let s = ''
@@ -298,157 +311,6 @@ async function generateAndEmailLink(kind: EmailKind, email: string, extra: Recor
   await smtpSend(email, mail.subject, mail.html)
 }
 
-// ---------------------------------------------------------------------------
-// Transactional / notification emails
-// ---------------------------------------------------------------------------
-
-interface NotificationPrefs {
-  emailNotifications: boolean
-  courseNotifications: boolean
-  assignmentNotifications: boolean
-  marketingNotifications: boolean
-}
-
-async function getNotificationPrefs(userId: string): Promise<NotificationPrefs> {
-  const defaults: NotificationPrefs = {
-    emailNotifications: true,
-    courseNotifications: true,
-    assignmentNotifications: true,
-    marketingNotifications: false
-  }
-  const { data } = await supabase.from('user_preferences').select(
-    'email_notifications, course_notifications, assignment_notifications, marketing_notifications'
-  ).eq('user_id', userId).maybeSingle()
-  if (!data) return defaults
-  return {
-    emailNotifications: data.email_notifications !== false,
-    courseNotifications: data.course_notifications !== false,
-    assignmentNotifications: data.assignment_notifications !== false,
-    marketingNotifications: data.marketing_notifications === true
-  }
-}
-
-async function profileEmail(userId: string): Promise<{ email: string; name: string } | null> {
-  const { data } = await supabase.from('profiles').select('email, name').eq('id', userId).maybeSingle()
-  if (!data?.email) return null
-  return { email: data.email, name: data.name }
-}
-
-function courseEmailLink(courseId: string): string {
-  return `${FRONTEND_URL}/learning/${courseId}`
-}
-
-function buildEnrollmentEmail(courseTitle: string, name: string, link: string): { subject: string; html: string } {
-  return {
-    subject: `You\'re enrolled: ${courseTitle}`,
-    html: emailShell(
-      'Enrollment confirmed! &#127891;',
-      `Hi ${name},<br/>You have been enrolled in <strong>${courseTitle}</strong>. You can start learning right away.`,
-      'Start learning',
-      link,
-      'We hope you enjoy the course — feel free to reach out if you need any help.'
-    )
-  }
-}
-
-function buildReceiptEmail(orderId: string, total: string, itemTitles: string[], name: string): { subject: string; html: string } {
-  const items = itemTitles.length > 0
-    ? `<ul style="margin:12px 0 0;padding-left:20px;color:#374151;font-size:14px;line-height:1.8">${itemTitles.map((t) => `<li>${t}</li>`).join('')}</ul>`
-    : ''
-  return {
-    subject: `Payment receipt — ${orderId}`,
-    html: emailShell(
-      'Thank you for your purchase! &#128176;',
-      `Hi ${name},<br/>Your payment of <strong>${total}</strong> has been received. Here is what you purchased:${items}`,
-      'Go to your courses',
-      `${FRONTEND_URL}/my-learning`,
-      `Receipt reference: ${orderId}. A copy is available in your account at any time.`
-    )
-  }
-}
-
-function buildCertificateEmail(courseTitle: string, verificationCode: string, name: string, link: string): { subject: string; html: string } {
-  return {
-    subject: `Congratulations — you earned a certificate for ${courseTitle}!`,
-    html: emailShell(
-      'Certificate awarded! &#127942;',
-      `Hi ${name},<br/>Congratulations on completing <strong>${courseTitle}</strong>! Your certificate is ready.`,
-      'View certificate',
-      link,
-      `Verification code: ${verificationCode}. Anyone can verify it at ${FRONTEND_URL}/verify-certificate.`
-    )
-  }
-}
-
-function buildAnnouncementEmail(announcementTitle: string, message: string): { subject: string; html: string } {
-  return {
-    subject: `Hama Academy: ${announcementTitle}`,
-    html: emailShell(
-      announcementTitle,
-      message,
-      'View details',
-      `${FRONTEND_URL}/notifications`,
-      'You are receiving this because you have email notifications enabled for your Hama Academy account.'
-    )
-  }
-}
-
-async function maybeSendEnrollmentEmail(userId: string, courseTitle: string, link: string): Promise<void> {
-  try {
-    const prefs = await getNotificationPrefs(userId)
-    if (!prefs.courseNotifications) return
-    const recipient = await profileEmail(userId)
-    if (!recipient) return
-    const mail = buildEnrollmentEmail(courseTitle, recipient.name, link)
-    await smtpSend(recipient.email, mail.subject, mail.html)
-  } catch {
-    /* best effort — never block the main flow */
-  }
-}
-
-async function maybeSendReceiptEmail(userId: string, orderId: string, total: string, itemTitles: string[]): Promise<void> {
-  try {
-    const prefs = await getNotificationPrefs(userId)
-    if (!prefs.emailNotifications) return
-    const recipient = await profileEmail(userId)
-    if (!recipient) return
-    const mail = buildReceiptEmail(orderId, total, itemTitles, recipient.name)
-    await smtpSend(recipient.email, mail.subject, mail.html)
-  } catch {
-    /* best effort */
-  }
-}
-
-async function maybeSendCertificateEmail(userId: string, courseTitle: string, verificationCode: string, link: string): Promise<void> {
-  try {
-    const prefs = await getNotificationPrefs(userId)
-    if (!prefs.courseNotifications) return
-    const recipient = await profileEmail(userId)
-    if (!recipient) return
-    const mail = buildCertificateEmail(courseTitle, verificationCode, recipient.name, link)
-    await smtpSend(recipient.email, mail.subject, mail.html)
-  } catch {
-    /* best effort */
-  }
-}
-
-async function getDefaultCurrency(): Promise<string> {
-  try {
-    const { data } = await supabase.from('platform_settings').select('default_currency').eq('id', true).maybeSingle()
-    return (data?.default_currency as string | undefined) ?? 'NGN'
-  } catch {
-    return 'NGN'
-  }
-}
-
-function formatMoney(amount: number, currency = 'NGN'): string {
-  try {
-    return new Intl.NumberFormat('en-NG', { style: 'currency', currency }).format(amount)
-  } catch {
-    return `${currency} ${amount.toLocaleString('en-NG')}`
-  }
-}
-
 type Role = 'student' | 'instructor' | 'admin' | 'support'
 
 interface ProfileRow {
@@ -639,27 +501,6 @@ async function finalizeOrder(orderId: string, userId: string, courseIds: string[
     .update({ status: 'completed' })
     .eq('id', orderId)
   if (orderError) throw new Error('Failed to mark order as completed: ' + orderError.message)
-
-  // Notify the buyer about the purchase and new enrollments.
-  try {
-    const { data: orderInfo } = await supabase
-      .from('orders')
-      .select('id, total, order_items(course_id, title)')
-      .eq('id', orderId)
-      .single()
-    const itemTitles = ((orderInfo?.order_items ?? []) as { course_id: string; title: string }[]).map((it) => it.title || 'Course')
-    const currency = await getDefaultCurrency()
-    const total = orderInfo ? formatMoney(Number(orderInfo.total), currency) : ''
-    await maybeSendReceiptEmail(userId, orderId, total, itemTitles)
-    if (newIds.length > 0) {
-      const { data: newCourses } = await supabase.from('courses').select('id, title').in('id', newIds)
-      for (const c of (newCourses ?? [])) {
-        await maybeSendEnrollmentEmail(userId, c.title, courseEmailLink(c.id))
-      }
-    }
-  } catch {
-    /* best effort */
-  }
 
   return { created, skipped: courseIds.length - created }
 }
@@ -1972,7 +1813,7 @@ async function handleEnroll(req: Request): Promise<Response> {
 
   const { data: course } = await supabase
     .from('courses')
-    .select('id, title, price, discount_price, status')
+    .select('id, price, discount_price, status')
     .eq('id', courseId)
     .single()
   if (!course) return errorResponse(404, 'Course not found.')
@@ -2000,31 +1841,25 @@ async function handleEnroll(req: Request): Promise<Response> {
   }).select('*').single()
   if (error) return errorResponse(500, 'Failed to enroll: ' + error.message)
 
-  let receiptOrderId = ''
   if (price > 0) {
-    const { data: order } = await supabase.from('orders').insert({
+    await supabase.from('orders').insert({
       user_id: guard.profile.id,
       total: price,
       status: 'completed',
       payment_method: typeof paymentMethod === 'string' ? paymentMethod : 'card'
-    }).select('id').single()
-    if (order) {
-      receiptOrderId = order.id
-      await supabase.from('order_items').insert({
-        order_id: order.id,
-        course_id: courseId,
-        title: course.title,
-        price
-      })
-    }
+    }).select('id').single().then(async ({ data: order }) => {
+      if (order) {
+        await supabase.from('order_items').insert({
+          order_id: order.id,
+          course_id: courseId,
+          title: '',
+          price
+        })
+      }
+    })
   }
 
   const courseInfo = (await loadEnrollmentCourses([data as EnrollmentRow]))[0]
-  await maybeSendEnrollmentEmail(guard.profile.id, course.title, courseEmailLink(courseId))
-  if (receiptOrderId) {
-    const currency = await getDefaultCurrency()
-    await maybeSendReceiptEmail(guard.profile.id, receiptOrderId, formatMoney(price, currency), [course.title])
-  }
   return json({ enrollment: mapEnrollment(data as EnrollmentRow, courseInfo) }, 201)
 }
 
@@ -2077,14 +1912,6 @@ async function handleUpdateEnrollment(req: Request): Promise<Response> {
       certificateIssued = true
       certificateId = certId
       await supabase.from('enrollments').update({ certificate_issued: true, certificate_id: certId }).eq('id', enrollment.id)
-      const { data: certInfo } = await supabase.from('certificates').select('verification_code').eq('id', certId).single()
-      const { data: courseTitle } = await supabase.from('courses').select('title').eq('id', courseId).single()
-      await maybeSendCertificateEmail(
-        guard.profile.id,
-        courseTitle?.title ?? 'your course',
-        certInfo?.verification_code ?? '',
-        `${FRONTEND_URL}/certificates/${certId}`
-      )
     }
   }
 
@@ -2677,7 +2504,7 @@ async function handleAdminCreateAnnouncement(req: Request): Promise<Response> {
     return errorResponse(500, 'Failed to create announcement: ' + (insertError?.message ?? 'unknown error'))
   }
 
-  const { data: users } = await supabase.from('profiles').select('id, email')
+  const { data: users } = await supabase.from('profiles').select('id')
   const userIds = (users ?? []).map((u: { id: string }) => u.id)
   if (userIds.length > 0) {
     const rows = userIds.map((uid: string) => ({
@@ -2690,23 +2517,6 @@ async function handleAdminCreateAnnouncement(req: Request): Promise<Response> {
     for (let i = 0; i < rows.length; i += 500) {
       await supabase.from('notifications').insert(rows.slice(i, i + 500))
     }
-  }
-
-  // Broadcast the announcement by email to users who have email notifications on.
-  try {
-    const mail = buildAnnouncementEmail(title, message || 'A new announcement has been published on Hama Academy.')
-    for (const u of (users ?? []) as { id: string; email?: string }[]) {
-      if (!u.email) continue
-      const prefs = await getNotificationPrefs(u.id)
-      if (!prefs.emailNotifications) continue
-      try {
-        await smtpSend(u.email, mail.subject, mail.html)
-      } catch {
-        /* skip individual failures */
-      }
-    }
-  } catch {
-    /* best effort */
   }
 
   return json({ announcement: { id: announcement.id, title, body: message, createdAt: announcement.created_at } })

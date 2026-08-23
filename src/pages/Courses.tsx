@@ -1,32 +1,138 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { AnimatePresence, motion } from 'framer-motion'
 import { ChevronDown, Filter, SlidersHorizontal } from 'lucide-react'
-import { CATEGORIES, COURSES } from '../lib/data'
 import { CourseCard } from '../components/cards'
 import { Button, SearchInput, Skeleton } from '../components/ui'
 import { cn } from '../lib/utils'
 import { EASE, Reveal } from '../lib/motion'
+import { motion } from 'framer-motion'
+import { publicApi } from '../lib/api/auth'
+import type { Course } from '../lib/types'
 
 const LEVELS = ['Beginner', 'Intermediate', 'Advanced'] as const
+
+type CourseFromAPI = {
+  id: string
+  slug: string
+  title: string
+  subtitle: string
+  description: string
+  price: number
+  discountPrice?: number
+  rating: number
+  reviewCount: number
+  studentCount: number
+  level: 'Beginner' | 'Intermediate' | 'Advanced'
+  language: string
+  hasCertificate: boolean
+  isFeatured?: boolean
+  isTrending?: boolean
+  isNew?: boolean
+  categoryName?: string
+}
+
+type MappedCourse = {
+  id: string
+  slug: string
+  title: string
+  subtitle: string
+  description: string
+  longDescription: string
+  categoryId: string
+  instructorId: string
+  thumbnail: string
+  price: number
+  discountPrice?: number
+  rating: number
+  reviewCount: number
+  studentCount: number
+  duration: number
+  level: 'Beginner' | 'Intermediate' | 'Advanced'
+  language: string
+  lastUpdated: string
+  hasCertificate: boolean
+  isFeatured?: boolean
+  isTrending?: boolean
+  isNew?: boolean
+  status: 'published' | 'draft' | 'pending' | 'approved' | 'archived'
+  instructorName?: string
+  objectives?: string[]
+  requirements?: string[]
+  sections?: any[]
+  reviews?: any[]
+  faqs?: any[]
+  categoryName?: string
+}
 
 export default function Courses() {
   const { t } = useTranslation()
   const [params, setParams] = useSearchParams()
+  const [categories, setCategories] = useState<Array<{ id: string; name: string; slug: string; description: string }>>([])
+  const [courses, setCourses] = useState<MappedCourse[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
   const category = params.get('category') ?? 'all'
   const [search, setSearch] = useState(params.get('q') ?? '')
   const [sort, setSort] = useState('popular')
   const [level, setLevel] = useState('all')
   const [price, setPrice] = useState('all')
   const [showFilters, setShowFilters] = useState(false)
-  const [loading, setLoading] = useState(false)
   const [certOnly, setCertOnly] = useState(false)
 
-  const courses = useMemo(() => {
-    setLoading(true)
-    let list = [...COURSES]
-    if (category !== 'all') list = list.filter((c) => c.categoryId === CATEGORIES.find((x) => x.slug === category)?.id)
+  useEffect(() => {
+    ;(async () => {
+      setLoading(true)
+      try {
+        const [cats, courseList] = await Promise.all([
+          publicApi.listCategories(),
+          publicApi.listCourses({ search, category })
+        ])
+        setCategories(cats.categories.map((c: any) => ({ id: c.id, name: c.name, slug: c.slug, description: c.description })))
+        // Map AdminCourse to MappedCourse for CourseCard compatibility
+        const mapped = (courseList.courses ?? []).map((c: any) => ({
+          id: c.id,
+          slug: c.slug,
+          title: c.title,
+          subtitle: c.subtitle,
+          description: c.description,
+          price: c.price,
+          discountPrice: c.discountPrice,
+          rating: c.rating,
+          reviewCount: c.reviewCount,
+          studentCount: c.studentCount,
+          level: c.level,
+          language: c.language,
+          hasCertificate: c.hasCertificate,
+          isFeatured: c.isFeatured,
+          isTrending: c.isTrending,
+          isNew: c.isNew,
+          categoryName: c.categoryName
+        }))
+        setCourses(mapped as MappedCourse[])
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to load courses')
+      } finally {
+        setLoading(false)
+      }
+    })()
+  }, [search, category])
+
+  useEffect(() => {
+    const qs = new URLSearchParams()
+    if (category !== 'all') qs.set('category', category)
+    if (search) qs.set('q', search)
+    setParams(qs.toString())
+  }, [category, search])
+
+  const activeCategory = categories.find((c) => c.slug === category)
+
+  const renderCourses = () => {
+    let list = [...courses]
+
+    if (category !== 'all') list = list.filter((c) => c.categoryName === activeCategory?.name)
+
     if (search.trim()) {
       const q = search.toLowerCase()
       list = list.filter((c) => c.title.toLowerCase().includes(q) || c.subtitle.toLowerCase().includes(q) || c.description.toLowerCase().includes(q))
@@ -36,16 +142,15 @@ export default function Courses() {
     if (price === 'paid') list = list.filter((c) => c.price > 0)
     if (price === 'discount') list = list.filter((c) => c.discountPrice)
     if (certOnly) list = list.filter((c) => c.hasCertificate)
+
     if (sort === 'popular') list.sort((a, b) => b.studentCount - a.studentCount)
     if (sort === 'rating') list.sort((a, b) => b.rating - a.rating)
     if (sort === 'price-asc') list.sort((a, b) => (a.discountPrice ?? a.price) - (b.discountPrice ?? b.price))
     if (sort === 'price-desc') list.sort((a, b) => (b.discountPrice ?? b.price) - (a.discountPrice ?? a.price))
     if (sort === 'new') list.sort((a, b) => (a.isNew ? 1 : 0) - (b.isNew ? 1 : 0))
-    setTimeout(() => setLoading(false), 250)
-    return list
-  }, [category, search, sort, level, price, certOnly])
 
-  const activeCategory = CATEGORIES.find((c) => c.slug === category)
+    return list
+  }
 
   return (
     <div>
@@ -72,7 +177,7 @@ export default function Courses() {
           >
             {t('catalog.all')}
           </button>
-          {CATEGORIES.map((c) => (
+          {categories.map((c) => (
             <button
               key={c.id}
               onClick={() => setParams({ category: c.slug })}
@@ -102,54 +207,52 @@ export default function Courses() {
           </div>
         </div>
 
-        <AnimatePresence initial={false}>
-          {showFilters && (
-            <motion.div
-              key="filters"
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              transition={{ duration: 0.25, ease: EASE }}
-              className="overflow-hidden"
-            >
-              <div className="card mt-4 grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-4">
-                <div>
-                  <label className="label-base">{t('catalog.level')}</label>
-                  <select value={level} onChange={(e) => setLevel(e.target.value)} className="input-base">
-                    <option value="all">{t('catalog.allLevels')}</option>
-                    {LEVELS.map((l) => <option key={l} value={l}>{l}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="label-base">{t('catalog.price')}</label>
-                  <select value={price} onChange={(e) => setPrice(e.target.value)} className="input-base">
-                    <option value="all">{t('catalog.allPrices')}</option>
-                    <option value="free">{t('catalog.free')}</option>
-                    <option value="paid">{t('catalog.paid')}</option>
-                    <option value="discount">{t('catalog.onSale')}</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="label-base">{t('catalog.certificate')}</label>
-                  <label className="flex items-center gap-2 pt-2 text-sm text-ink">
-                    <input type="checkbox" checked={certOnly} onChange={(e) => setCertOnly(e.target.checked)} className="h-4 w-4 rounded border-line accent-brand-500" />
-                    {t('catalog.certificateAvailable')}
-                  </label>
-                </div>
-                <div>
-                  <label className="label-base">{t('catalog.sort')}</label>
-                  <select value={sort} onChange={(e) => setSort(e.target.value)} className="input-base md:hidden">
-                    <option value="popular">{t('catalog.mostPopular')}</option>
-                    <option value="rating">{t('catalog.highestRated')}</option>
-                    <option value="new">{t('catalog.newest')}</option>
-                    <option value="price-asc">{t('catalog.priceLowHigh')}</option>
-                    <option value="price-desc">{t('catalog.priceHighLow')}</option>
-                  </select>
-                </div>
+        {showFilters && (
+          <motion.div
+            key="filters"
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.25, ease: EASE }}
+            className="overflow-hidden"
+          >
+            <div className="card mt-4 grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-4">
+              <div>
+                <label className="label-base">{t('catalog.level')}</label>
+                <select value={level} onChange={(e) => setLevel(e.target.value)} className="input-base">
+                  <option value="all">{t('catalog.allLevels')}</option>
+                  {LEVELS.map((l) => <option key={l} value={l}>{l}</option>)}
+                </select>
               </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+              <div>
+                <label className="label-base">{t('catalog.price')}</label>
+                <select value={price} onChange={(e) => setPrice(e.target.value)} className="input-base">
+                  <option value="all">{t('catalog.allPrices')}</option>
+                  <option value="free">{t('catalog.free')}</option>
+                  <option value="paid">{t('catalog.paid')}</option>
+                  <option value="discount">{t('catalog.onSale')}</option>
+                </select>
+              </div>
+              <div>
+                <label className="label-base">{t('catalog.certificate')}</label>
+                <label className="flex items-center gap-2 pt-2 text-sm text-ink">
+                  <input type="checkbox" checked={certOnly} onChange={(e) => setCertOnly(e.target.checked)} className="h-4 w-4 rounded border-line accent-brand-500" />
+                  {t('catalog.certificateAvailable')}
+                </label>
+              </div>
+              <div>
+                <label className="label-base">{t('catalog.sort')}</label>
+                <select value={sort} onChange={(e) => setSort(e.target.value)} className="input-base md:hidden">
+                  <option value="popular">{t('catalog.mostPopular')}</option>
+                  <option value="rating">{t('catalog.highestRated')}</option>
+                  <option value="new">{t('catalog.newest')}</option>
+                  <option value="price-asc">{t('catalog.priceLowHigh')}</option>
+                  <option value="price-desc">{t('catalog.priceHighLow')}</option>
+                </select>
+              </div>
+            </div>
+          </motion.div>
+        )}
 
         <div className="mt-6">
           {loading ? (
@@ -164,9 +267,9 @@ export default function Courses() {
             </div>
           ) : (
             <motion.div layout className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {courses.map((c) => (
+              {renderCourses().map((c) => (
                 <motion.div key={c.id} layout initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, ease: EASE }}>
-                  <CourseCard course={c} />
+                  <CourseCard course={c as unknown as Course} />
                 </motion.div>
               ))}
             </motion.div>
