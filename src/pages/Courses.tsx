@@ -124,6 +124,7 @@ export default function Courses() {
           faqs: c.faqs ?? []
         }))
         setCourses(mapped as MappedCourse[])
+      } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load courses')
         // Fall back to data when API calls fail
         setCategories((DATA_CATEGORIES || []).map((c: any) => ({ id: c.id, name: c.name, slug: c.slug, description: c.description })))
