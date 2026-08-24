@@ -140,7 +140,7 @@ export function AdminOrders() {
                 <tr key={o.id} className="hover:bg-paper/60">
                   <td className="px-5 py-3 font-mono text-xs font-medium text-ink">{o.id}</td>
                   <td className="px-5 py-3 text-muted">{o.customerName}</td>
-                  <td className="px-5 py-3 text-muted">{t('admin2.coursesCount', { count: o.items.length })}</td>
+                  <td className="px-5 py-3 text-muted">{t('admin2.coursesCount', { count: o.items?.length ?? 0 })}</td>
                   <td className="px-5 py-3 font-semibold text-ink">{formatPrice(o.total)}</td>
                   <td className="px-5 py-3 text-muted">{o.paymentMethod}</td>
                   <td className="px-5 py-3"><Badge color={statusColor(o.status)}>{statusLabel(o.status)}</Badge></td>
@@ -528,10 +528,10 @@ export function AdminReports() {
                 <MiniStat label={t('admin2.avgRatingShort')} value={String(report.courses.avgRating)} />
                 <MiniStat label={t('admin2.reviews')} value={report.courses.totalReviews.toLocaleString()} />
               </div>
-              {report.courses.top.length > 0 && (
+              {(report.courses.top ?? []).length > 0 && (
                 <div className="mt-4 space-y-2">
                   <p className="text-xs font-medium uppercase tracking-wide text-muted">{t('admin2.topCourses')}</p>
-                  {report.courses.top.map((c) => (
+                  {(report.courses.top ?? []).map((c) => (
                     <div key={c.id} className="flex items-center justify-between text-sm">
                       <span className="truncate pr-3 text-ink">{c.title}</span>
                       <span className="shrink-0 text-xs text-muted">{c.studentCount} {t('admin2.students')} · {c.rating}★</span>

@@ -85,7 +85,7 @@ export default function CourseStudy() {
     [certificates, currentUser, courseId]
   )
 
-  const allLessons = useMemo(() => course?.sections.flatMap((s) => s.lessons) ?? [], [course])
+  const allLessons = useMemo(() => course?.sections?.flatMap((s) => s.lessons ?? []) ?? [], [course])
 
   if (!course || !currentUser || !enrollment) {
     return (
@@ -96,13 +96,13 @@ export default function CourseStudy() {
     )
   }
 
-  const completed = enrollment.completedLessons.length
+  const completed = enrollment.completedLessons?.length ?? 0
   const total = allLessons.length
-  const progress = enrollment.progress
-  const hoursLearned = Math.round((progress / 100) * course.duration)
+  const progress = enrollment.progress ?? 0
+  const hoursLearned = Math.round((progress / 100) * (course.duration ?? 0))
   const isComplete = enrollment.status === 'completed' || progress >= 100
   const current = allLessons.find((l) => l.id === enrollment.currentLessonId) ?? allLessons[0]
-  const doneCount = allLessons.filter((l) => enrollment.completedLessons.includes(l.id)).length
+  const doneCount = allLessons.filter((l) => (enrollment.completedLessons ?? []).includes(l.id)).length
 
   const stats = [
     { label: t('study.lessonsCompleted'), value: `${doneCount}/${total}`, icon: <ListVideo className="h-4 w-4" /> },

@@ -22,21 +22,23 @@ export function Input({ className, label, error, ...props }: InputHTMLAttributes
 
 const AVATAR_COLORS = ['bg-brand-500', 'bg-[#1E7B4F]', 'bg-[#B7791F]', 'bg-[#16417F]', 'bg-[#5B6472]', 'bg-[#8AADD9]']
 
-export function Avatar({ name, src, size = 'md', className }: { name: string; src?: string; size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl'; className?: string }) {
+export function Avatar({ name, src, size = 'md', className }: { name?: string; src?: string; size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl'; className?: string }) {
+  const safeName = name || ''
   const sizes = { xs: 'h-6 w-6 text-[10px]', sm: 'h-8 w-8 text-xs', md: 'h-10 w-10 text-sm', lg: 'h-14 w-14 text-lg', xl: 'h-20 w-20 text-2xl' }
-  const color = AVATAR_COLORS[name.length % AVATAR_COLORS.length]
+  const color = AVATAR_COLORS[(safeName.length ?? 0) % AVATAR_COLORS.length]
   return (
     <div className={cn('flex shrink-0 items-center justify-center rounded-full font-semibold text-white', sizes[size], color, className)}>
-      {src ? <img src={src} alt={name} className="h-full w-full rounded-full object-cover" /> : initials(name)}
+      {src ? <img src={src} alt={safeName} className="h-full w-full rounded-full object-cover" /> : initials(safeName)}
     </div>
   )
 }
 
-export function Rating({ value, count, className, size = 'sm' }: { value: number; count?: number; className?: string; size?: 'xs' | 'sm' }) {
+export function Rating({ value, count, className, size = 'sm' }: { value?: number; count?: number; className?: string; size?: 'xs' | 'sm' }) {
+  const safeValue = typeof value === 'number' && !isNaN(value) ? value : 0
   return (
     <div className={cn('flex items-center gap-1', className)}>
       <Star className={cn('fill-[#B7791F] text-[#B7791F]', size === 'xs' ? 'h-3 w-3' : 'h-4 w-4')} />
-      <span className={cn('font-semibold text-ink', size === 'xs' ? 'text-xs' : 'text-sm')}>{value.toFixed(1)}</span>
+      <span className={cn('font-semibold text-ink', size === 'xs' ? 'text-xs' : 'text-sm')}>{safeValue.toFixed(1)}</span>
       {typeof count === 'number' && <span className="text-xs text-muted">({count.toLocaleString()})</span>}
     </div>
   )

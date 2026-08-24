@@ -107,9 +107,9 @@ export function PortalLayout({ nav, role }: { nav: NavItem[]; role: string }) {
   const navTo = useNavigate()
   if (!currentUser) return null
 
-  const unread = notifications.filter((n) => !n.read).length
-  const unreadMsg = conversations.reduce((acc, cv) => {
-    const msgs = messages.filter((m) => m.conversationId === cv.id && m.toId === currentUser.id && !m.read)
+  const unread = (notifications ?? []).filter((n) => !n.read).length
+  const unreadMsg = (conversations ?? []).reduce((acc, cv) => {
+    const msgs = (messages ?? []).filter((m) => m.conversationId === cv.id && m.toId === currentUser.id && !m.read)
     return acc + msgs.length
   }, 0)
 

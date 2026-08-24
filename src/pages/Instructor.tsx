@@ -14,25 +14,26 @@ function useInstructor() {
   useEffect(() => {
     const token = getStoredToken()
     if (!token) return
-    studentApi.listMyCourses(token).then((r) => setMyCourses(r.courses)).catch(() => {})
+    studentApi.listMyCourses(token).then((r) => setMyCourses(r?.courses ?? [])).catch(() => {})
   }, [])
   const instructor = currentUser && currentUser.role === 'instructor' ? currentUser : null
   return { instructor, myCourses }
 }
 
 export function InstructorDashboard() {
-  const { instructor, myCourses } = useInstructor()
+  const { instructor, myCourses = [] } = useInstructor()
   const { t } = useTranslation()
   const nav = useNavigate()
-  const totalStudents = myCourses.reduce((a, c) => a + c.studentCount, 0)
-  const revenue = myCourses.reduce((a, c) => a + c.studentCount * (c.price * 0.7), 0)
-  const avgRating = myCourses.length ? myCourses.reduce((a, c) => a + c.rating, 0) / myCourses.length : 0
+  const safeCourses = myCourses ?? []
+  const totalStudents = safeCourses.reduce((a, c) => a + (c.studentCount ?? 0), 0)
+  const revenue = safeCourses.reduce((a, c) => a + (c.studentCount ?? 0) * ((c.price ?? 0) * 0.7), 0)
+  const avgRating = safeCourses.length ? safeCourses.reduce((a, c) => a + (c.rating ?? 0), 0) / safeCourses.length : 0
 
   return (
     <div className="space-y-8">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="font-display text-2xl font-bold text-ink">{t('instrDash.welcomeBack', { name: instructor?.name.split(' ')[0] ?? t('instrDash.instructor') })}</h1>
+          <h1 className="font-display text-2xl font-bold text-ink">{t('instrDash.welcomeBack', { name: instructor?.name ? instructor.name.split(' ')[0] : t('instrDash.instructor') })}</h1>
           <p className="mt-1 text-sm text-muted">{t('instrDash.performing')}</p>
         </div>
         <Button onClick={() => nav('/instructor/courses/new')}>{t('instrDash.createCourse')}</Button>
@@ -40,7 +41,7 @@ export function InstructorDashboard() {
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard label={t('instrDash.totalStudents')} value={totalStudents.toLocaleString()} sub={t('instrDash.acrossCourses')} icon={<Users className="h-5 w-5" />} />
-        <StatCard label={t('instrDash.courses')} value={myCourses.length} sub={t('instrDash.published', { count: myCourses.filter((c) => c.status === 'published').length })} icon={<BookOpen className="h-5 w-5" />} />
+        <StatCard label={t('instrDash.courses')} value={safeCourses.length} sub={t('instrDash.published', { count: safeCourses.filter((c) => c.status === 'published').length })} icon={<BookOpen className="h-5 w-5" />} />
         <StatCard label={t('instrDash.revenue')} value={formatPrice(Math.round(revenue))} sub={t('instrDash.allTime')} icon={<Wallet className="h-5 w-5" />} />
         <StatCard label={t('instrDash.avgRating')} value={avgRating.toFixed(1)} sub={t('instrDash.acrossCourses')} icon={<Star className="h-5 w-5" />} />
       </div>

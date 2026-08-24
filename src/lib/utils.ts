@@ -9,8 +9,8 @@ export function homePath(role: Role): string {
   return role === 'admin' ? '/admin' : role === 'instructor' ? '/instructor' : '/dashboard'
 }
 
-export function formatPrice(price: number) {
-  if (price === 0) return 'Free'
+export function formatPrice(price?: number) {
+  if (price === undefined || price === null || price === 0 || isNaN(price)) return 'Free'
   return new Intl.NumberFormat('en-NG', {
     style: 'currency',
     currency: 'NGN',
@@ -18,16 +18,20 @@ export function formatPrice(price: number) {
   }).format(price)
 }
 
-export function formatDuration(minutes: number) {
-  if (minutes < 60) return `${minutes} min`
-  const h = Math.floor(minutes / 60)
-  const m = minutes % 60
+export function formatDuration(minutes?: number) {
+  const safeMinutes = typeof minutes === 'number' && !isNaN(minutes) ? minutes : 0
+  if (safeMinutes < 60) return `${safeMinutes} min`
+  const h = Math.floor(safeMinutes / 60)
+  const m = safeMinutes % 60
   if (m === 0) return `${h}h`
   return `${h}h ${m}m`
 }
 
-export function timeAgo(date: string) {
-  const seconds = Math.floor((Date.now() - new Date(date).getTime()) / 1000)
+export function timeAgo(date?: string) {
+  if (!date) return ''
+  const parsed = new Date(date).getTime()
+  if (isNaN(parsed)) return ''
+  const seconds = Math.floor((Date.now() - parsed) / 1000)
   if (seconds < 60) return 'just now'
   const minutes = Math.floor(seconds / 60)
   if (minutes < 60) return `${minutes}m ago`
@@ -40,8 +44,11 @@ export function timeAgo(date: string) {
   return `${Math.floor(months / 12)}y ago`
 }
 
-export function formatDate(date: string) {
-  return new Date(date).toLocaleDateString('en-US', {
+export function formatDate(date?: string) {
+  if (!date) return ''
+  const parsed = new Date(date)
+  if (isNaN(parsed.getTime())) return ''
+  return parsed.toLocaleDateString('en-US', {
     month: 'short',
     day: 'numeric',
     year: 'numeric'
@@ -56,16 +63,18 @@ export function greeting() {
 }
 
 export function slugify(s: string) {
-  return s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
+  return (s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
 }
 
 export function uid(prefix = 'id') {
   return `${prefix}_${Math.random().toString(36).slice(2, 10)}${Date.now().toString(36).slice(-4)}`
 }
 
-export function initials(name: string) {
+export function initials(name?: string) {
+  if (!name) return ''
   return name
     .split(' ')
+    .filter(Boolean)
     .slice(0, 2)
     .map((n) => n[0])
     .join('')

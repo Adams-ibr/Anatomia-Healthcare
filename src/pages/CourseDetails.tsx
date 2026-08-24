@@ -83,7 +83,8 @@ export default function CourseDetails() {
 
   const category = CATEGORIES.find((c) => c.id === course.categoryId)
   const saved = wishlist.includes(course.id)
-  const totalLessons = course.sections.reduce((a, s) => a + s.lessons.length, 0)
+  const sections = course.sections ?? []
+  const totalLessons = sections.reduce((a, s) => a + (s.lessons ?? []).length, 0)
   const enrolled = currentUser && enrollments.some((e) => e.userId === currentUser.id && e.courseId === course.id)
   const myEnrollment = currentUser ? enrollments.find((e) => e.userId === currentUser.id && e.courseId === course.id) : null
   const disc = discountPercent(course.price, course.discountPrice)
@@ -91,12 +92,13 @@ export default function CourseDetails() {
   const related = COURSES.filter((c) => c.categoryId === course.categoryId && c.id !== course.id).slice(0, 4)
 
   const handleEnroll = () => {
+    const firstLessonId = sections[0]?.lessons?.[0]?.id || 'l1'
     if (!currentUser) { nav(`/login?next=/courses/${course.slug}`); return }
-    if (enrolled) { nav(`/learning/${course.id}/${myEnrollment?.currentLessonId ?? course.sections[0].lessons[0].id}`); return }
+    if (enrolled) { nav(`/learning/${course.id}/${myEnrollment?.currentLessonId ?? firstLessonId}`); return }
     if (course.price === 0 || displayPrice === 0) {
       enroll(course.id)
       toast(t('common.success'), t('course.enrolledBody', { title: course.title }))
-      nav(`/learning/${course.id}/${course.sections[0].lessons[0].id}`)
+      nav(`/learning/${course.id}/${firstLessonId}`)
     } else {
       addToCart(course.id)
       toast(t('course.addedToCart'), t('course.addedToCartBody'), 'info')
@@ -170,8 +172,8 @@ export default function CourseDetails() {
                     </Button>
                   </div>
                   <div className="mt-5 space-y-2 border-t border-line pt-4 text-sm text-muted">
-                    <p className="flex items-center gap-2"><ListVideo className="h-4 w-4" /> {t('course.lessonsAcross', { count: totalLessons, sections: course.sections.length })}</p>
-                    <p className="flex items-center gap-2"><Clock className="h-4 w-4" /> {t('course.onDemand', { count: formatDuration(course.duration * 60) })}</p>
+                    <p className="flex items-center gap-2"><ListVideo className="h-4 w-4" /> {t('course.lessonsAcross', { count: totalLessons, sections: sections.length })}</p>
+                    <p className="flex items-center gap-2"><Clock className="h-4 w-4" /> {t('course.onDemand', { count: formatDuration((course.duration ?? 0) * 60) })}</p>
                     <p className="flex items-center gap-2"><Award className="h-4 w-4" /> {course.hasCertificate ? t('course.certificate') : t('course.noCertificate')}</p>
                     <p className="flex items-center gap-2"><BookOpen className="h-4 w-4" /> {t('course.lifetimeAccess')}</p>
                     <p className="flex items-center gap-2"><RotateCcw className="h-4 w-4" /> {t('course.guarantee')}</p>
@@ -202,7 +204,7 @@ export default function CourseDetails() {
                   <div>
                     <h2 className="mb-4 text-xl font-semibold text-ink">{t('course.whatLearn')}</h2>
                     <ul className="grid gap-3 sm:grid-cols-2">
-                      {course.objectives.map((o) => (
+                      {(course.objectives ?? []).map((o) => (
                         <li key={o.id} className="flex items-start gap-2.5 text-sm text-ink">
                           <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-success" /> {o.text}
                         </li>
@@ -218,7 +220,7 @@ export default function CourseDetails() {
                   <div>
                     <h2 className="mb-4 text-xl font-semibold text-ink">{t('course.requirements')}</h2>
                     <ul className="space-y-2">
-                      {course.requirements.map((r) => (
+                      {(course.requirements ?? []).map((r) => (
                         <li key={r.id} className="flex items-start gap-2.5 text-sm text-ink">
                           <Info className="mt-0.5 h-4 w-4 shrink-0 text-brand-500" /> {r.text}
                         </li>
@@ -228,7 +230,7 @@ export default function CourseDetails() {
                   <div>
                     <h2 className="mb-4 text-xl font-semibold text-ink">{t('course.faq')}</h2>
                     <div className="space-y-3">
-                      {course.faqs.map((f, i) => (
+                      {(course.faqs ?? []).map((f, i) => (
                         <Accordion key={i} title={f.q}>
                           <p className="text-sm text-muted">{f.a}</p>
                         </Accordion>
@@ -241,13 +243,13 @@ export default function CourseDetails() {
               {tab === 'curriculum' && (
                 <div>
                   <p className="mb-6 text-sm text-muted">
-                    {t('course.sectionsLessons', { sections: course.sections.length, count: totalLessons, duration: formatDuration(course.duration * 60) })}
+                    {t('course.sectionsLessons', { sections: sections.length, count: totalLessons, duration: formatDuration((course.duration ?? 0) * 60) })}
                   </p>
                   <div className="card divide-y divide-line px-6">
-                    {course.sections.map((s, i) => (
-                      <Accordion key={s.id} title={<span>{i + 1}. {s.title}</span>} defaultOpen={i === 0} right={<span className="shrink-0 text-xs text-muted">{t('course.lessonsCount', { count: s.lessons.length })}</span>}>
+                    {sections.map((s, i) => (
+                      <Accordion key={s.id} title={<span>{i + 1}. {s.title}</span>} defaultOpen={i === 0} right={<span className="shrink-0 text-xs text-muted">{t('course.lessonsCount', { count: (s.lessons ?? []).length })}</span>}>
                         <ul className="divide-y divide-line">
-                          {s.lessons.map((l) => (
+                          {(s.lessons ?? []).map((l) => (
                             <li key={l.id} className="flex items-center gap-3 py-2.5">
                               <span className="text-brand-500">{TYPE_ICON[l.type]}</span>
                               <button className="flex-1 text-left text-sm text-ink hover:text-brand-700" onClick={() => enrolled ? nav(`/learning/${course.id}/${l.id}`) : toast(t('course.enrollToStart'), t('course.enrollToStartBody'), 'info')}>{l.title}</button>

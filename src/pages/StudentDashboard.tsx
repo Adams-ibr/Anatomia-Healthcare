@@ -14,10 +14,10 @@ function Announcements() {
     const token = getStoredToken()
     if (!token) return
     studentApi.listAnnouncements(token)
-      .then((res) => setItems(res.announcements))
+      .then((res) => setItems(res?.announcements ?? []))
       .catch(() => {})
   }, [])
-  if (items.length === 0) return null
+  if (!items || items.length === 0) return null
   return (
     <div>
       <h2 className="mb-3 text-lg font-semibold text-ink">{t('sdash.announcements')}</h2>
@@ -38,12 +38,13 @@ function Announcements() {
 }
 
 export default function StudentDashboard() {
-  const { currentUser, enrollments, certificates } = useApp()
+  const { currentUser, enrollments = [], certificates = [] } = useApp()
   const { t } = useTranslation()
   const nav = useNavigate()
-  const user = currentUser!
+  const user = currentUser
 
-  const mine = useMemo(() => enrollments.filter((e) => e.userId === user.id), [enrollments, user.id])
+  const safeEnrollments = enrollments ?? []
+  const mine = useMemo(() => user ? safeEnrollments.filter((e) => e.userId === user.id) : [], [safeEnrollments, user])
   const active = mine.filter((e) => e.status === 'active').sort((a, b) => b.progress - a.progress)
   const completed = mine.filter((e) => e.status === 'completed')
   const inProgress = mine.filter((e) => e.progress > 0 && e.progress < 100)
@@ -55,7 +56,7 @@ export default function StudentDashboard() {
     <div className="space-y-8">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="font-display text-2xl font-bold text-ink sm:text-3xl">{greeting()}, {user.name.split(' ')[0]}</h1>
+          <h1 className="font-display text-2xl font-bold text-ink sm:text-3xl">{greeting()}, {user?.name ? user.name.split(' ')[0] : 'Learner'}</h1>
           <p className="mt-1 text-sm text-muted">{t('sdash.today')}</p>
         </div>
       </div>
@@ -116,7 +117,7 @@ export default function StudentDashboard() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard label={t('sdash.coursesInProgress')} value={inProgress.length} sub={t('sdash.keepGoingSub')} icon={<BookOpen className="h-5 w-5" />} />
         <StatCard label={t('sdash.completedCourses')} value={completed.length} sub={t('sdash.completionPct', { pct: (completed.length / Math.max(1, mine.length) * 100).toFixed(0) })} icon={<CheckCircle2 className="h-5 w-5" />} />
-        <StatCard label={t('sdash.certificates')} value={certificates.filter((c) => c.userId === user.id).length} sub={t('sdash.verifiedCredentials')} icon={<Award className="h-5 w-5" />} />
+        <StatCard label={t('sdash.certificates')} value={(certificates ?? []).filter((c) => c.userId === user?.id).length} sub={t('sdash.verifiedCredentials')} icon={<Award className="h-5 w-5" />} />
         <StatCard label={t('sdash.learningHours')} value={learningHours} sub={t('sdash.totalThisMonth')} icon={<Clock className="h-5 w-5" />} />
       </div>
 

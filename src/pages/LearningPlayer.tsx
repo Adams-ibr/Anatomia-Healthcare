@@ -101,7 +101,7 @@ export default function LearningPlayer() {
     [enrollments, currentUser, courseId]
   )
 
-  const allLessons = useMemo(() => course?.sections.flatMap((s) => s.lessons) ?? [], [course])
+  const allLessons = useMemo(() => course?.sections?.flatMap((s) => s.lessons ?? []) ?? [], [course])
   const lesson = allLessons.find((l) => l.id === lessonId) ?? allLessons[0]
   const idx = allLessons.findIndex((l) => l.id === lesson?.id)
   const prev = allLessons[idx - 1]
@@ -145,7 +145,7 @@ export default function LearningPlayer() {
     )
   }
 
-  const isDone = enrollment.completedLessons.includes(lesson.id)
+  const isDone = enrollment.completedLessons?.includes(lesson.id) ?? false
   const progress = enrollment.progress
 
   const markComplete = () => {

@@ -16,15 +16,16 @@ export function InstructorCourses() {
   useEffect(() => {
     const token = getStoredToken()
     if (!token) return
-    studentApi.listMyCourses(token).then((r) => setMyCourses(r.courses)).catch(() => {})
+    studentApi.listMyCourses(token).then((r) => setMyCourses(r?.courses ?? [])).catch(() => {})
   }, [])
 
-  const list = myCourses.filter((c) => tab === 'all' || c.status === tab)
+  const safeCourses = myCourses ?? []
+  const list = safeCourses.filter((c) => tab === 'all' || c.status === tab)
   const tabs = [
-    { id: 'all', label: `All (${myCourses.length})` },
-    { id: 'draft', label: `Drafts (${myCourses.filter((c) => c.status === 'draft').length})` },
-    { id: 'pending', label: `Pending review (${myCourses.filter((c) => c.status === 'pending').length})` },
-    { id: 'published', label: `Published (${myCourses.filter((c) => c.status === 'published').length})` }
+    { id: 'all', label: `All (${safeCourses.length})` },
+    { id: 'draft', label: `Drafts (${safeCourses.filter((c) => c.status === 'draft').length})` },
+    { id: 'pending', label: `Pending review (${safeCourses.filter((c) => c.status === 'pending').length})` },
+    { id: 'published', label: `Published (${safeCourses.filter((c) => c.status === 'published').length})` }
   ]
 
   return (

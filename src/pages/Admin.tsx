@@ -37,22 +37,22 @@ export function AdminDashboard() {
     ]).then(([pay, users, students, instructors, courses, certs]) => {
       if (cancelled) return
       setStats({
-        users: users.total,
-        students: students.total,
-        instructors: instructors.total,
-        revenue: pay.grossRevenue,
-        courses: courses.total,
-        certificates: certs.certificates.length,
-        orders: pay.orderCount,
-        monthly: pay.monthly
+        users: users?.total ?? 0,
+        students: students?.total ?? 0,
+        instructors: instructors?.total ?? 0,
+        revenue: pay?.grossRevenue ?? 0,
+        courses: courses?.total ?? 0,
+        certificates: certs?.certificates?.length ?? 0,
+        orders: pay?.orderCount ?? 0,
+        monthly: pay?.monthly ?? []
       })
     }).catch(() => {})
     return () => { cancelled = true }
   }, [])
 
-  const completed = enrollments.filter((e) => e.status === 'completed').length
-  const completionRate = enrollments.length ? Math.round(completed / enrollments.length * 100) : 0
-  const growth = useMemo(() => stats?.monthly.map((m) => ({ month: m.m, users: Math.round(m.revenue) })) ?? [], [stats])
+  const completed = (enrollments ?? []).filter((e) => e.status === 'completed').length
+  const completionRate = (enrollments ?? []).length ? Math.round(completed / (enrollments ?? []).length * 100) : 0
+  const growth = useMemo(() => stats?.monthly?.map((m) => ({ month: m.m, users: Math.round(m.revenue) })) ?? [], [stats])
 
   return (
     <div className="space-y-8">

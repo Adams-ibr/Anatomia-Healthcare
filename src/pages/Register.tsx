@@ -34,8 +34,8 @@ export default function Register() {
     setLoading(false)
     if (!res.ok) { setError(res.error ?? t('auth.register.failed')); return }
     if (res.pendingConfirmation) { setPending(email); return }
-    toast(t('auth.register.created'), t('auth.register.welcomeBody', { name: res.user!.name.split(' ')[0] }))
-    const target = next && next.startsWith('/') ? next : homePath(res.user!.role)
+    toast(t('auth.register.created'), t('auth.register.welcomeBody', { name: res.user?.name ? res.user.name.split(' ')[0] : 'there' }))
+    const target = next && next.startsWith('/') ? next : homePath(res.user?.role ?? 'student')
     nav(target)
   }
 

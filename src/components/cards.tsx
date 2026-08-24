@@ -22,13 +22,20 @@ export function CourseCard({ course, large, compact }: { course: Course; large?:
     toast(saved ? t('cards.removedFromWishlist') : t('cards.savedToWishlist'), course.title)
   }
 
+  const sectionsCount = course.sections?.length ?? 0
+  const studentCount = course.studentCount ?? 0
+  const duration = course.duration ?? 0
+  const rating = course.rating ?? 0
+  const reviewCount = course.reviewCount ?? 0
+  const price = course.price ?? 0
+
   return (
     <article
       onClick={go}
       className="group card flex h-full cursor-pointer flex-col overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-lift"
     >
       <div className="relative aspect-[16/9] overflow-hidden bg-brand-900">
-        <img src={course.thumbnail} alt={course.title} className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" loading="lazy" />
+        <img src={course.thumbnail || '/placeholder-course.jpg'} alt={course.title} className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" loading="lazy" />
         <button
           onClick={toggle}
           aria-label={saved ? t('cards.removeFromWishlist') : t('cards.addToWishlist')}
@@ -37,7 +44,7 @@ export function CourseCard({ course, large, compact }: { course: Course; large?:
           <Heart className={cn('h-4 w-4', saved && 'fill-danger')} />
         </button>
         <div className="absolute bottom-3 left-3 flex gap-1.5">
-          <Badge color="ink">{course.level}</Badge>
+          {course.level && <Badge color="ink">{course.level}</Badge>}
           {course.hasCertificate && <Badge color="brand">{t('cards.certificate')}</Badge>}
         </div>
       </div>
@@ -48,23 +55,23 @@ export function CourseCard({ course, large, compact }: { course: Course; large?:
         <p className="line-clamp-1 text-xs text-muted">{course.subtitle}</p>
 
         <div className="flex items-center gap-1.5 text-xs">
-          <Rating value={course.rating} size="xs" count={course.reviewCount} />
+          <Rating value={rating} size="xs" count={reviewCount} />
         </div>
 
         <div className="mt-auto flex items-center gap-3 pt-2 text-xs text-muted">
-          <span className="flex items-center gap-1"><Users className="h-3.5 w-3.5" />{course.studentCount.toLocaleString()}</span>
-          <span className="flex items-center gap-1"><Clock className="h-3.5 w-3.5" />{formatDuration(course.duration * 60)}</span>
-          {!compact && <span className="flex items-center gap-1"><BookOpen className="h-3.5 w-3.5" />{t('cards.sections', { count: course.sections?.length ?? 0 })}</span>}
+          <span className="flex items-center gap-1"><Users className="h-3.5 w-3.5" />{studentCount.toLocaleString()}</span>
+          <span className="flex items-center gap-1"><Clock className="h-3.5 w-3.5" />{formatDuration(duration * 60)}</span>
+          {!compact && sectionsCount > 0 && <span className="flex items-center gap-1"><BookOpen className="h-3.5 w-3.5" />{t('cards.sections', { count: sectionsCount })}</span>}
         </div>
 
         <div className="flex items-center justify-between pt-1">
           <div className="flex items-baseline gap-2">
-            {course.price === 0 ? (
+            {price === 0 ? (
               <span className="text-base font-bold text-success">{t('cards.free')}</span>
             ) : (
               <>
-                <span className="text-base font-bold text-ink">{formatPrice(course.discountPrice ?? course.price)}</span>
-                {course.discountPrice && <span className="text-xs text-muted line-through">{formatPrice(course.price)}</span>}
+                <span className="text-base font-bold text-ink">{formatPrice(course.discountPrice ?? price)}</span>
+                {course.discountPrice && <span className="text-xs text-muted line-through">{formatPrice(price)}</span>}
                 {disc > 0 && <Badge color="danger">{t('cards.off', { pct: disc })}</Badge>}
               </>
             )}
