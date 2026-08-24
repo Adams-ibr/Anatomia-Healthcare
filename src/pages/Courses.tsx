@@ -124,29 +124,41 @@ export default function Courses() {
           faqs: c.faqs ?? []
         }))
         setCourses(mapped as MappedCourse[])
-      } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load courses')
-        // Fall back to data.js when API calls fail
-        setCategories(DATA_CATEGORIES.map((c: any) => ({ id: c.id, name: c.name, slug: c.slug, description: c.description })))
-        setCourses(DATA_COURSES.map((c: any) => ({
+        // Fall back to data when API calls fail
+        setCategories((DATA_CATEGORIES || []).map((c: any) => ({ id: c.id, name: c.name, slug: c.slug, description: c.description })))
+        const fallbackMapped = (DATA_COURSES || []).map((c: any) => ({
           id: c.id,
           slug: c.slug,
           title: c.title,
           subtitle: c.subtitle,
           description: c.description,
-          price: c.price,
+          longDescription: c.longDescription ?? '',
+          categoryId: c.categoryId ?? '',
+          instructorId: c.instructorId ?? '',
+          thumbnail: c.thumbnail || '',
+          price: c.price ?? 0,
           discountPrice: c.discountPrice,
-          rating: c.rating,
-          reviewCount: c.reviewCount,
-          studentCount: c.studentCount,
-          level: c.level,
-          language: c.language,
-          hasCertificate: c.hasCertificate,
+          rating: c.rating ?? 0,
+          reviewCount: c.reviewCount ?? 0,
+          studentCount: c.studentCount ?? 0,
+          duration: c.duration ?? 0,
+          level: c.level ?? 'Beginner',
+          language: c.language ?? 'en',
+          lastUpdated: c.lastUpdated ?? '',
+          hasCertificate: c.hasCertificate ?? false,
           isFeatured: c.isFeatured,
           isTrending: c.isTrending,
           isNew: c.isNew,
-          categoryName: c.categoryName
-        })))
+          status: c.status ?? 'published',
+          categoryName: c.categoryName,
+          sections: c.sections ?? [],
+          objectives: c.objectives ?? [],
+          requirements: c.requirements ?? [],
+          reviews: c.reviews ?? [],
+          faqs: c.faqs ?? []
+        }))
+        setCourses(fallbackMapped as MappedCourse[])
       } finally {
         setLoading(false)
       }

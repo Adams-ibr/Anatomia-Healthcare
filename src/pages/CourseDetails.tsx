@@ -45,6 +45,7 @@ export default function CourseDetails() {
   const normalizedSlug = slug?.trim().replace(/^\/|\/$/g, '')
   const [course, setCourse] = useState<Course | null>(null)
   const [loading, setLoading] = useState(true)
+  const [tab, setTab] = useState('overview')
 
   useEffect(() => {
     ;(async () => {
@@ -54,9 +55,60 @@ export default function CourseDetails() {
       }
       try {
         const result = await publicApi.getCourseFull(normalizedSlug)
-        setCourse(result.course)
+        if (result?.course) {
+          const raw = result.course as any
+          setCourse({
+            id: raw.id,
+            slug: raw.slug,
+            title: raw.title,
+            subtitle: raw.subtitle,
+            description: raw.description,
+            longDescription: raw.longDescription || raw.description || '',
+            categoryId: raw.categoryId || raw.category_id || '',
+            instructorId: raw.instructorId || raw.instructor_id || '',
+            thumbnail: raw.thumbnail || '/placeholder-course.jpg',
+            price: raw.price ?? 0,
+            discountPrice: raw.discountPrice ?? raw.discount_price,
+            rating: raw.rating ?? 0,
+            reviewCount: raw.reviewCount ?? raw.review_count ?? 0,
+            studentCount: raw.studentCount ?? raw.student_count ?? 0,
+            duration: raw.duration ?? 0,
+            level: raw.level ?? 'Beginner',
+            language: raw.language ?? 'en',
+            lastUpdated: raw.lastUpdated ?? raw.last_updated ?? '',
+            hasCertificate: raw.hasCertificate ?? raw.has_certificate ?? false,
+            isFeatured: raw.isFeatured ?? raw.is_featured ?? false,
+            isTrending: raw.isTrending ?? raw.is_trending ?? false,
+            isNew: raw.isNew ?? raw.is_new ?? false,
+            status: raw.status ?? 'published',
+            instructorName: raw.instructorName ?? raw.instructor_name,
+            objectives: (raw.objectives ?? []).map((o: any, idx: number) => typeof o === 'string' ? { id: `obj_${idx}`, text: o } : o),
+            requirements: (raw.requirements ?? []).map((r: any, idx: number) => typeof r === 'string' ? { id: `req_${idx}`, text: r } : r),
+            sections: (raw.sections ?? []).map((s: any, idx: number) => ({
+              id: s.id ?? `sec_${idx}`,
+              title: s.title ?? '',
+              lessons: (s.lessons ?? []).map((l: any, lidx: number) => ({
+                id: l.id ?? `les_${lidx}`,
+                title: l.title ?? '',
+                type: l.type ?? 'video',
+                duration: l.duration ?? 0,
+                content: l.content ?? '',
+                videoUrl: l.videoUrl,
+                resourceUrl: l.resourceUrl,
+                completed: l.completed
+              }))
+            })),
+            reviews: raw.reviews ?? [],
+            faqs: raw.faqs ?? []
+          })
+        } else {
+          const local = COURSES.find((c) => c.slug === normalizedSlug)
+          if (local) setCourse(local)
+        }
       } catch (err) {
         console.error('Failed to fetch course:', err)
+        const local = COURSES.find((c) => c.slug === normalizedSlug)
+        if (local) setCourse(local)
       }
       setLoading(false)
     })()
