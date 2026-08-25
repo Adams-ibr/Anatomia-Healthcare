@@ -235,6 +235,8 @@ export default function CourseStudio() {
   const [saveState, setSaveState] = useState<'saved' | 'dirty' | 'saving'>('saved')
   const [sel, setSel] = useState<Selection>(null)
 
+  const isAdmin = currentUser?.role === 'admin'
+
   const loadCategories = useCallback(async () => {
     const token = getStoredToken()
     if (!token) return
@@ -253,7 +255,9 @@ export default function CourseStudio() {
     setLoading(true)
     setLoadError(null)
     try {
-      const res = await courseApi.getCourseFull(token, id)
+      const res = isAdmin
+        ? await courseApi.getCourseFull(token, id)
+        : await courseApi.instructorGetCourseFull(token, id)
       const full = res.course
       const d: StudioDraft = {
         title: full.title,
@@ -308,7 +312,7 @@ export default function CourseStudio() {
     } finally {
       setLoading(false)
     }
-  }, [id, t])
+  }, [id, t, isAdmin])
 
   useEffect(() => {
     loadCategories()
@@ -438,21 +442,30 @@ export default function CourseStudio() {
     const token = getStoredToken()
     try {
       if (isEdit && id && token) {
-        await courseApi.saveCourseContent(token, id, toContentInput(draft))
+        if (isAdmin) {
+          await courseApi.saveCourseContent(token, id, toContentInput(draft))
+        } else {
+          await courseApi.instructorSaveCourseContent(token, id, toContentInput(draft))
+        }
       } else if (token && currentUser) {
         const catId = draft.categoryId || categories[0]?.id
         if (!catId) throw new Error(t('instrCourses.categoryRequired'))
-        const { course } = await courseApi.createCourse(token, {
+        const courseInput = {
           title: draft.title.trim() || 'Untitled course',
           categoryId: catId,
-          instructorId: currentUser.id,
           level: draft.level,
           price: Number(draft.price) || 0,
           duration: totalMinutes,
           hasCertificate: draft.hasCertificate,
           status: draft.status
-        })
-        await courseApi.saveCourseContent(token, course.id, toContentInput({ ...draft, status: draft.status }, course.id))
+        }
+        const { course } = isAdmin
+          ? await courseApi.createCourse(token, { ...courseInput, instructorId: currentUser.id })
+          : await courseApi.instructorCreateCourse(token, courseInput)
+        const saveContent = isAdmin
+          ? courseApi.saveCourseContent
+          : courseApi.instructorSaveCourseContent
+        await saveContent(token, course.id, toContentInput({ ...draft, status: draft.status }, course.id))
         nav(`/instructor/courses/${course.id}/edit`, { replace: true })
       } else {
         setSaveState('saved')
@@ -480,21 +493,30 @@ export default function CourseStudio() {
     const token = getStoredToken()
     try {
       if (isEdit && id && token) {
-        await courseApi.saveCourseContent(token, id, toContentInput(published))
+        if (isAdmin) {
+          await courseApi.saveCourseContent(token, id, toContentInput(published))
+        } else {
+          await courseApi.instructorSaveCourseContent(token, id, toContentInput(published))
+        }
       } else if (token && currentUser) {
         const catId = draft.categoryId || categories[0]?.id
         if (!catId) throw new Error(t('instrCourses.categoryRequired'))
-        const { course } = await courseApi.createCourse(token, {
+        const courseInput = {
           title: published.title.trim() || 'Untitled course',
           categoryId: catId,
-          instructorId: currentUser.id,
           level: published.level,
           price: Number(published.price) || 0,
           duration: totalMinutes,
           hasCertificate: published.hasCertificate,
-          status: 'published'
-        })
-        await courseApi.saveCourseContent(token, course.id, toContentInput({ ...published, status: 'published' }, course.id))
+          status: 'published' as const
+        }
+        const { course } = isAdmin
+          ? await courseApi.createCourse(token, { ...courseInput, instructorId: currentUser.id })
+          : await courseApi.instructorCreateCourse(token, courseInput)
+        const saveContent = isAdmin
+          ? courseApi.saveCourseContent
+          : courseApi.instructorSaveCourseContent
+        await saveContent(token, course.id, toContentInput({ ...published, status: 'published' }, course.id))
         nav(`/instructor/courses/${course.id}/edit`, { replace: true })
       } else {
         setSaveState('saved')

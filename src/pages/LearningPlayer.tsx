@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
@@ -25,17 +25,105 @@ function LessonIcon({ type }: { type: Lesson['type'] }) {
   return <>{map[type] ?? <FileText className="h-4 w-4" />}</>
 }
 
-function VideoPlayer({ url, title, onEnded, autoplayNext }: { url?: string; title: string; onEnded?: () => void; autoplayNext?: boolean }) {
+function VideoPlayer({ url, title, onEnded }: { url?: string; title: string; onEnded?: () => void; autoplayNext?: boolean }) {
+  const videoRef = useRef<HTMLVideoElement>(null)
   const [speed, setSpeed] = useState(1)
-  if (!url) return null
+  const [error, setError] = useState(false)
+
+  // Apply playback rate whenever speed changes
+  useEffect(() => {
+    if (videoRef.current) videoRef.current.playbackRate = speed
+  }, [speed])
+
+  const cycleSpeed = () => {
+    const next = speed === 1 ? 1.5 : speed === 1.5 ? 2 : speed === 2 ? 0.5 : 1
+    setSpeed(next)
+  }
+
+  if (!url || url.trim() === '') {
+    return (
+      <div className="flex aspect-video w-full items-center justify-center rounded-card bg-black text-white/50">
+        <div className="text-center">
+          <PlayCircle className="mx-auto h-12 w-12 opacity-40" />
+          <p className="mt-2 text-sm">No video URL provided for this lesson.</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Detect URL type to pick the right MIME type or embed strategy
+  const isYouTube = /youtu\.be|youtube\.com/.test(url)
+  const isVimeo = /vimeo\.com/.test(url)
+  const isHLS = /\.m3u8/.test(url)
+  const isWebM = /\.webm/.test(url)
+  const mimeType = isWebM ? 'video/webm' : isHLS ? 'application/x-mpegURL' : 'video/mp4'
+
+  // YouTube / Vimeo — use an iframe embed instead of <video>
+  if (isYouTube) {
+    const ytId = url.match(/(?:v=|youtu\.be\/)([A-Za-z0-9_-]{11})/)?.[1]
+    const embedUrl = ytId ? `https://www.youtube.com/embed/${ytId}?rel=0` : url
+    return (
+      <div className="overflow-hidden rounded-card bg-black">
+        <iframe
+          className="aspect-video w-full"
+          src={embedUrl}
+          title={title}
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          allowFullScreen
+        />
+      </div>
+    )
+  }
+
+  if (isVimeo) {
+    const vimeoId = url.match(/vimeo\.com\/(\d+)/)?.[1]
+    const embedUrl = vimeoId ? `https://player.vimeo.com/video/${vimeoId}` : url
+    return (
+      <div className="overflow-hidden rounded-card bg-black">
+        <iframe
+          className="aspect-video w-full"
+          src={embedUrl}
+          title={title}
+          allow="autoplay; fullscreen; picture-in-picture"
+          allowFullScreen
+        />
+      </div>
+    )
+  }
+
   return (
     <div className="overflow-hidden rounded-card bg-black">
-      <video controls className="aspect-video w-full" poster={undefined} onEnded={onEnded}>
-        <source src={url} type="video/mp4" />
-      </video>
+      {error ? (
+        <div className="flex aspect-video w-full items-center justify-center text-white/60">
+          <div className="text-center">
+            <PlayCircle className="mx-auto h-12 w-12 opacity-40" />
+            <p className="mt-2 text-sm">Could not load video.</p>
+            <p className="mt-1 text-xs opacity-60 break-all px-4">{url}</p>
+          </div>
+        </div>
+      ) : (
+        <video
+          ref={videoRef}
+          key={url}
+          controls
+          className="aspect-video w-full"
+          onEnded={onEnded}
+          onError={() => setError(true)}
+        >
+          <source src={url} type={mimeType} />
+          {/* Fallback: let browser sniff MIME if explicit type fails */}
+          <source src={url} />
+        </video>
+      )}
       <div className="flex items-center gap-1 border-t border-white/10 bg-black px-3 py-2 text-xs text-white/80">
-        <button onClick={() => setSpeed(speed === 1 ? 1.5 : speed === 1.5 ? 2 : speed === 2 ? 0.5 : 1)} className="rounded px-2 py-1 hover:bg-white/10">{speed}x</button>
-        <span className="ml-auto">{title}</span>
+        <button
+          onClick={cycleSpeed}
+          className="rounded px-2 py-1 hover:bg-white/10"
+          title="Playback speed"
+        >
+          {speed}x
+        </button>
+        <span className="ml-auto truncate">{title}</span>
       </div>
     </div>
   )

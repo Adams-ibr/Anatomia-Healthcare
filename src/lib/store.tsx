@@ -13,6 +13,16 @@ interface Toast {
   kind: 'success' | 'error' | 'info'
 }
 
+export interface CartCourse {
+  id: string
+  title: string
+  thumbnail?: string
+  price: number
+  discountPrice?: number
+  instructorName?: string
+  level?: string
+}
+
 interface AppState {
   authStatus: 'loading' | 'authenticated' | 'unauthenticated'
   currentUser: AuthUser | null
@@ -20,6 +30,7 @@ interface AppState {
   enrollments: Enrollment[]
   wishlist: string[]
   cart: string[]
+  cartCourses: Record<string, CartCourse>
   notifications: Notification[]
   conversations: Conversation[]
   messages: Message[]
@@ -37,7 +48,7 @@ interface AppState {
   completeLesson: (courseId: string, lessonId: string) => void
   setCurrentLesson: (courseId: string, lessonId: string) => void
   toggleWishlist: (courseId: string) => void
-  addToCart: (courseId: string) => void
+  addToCart: (courseId: string, course?: CartCourse) => void
   removeFromCart: (courseId: string) => void
   clearCart: () => void
   checkout: (method: string) => Promise<'completed' | 'redirected'>
@@ -131,6 +142,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [enrollments, setEnrollments] = useState<Enrollment[]>([])
   const [wishlist, setWishlist] = useState<string[]>(() => load('wishlist', []))
   const [cart, setCart] = useState<string[]>(() => load('cart', []))
+  const [cartCourses, setCartCourses] = useState<Record<string, CartCourse>>(() => load('cartCourses', {}))
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [messages, setMessages] = useState<Message[]>([])
@@ -144,6 +156,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => save('enrollments', enrollments), [enrollments])
   useEffect(() => save('wishlist', wishlist), [wishlist])
   useEffect(() => save('cart', cart), [cart])
+  useEffect(() => save('cartCourses', cartCourses), [cartCourses])
   useEffect(() => save('notifications', notifications), [notifications])
   useEffect(() => save('conversations', conversations), [conversations])
   useEffect(() => save('messages', messages), [messages])
@@ -362,15 +375,30 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setWishlist((w) => w.includes(courseId) ? w.filter((c) => c !== courseId) : [...w, courseId])
   }, [])
 
-  const addToCart = useCallback((courseId: string) => {
+  const addToCart = useCallback((courseId: string, course?: CartCourse) => {
     setCart((c) => (c.includes(courseId) ? c : [...c, courseId]))
+    if (course) {
+      setCartCourses((m) => ({ ...m, [courseId]: course }))
+      // Also write to localStorage immediately so the value is available
+      // after synchronous navigation before the useEffect fires
+      try {
+        const existing = load<Record<string, CartCourse>>('cartCourses', {})
+        save('cartCourses', { ...existing, [courseId]: course })
+        const existingCart = load<string[]>('cart', [])
+        if (!existingCart.includes(courseId)) save('cart', [...existingCart, courseId])
+      } catch { /* ignore */ }
+    }
   }, [])
 
   const removeFromCart = useCallback((courseId: string) => {
     setCart((c) => c.filter((x) => x !== courseId))
+    setCartCourses((m) => { const next = { ...m }; delete next[courseId]; return next })
   }, [])
 
-  const clearCart = useCallback(() => setCart([]), [])
+  const clearCart = useCallback(() => {
+    setCart([])
+    setCartCourses({})
+  }, [])
 
   const checkout = useCallback(async (method: string): Promise<'completed' | 'redirected'> => {
     if (!currentUser) return 'completed'
@@ -397,6 +425,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         })
         setOrders((o) => [...o, toOrder({ ...order, userId: currentUser.id, items: order.items, createdAt: order.createdAt })])
         setCart([])
+        setCartCourses({})
         return 'completed'
       } catch {
         /* fall through to local */
@@ -417,6 +446,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       date: new Date().toISOString(), paymentMethod: method
     }])
     setCart([])
+    setCartCourses({})
     return 'completed'
   }, [cart, currentUser])
 
@@ -434,6 +464,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       })
       setOrders((o) => o.some((x) => x.id === order.id) ? o : [...o, toOrder({ ...order, userId: currentUser.id, items: order.items, createdAt: order.createdAt })])
       setCart([])
+      setCartCourses({})
       return { ok: true, enrollments: newEnrollments, order }
     } catch (err) {
       return { ok: false, error: getErrorMessage(err) }
@@ -569,7 +600,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const value: AppState = {
-    authStatus, currentUser, users, enrollments, wishlist, cart, notifications, conversations, messages,
+    authStatus, currentUser, users, enrollments, wishlist, cart, cartCourses, notifications, conversations, messages,
     submissions, orders, certificates, toasts,
     login, register, logout, forgotPassword, resetPassword, verifyEmail, enroll, completeLesson,
     setCurrentLesson, toggleWishlist, addToCart, removeFromCart, clearCart, checkout, verifyCheckout, markNotificationsRead,

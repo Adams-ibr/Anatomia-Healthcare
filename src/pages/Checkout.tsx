@@ -2,14 +2,13 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { CheckCircle2, Loader2, Lock, ShieldCheck, ShoppingBag } from 'lucide-react'
-import { COURSES } from '../lib/data'
 import { useApp } from '../lib/store'
 import { Button, Input } from '../components/ui'
 import { formatPrice } from '../lib/utils'
 import { cn } from '../lib/utils'
 
 export default function Checkout() {
-  const { currentUser, cart, removeFromCart, checkout, verifyCheckout, toast } = useApp()
+  const { currentUser, cart, cartCourses, removeFromCart, checkout, verifyCheckout, toast } = useApp()
   const { t } = useTranslation()
   const nav = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -45,7 +44,9 @@ export default function Checkout() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reference, currentUser])
 
-  const items = COURSES.filter((c) => cart.includes(c.id))
+  // Resolve cart items from stored course snapshots (cartCourses),
+  // falling back to just the ID if no snapshot is available
+  const items = cart.map((id) => cartCourses[id] ?? { id, title: id, price: 0 })
   const total = items.reduce((a, c) => a + (c.discountPrice ?? c.price), 0)
 
   if (!currentUser) {

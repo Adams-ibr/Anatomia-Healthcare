@@ -489,6 +489,20 @@ export const courseApi = {
 
   listInstructors(token: string): Promise<{ instructors: { id: string; name: string }[] }> {
     return apiFetch<{ instructors: { id: string; name: string }[] }>('/api/auth/admin/instructors', { token })
+  },
+
+  // Instructor-scoped endpoints — use /me/courses/:id/* so the backend
+  // checks ownership instead of requiring admin role
+  instructorCreateCourse(token: string, input: Omit<AdminCourseInput, 'instructorId'>): Promise<{ course: AdminCourse }> {
+    return apiFetch<{ course: AdminCourse }>('/api/auth/me/courses', { method: 'POST', body: input, token })
+  },
+
+  instructorGetCourseFull(token: string, id: string): Promise<{ course: AdminCourseFull }> {
+    return apiFetch<{ course: AdminCourseFull }>(`/api/auth/me/courses/${id}/full`, { token })
+  },
+
+  instructorSaveCourseContent(token: string, id: string, content: AdminCourseContentInput): Promise<{ course: AdminCourseFull }> {
+    return apiFetch<{ course: AdminCourseFull }>(`/api/auth/me/courses/${id}/content`, { method: 'PUT', body: content, token })
   }
 }
 
@@ -534,6 +548,51 @@ export interface StudentOrder {
   paymentMethod: string
   createdAt: string
   items: { courseId: string; title: string; price: number }[]
+}
+
+export interface StudentAssessment {
+  id: string
+  courseId: string
+  courseTitle: string
+  courseSlug: string
+  courseThumbnail?: string
+  title: string
+  description: string
+  timeLimit: number
+  passingScore: number
+  retakeLimit: number
+  attemptCount: number
+  bestScore: number | null
+  passed: boolean
+  lastAttemptAt: string | null
+}
+
+export interface StudentAssessmentQuestion {
+  id: string
+  type: 'mc' | 'multi' | 'truefalse' | 'short' | 'essay' | 'fill'
+  question: string
+  options: string[]
+  explanation: string | null
+}
+
+export interface StudentAssessmentFull extends StudentAssessment {
+  questions: StudentAssessmentQuestion[]
+}
+
+export interface AssessmentResult {
+  attemptId: string
+  score: number
+  passed: boolean
+  correct: number
+  total: number
+  passingScore: number
+  attemptedAt: string
+  gradedAnswers: Record<string, {
+    given: string | string[]
+    correct: string | string[] | null
+    isCorrect: boolean
+    explanation: string | null
+  }>
 }
 
 export interface StudentCertificate {
@@ -693,6 +752,18 @@ export const studentApi = {
 
   markNotificationsRead(token: string): Promise<{ ok: boolean }> {
     return apiFetch<{ ok: boolean }>('/api/auth/me/notifications/read', { method: 'POST', token })
+  },
+
+  listAssessments(token: string): Promise<{ assessments: StudentAssessment[] }> {
+    return apiFetch<{ assessments: StudentAssessment[] }>('/api/auth/me/assessments', { token })
+  },
+
+  getAssessment(token: string, id: string): Promise<{ assessment: StudentAssessmentFull }> {
+    return apiFetch<{ assessment: StudentAssessmentFull }>(`/api/auth/me/assessments/${id}`, { token })
+  },
+
+  submitAssessment(token: string, id: string, answers: Record<string, string | string[]>): Promise<{ result: AssessmentResult }> {
+    return apiFetch<{ result: AssessmentResult }>(`/api/auth/me/assessments/${id}/attempt`, { method: 'POST', body: { answers }, token })
   }
 }
 

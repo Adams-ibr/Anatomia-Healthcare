@@ -10,7 +10,7 @@ import { Course } from '../lib/types'
 import { useApp } from '../lib/store'
 import { CourseCard } from '../components/cards'
 import { Accordion, Avatar, Badge, Button, Rating } from '../components/ui'
-import { discountPercent, formatDuration, formatPrice, timeAgo } from '../lib/utils'
+import { discountPercent, formatDuration, formatPrice, slugify, timeAgo } from '../lib/utils'
 import { cn } from '../lib/utils'
 import { publicApi } from '../lib/api/auth'
 
@@ -41,8 +41,9 @@ export default function CourseDetails() {
   const { t } = useTranslation()
   const { currentUser, enrollments, wishlist, toggleWishlist, enroll, toast, addToCart } = useApp()
 
-  // Normalize slug - remove leading/trailing slashes and whitespace
-  const normalizedSlug = slug?.trim().replace(/^\/|\/$/g, '')
+  // Normalize slug - decode URI components and remove slashes
+  const rawSlug = slug ? decodeURIComponent(slug).trim() : ''
+  const normalizedSlug = rawSlug.replace(/^\/|\/$/g, '')
   const [course, setCourse] = useState<Course | null>(null)
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState('overview')
@@ -55,28 +56,28 @@ export default function CourseDetails() {
       }
       try {
         const result = await publicApi.getCourseFull(normalizedSlug)
-        if (result?.course) {
-          const raw = result.course as any
+        const raw = (result && typeof result === 'object' && 'course' in result ? (result as any).course : result) as any
+        if (raw && (raw.id || raw.title)) {
           setCourse({
-            id: raw.id,
-            slug: raw.slug,
+            id: raw.id || normalizedSlug,
+            slug: raw.slug || normalizedSlug,
             title: raw.title,
-            subtitle: raw.subtitle,
-            description: raw.description,
+            subtitle: raw.subtitle || '',
+            description: raw.description || '',
             longDescription: raw.longDescription || raw.description || '',
-            categoryId: raw.categoryId || raw.category_id || '',
-            instructorId: raw.instructorId || raw.instructor_id || '',
+            categoryId: raw.categoryId || raw.category_id || 'c1',
+            instructorId: raw.instructorId || raw.instructor_id || 'u_in_1',
             thumbnail: raw.thumbnail || '/placeholder-course.jpg',
             price: raw.price ?? 0,
             discountPrice: raw.discountPrice ?? raw.discount_price,
-            rating: raw.rating ?? 0,
+            rating: raw.rating ?? 4.8,
             reviewCount: raw.reviewCount ?? raw.review_count ?? 0,
             studentCount: raw.studentCount ?? raw.student_count ?? 0,
             duration: raw.duration ?? 0,
             level: raw.level ?? 'Beginner',
-            language: raw.language ?? 'en',
-            lastUpdated: raw.lastUpdated ?? raw.last_updated ?? '',
-            hasCertificate: raw.hasCertificate ?? raw.has_certificate ?? false,
+            language: raw.language ?? 'Hausa',
+            lastUpdated: raw.lastUpdated ?? raw.last_updated ?? new Date().toISOString(),
+            hasCertificate: raw.hasCertificate ?? raw.has_certificate ?? true,
             isFeatured: raw.isFeatured ?? raw.is_featured ?? false,
             isTrending: raw.isTrending ?? raw.is_trending ?? false,
             isNew: raw.isNew ?? raw.is_new ?? false,
@@ -102,17 +103,30 @@ export default function CourseDetails() {
             faqs: raw.faqs ?? []
           })
         } else {
-          const local = COURSES.find((c) => c.slug === normalizedSlug)
+          const local = COURSES.find((c) =>
+            c.slug === normalizedSlug ||
+            c.slug.toLowerCase() === normalizedSlug.toLowerCase() ||
+            c.id === normalizedSlug ||
+            slugify(c.title) === normalizedSlug.toLowerCase()
+          )
           if (local) setCourse(local)
         }
       } catch (err) {
         console.error('Failed to fetch course:', err)
-        const local = COURSES.find((c) => c.slug === normalizedSlug)
+        const local = COURSES.find((c) =>
+          c.slug === normalizedSlug ||
+          c.slug.toLowerCase() === normalizedSlug.toLowerCase() ||
+          c.id === normalizedSlug ||
+          slugify(c.title) === normalizedSlug.toLowerCase()
+        )
         if (local) setCourse(local)
       }
       setLoading(false)
     })()
   }, [normalizedSlug])
+
+  // useMemo must be above all early returns to satisfy Rules of Hooks
+  const instructor = useMemo(() => course ? { id: course.instructorId, name: course.instructorId.replace('u_in_', 'Instructor '), rating: 4.8, students: 8000 } : null, [course])
 
   if (loading) {
     return (
@@ -130,8 +144,6 @@ export default function CourseDetails() {
       </div>
     )
   }
-
-  const instructor = useMemo(() => course ? { id: course.instructorId, name: course.instructorId.replace('u_in_', 'Instructor '), rating: 4.8, students: 8000 } : null, [course])
 
   const category = CATEGORIES.find((c) => c.id === course.categoryId)
   const saved = wishlist.includes(course.id)
@@ -152,7 +164,15 @@ export default function CourseDetails() {
       toast(t('common.success'), t('course.enrolledBody', { title: course.title }))
       nav(`/learning/${course.id}/${firstLessonId}`)
     } else {
-      addToCart(course.id)
+      addToCart(course.id, {
+        id: course.id,
+        title: course.title,
+        thumbnail: course.thumbnail,
+        price: course.price,
+        discountPrice: course.discountPrice,
+        instructorName: course.instructorName,
+        level: course.level
+      })
       toast(t('course.addedToCart'), t('course.addedToCartBody'), 'info')
       nav('/checkout')
     }

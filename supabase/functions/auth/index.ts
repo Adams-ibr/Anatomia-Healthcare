@@ -1459,23 +1459,34 @@ async function handleListCourses(req: Request): Promise<Response> {
   const category = url.searchParams.get('category') ?? 'all'
   const search = (url.searchParams.get('search') ?? '').trim().toLowerCase()
 
+  if (slug) {
+    const cleanSlug = decodeURIComponent(slug).trim()
+    // Use individual .eq() / .ilike() calls to avoid PostgREST .or() misparse of slugs with hyphens
+    let courseData: CourseRow | null = null
+    const { data: byExactSlug } = await supabase.from('courses').select('*').eq('slug', cleanSlug).maybeSingle()
+    if (byExactSlug) {
+      courseData = byExactSlug as CourseRow
+    } else {
+      const { data: byIlikeSlug } = await supabase.from('courses').select('*').ilike('slug', cleanSlug).maybeSingle()
+      if (byIlikeSlug) {
+        courseData = byIlikeSlug as CourseRow
+      } else {
+        const { data: byId } = await supabase.from('courses').select('*').eq('id', cleanSlug).maybeSingle()
+        if (byId) courseData = byId as CourseRow
+      }
+    }
+    if (!courseData) return errorResponse(404, 'Course not found.')
+    const content = await loadCourseContent(courseData.id)
+    if (content) return json(content)
+    return json({ course: mapCourse(courseData) })
+  }
+
   let query = supabase
     .from('courses')
     .select('*, categories(id,name), instructors:profiles!courses_instructor_id_fkey(id,name)')
     .eq('status', 'published')
-  if (slug) {
-    const { data: course, error } = await supabase.from('courses').select('*').eq('slug', slug).single()
-    if (error) return errorResponse(404, 'Course not found.')
-    return json(mapCourse(course as CourseRow))
-  }
   if (category !== 'all') query = query.eq('category_id', category)
   if (search) query = query.or(`title.ilike.%${search}%,subtitle.ilike.%${search}%,description.ilike.%${search}%`)
-  const slug = url.searchParams.get('slug')
-  if (slug) {
-    const { data: course, error } = await supabase.from('courses').select('*').eq('slug', slug).single()
-    if (error) return errorResponse(404, 'Course not found.')
-    return json(mapCourse(course as CourseRow))
-  }
 
   const { data, error } = await query.order('created_at', { ascending: false }).limit(100)
   if (error) return errorResponse(500, 'Failed to load courses: ' + error.message)
@@ -1501,16 +1512,20 @@ async function handleMyCourses(req: Request): Promise<Response> {
   return json({ courses: (data ?? []).map((c) => mapCourse(c as CourseRow)) })
 }
 
-async function handleAdminSaveCourseContent(req: Request): Promise<Response> {
-  const guard = await requireAdmin(req)
-  if (guard instanceof Response) return guard
-
+// Shared implementation used by both admin and instructor endpoints
+async function saveCourseContent(req: Request, guard: { profile: { id: string; role: string } }): Promise<Response> {
   const url = new URL(req.url)
+  // Path may be /admin/courses/:id/content or /me/courses/:id/content
   const id = url.pathname.split('/').filter(Boolean).at(-2) ?? ''
   if (!id) return errorResponse(422, 'Course id is required.')
 
-  const { data: existing } = await supabase.from('courses').select('id').eq('id', id).single()
+  const { data: existing } = await supabase.from('courses').select('id, instructor_id').eq('id', id).single()
   if (!existing) return errorResponse(404, 'Course not found.')
+
+  // Admins can edit any course; instructors can only edit their own
+  if (guard.profile.role !== 'admin' && existing.instructor_id !== guard.profile.id) {
+    return errorResponse(403, 'You do not have permission to edit this course.')
+  }
 
   const body = await readBody(req)
 
@@ -1621,6 +1636,92 @@ async function handleAdminSaveCourseContent(req: Request): Promise<Response> {
 
   const content = await loadCourseContent(id)
   return json(content ?? { course: mapCourse(await (await supabase.from('courses').select('*').eq('id', id).single()).data as CourseRow) })
+}
+
+async function handleAdminSaveCourseContent(req: Request): Promise<Response> {
+  const guard = await requireAdmin(req)
+  if (guard instanceof Response) return guard
+  return saveCourseContent(req, guard)
+}
+
+async function handleInstructorSaveCourseContent(req: Request): Promise<Response> {
+  const guard = await requireUser(req)
+  if (guard instanceof Response) return guard
+  if (guard.profile.role !== 'instructor' && guard.profile.role !== 'admin') {
+    return errorResponse(403, 'Instructor access required.')
+  }
+  return saveCourseContent(req, guard)
+}
+
+async function handleInstructorCreateCourse(req: Request): Promise<Response> {
+  const guard = await requireUser(req)
+  if (guard instanceof Response) return guard
+  if (guard.profile.role !== 'instructor' && guard.profile.role !== 'admin') {
+    return errorResponse(403, 'Instructor access required.')
+  }
+
+  const body = await readBody(req)
+  const { title, categoryId } = body as { title?: string; categoryId?: string }
+
+  if (typeof title !== 'string' || !title.trim()) return errorResponse(422, 'Title is required.')
+  if (typeof categoryId !== 'string' || !categoryId) return errorResponse(422, 'A category is required.')
+
+  const level = (body.level as string) ?? 'Beginner'
+  if (!COURSE_LEVELS.includes(level)) return errorResponse(422, 'Level must be Beginner, Intermediate or Advanced.')
+  const status = (body.status as string) ?? 'draft'
+  if (!COURSE_STATUSES.includes(status)) return errorResponse(422, 'Invalid course status.')
+
+  const baseSlug = slugify(body.slug as string) || slugify(title)
+  if (!baseSlug) return errorResponse(422, 'A valid slug is required.')
+  let slug = baseSlug
+  const { count } = await supabase.from('courses').select('id', { count: 'exact', head: true }).eq('slug', slug)
+  if ((count ?? 0) > 0) slug = `${baseSlug}-${Date.now().toString(36)}`
+
+  const { data, error } = await supabase.from('courses').insert({
+    slug,
+    title: title.trim(),
+    subtitle: (body.subtitle as string) ?? '',
+    description: (body.description as string) ?? '',
+    long_description: (body.longDescription as string) ?? '',
+    category_id: categoryId,
+    instructor_id: guard.profile.id, // always the authenticated instructor
+    thumbnail: (body.thumbnail as string) ?? null,
+    price: Number(body.price ?? 0),
+    discount_price: body.discountPrice != null && body.discountPrice !== '' ? Number(body.discountPrice) : null,
+    level,
+    language: (body.language as string) ?? 'English',
+    duration: Number(body.duration ?? 0),
+    has_certificate: body.hasCertificate === true,
+    is_featured: false,
+    status
+  }).select('*, categories(id,name), instructors:profiles!courses_instructor_id_fkey(id,name)').single()
+
+  if (error) {
+    if (/violates foreign key constraint/i.test(error.message)) return errorResponse(422, 'Category does not exist.')
+    if (/duplicate key/i.test(error.message)) return errorResponse(409, 'A course with this slug already exists.')
+    return errorResponse(500, 'Failed to create course: ' + error.message)
+  }
+
+  return json({ course: mapCourse(data as CourseRow) }, 201)
+}
+async function handleInstructorGetCourseFull(req: Request): Promise<Response> {
+  const guard = await requireUser(req)
+  if (guard instanceof Response) return guard
+
+  const url = new URL(req.url)
+  const id = url.pathname.split('/').filter(Boolean).at(-2) ?? ''
+  if (!id) return errorResponse(422, 'Course id is required.')
+
+  const { data: course } = await supabase.from('courses').select('id, instructor_id').eq('id', id).single()
+  if (!course) return errorResponse(404, 'Course not found.')
+
+  if (guard.profile.role !== 'admin' && course.instructor_id !== guard.profile.id) {
+    return errorResponse(403, 'You do not have permission to view this course.')
+  }
+
+  const content = await loadCourseContent(id)
+  if (!content) return errorResponse(404, 'Course not found.')
+  return json(content)
 }
 
 interface CategoryRow {
@@ -2743,6 +2844,243 @@ async function handleAdminAssessmentAttempts(req: Request): Promise<Response> {
 }
 
 // ---------------------------------------------------------------------------
+// Student: assessments
+// ---------------------------------------------------------------------------
+
+async function handleMyAssessments(req: Request): Promise<Response> {
+  const guard = await requireUser(req)
+  if (guard instanceof Response) return guard
+
+  // Return all assessments for courses the student is enrolled in
+  const { data: enrollments } = await supabase
+    .from('enrollments')
+    .select('course_id')
+    .eq('user_id', guard.profile.id)
+
+  const courseIds = (enrollments ?? []).map((e) => e.course_id)
+  if (courseIds.length === 0) return json({ assessments: [] })
+
+  const { data: assessments, error } = await supabase
+    .from('assessments')
+    .select('*, courses!assessments_course_id_fkey(id, title, slug, thumbnail)')
+    .in('course_id', courseIds)
+    .order('course_id')
+  if (error) return errorResponse(500, 'Failed to load assessments: ' + error.message)
+
+  // Fetch the student's best attempt for each assessment
+  const assessmentIds = (assessments ?? []).map((a) => a.id)
+  const { data: attempts } = assessmentIds.length > 0
+    ? await supabase
+        .from('assessment_attempts')
+        .select('assessment_id, score, passed, attempted_at')
+        .eq('user_id', guard.profile.id)
+        .in('assessment_id', assessmentIds)
+        .order('score', { ascending: false })
+    : { data: [] }
+
+  const bestAttempt = new Map<string, { score: number; passed: boolean; attemptedAt: string }>()
+  for (const a of (attempts ?? [])) {
+    if (!bestAttempt.has(a.assessment_id)) {
+      bestAttempt.set(a.assessment_id, { score: a.score, passed: a.passed, attemptedAt: a.attempted_at })
+    }
+  }
+
+  const attemptCounts = new Map<string, number>()
+  for (const a of (attempts ?? [])) {
+    attemptCounts.set(a.assessment_id, (attemptCounts.get(a.assessment_id) ?? 0) + 1)
+  }
+
+  const result = (assessments ?? []).map((a) => ({
+    id: a.id,
+    courseId: a.course_id,
+    courseTitle: (a.courses as { title: string } | null)?.title ?? '',
+    courseSlug: (a.courses as { slug: string } | null)?.slug ?? '',
+    courseThumbnail: (a.courses as { thumbnail: string | null } | null)?.thumbnail ?? undefined,
+    title: a.title,
+    description: a.description,
+    timeLimit: a.time_limit,
+    passingScore: a.passing_score,
+    retakeLimit: a.retake_limit,
+    attemptCount: attemptCounts.get(a.id) ?? 0,
+    bestScore: bestAttempt.get(a.id)?.score ?? null,
+    passed: bestAttempt.get(a.id)?.passed ?? false,
+    lastAttemptAt: bestAttempt.get(a.id)?.attemptedAt ?? null
+  }))
+
+  return json({ assessments: result })
+}
+
+async function handleGetAssessment(req: Request): Promise<Response> {
+  const guard = await requireUser(req)
+  if (guard instanceof Response) return guard
+
+  const url = new URL(req.url)
+  const id = url.pathname.split('/').filter(Boolean).at(-1) ?? ''
+  if (!id) return errorResponse(422, 'Assessment id is required.')
+
+  const { data: assessment, error } = await supabase
+    .from('assessments')
+    .select('*, courses!assessments_course_id_fkey(id, title, slug)')
+    .eq('id', id)
+    .single()
+  if (error || !assessment) return errorResponse(404, 'Assessment not found.')
+
+  // Verify the student is enrolled in the course
+  const { data: enrollment } = await supabase
+    .from('enrollments')
+    .select('id')
+    .eq('user_id', guard.profile.id)
+    .eq('course_id', assessment.course_id)
+    .maybeSingle()
+  if (!enrollment) return errorResponse(403, 'You must be enrolled in this course to take this assessment.')
+
+  const { data: questions } = await supabase
+    .from('assessment_questions')
+    .select('*')
+    .eq('assessment_id', id)
+    .order('position')
+
+  // Check attempt count vs retake limit
+  const { count: attemptCount } = await supabase
+    .from('assessment_attempts')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', guard.profile.id)
+    .eq('assessment_id', id)
+
+  return json({
+    assessment: {
+      id: assessment.id,
+      courseId: assessment.course_id,
+      courseTitle: (assessment.courses as { title: string } | null)?.title ?? '',
+      courseSlug: (assessment.courses as { slug: string } | null)?.slug ?? '',
+      title: assessment.title,
+      description: assessment.description,
+      timeLimit: assessment.time_limit,
+      passingScore: assessment.passing_score,
+      retakeLimit: assessment.retake_limit,
+      attemptCount: attemptCount ?? 0,
+      // Strip correct answers from questions sent to client
+      questions: (questions ?? []).map((q) => ({
+        id: q.id,
+        type: q.type,
+        question: q.question,
+        options: q.options ?? [],
+        explanation: null // revealed only after submit
+      }))
+    }
+  })
+}
+
+async function handleSubmitAssessment(req: Request): Promise<Response> {
+  const guard = await requireUser(req)
+  if (guard instanceof Response) return guard
+
+  const url = new URL(req.url)
+  const id = url.pathname.split('/').filter(Boolean).at(-2) ?? ''
+  if (!id) return errorResponse(422, 'Assessment id is required.')
+
+  const { data: assessment } = await supabase
+    .from('assessments')
+    .select('id, course_id, passing_score, retake_limit')
+    .eq('id', id)
+    .single()
+  if (!assessment) return errorResponse(404, 'Assessment not found.')
+
+  // Verify enrollment
+  const { data: enrollment } = await supabase
+    .from('enrollments')
+    .select('id')
+    .eq('user_id', guard.profile.id)
+    .eq('course_id', assessment.course_id)
+    .maybeSingle()
+  if (!enrollment) return errorResponse(403, 'You must be enrolled in this course.')
+
+  // Check retake limit
+  const { count: attemptCount } = await supabase
+    .from('assessment_attempts')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', guard.profile.id)
+    .eq('assessment_id', id)
+  if ((attemptCount ?? 0) >= assessment.retake_limit) {
+    return errorResponse(409, `You have used all ${assessment.retake_limit} attempt(s) for this assessment.`)
+  }
+
+  const body = await readBody(req)
+  const answers = (typeof body.answers === 'object' && body.answers !== null)
+    ? body.answers as Record<string, string | string[]>
+    : {}
+
+  // Fetch questions with correct answers (server side only)
+  const { data: questions } = await supabase
+    .from('assessment_questions')
+    .select('*')
+    .eq('assessment_id', id)
+    .order('position')
+
+  const rows = (questions ?? []) as QuestionRow[]
+  let correct = 0
+  const gradedAnswers: Record<string, { given: string | string[]; correct: string | string[] | null; isCorrect: boolean; explanation: string | null }> = {}
+
+  for (const q of rows) {
+    const given = answers[q.id] ?? ''
+    let isCorrect = false
+
+    if (q.type === 'mc' || q.type === 'truefalse' || q.type === 'short' || q.type === 'fill') {
+      isCorrect = typeof given === 'string' &&
+        typeof q.answer === 'string' &&
+        given.trim().toLowerCase() === q.answer.trim().toLowerCase()
+    } else if (q.type === 'multi') {
+      const givenArr = Array.isArray(given) ? [...given].sort() : []
+      const correctArr = Array.isArray(q.options)
+        ? q.options.filter((_, i) => q.answer?.includes(String(i))).sort()
+        : (q.answer ?? '').split(',').map((s) => s.trim()).sort()
+      isCorrect = JSON.stringify(givenArr) === JSON.stringify(correctArr)
+    }
+    // essay questions are not auto-graded
+    if (q.type === 'essay') isCorrect = false
+
+    if (isCorrect) correct++
+    gradedAnswers[q.id] = {
+      given,
+      correct: q.answer,
+      isCorrect,
+      explanation: q.explanation ?? null
+    }
+  }
+
+  const gradableCount = rows.filter((q) => q.type !== 'essay').length
+  const score = gradableCount > 0 ? Math.round((correct / gradableCount) * 100) : 0
+  const passed = score >= assessment.passing_score
+
+  const { data: attempt, error: insertError } = await supabase
+    .from('assessment_attempts')
+    .insert({
+      assessment_id: id,
+      user_id: guard.profile.id,
+      score,
+      answers,
+      passed,
+      attempted_at: new Date().toISOString()
+    })
+    .select('id, attempted_at')
+    .single()
+  if (insertError) return errorResponse(500, 'Failed to save attempt: ' + insertError.message)
+
+  return json({
+    result: {
+      attemptId: attempt.id,
+      score,
+      passed,
+      correct,
+      total: gradableCount,
+      passingScore: assessment.passing_score,
+      attemptedAt: attempt.attempted_at,
+      gradedAnswers
+    }
+  })
+}
+
+// ---------------------------------------------------------------------------
 // Admin: analytics
 // ---------------------------------------------------------------------------
 
@@ -3098,6 +3436,12 @@ Deno.serve(async (req) => {
     case 'GET /admin/assessment-attempts':
       response = await handleAdminAssessmentAttempts(req)
       break
+    case 'GET /me/assessments':
+      response = await handleMyAssessments(req)
+      break
+    case 'POST /me/courses':
+      response = await handleInstructorCreateCourse(req)
+      break
     case 'GET /admin/settings':
       response = await handleAdminGetSettings(req)
       break
@@ -3119,11 +3463,23 @@ Deno.serve(async (req) => {
         if (method === 'PATCH') response = await handleAdminUpdateCourse(req)
         else if (method === 'DELETE') response = await handleAdminDeleteCourse(req)
         else response = errorResponse(404, 'API endpoint not found.')
+      } else if (/^\/me\/courses\/[^/]+\/full$/.test(path)) {
+        if (method === 'GET') response = await handleInstructorGetCourseFull(req)
+        else response = errorResponse(404, 'API endpoint not found.')
+      } else if (/^\/me\/courses\/[^/]+\/content$/.test(path)) {
+        if (method === 'PUT') response = await handleInstructorSaveCourseContent(req)
+        else response = errorResponse(404, 'API endpoint not found.')
       } else if (/^\/courses\/[^/]+\/full$/.test(path)) {
         if (method === 'GET') response = await handleGetCourseFull(req)
         else response = errorResponse(404, 'API endpoint not found.')
       } else if (/^\/me\/enrollments\/[^/]+$/.test(path)) {
         if (method === 'PATCH') response = await handleUpdateEnrollment(req)
+        else response = errorResponse(404, 'API endpoint not found.')
+      } else if (/^\/me\/assessments\/[^/]+\/attempt$/.test(path)) {
+        if (method === 'POST') response = await handleSubmitAssessment(req)
+        else response = errorResponse(404, 'API endpoint not found.')
+      } else if (/^\/me\/assessments\/[^/]+$/.test(path)) {
+        if (method === 'GET') response = await handleGetAssessment(req)
         else response = errorResponse(404, 'API endpoint not found.')
       } else if (/^\/admin\/categories\/[^/]+$/.test(path)) {
         if (method === 'PATCH') response = await handleAdminUpdateCategory(req)
