@@ -151,7 +151,7 @@ function InstructorSkeleton() {
 // ---------------------------------------------------------------------------
 export default function Landing() {
   const nav = useNavigate()
-  const { toast } = useApp()
+  const { currentUser, toast } = useApp()
   const { t } = useTranslation()
 
   // API data
@@ -281,9 +281,11 @@ export default function Landing() {
           >
             <div className="card overflow-hidden shadow-panel">
               <div className="flex items-center gap-3 border-b border-line bg-surface px-4 py-3">
-                <Avatar name="Aminu Garba" size="sm" />
+                <Avatar name={currentUser?.name || 'Aminu Garba'} size="sm" />
                 <div>
-                  <p className="text-sm font-semibold text-ink">{t('landing.mockGreeting')}</p>
+                  <p className="text-sm font-semibold text-ink">
+                    {currentUser ? `${t('landing.mockGreeting')}, ${currentUser.name}` : t('landing.mockGreeting')}
+                  </p>
                   <p className="text-xs text-muted">{t('landing.mockStreak')}</p>
                 </div>
                 <div className="ml-auto flex items-center gap-1 text-xs font-medium text-success">

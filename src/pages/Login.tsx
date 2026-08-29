@@ -78,9 +78,9 @@ export default function Login() {
       <div className="mt-8 rounded-card border border-line bg-surface p-4">
         <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted">{t('auth.login.demoTitle')}</p>
         <div className="space-y-1.5 text-sm">
-          <button onClick={() => demo('student@defendhub.io', 'student123')} className="block w-full rounded px-2 py-1 text-left text-muted hover:bg-line/40 hover:text-ink">{t('auth.login.demoStudent')} — student@defendhub.io / student123</button>
-          <button onClick={() => demo('admin@defendhub.io', 'admin123')} className="block w-full rounded px-2 py-1 text-left text-muted hover:bg-line/40 hover:text-ink">{t('auth.login.demoAdmin')} — admin@defendhub.io / admin123</button>
-          <button onClick={() => demo('amara.okafor@defendhub.io', 'student123')} className="block w-full rounded px-2 py-1 text-left text-muted hover:bg-line/40 hover:text-ink">{t('auth.login.demoInstructor')} — amara.okafor@defendhub.io / student123</button>
+          <button onClick={() => demo('student@hamaacademy.com', 'student123')} className="block w-full rounded px-2 py-1 text-left text-muted hover:bg-line/40 hover:text-ink">{t('auth.login.demoStudent')} — student@hamaacademy.com / student123</button>
+          <button onClick={() => demo('admin@hamaacademy.com', 'admin123')} className="block w-full rounded px-2 py-1 text-left text-muted hover:bg-line/40 hover:text-ink">{t('auth.login.demoAdmin')} — admin@hamaacademy.com / admin123</button>
+          <button onClick={() => demo('amara.okafor@hamaacademy.com', 'student123')} className="block w-full rounded px-2 py-1 text-left text-muted hover:bg-line/40 hover:text-ink">{t('auth.login.demoInstructor')} — amara.okafor@hamaacademy.com / student123</button>
         </div>
       </div>
     </AuthShell>
