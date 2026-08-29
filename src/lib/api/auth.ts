@@ -61,17 +61,37 @@ export interface AdminListParams {
   perPage?: number
 }
 
+export interface PublicInstructor {
+  id: string
+  name: string
+  title: string
+  bio: string
+  headline: string
+  skills: string[]
+  studentCount: number
+  courseCount: number
+  rating: number
+  avatar: string
+}
+
 export const publicApi = {
-  listCourses(params: { category?: string; search?: string } = {}): Promise<AdminCourseListResult> {
+  listCourses(params: { category?: string; search?: string; featured?: boolean; trending?: boolean; limit?: number } = {}): Promise<AdminCourseListResult> {
     const qs = new URLSearchParams()
     if (params.category) qs.set('category', params.category)
     if (params.search) qs.set('search', params.search)
+    if (params.featured) qs.set('featured', 'true')
+    if (params.trending) qs.set('trending', 'true')
+    if (params.limit) qs.set('limit', String(params.limit))
     const query = qs.toString()
     return apiFetch<AdminCourseListResult>(`/api/auth/courses${query ? `?${query}` : ''}`)
   },
 
   listCategories(): Promise<{ categories: AdminCategory[] }> {
     return apiFetch<{ categories: AdminCategory[] }>('/api/auth/categories')
+  },
+
+  listInstructors(): Promise<{ instructors: PublicInstructor[] }> {
+    return apiFetch<{ instructors: PublicInstructor[] }>('/api/auth/instructors')
   },
 
   getCourseFull(slug: string): Promise<{ course: AdminCourse }> {

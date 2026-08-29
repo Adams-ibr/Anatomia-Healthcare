@@ -1458,6 +1458,10 @@ async function handleListCourses(req: Request): Promise<Response> {
   const slug = url.searchParams.get('slug')
   const category = url.searchParams.get('category') ?? 'all'
   const search = (url.searchParams.get('search') ?? '').trim().toLowerCase()
+  const featured = url.searchParams.get('featured') === 'true'
+  const trending = url.searchParams.get('trending') === 'true'
+  const limitParam = parseInt(url.searchParams.get('limit') ?? '100', 10)
+  const limit = isNaN(limitParam) || limitParam < 1 ? 100 : Math.min(limitParam, 100)
 
   if (slug) {
     const cleanSlug = decodeURIComponent(slug).trim()
@@ -1487,8 +1491,10 @@ async function handleListCourses(req: Request): Promise<Response> {
     .eq('status', 'published')
   if (category !== 'all') query = query.eq('category_id', category)
   if (search) query = query.or(`title.ilike.%${search}%,subtitle.ilike.%${search}%,description.ilike.%${search}%`)
+  if (featured) query = query.eq('is_featured', true)
+  if (trending) query = query.eq('is_trending', true)
 
-  const { data, error } = await query.order('created_at', { ascending: false }).limit(100)
+  const { data, error } = await query.order('created_at', { ascending: false }).limit(limit)
   if (error) return errorResponse(500, 'Failed to load courses: ' + error.message)
   return json({ courses: (data ?? []).map((c) => mapCourse(c as CourseRow)) })
 }
@@ -1856,6 +1862,32 @@ async function handleAdminListInstructors(req: Request): Promise<Response> {
   if (error) return errorResponse(500, 'Failed to load instructors: ' + error.message)
 
   return json({ instructors: (data ?? []).map((p) => ({ id: p.id, name: p.name })) })
+}
+
+async function handlePublicListInstructors(req: Request): Promise<Response> {
+  // Returns the top instructors (by student_count) for the public landing page
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('id, name, title, bio, headline, skills, student_count, course_count, rating, avatar')
+    .in('role', ['instructor'])
+    .eq('is_active', true)
+    .order('student_count', { ascending: false })
+    .limit(8)
+  if (error) return errorResponse(500, 'Failed to load instructors: ' + error.message)
+
+  const instructors = (data ?? []).map((p) => ({
+    id: p.id,
+    name: p.name,
+    title: p.title ?? '',
+    bio: p.bio ?? '',
+    headline: p.headline ?? '',
+    skills: p.skills ?? [],
+    studentCount: p.student_count ?? 0,
+    courseCount: p.course_count ?? 0,
+    rating: Number(p.rating ?? 0),
+    avatar: p.avatar ?? ''
+  }))
+  return json({ instructors })
 }
 
 // ---------------------------------------------------------------------------
@@ -3365,6 +3397,9 @@ Deno.serve(async (req) => {
       break
     case 'GET /admin/instructors':
       response = await handleAdminListInstructors(req)
+      break
+    case 'GET /instructors':
+      response = await handlePublicListInstructors(req)
       break
     case 'GET /me/enrollments':
       response = await handleMyEnrollments(req)
