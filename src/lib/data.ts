@@ -23,16 +23,16 @@ export const CATEGORIES: Category[] = [
 ]
 
 export const INSTRUCTORS: User[] = [
-  { id: 'u_in_1', name: 'Dr. Amara Okafor', email: 'amara.okafor@defendhub.io', role: 'instructor', avatar: '', title: 'Cybersecurity Researcher & CISSP', headline: 'Former SOC director with 15 years in threat detection and incident response.', bio: 'Amara has led blue teams for two Fortune 100 firms and currently advises security startups. She teaches with real-world war stories, not just slides.', skills: ['Threat Intelligence', 'Incident Response', 'Network Defense'], joinedAt: '2023-01-12', studentCount: 12840, courseCount: 3, rating: 4.9, isActive: true },
-  { id: 'u_in_2', name: 'Marcus Bennett', email: 'marcus.bennett@defendhub.io', role: 'instructor', avatar: '', title: 'Penetration Tester & OSCP Trainer', headline: 'Ethical hacker focused on web and cloud exploitation.', bio: 'Marcus has found critical vulnerabilities in banking and healthcare systems. His labs feel like a real red-team engagement.', skills: ['Penetration Testing', 'Web Exploitation', 'Cloud Security'], joinedAt: '2023-02-03', studentCount: 9530, courseCount: 2, rating: 4.8, isActive: true },
-  { id: 'u_in_3', name: 'Sofia Reyes', email: 'sofia.reyes@defendhub.io', role: 'instructor', avatar: '', title: 'Machine Learning Engineer', headline: 'Building ML systems that are accurate, explainable, and production-ready.', bio: 'Sofia has shipped recommendation and fraud systems used by millions. She teaches statistics with intuition first, math second.', skills: ['Machine Learning', 'Python', 'MLOps'], joinedAt: '2023-03-20', studentCount: 14300, courseCount: 2, rating: 4.9, isActive: true },
-  { id: 'u_in_4', name: 'David Chen', email: 'david.chen@defendhub.io', role: 'instructor', avatar: '', title: 'Senior Cloud Architect', headline: 'AWS and GCP certified architect specializing in serverless.', bio: 'David has migrated enterprises of 10k+ employees to the cloud without a single weekend outage.', skills: ['AWS', 'Serverless', 'Terraform'], joinedAt: '2023-04-01', studentCount: 8120, courseCount: 2, rating: 4.7, isActive: true },
-  { id: 'u_in_5', name: 'Priya Sharma', email: 'priya.sharma@defendhub.io', role: 'instructor', avatar: '', title: 'Full-Stack Engineer & Educator', headline: '12 years building web products; loves turning beginners into builders.', bio: 'Priya runs a 40k-subscriber YouTube channel and has mentored over 300 junior developers into their first roles.', skills: ['React', 'Node.js', 'TypeScript'], joinedAt: '2023-05-15', studentCount: 22100, courseCount: 3, rating: 4.8, isActive: true },
-  { id: 'u_in_6', name: 'James Oyelaran', email: 'james.oyelaran@defendhub.io', role: 'instructor', avatar: '', title: 'DevOps Engineer', headline: 'Automation obsessed. CI/CD pipelines and Kubernetes at scale.', bio: 'James has built release pipelines for fintech and government platforms where a failed deploy means real money.', skills: ['Kubernetes', 'CI/CD', 'Docker'], joinedAt: '2023-06-10', studentCount: 6890, courseCount: 1, rating: 4.6, isActive: true },
-  { id: 'u_in_7', name: 'Elena Petrova', email: 'elena.petrova@defendhub.io', role: 'instructor', avatar: '', title: 'UX Designer & Design Lead', headline: 'Human-centered design that ships. Ex-Google, now independent.', bio: 'Elena has led design for fintech and health products. Her courses focus on process, not just portfolios.', skills: ['UX Design', 'Design Systems', 'Prototyping'], joinedAt: '2023-07-22', studentCount: 7450, courseCount: 2, rating: 4.8, isActive: true },
-  { id: 'u_in_8', name: 'Kwame Mensah', email: 'kwame.mensah@defendhub.io', role: 'instructor', avatar: '', title: 'Finance Strategist', headline: 'Chartered accountant and ex-investment banker, now an educator.', bio: 'Kwame demystifies finance for non-finance professionals with clear frameworks and real statements.', skills: ['Financial Modeling', 'Investing', 'Corporate Finance'], joinedAt: '2023-08-08', studentCount: 11200, courseCount: 2, rating: 4.9, isActive: true },
-  { id: 'u_in_9', name: 'Laura Kim', email: 'laura.kim@defendhub.io', role: 'instructor', avatar: '', title: 'Digital Marketing Director', headline: 'Growth marketing for SaaS and education brands.', bio: 'Laura has scaled three startups from zero to six-figure MRR through content and lifecycle marketing.', skills: ['Growth', 'SEO', 'Email Marketing'], joinedAt: '2023-09-14', studentCount: 9600, courseCount: 1, rating: 4.7, isActive: true },
-  { id: 'u_in_10', name: 'Tomás Ferreira', email: 'tomas.ferreira@defendhub.io', role: 'instructor', avatar: '', title: 'Data Engineer & Analytics Lead', headline: 'Turning raw data into decisions. Python, SQL, and dbt.', bio: 'Tomás has built analytics platforms for retail and logistics companies processing billions of events a day.', skills: ['SQL', 'Python', 'Data Pipelines'], joinedAt: '2023-10-02', studentCount: 5300, courseCount: 1, rating: 4.8, isActive: true }
+  { id: 'u_in_1', name: 'Dr. Amara Okafor', email: 'amara.okafor@hamaacademy.com', role: 'instructor', avatar: '', title: 'Cybersecurity Researcher & CISSP', headline: 'Former SOC director with 15 years in threat detection and incident response.', bio: 'Amara has led blue teams for two Fortune 100 firms and currently advises security startups. She teaches with real-world war stories, not just slides.', skills: ['Threat Intelligence', 'Incident Response', 'Network Defense'], joinedAt: '2023-01-12', studentCount: 12840, courseCount: 3, rating: 4.9, isActive: true },
+  { id: 'u_in_2', name: 'Marcus Bennett', email: 'marcus.bennett@hamaacademy.com', role: 'instructor', avatar: '', title: 'Penetration Tester & OSCP Trainer', headline: 'Ethical hacker focused on web and cloud exploitation.', bio: 'Marcus has found critical vulnerabilities in banking and healthcare systems. His labs feel like a real red-team engagement.', skills: ['Penetration Testing', 'Web Exploitation', 'Cloud Security'], joinedAt: '2023-02-03', studentCount: 9530, courseCount: 2, rating: 4.8, isActive: true },
+  { id: 'u_in_3', name: 'Sofia Reyes', email: 'sofia.reyes@hamaacademy.com', role: 'instructor', avatar: '', title: 'Machine Learning Engineer', headline: 'Building ML systems that are accurate, explainable, and production-ready.', bio: 'Sofia has shipped recommendation and fraud systems used by millions. She teaches statistics with intuition first, math second.', skills: ['Machine Learning', 'Python', 'MLOps'], joinedAt: '2023-03-20', studentCount: 14300, courseCount: 2, rating: 4.9, isActive: true },
+  { id: 'u_in_4', name: 'David Chen', email: 'david.chen@hamaacademy.com', role: 'instructor', avatar: '', title: 'Senior Cloud Architect', headline: 'AWS and GCP certified architect specializing in serverless.', bio: 'David has migrated enterprises of 10k+ employees to the cloud without a single weekend outage.', skills: ['AWS', 'Serverless', 'Terraform'], joinedAt: '2023-04-01', studentCount: 8120, courseCount: 2, rating: 4.7, isActive: true },
+  { id: 'u_in_5', name: 'Priya Sharma', email: 'priya.sharma@hamaacademy.com', role: 'instructor', avatar: '', title: 'Full-Stack Engineer & Educator', headline: '12 years building web products; loves turning beginners into builders.', bio: 'Priya runs a 40k-subscriber YouTube channel and has mentored over 300 junior developers into their first roles.', skills: ['React', 'Node.js', 'TypeScript'], joinedAt: '2023-05-15', studentCount: 22100, courseCount: 3, rating: 4.8, isActive: true },
+  { id: 'u_in_6', name: 'James Oyelaran', email: 'james.oyelaran@hamaacademy.com', role: 'instructor', avatar: '', title: 'DevOps Engineer', headline: 'Automation obsessed. CI/CD pipelines and Kubernetes at scale.', bio: 'James has built release pipelines for fintech and government platforms where a failed deploy means real money.', skills: ['Kubernetes', 'CI/CD', 'Docker'], joinedAt: '2023-06-10', studentCount: 6890, courseCount: 1, rating: 4.6, isActive: true },
+  { id: 'u_in_7', name: 'Elena Petrova', email: 'elena.petrova@hamaacademy.com', role: 'instructor', avatar: '', title: 'UX Designer & Design Lead', headline: 'Human-centered design that ships. Ex-Google, now independent.', bio: 'Elena has led design for fintech and health products. Her courses focus on process, not just portfolios.', skills: ['UX Design', 'Design Systems', 'Prototyping'], joinedAt: '2023-07-22', studentCount: 7450, courseCount: 2, rating: 4.8, isActive: true },
+  { id: 'u_in_8', name: 'Kwame Mensah', email: 'kwame.mensah@hamaacademy.com', role: 'instructor', avatar: '', title: 'Finance Strategist', headline: 'Chartered accountant and ex-investment banker, now an educator.', bio: 'Kwame demystifies finance for non-finance professionals with clear frameworks and real statements.', skills: ['Financial Modeling', 'Investing', 'Corporate Finance'], joinedAt: '2023-08-08', studentCount: 11200, courseCount: 2, rating: 4.9, isActive: true },
+  { id: 'u_in_9', name: 'Laura Kim', email: 'laura.kim@hamaacademy.com', role: 'instructor', avatar: '', title: 'Digital Marketing Director', headline: 'Growth marketing for SaaS and education brands.', bio: 'Laura has scaled three startups from zero to six-figure MRR through content and lifecycle marketing.', skills: ['Growth', 'SEO', 'Email Marketing'], joinedAt: '2023-09-14', studentCount: 9600, courseCount: 1, rating: 4.7, isActive: true },
+  { id: 'u_in_10', name: 'Tomás Ferreira', email: 'tomas.ferreira@hamaacademy.com', role: 'instructor', avatar: '', title: 'Data Engineer & Analytics Lead', headline: 'Turning raw data into decisions. Python, SQL, and dbt.', bio: 'Tomás has built analytics platforms for retail and logistics companies processing billions of events a day.', skills: ['SQL', 'Python', 'Data Pipelines'], joinedAt: '2023-10-02', studentCount: 5300, courseCount: 1, rating: 4.8, isActive: true }
 ]
 
 export const COURSES: Course[] = [
@@ -80,7 +80,7 @@ export const COURSES: Course[] = [
       ])
     ],
     reviews: [
-      { id: uid('rv'), userId: 'u_st_1', userName: 'John Adedeji', rating: 5, text: 'The labs made everything click. I landed my first SOC internship because of this course.', date: '2025-12-10' },
+      { id: uid('rv'), userId: 'u_st_1', userName: 'Abdullahi Musa', rating: 5, text: 'The labs made everything click. I landed my first SOC internship because of this course.', date: '2025-12-10' },
       { id: uid('rv'), userId: 'u_st_2', userName: 'Grace Okonkwo', rating: 5, text: 'Dr. Okafor explains complex topics with clarity. Best investment in my career this year.', date: '2025-11-28' }
     ],
     faqs: [faq('Do I need prior experience?', 'No. This course starts from zero and builds up step by step.')]
@@ -122,7 +122,7 @@ export const COURSES: Course[] = [
       ])
     ],
     reviews: [
-      { id: uid('rv'), userId: 'u_st_3', userName: 'Liam Anderson', rating: 5, text: 'The labs are phenomenal. I finally understand the pentest lifecycle.', date: '2026-01-20' },
+      { id: uid('rv'), userId: 'u_st_3', userName: 'Tunde Adeyemi', rating: 5, text: 'The labs are phenomenal. I finally understand the pentest lifecycle.', date: '2026-01-20' },
       { id: uid('rv'), userId: 'u_st_4', userName: 'Aisha Bello', rating: 4, text: 'Very practical. The report-writing module is worth the price alone.', date: '2025-12-30' }
     ],
     faqs: [faq('Is the lab environment included?', 'Yes, every student gets step-by-step setup for a free, legal lab.')]
@@ -167,8 +167,8 @@ export const COURSES: Course[] = [
       ])
     ],
     reviews: [
-      { id: uid('rv'), userId: 'u_st_5', userName: 'Ethan Moore', rating: 5, text: 'Finally understand what sklearn is really doing under the hood.', date: '2026-01-05' },
-      { id: uid('rv'), userId: 'u_st_6', userName: 'Chloe Davis', rating: 5, text: 'The deployment module alone saved me months of trial and error.', date: '2025-12-18' }
+      { id: uid('rv'), userId: 'u_st_5', userName: 'Chidi Okeke', rating: 5, text: 'Finally understand what sklearn is really doing under the hood.', date: '2026-01-05' },
+      { id: uid('rv'), userId: 'u_st_6', userName: 'Ngozi Adaeze', rating: 5, text: 'The deployment module alone saved me months of trial and error.', date: '2025-12-18' }
     ],
     faqs: [faq('Do I need a GPU?', 'No. All exercises run on any laptop.')]
   },
@@ -209,8 +209,8 @@ export const COURSES: Course[] = [
       ])
     ],
     reviews: [
-      { id: uid('rv'), userId: 'u_st_7', userName: 'Hannah Wilson', rating: 5, text: 'Clear, current, and exam-aligned without being a brain dump.', date: '2025-12-22' },
-      { id: uid('rv'), userId: 'u_st_8', userName: 'Benjamin Taylor', rating: 4, text: 'Great labs. Would love a second architecture case study.', date: '2025-11-30' }
+      { id: uid('rv'), userId: 'u_st_7', userName: 'Hadiza Usman', rating: 5, text: 'Clear, current, and exam-aligned without being a brain dump.', date: '2025-12-22' },
+      { id: uid('rv'), userId: 'u_st_8', userName: 'Babatunde Lawal', rating: 4, text: 'Great labs. Would love a second architecture case study.', date: '2025-11-30' }
     ],
     faqs: [faq('Does this prepare for the SAA-C03 exam?', 'Yes, it covers the core domains with practice scenarios.')]
   },
@@ -254,8 +254,8 @@ export const COURSES: Course[] = [
       ])
     ],
     reviews: [
-      { id: uid('rv'), userId: 'u_st_9', userName: 'Zoe Harris', rating: 5, text: 'Went from zero to deployed app. The pacing is perfect.', date: '2026-01-12' },
-      { id: uid('rv'), userId: 'u_st_10', userName: 'Daniel Clark', rating: 5, text: 'Best full-stack course I have taken, and I have taken several.', date: '2025-12-25' }
+      { id: uid('rv'), userId: 'u_st_9', userName: 'Chisom Eze', rating: 5, text: 'Went from zero to deployed app. The pacing is perfect.', date: '2026-01-12' },
+      { id: uid('rv'), userId: 'u_st_10', userName: 'Emeka Nwosu', rating: 5, text: 'Best full-stack course I have taken, and I have taken several.', date: '2025-12-25' }
     ],
     faqs: [faq('What will I be able to build?', 'You will ship a real dashboard app with auth, database, and deployment.')]
   },
@@ -291,8 +291,8 @@ export const COURSES: Course[] = [
       ])
     ],
     reviews: [
-      { id: uid('rv'), userId: 'u_st_11', userName: 'Samuel Walker', rating: 5, text: 'Instantly usable in my day job as a sysadmin.', date: '2025-12-01' },
-      { id: uid('rv'), userId: 'u_st_12', userName: 'Olivia Hall', rating: 4, text: 'Solid and practical. The Ansible module is a bonus.', date: '2025-11-10' }
+      { id: uid('rv'), userId: 'u_st_11', userName: 'Salisu Ibrahim', rating: 5, text: 'Instantly usable in my day job as a sysadmin.', date: '2025-12-01' },
+      { id: uid('rv'), userId: 'u_st_12', userName: 'Amaka Obi', rating: 4, text: 'Solid and practical. The Ansible module is a bonus.', date: '2025-11-10' }
     ],
     faqs: [faq('Do I need a Linux box?', 'A free VM is fine. Setup guide included.')]
   },
@@ -329,8 +329,8 @@ export const COURSES: Course[] = [
       ])
     ],
     reviews: [
-      { id: uid('rv'), userId: 'u_st_13', userName: 'Emily Lewis', rating: 5, text: 'Perfect for someone like me moving from Excel to Python.', date: '2026-01-02' },
-      { id: uid('rv'), userId: 'u_st_14', userName: 'Gabriel Young', rating: 5, text: 'The capstone made everything stick.', date: '2025-12-20' }
+      { id: uid('rv'), userId: 'u_st_13', userName: 'Fatimah Aliyu', rating: 5, text: 'Perfect for someone like me moving from Excel to Python.', date: '2026-01-02' },
+      { id: uid('rv'), userId: 'u_st_14', userName: 'Gbenga Adeleke', rating: 5, text: 'The capstone made everything stick.', date: '2025-12-20' }
     ],
     faqs: [faq('Do I need statistics knowledge?', 'No, everything is taught with intuition and examples.')]
   },
@@ -366,8 +366,8 @@ export const COURSES: Course[] = [
       ])
     ],
     reviews: [
-      { id: uid('rv'), userId: 'u_st_15', userName: 'Ryan King', rating: 5, text: 'Finally Kubernetes makes sense beyond YAML copy-paste.', date: '2025-12-12' },
-      { id: uid('rv'), userId: 'u_st_16', userName: 'Isabella Wright', rating: 4, text: 'Great incident lab. Very realistic.', date: '2025-11-25' }
+      { id: uid('rv'), userId: 'u_st_15', userName: 'Rotimi Ogunleye', rating: 5, text: 'Finally Kubernetes makes sense beyond YAML copy-paste.', date: '2025-12-12' },
+      { id: uid('rv'), userId: 'u_st_16', userName: 'Ifeoma Nwosu', rating: 4, text: 'Great incident lab. Very realistic.', date: '2025-11-25' }
     ],
     faqs: [faq('Do I need a paid cluster?', 'No — everything runs on a free local kind cluster.')]
   },
@@ -403,8 +403,8 @@ export const COURSES: Course[] = [
       ])
     ],
     reviews: [
-      { id: uid('rv'), userId: 'u_st_17', userName: 'Matthew Scott', rating: 5, text: 'Took me from clueless to a case study I am proud to show.', date: '2026-01-08' },
-      { id: uid('rv'), userId: 'u_st_18', userName: 'Ella Green', rating: 4, text: 'Loved the process focus. Very actionable.', date: '2025-12-27' }
+      { id: uid('rv'), userId: 'u_st_17', userName: 'Mohammed Sule', rating: 5, text: 'Took me from clueless to a case study I am proud to show.', date: '2026-01-08' },
+      { id: uid('rv'), userId: 'u_st_18', userName: 'Ese Oghenekaro', rating: 4, text: 'Loved the process focus. Very actionable.', date: '2025-12-27' }
     ],
     faqs: [faq('What will my portfolio include?', 'You will finish with a complete mobile app case study ready to present.')]
   },
@@ -440,8 +440,8 @@ export const COURSES: Course[] = [
       ])
     ],
     reviews: [
-      { id: uid('rv'), userId: 'u_st_19', userName: 'Jack Baker', rating: 5, text: 'The scenarios module changed how I present numbers.', date: '2025-12-15' },
-      { id: uid('rv'), userId: 'u_st_20', userName: 'Amelia Adams', rating: 5, text: 'Clear, patient, and deeply practical.', date: '2025-11-22' }
+      { id: uid('rv'), userId: 'u_st_19', userName: 'Jide Adekunle', rating: 5, text: 'The scenarios module changed how I present numbers.', date: '2025-12-15' },
+      { id: uid('rv'), userId: 'u_st_20', userName: 'Amina Danladi', rating: 5, text: 'Clear, patient, and deeply practical.', date: '2025-11-22' }
     ],
     faqs: [faq('Is this Excel-only?', 'Yes, everything is done in Excel. No coding required.')]
   },
@@ -477,8 +477,8 @@ export const COURSES: Course[] = [
       ])
     ],
     reviews: [
-      { id: uid('rv'), userId: 'u_st_21', userName: 'Henry Nelson', rating: 5, text: 'The hunting lab is genuinely challenging and rewarding.', date: '2026-01-18' },
-      { id: uid('rv'), userId: 'u_st_22', userName: 'Charlotte Hill', rating: 5, text: 'Elevated my SOC skills instantly.', date: '2026-01-09' }
+      { id: uid('rv'), userId: 'u_st_21', userName: 'Hassan Bello', rating: 5, text: 'The hunting lab is genuinely challenging and rewarding.', date: '2026-01-18' },
+      { id: uid('rv'), userId: 'u_st_22', userName: 'Chidinma Eze', rating: 5, text: 'Elevated my SOC skills instantly.', date: '2026-01-09' }
     ],
     faqs: [faq('Which SIEM do we use?', 'Splunk-style SPL and Elastic KQL are both covered.')]
   },
@@ -514,8 +514,8 @@ export const COURSES: Course[] = [
       ])
     ],
     reviews: [
-      { id: uid('rv'), userId: 'u_st_23', userName: 'Leo Carter', rating: 5, text: 'Walked away with a real plan, not just theory.', date: '2025-12-28' },
-      { id: uid('rv'), userId: 'u_st_24', userName: 'Mia Mitchell', rating: 4, text: 'Excellent frameworks. Very practical.', date: '2025-12-05' }
+      { id: uid('rv'), userId: 'u_st_23', userName: 'Lekan Adewale', rating: 5, text: 'Walked away with a real plan, not just theory.', date: '2025-12-28' },
+      { id: uid('rv'), userId: 'u_st_24', userName: 'Miriam Yakubu', rating: 4, text: 'Excellent frameworks. Very practical.', date: '2025-12-05' }
     ],
     faqs: [faq('Is this for B2B or B2C?', 'Both. The frameworks apply across models.')]
   },
@@ -551,8 +551,8 @@ export const COURSES: Course[] = [
       ])
     ],
     reviews: [
-      { id: uid('rv'), userId: 'u_st_25', userName: 'Alexander Perez', rating: 5, text: 'I automated a task the same week I finished the course.', date: '2026-01-03' },
-      { id: uid('rv'), userId: 'u_st_26', userName: 'Harper Roberts', rating: 4, text: 'Great intro for analysts who hate scripting.', date: '2025-12-14' }
+      { id: uid('rv'), userId: 'u_st_25', userName: 'Alhassan Garba', rating: 5, text: 'I automated a task the same week I finished the course.', date: '2026-01-03' },
+      { id: uid('rv'), userId: 'u_st_26', userName: 'Hauwa Ibrahim', rating: 4, text: 'Great intro for analysts who hate scripting.', date: '2025-12-14' }
     ],
     faqs: [faq('Will this help with certs like CompTIA?', 'It complements them with practical automation skills.')]
   },
@@ -587,8 +587,8 @@ export const COURSES: Course[] = [
       ])
     ],
     reviews: [
-      { id: uid('rv'), userId: 'u_st_27', userName: 'James Turner', rating: 5, text: 'Exactly what I needed moving from IC to PM.', date: '2025-12-20' },
-      { id: uid('rv'), userId: 'u_st_28', userName: 'Evelyn Phillips', rating: 4, text: 'Concise and immediately useful.', date: '2025-11-30' }
+      { id: uid('rv'), userId: 'u_st_27', userName: 'Jamilu Abdullahi', rating: 5, text: 'Exactly what I needed moving from IC to PM.', date: '2025-12-20' },
+      { id: uid('rv'), userId: 'u_st_28', userName: 'Eucharia Okafor', rating: 4, text: 'Concise and immediately useful.', date: '2025-11-30' }
     ],
     faqs: [faq('Is there a capstone?', 'Yes — you build a complete one-pager and roadmap.')]
   },
@@ -625,8 +625,8 @@ export const COURSES: Course[] = [
       ])
     ],
     reviews: [
-      { id: uid('rv'), userId: 'u_st_29', userName: 'Logan Campbell', rating: 5, text: 'Bridging the gap between cloud certs and real security.', date: '2026-01-06' },
-      { id: uid('rv'), userId: 'u_st_30', userName: 'Abigail Parker', rating: 5, text: 'Hands-down the clearest IAM explanation I have seen.', date: '2025-12-19' }
+      { id: uid('rv'), userId: 'u_st_29', userName: 'Lanre Oduya', rating: 5, text: 'Bridging the gap between cloud certs and real security.', date: '2026-01-06' },
+      { id: uid('rv'), userId: 'u_st_30', userName: 'Abiodun Olawale', rating: 5, text: 'Hands-down the clearest IAM explanation I have seen.', date: '2025-12-19' }
     ],
     faqs: [faq('Do I need all three clouds?', 'No — AWS is used for labs; patterns apply to all.')]
   },
@@ -661,8 +661,8 @@ export const COURSES: Course[] = [
       ])
     ],
     reviews: [
-      { id: uid('rv'), userId: 'u_st_31', userName: 'Mason Evans', rating: 5, text: 'My codebase thanked me after week one.', date: '2026-01-14' },
-      { id: uid('rv'), userId: 'u_st_32', userName: 'Victoria Collins', rating: 5, text: 'Advanced but extremely well explained.', date: '2025-12-30' }
+      { id: uid('rv'), userId: 'u_st_31', userName: 'Musa Abubakar', rating: 5, text: 'My codebase thanked me after week one.', date: '2026-01-14' },
+      { id: uid('rv'), userId: 'u_st_32', userName: 'Victoria Adegoke', rating: 5, text: 'Advanced but extremely well explained.', date: '2025-12-30' }
     ],
     faqs: [faq('Is this too advanced for me?', 'It assumes comfort with basic TypeScript. If you write TS at work, this is for you.')]
   },
@@ -699,8 +699,8 @@ export const COURSES: Course[] = [
       ])
     ],
     reviews: [
-      { id: uid('rv'), userId: 'u_st_33', userName: 'Owen Stewart', rating: 5, text: 'The hunt lab is addictive and educational at the same time.', date: '2026-01-22' },
-      { id: uid('rv'), userId: 'u_st_34', userName: 'Lily Sanchez', rating: 5, text: 'Burp Suite module alone is worth the course.', date: '2026-01-11' }
+      { id: uid('rv'), userId: 'u_st_33', userName: 'Ola Bankole', rating: 5, text: 'The hunt lab is addictive and educational at the same time.', date: '2026-01-22' },
+      { id: uid('rv'), userId: 'u_st_34', userName: 'Lami Danladi', rating: 5, text: 'Burp Suite module alone is worth the course.', date: '2026-01-11' }
     ],
     faqs: [faq('Is a VM required?', 'Yes, but setup is fully automated and free.')]
   },
@@ -735,8 +735,8 @@ export const COURSES: Course[] = [
       ])
     ],
     reviews: [
-      { id: uid('rv'), userId: 'u_st_35', userName: 'Elijah Morris', rating: 5, text: 'Doubled my efficiency in two weeks.', date: '2025-12-08' },
-      { id: uid('rv'), userId: 'u_st_36', userName: 'Zoe Rivera', rating: 4, text: 'Power Query finally makes sense.', date: '2025-11-28' }
+      { id: uid('rv'), userId: 'u_st_35', userName: 'Elisha Nwachukwu', rating: 5, text: 'Doubled my efficiency in two weeks.', date: '2025-12-08' },
+      { id: uid('rv'), userId: 'u_st_36', userName: 'Zainab Tanko', rating: 4, text: 'Power Query finally makes sense.', date: '2025-11-28' }
     ],
     faqs: [faq('Which Excel version do I need?', 'Excel 2016+ or Microsoft 365 works best.')]
   },
@@ -773,8 +773,8 @@ export const COURSES: Course[] = [
       ])
     ],
     reviews: [
-      { id: uid('rv'), userId: 'u_st_37', userName: 'Carter Cooper', rating: 5, text: 'The memory forensics section is world-class.', date: '2026-01-19' },
-      { id: uid('rv'), userId: 'u_st_38', userName: 'Aria Richardson', rating: 5, text: 'Finally feel ready to support real investigations.', date: '2026-01-12' }
+      { id: uid('rv'), userId: 'u_st_37', userName: 'Chukwu Okoro', rating: 5, text: 'The memory forensics section is world-class.', date: '2026-01-19' },
+      { id: uid('rv'), userId: 'u_st_38', userName: 'Adaeze Okonkwo', rating: 5, text: 'Finally feel ready to support real investigations.', date: '2026-01-12' }
     ],
     faqs: [faq('What tools will I learn?', 'Autopsy, Volatility, and a range of log analysis tools.')]
   },
@@ -811,8 +811,8 @@ export const COURSES: Course[] = [
       ])
     ],
     reviews: [
-      { id: uid('rv'), userId: 'u_st_39', userName: 'Nathan Cox', rating: 5, text: 'Best SQL course. Window functions finally clicked.', date: '2026-01-15' },
-      { id: uid('rv'), userId: 'u_st_40', userName: 'Hazel Howard', rating: 5, text: 'From zero to writing analytical queries confidently.', date: '2025-12-28' }
+      { id: uid('rv'), userId: 'u_st_39', userName: 'Nathaniel Chukwudi', rating: 5, text: 'Best SQL course. Window functions finally clicked.', date: '2026-01-15' },
+      { id: uid('rv'), userId: 'u_st_40', userName: 'Halima Sule', rating: 5, text: 'From zero to writing analytical queries confidently.', date: '2025-12-28' }
     ],
     faqs: [faq('Which database do we use?', 'PostgreSQL. The skills transfer to any SQL database.')]
   },
@@ -846,8 +846,8 @@ export const COURSES: Course[] = [
       ])
     ],
     reviews: [
-      { id: uid('rv'), userId: 'u_st_41', userName: 'Dylan Ward', rating: 5, text: 'My PRs and emails are noticeably better.', date: '2025-12-16' },
-      { id: uid('rv'), userId: 'u_st_42', userName: 'Layla Brooks', rating: 4, text: 'Practical and fun. The assignment feedback is gold.', date: '2025-12-02' }
+      { id: uid('rv'), userId: 'u_st_41', userName: 'Daniel Oluwafemi', rating: 5, text: 'My PRs and emails are noticeably better.', date: '2025-12-16' },
+      { id: uid('rv'), userId: 'u_st_42', userName: 'Laila Garba', rating: 4, text: 'Practical and fun. The assignment feedback is gold.', date: '2025-12-02' }
     ],
     faqs: [faq('Is there feedback on assignments?', 'Yes, instructors review and return feedback on the writing assignment.')]
   },
@@ -938,10 +938,10 @@ export const BLOG_POSTS: BlogPost[] = [
 ]
 
 export const TESTIMONIALS: Testimonial[] = [
-  { id: 'ts_1', name: 'Sarah Mitchell', role: 'Security Analyst', company: 'Apex Insurance', text: 'I transitioned from IT support to a SOC analyst role in seven months. The cybersecurity path gave me exactly the sequence of skills the job needed.', rating: 5 },
-  { id: 'ts_2', name: 'David Osei', role: 'Frontend Developer', company: 'Freelance', text: 'The full-stack course is the best money I have spent on education. I landed my first freelance client the month I finished.', rating: 5 },
-  { id: 'ts_3', name: 'Maria Santos', role: 'Data Analyst', company: 'FinHealth', text: 'The instructors answer questions quickly and the labs feel like real work. My promotion came three months after finishing the data path.', rating: 5 },
-  { id: 'ts_4', name: 'Tom Bakker', role: 'Cloud Engineer', company: 'Nordic Retail', text: 'Practical, current, and honest about complexity. The serverless course paid for itself in my first architecture review.', rating: 4 }
+  { id: 'ts_1', name: 'Aisha Musa', role: 'Cybersecurity Analyst', company: 'Access Bank Nigeria', text: 'I transitioned from IT support to a SOC analyst role in seven months. The cybersecurity path gave me exactly the sequence of skills the job needed.', rating: 5 },
+  { id: 'ts_2', name: 'Emeka Okonkwo', role: 'Frontend Developer', company: 'Freelance', text: 'The full-stack course is the best money I have spent on education. I landed my first freelance client the month I finished.', rating: 5 },
+  { id: 'ts_3', name: 'Fatima Abdullahi', role: 'Data Analyst', company: 'MTN Nigeria', text: 'The instructors answer questions quickly and the labs feel like real work. My promotion came three months after finishing the data path.', rating: 5 },
+  { id: 'ts_4', name: 'Chukwuemeka Eze', role: 'Cloud Engineer', company: 'Flutterwave', text: 'Practical, current, and honest about complexity. The cloud course paid for itself in my first architecture review.', rating: 4 }
 ]
 
 export const FAQS: FAQ[] = [
