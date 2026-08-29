@@ -23,88 +23,21 @@ const HERO_ITEM = {
   show: { opacity: 1, y: 0, transition: { duration: 0.65, ease: EASE } }
 }
 
-function HeroMock({ t }: { t: (key: string) => string }) {
-  return (
-    <div className="relative mx-auto w-full max-w-xl">
-      <motion.div
-        initial={{ opacity: 0, y: 44, scale: 0.96 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        transition={{ duration: 0.75, delay: 0.15, ease: EASE }}
-        className="card overflow-hidden shadow-panel"
-      >
-        <div className="flex items-center gap-3 border-b border-line bg-surface px-4 py-3">
-          <Avatar name="John Adedeji" size="sm" />
-          <div>
-            <p className="text-sm font-semibold text-ink">{t('landing.mockGreeting')}</p>
-            <p className="text-xs text-muted">{t('landing.mockStreak')}</p>
-          </div>
-          <div className="ml-auto flex items-center gap-1 text-xs font-medium text-success">
-            <Trophy className="h-3.5 w-3.5" /> {t('landing.mockDays')}
-          </div>
-        </div>
-        <div className="space-y-4 bg-surface p-4">
-          <div>
-            <div className="mb-1.5 flex items-center justify-between text-xs">
-              <span className="font-medium text-ink">{t('landing.mockCourseTitle')}</span>
-              <span className="text-muted">78%</span>
-            </div>
-            <div className="h-1.5 w-full overflow-hidden rounded-full bg-line">
-              <div className="h-full w-[78%] rounded-full bg-brand-500" />
-            </div>
-            <p className="mt-2 text-xs text-muted">{t('landing.mockContinue')}</p>
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <div className="rounded-card border border-line p-3">
-              <p className="text-xs text-muted">{t('landing.mockCompleted')}</p>
-              <p className="text-lg font-bold text-ink">3</p>
-            </div>
-            <div className="rounded-card border border-line p-3">
-              <p className="text-xs text-muted">{t('landing.mockCertificates')}</p>
-              <p className="text-lg font-bold text-ink">2</p>
-            </div>
-          </div>
-        </div>
-      </motion.div>
-      <motion.div
-        initial={{ opacity: 0, x: -34 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ duration: 0.6, delay: 0.55, ease: EASE }}
-      >
-        <div className="card absolute -bottom-6 -left-4 hidden w-56 p-4 shadow-panel sm:block" style={{ animation: 'float 5s ease-in-out infinite' }}>
-          <div className="flex items-center gap-2">
-            <div className="rounded-full bg-brand-50 p-2 text-brand-700"><ShieldCheck className="h-4 w-4" /></div>
-            <div>
-              <p className="text-xs font-semibold text-ink">{t('landing.mockCertEarned')}</p>
-              <p className="text-[11px] text-muted">{t('landing.mockCertCourse')}</p>
-            </div>
-          </div>
-        </div>
-      </motion.div>
-      <motion.div
-        initial={{ opacity: 0, x: 34 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ duration: 0.6, delay: 0.7, ease: EASE }}
-      >
-        <div className="card absolute -right-4 -top-5 hidden w-48 p-4 shadow-panel sm:block" style={{ animation: 'float-delayed 6s ease-in-out infinite' }}>
-          <div className="flex items-center gap-2">
-            <div className="rounded-full bg-success/10 p-2 text-success"><TrendingUp className="h-4 w-4" /></div>
-            <div>
-              <p className="text-xs font-semibold text-ink">{t('landing.mockScore')}</p>
-              <p className="text-[11px] text-muted">{t('landing.mockScoreVal')}</p>
-            </div>
-          </div>
-        </div>
-      </motion.div>
-    </div>
-  )
-}
+const getStats = (t: (key: string) => string) => {
+  const totalStudents = COURSES.reduce((sum, c) => sum + c.studentCount, 0)
+  const totalCourses = COURSES.filter(c => c.status === 'published').length
+  const totalInstructors = INSTRUCTORS.filter(i => i.isActive).length
+  const avgRating = COURSES.length > 0
+    ? Number((COURSES.reduce((sum, c) => sum + c.rating, 0) / COURSES.length).toFixed(1))
+    : 0
 
-const STATS = (t: (key: string) => string) => [
-  { value: 50, suffix: 'K+', label: t('landing.statLearners') },
-  { value: 1200, suffix: '+', label: t('landing.statCourses') },
-  { value: 500, suffix: '+', label: t('landing.statInstructors') },
-  { value: 95, suffix: '%', label: t('landing.statSatisfaction') }
-]
+  return [
+    { value: Math.round(totalStudents / 1000), suffix: 'K+', label: t('landing.statLearners') },
+    { value: totalCourses, suffix: '+', label: t('landing.statCourses') },
+    { value: totalInstructors, suffix: '+', label: t('landing.statInstructors') },
+    { value: avgRating, suffix: '%', label: t('landing.statSatisfaction') }
+  ]
+}
 
 const WHY = (t: (key: string) => string) => [
   { icon: <Award className="h-5 w-5" />, title: t('landing.why1Title'), text: t('landing.why1Text') },
@@ -130,12 +63,12 @@ export default function Landing() {
   const { t } = useTranslation()
   const [faqOpen, setFaqOpen] = useState<string | null>('0')
 
-  const stats = STATS(t)
+  const stats = getStats(t)
   const why = WHY(t)
   const flow = FLOW(t)
 
-  const featured = COURSES.filter((c) => c.isFeatured).slice(0, 4)
-  const trending = COURSES.filter((c) => c.isTrending).slice(0, 4)
+  const featured = COURSES.filter((c) => c.isFeatured && c.status === 'published').slice(0, 4)
+  const trending = COURSES.filter((c) => c.isTrending && c.status === 'published').slice(0, 4)
 
   return (
     <div>
@@ -171,7 +104,9 @@ export default function Landing() {
             <motion.div variants={HERO_ITEM}>
               <div className="mt-8 flex items-center gap-4 text-sm text-muted">
                 <div className="flex -space-x-2">
-                  {['John Adedeji', 'Grace Okonkwo', 'Sofia Reyes'].map((n) => <Avatar key={n} name={n} size="sm" className="ring-2 ring-paper" />)}
+                  {INSTRUCTORS.slice(0, 3).map((ins) => (
+                    <Avatar key={ins.id} name={ins.name} size="sm" className="ring-2 ring-paper" />
+                  ))}
                 </div>
                 <div>
                   <Rating value={4.8} />
@@ -180,7 +115,6 @@ export default function Landing() {
               </div>
             </motion.div>
           </motion.div>
-          <HeroMock t={t} />
         </div>
       </section>
 
@@ -189,8 +123,8 @@ export default function Landing() {
           <Reveal y={16}>
             <p className="mb-6 text-center text-xs font-semibold uppercase tracking-widest text-muted">{t('landing.trustedTeams')}</p>
             <div className="flex flex-wrap items-center justify-center gap-x-12 gap-y-4 text-sm font-semibold text-muted/70">
-              {['NORTHWIND', 'APEX BANK', 'HELIOS LABS', 'CRESTLINE U', 'VANTA TELECOM', 'GRIDSOFT', 'ORBITA'].map((name) => (
-                <span key={name} className="tracking-widest">{name}</span>
+              {COURSES.slice(0, 7).map((c) => (
+                <span key={c.id} className="tracking-widest">{c.title.split(' ').slice(0, 2).join(' ')}</span>
               ))}
             </div>
           </Reveal>
@@ -224,41 +158,41 @@ export default function Landing() {
         </div>
       </section>
 
+      <section className="container-page py-16 lg:py-20">
+        <Reveal>
+          <div className="mb-8 text-center">
+            <p className="text-sm font-semibold text-brand-700">{t('landing.featuredEyebrow')}</p>
+            <h2 className="section-title mt-1">{t('landing.featuredTitle')}</h2>
+          </div>
+        </Reveal>
+        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+          {featured.map((c, i) => (
+            <Reveal key={c.id} delay={Math.min(i * 0.07, 0.28)}>
+              <CourseCard course={c} />
+            </Reveal>
+          ))}
+        </div>
+      </section>
+
       <section className="border-y border-line bg-surface py-16 lg:py-20">
         <div className="container-page">
           <Reveal>
             <div className="mb-8 text-center">
-              <p className="text-sm font-semibold text-brand-700">{t('landing.featuredEyebrow')}</p>
-              <h2 className="section-title mt-1">{t('landing.featuredTitle')}</h2>
+              <p className="text-sm font-semibold text-brand-700">{t('landing.whyEyebrow')}</p>
+              <h2 className="section-title mt-1">{t('landing.whyTitle')}</h2>
             </div>
           </Reveal>
-          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-            {featured.map((c, i) => (
-              <Reveal key={c.id} delay={Math.min(i * 0.07, 0.28)}>
-                <CourseCard course={c} />
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {why.map((w, i) => (
+              <Reveal key={w.title} delay={Math.min(i * 0.06, 0.3)}>
+                <div className="card group h-full p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-lift">
+                  <div className="mb-4 inline-flex rounded-card bg-brand-50 p-3 text-brand-700 transition-transform duration-300 group-hover:scale-110">{w.icon}</div>
+                  <h3 className="font-semibold text-ink">{w.title}</h3>
+                  <p className="mt-1.5 text-sm leading-relaxed text-muted">{w.text}</p>
+                </div>
               </Reveal>
             ))}
           </div>
-        </div>
-      </section>
-
-      <section className="container-page py-16 lg:py-20">
-        <Reveal>
-          <div className="mb-8 text-center">
-            <p className="text-sm font-semibold text-brand-700">{t('landing.whyEyebrow')}</p>
-            <h2 className="section-title mt-1">{t('landing.whyTitle')}</h2>
-          </div>
-        </Reveal>
-        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {why.map((w, i) => (
-            <Reveal key={w.title} delay={Math.min(i * 0.06, 0.3)}>
-              <div className="card group h-full p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-lift">
-                <div className="mb-4 inline-flex rounded-card bg-brand-50 p-3 text-brand-700 transition-transform duration-300 group-hover:scale-110">{w.icon}</div>
-                <h3 className="font-semibold text-ink">{w.title}</h3>
-                <p className="mt-1.5 text-sm leading-relaxed text-muted">{w.text}</p>
-              </div>
-            </Reveal>
-          ))}
         </div>
       </section>
 
@@ -326,7 +260,7 @@ export default function Landing() {
             </div>
           </Reveal>
           <div className="grid grid-cols-2 gap-6 lg:grid-cols-4">
-            {stats.map((s, i) => (
+            {getStats(t).map((s, i) => (
               <Reveal key={s.label} delay={i * 0.08}>
                 <div className="text-center">
                   <Counter to={s.value} suffix={s.suffix} className="font-display text-4xl font-bold text-brand-700" />
