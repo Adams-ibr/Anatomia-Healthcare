@@ -107,7 +107,15 @@ export default function CourseStudy() {
   const stats = [
     { label: t('study.lessonsCompleted'), value: `${doneCount}/${total}`, icon: <ListVideo className="h-4 w-4" /> },
     { label: t('study.hoursLearned'), value: `${hoursLearned}h`, icon: <Clock className="h-4 w-4" /> },
-    { label: t('study.certificate'), value: cert ? t('study.earned') : isComplete ? t('study.eligible') : t('study.inProgress'), icon: <Trophy className="h-4 w-4" /> }
+    {
+      label: t('study.certificate'),
+      value: cert
+        ? t('study.earned')
+        : isComplete
+          ? t('study.eligible')
+          : t('study.inProgress'),
+      icon: <Trophy className="h-4 w-4" />
+    }
   ]
 
   return (
@@ -135,6 +143,9 @@ export default function CourseStudy() {
                 <Button variant="outline" onClick={() => nav(`/courses/${course.slug}`)}><CheckCircle2 className="h-4 w-4" /> {t('study.completedCourse')}</Button>
               ) : (
                 <Button onClick={() => nav(`/learning/${course.id}/${current.id}`)}><Play className="h-4 w-4" /> {doneCount === 0 ? t('study.startLearning') : t('study.continueLearning')}</Button>
+              )}
+              {course.hasCertificate && !cert && (
+                <Button variant="outline" onClick={() => nav('/assessments')}><Award className="h-4 w-4" /> {t('study.takeExam', 'Take Exam (70% Pass Mark)')}</Button>
               )}
               {cert && <Button variant="outline" onClick={() => nav(`/certificates/${cert.id}`)}><Award className="h-4 w-4" /> {t('study.viewCertificate')}</Button>}
             </div>

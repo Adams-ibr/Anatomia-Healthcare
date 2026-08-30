@@ -259,6 +259,9 @@ export default function LearningPlayer() {
           <div className="rounded-full bg-brand-50 p-5 text-brand-700">{lesson.type === 'exam' ? <Award className="h-10 w-10" /> : <Check className="h-10 w-10" />}</div>
           <h2 className="mt-4 font-display text-xl font-semibold text-ink">{lesson.type === 'exam' ? t('player.finalAssessment') : t('player.knowledgeCheck')}</h2>
           <p className="mt-2 max-w-md text-sm text-muted">{lesson.type === 'exam' ? t('player.finalAssessmentDesc') : t('player.knowledgeCheckDesc')}</p>
+          <div className="mt-4 rounded-card border border-brand-200 bg-brand-50/50 px-4 py-2 text-xs font-medium text-brand-800">
+            {t('player.passingScoreNote', 'Minimum 70% passing score required to earn your verified certificate.')}
+          </div>
           <div className="mt-6 flex gap-3">
             <Button onClick={() => nav('/assessments')}>{t('player.start', { type: lesson.type })}</Button>
             <Button variant="outline" onClick={markComplete}>{t('player.markAsComplete')}</Button>

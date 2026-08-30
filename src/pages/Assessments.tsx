@@ -357,6 +357,23 @@ export function AssessmentPlayer() {
             barClassName={result.passed ? 'bg-success' : 'bg-danger'}
           />
 
+          {result.passed && (result.certificateIssued || result.certificateId) && (
+            <div className="mt-6 rounded-card border border-success/30 bg-success/5 p-5 text-center">
+              <div className="flex items-center justify-center gap-2 font-semibold text-success">
+                <Award className="h-6 w-6" />
+                <span className="text-base">{t('assess.certificateEarned', 'Certificate Earned!')}</span>
+              </div>
+              <p className="mt-1 text-xs text-muted">
+                {t('assess.certificateEarnedDesc', 'Congratulations! You passed the 70% cutoff requirement and earned your official certificate.')}
+              </p>
+              {result.certificateId && (
+                <Button className="mt-3" onClick={() => nav(`/certificates/${result.certificateId}`)}>
+                  <Award className="h-4 w-4" /> {t('assess.viewCertificate', 'View Certificate')}
+                </Button>
+              )}
+            </div>
+          )}
+
           <div className="mt-6 flex flex-wrap justify-center gap-3">
             {!result.passed && assessment.attemptCount < assessment.retakeLimit && (
               <Button onClick={() => { setCurrent(0); setAnswers({}); setResult(null); setSecondsLeft(assessment.timeLimit * 60); setPhase('briefing') }}>

@@ -607,6 +607,8 @@ export interface AssessmentResult {
   total: number
   passingScore: number
   attemptedAt: string
+  certificateIssued?: boolean
+  certificateId?: string
   gradedAnswers: Record<string, {
     given: string | string[]
     correct: string | string[] | null

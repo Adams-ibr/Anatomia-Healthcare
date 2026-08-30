@@ -1920,6 +1920,16 @@ async function countLessons(courseId: string): Promise<number> {
 async function issueCertificate(courseId: string, userId: string): Promise<string | null> {
   const { data: course } = await supabase.from('courses').select('id, instructor_id, title, has_certificate').eq('id', courseId).single()
   if (!course || !course.has_certificate) return null
+
+  // Check if certificate was already issued for this user & course
+  const { data: existing } = await supabase
+    .from('certificates')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('course_id', courseId)
+    .maybeSingle()
+  if (existing) return existing.id
+
   const verificationCode = `CERT-${Date.now().toString(36).toUpperCase()}${Math.random().toString(36).slice(2, 8).toUpperCase()}`
   const { data, error } = await supabase.from('certificates').insert({
     user_id: userId,
@@ -2052,11 +2062,35 @@ async function handleUpdateEnrollment(req: Request): Promise<Response> {
   let certificateId = updated.certificate_id
 
   if (status === 'completed' && !certificateIssued) {
-    const certId = await issueCertificate(courseId, guard.profile.id)
-    if (certId) {
-      certificateIssued = true
-      certificateId = certId
-      await supabase.from('enrollments').update({ certificate_issued: true, certificate_id: certId }).eq('id', enrollment.id)
+    // Check if course has any required assessments
+    const { data: assessmentList } = await supabase
+      .from('assessments')
+      .select('id')
+      .eq('course_id', courseId)
+    
+    let canIssue = true
+    if (assessmentList && assessmentList.length > 0) {
+      const assessmentIds = assessmentList.map((a) => a.id)
+      const { data: passedAttempts } = await supabase
+        .from('assessment_attempts')
+        .select('id')
+        .eq('user_id', guard.profile.id)
+        .eq('passed', true)
+        .in('assessment_id', assessmentIds)
+        .limit(1)
+
+      if (!passedAttempts || passedAttempts.length === 0) {
+        canIssue = false
+      }
+    }
+
+    if (canIssue) {
+      const certId = await issueCertificate(courseId, guard.profile.id)
+      if (certId) {
+        certificateIssued = true
+        certificateId = certId
+        await supabase.from('enrollments').update({ certificate_issued: true, certificate_id: certId }).eq('id', enrollment.id)
+      }
     }
   }
 
@@ -3082,7 +3116,8 @@ async function handleSubmitAssessment(req: Request): Promise<Response> {
 
   const gradableCount = rows.filter((q) => q.type !== 'essay').length
   const score = gradableCount > 0 ? Math.round((correct / gradableCount) * 100) : 0
-  const passed = score >= assessment.passing_score
+  const passingScore = assessment.passing_score ?? 70
+  const passed = score >= passingScore
 
   const { data: attempt, error: insertError } = await supabase
     .from('assessment_attempts')
@@ -3098,6 +3133,22 @@ async function handleSubmitAssessment(req: Request): Promise<Response> {
     .single()
   if (insertError) return errorResponse(500, 'Failed to save attempt: ' + insertError.message)
 
+  let certificateIssued = false
+  let certificateId: string | undefined = undefined
+
+  // If student passed (score >= 70% cutoff), issue certificate and mark enrollment complete if eligible
+  if (passed) {
+    const certId = await issueCertificate(assessment.course_id, guard.profile.id)
+    if (certId) {
+      certificateIssued = true
+      certificateId = certId
+      await supabase.from('enrollments').update({
+        certificate_issued: true,
+        certificate_id: certId
+      }).eq('id', enrollment.id)
+    }
+  }
+
   return json({
     result: {
       attemptId: attempt.id,
@@ -3105,9 +3156,11 @@ async function handleSubmitAssessment(req: Request): Promise<Response> {
       passed,
       correct,
       total: gradableCount,
-      passingScore: assessment.passing_score,
+      passingScore,
       attemptedAt: attempt.attempted_at,
-      gradedAnswers
+      gradedAnswers,
+      certificateIssued,
+      certificateId
     }
   })
 }
