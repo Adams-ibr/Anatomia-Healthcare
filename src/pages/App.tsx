@@ -35,6 +35,7 @@ import { InstructorCourses } from './InstructorCourses'
 import CourseStudio from './CourseStudio'
 import { AdminDashboard, AdminEnrollments } from './Admin'
 import AdminUsers from './AdminUsers'
+import AdminInstructors from './AdminInstructors'
 import AdminCourses from './AdminCourses'
 import AdminCategories from './AdminCategories'
 import { AdminCertificates, AdminOrders, AdminPayments, AdminAnnouncements, AdminReports, AdminAnalytics, AdminSettings } from './Admin2'
@@ -154,6 +155,7 @@ const INSTRUCTOR_NAV: NavItem[] = [
 const ADMIN_NAV: NavItem[] = [
   { label: 'Dashboard', to: '/admin', icon: I(NAV_ICONS.dash), end: true },
   { label: 'Users', to: '/admin/users', icon: I(NAV_ICONS.user) },
+  { label: 'Instructors', to: '/admin/instructors', icon: I(NAV_ICONS.users) },
   { label: 'Courses', to: '/admin/courses', icon: I(NAV_ICONS.book) },
   { label: 'Categories', to: '/admin/categories', icon: I(NAV_ICONS.tag) },
   { label: 'Enrollments', to: '/admin/enrollments', icon: I(NAV_ICONS.users) },
@@ -239,6 +241,7 @@ export default function App() {
           <Route element={<PortalLayout nav={ADMIN_NAV} role="admin" />}>
             <Route path="/admin" element={<AdminDashboard />} />
             <Route path="/admin/users" element={<AdminUsers />} />
+            <Route path="/admin/instructors" element={<AdminInstructors />} />
             <Route path="/admin/courses" element={<AdminCourses />} />
             <Route path="/admin/categories" element={<AdminCategories />} />
             <Route path="/admin/enrollments" element={<AdminEnrollments />} />

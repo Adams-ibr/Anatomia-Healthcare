@@ -1864,6 +1864,166 @@ async function handleAdminListInstructors(req: Request): Promise<Response> {
   return json({ instructors: (data ?? []).map((p) => ({ id: p.id, name: p.name })) })
 }
 
+async function handleAdminListInstructorsDetailed(req: Request): Promise<Response> {
+  const guard = await requireAdmin(req)
+  if (guard instanceof Response) return guard
+
+  const url = new URL(req.url)
+  const search = (url.searchParams.get('search') ?? '').trim().toLowerCase()
+  const status = url.searchParams.get('status') ?? 'all'
+
+  let query = supabase
+    .from('profiles')
+    .select('*, courses:courses!courses_instructor_id_fkey(id, title, student_count, rating, price, status)', { count: 'exact' })
+    .in('role', ['instructor', 'admin'])
+
+  if (status === 'active') query = query.eq('is_active', true)
+  if (status === 'suspended') query = query.eq('is_active', false)
+  if (search) query = query.or(`name.ilike.%${search}%,email.ilike.%${search}%,title.ilike.%${search}%`)
+
+  query = query.order('joined_at', { ascending: false })
+
+  const { data, count, error } = await query
+  if (error) return errorResponse(500, 'Failed to load instructors: ' + error.message)
+
+  const rows = (data ?? []) as (ProfileRow & { courses?: { id: string; title: string; student_count: number; rating: number; price: number; status: string }[] })[]
+  const instructors = rows.map((p) => {
+    const courseList = p.courses ?? []
+    const publishedCourses = courseList.filter((c) => c.status === 'published')
+    const totalStudents = courseList.reduce((acc, c) => acc + (c.student_count ?? 0), 0)
+    const avgRating = courseList.length > 0
+      ? Number((courseList.reduce((acc, c) => acc + Number(c.rating ?? 0), 0) / courseList.length).toFixed(1))
+      : Number(p.rating ?? 0)
+
+    return {
+      id: p.id,
+      name: p.name,
+      email: p.email,
+      role: p.role,
+      title: p.title ?? '',
+      headline: p.headline ?? '',
+      bio: p.bio ?? '',
+      avatar: p.avatar ?? '',
+      skills: p.skills ?? [],
+      website: p.website ?? '',
+      isActive: p.is_active,
+      joinedAt: p.joined_at,
+      courseCount: courseList.length,
+      publishedCourseCount: publishedCourses.length,
+      studentCount: totalStudents || (p.student_count ?? 0),
+      rating: avgRating,
+      courses: courseList.map((c) => ({ id: c.id, title: c.title, status: c.status, studentCount: c.student_count, rating: c.rating }))
+    }
+  })
+
+  return json({ instructors, total: count ?? instructors.length })
+}
+
+async function handleAdminCreateInstructor(req: Request): Promise<Response> {
+  const guard = await requireAdmin(req)
+  if (guard instanceof Response) return guard
+
+  const body = await readBody(req)
+  const name = typeof body.name === 'string' ? body.name.trim() : ''
+  const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : ''
+  const password = typeof body.password === 'string' ? body.password : 'Password123!'
+  const title = typeof body.title === 'string' ? body.title.trim() : ''
+  const headline = typeof body.headline === 'string' ? body.headline.trim() : ''
+  const bio = typeof body.bio === 'string' ? body.bio.trim() : ''
+  const skills = Array.isArray(body.skills) ? body.skills : typeof body.skills === 'string' ? body.skills.split(',').map((s) => s.trim()).filter(Boolean) : []
+
+  if (!name || !email) return errorResponse(422, 'Name and email are required.')
+
+  const { data: existing } = await supabase.from('profiles').select('id, role').eq('email', email).maybeSingle()
+  if (existing) {
+    const { data: updated, error: updateErr } = await supabase
+      .from('profiles')
+      .update({
+        role: 'instructor',
+        title: title || undefined,
+        headline: headline || undefined,
+        bio: bio || undefined,
+        skills: skills.length > 0 ? skills : undefined,
+        is_active: true
+      })
+      .eq('id', existing.id)
+      .select('*')
+      .single()
+    if (updateErr) return errorResponse(500, 'Failed to promote user: ' + updateErr.message)
+    return json({ instructor: mapProfile(updated) })
+  }
+
+  const passwordHash = await hashPassword(password)
+  const { data: created, error: createErr } = await supabase
+    .from('profiles')
+    .insert({
+      name,
+      email,
+      role: 'instructor',
+      password_hash: passwordHash,
+      title,
+      headline,
+      bio,
+      skills,
+      email_confirmed: true,
+      is_active: true
+    })
+    .select('*')
+    .single()
+  if (createErr) return errorResponse(500, 'Failed to create instructor: ' + createErr.message)
+
+  return json({ instructor: mapProfile(created) })
+}
+
+async function handleAdminUpdateInstructor(req: Request): Promise<Response> {
+  const guard = await requireAdmin(req)
+  if (guard instanceof Response) return guard
+
+  const url = new URL(req.url)
+  const id = url.pathname.split('/').filter(Boolean).at(-1) ?? ''
+  if (!id) return errorResponse(422, 'Instructor id is required.')
+
+  const body = await readBody(req)
+  const patch: Record<string, unknown> = {}
+  if (typeof body.name === 'string') patch.name = body.name.trim()
+  if (typeof body.title === 'string') patch.title = body.title.trim()
+  if (typeof body.headline === 'string') patch.headline = body.headline.trim()
+  if (typeof body.bio === 'string') patch.bio = body.bio.trim()
+  if (typeof body.is_active === 'boolean') patch.is_active = body.is_active
+  if (typeof body.isActive === 'boolean') patch.is_active = body.isActive
+  if (Array.isArray(body.skills)) patch.skills = body.skills
+
+  const { data, error } = await supabase
+    .from('profiles')
+    .update(patch)
+    .eq('id', id)
+    .select('*')
+    .single()
+
+  if (error) return errorResponse(500, 'Failed to update instructor: ' + error.message)
+  return json({ instructor: mapProfile(data) })
+}
+
+async function handleAdminDeleteInstructor(req: Request): Promise<Response> {
+  const guard = await requireAdmin(req)
+  if (guard instanceof Response) return guard
+
+  const url = new URL(req.url)
+  const id = url.pathname.split('/').filter(Boolean).at(-1) ?? ''
+  if (!id) return errorResponse(422, 'Instructor id is required.')
+
+  // Demote to student rather than deleting to preserve course history
+  const { data, error } = await supabase
+    .from('profiles')
+    .update({ role: 'student', is_active: false })
+    .eq('id', id)
+    .select('*')
+    .single()
+
+  if (error) return errorResponse(500, 'Failed to remove instructor: ' + error.message)
+  return json({ ok: true, profile: mapProfile(data) })
+}
+
 async function handlePublicListInstructors(req: Request): Promise<Response> {
   // Returns the top instructors (by student_count) for the public landing page
   const { data, error } = await supabase
@@ -3451,6 +3611,12 @@ Deno.serve(async (req) => {
     case 'GET /admin/instructors':
       response = await handleAdminListInstructors(req)
       break
+    case 'GET /admin/instructors/detailed':
+      response = await handleAdminListInstructorsDetailed(req)
+      break
+    case 'POST /admin/instructors':
+      response = await handleAdminCreateInstructor(req)
+      break
     case 'GET /instructors':
       response = await handlePublicListInstructors(req)
       break
@@ -3568,6 +3734,10 @@ Deno.serve(async (req) => {
         else response = errorResponse(404, 'API endpoint not found.')
       } else if (/^\/me\/assessments\/[^/]+$/.test(path)) {
         if (method === 'GET') response = await handleGetAssessment(req)
+        else response = errorResponse(404, 'API endpoint not found.')
+      } else if (/^\/admin\/instructors\/[^/]+$/.test(path)) {
+        if (method === 'PATCH') response = await handleAdminUpdateInstructor(req)
+        else if (method === 'DELETE') response = await handleAdminDeleteInstructor(req)
         else response = errorResponse(404, 'API endpoint not found.')
       } else if (/^\/admin\/categories\/[^/]+$/.test(path)) {
         if (method === 'PATCH') response = await handleAdminUpdateCategory(req)

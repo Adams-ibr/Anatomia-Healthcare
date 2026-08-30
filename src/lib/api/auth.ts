@@ -74,6 +74,26 @@ export interface PublicInstructor {
   avatar: string
 }
 
+export interface AdminInstructor {
+  id: string
+  name: string
+  email: string
+  role: AdminRole
+  title: string
+  headline: string
+  bio: string
+  avatar: string
+  skills: string[]
+  website?: string
+  isActive: boolean
+  joinedAt: string
+  courseCount: number
+  publishedCourseCount: number
+  studentCount: number
+  rating: number
+  courses?: { id: string; title: string; status: string; studentCount: number; rating: number }[]
+}
+
 export const publicApi = {
   listCourses(params: { category?: string; search?: string; featured?: boolean; trending?: boolean; limit?: number } = {}): Promise<AdminCourseListResult> {
     const qs = new URLSearchParams()
@@ -129,6 +149,26 @@ export const adminApi = {
 
   deleteUser(token: string, id: string): Promise<unknown> {
     return apiFetch<unknown>(`/api/auth/admin/users/${id}`, { method: 'DELETE', token })
+  },
+
+  listInstructorsDetailed(token: string, params: { search?: string; status?: 'all' | 'active' | 'suspended' } = {}): Promise<{ instructors: AdminInstructor[]; total: number }> {
+    const qs = new URLSearchParams()
+    if (params.search) qs.set('search', params.search)
+    if (params.status && params.status !== 'all') qs.set('status', params.status)
+    const query = qs.toString()
+    return apiFetch<{ instructors: AdminInstructor[]; total: number }>(`/api/auth/admin/instructors/detailed${query ? `?${query}` : ''}`, { token })
+  },
+
+  createInstructor(token: string, input: { name: string; email: string; password?: string; title?: string; headline?: string; bio?: string; skills?: string[] }): Promise<{ instructor: AdminInstructor }> {
+    return apiFetch<{ instructor: AdminInstructor }>('/api/auth/admin/instructors', { method: 'POST', body: input, token })
+  },
+
+  updateInstructor(token: string, id: string, patch: Partial<{ name: string; title: string; headline: string; bio: string; isActive: boolean; skills: string[] }>): Promise<{ instructor: AdminInstructor }> {
+    return apiFetch<{ instructor: AdminInstructor }>(`/api/auth/admin/instructors/${id}`, { method: 'PATCH', body: patch, token })
+  },
+
+  deleteInstructor(token: string, id: string): Promise<{ ok: boolean }> {
+    return apiFetch<{ ok: boolean }>(`/api/auth/admin/instructors/${id}`, { method: 'DELETE', token })
   },
 
   listCertificates(token: string): Promise<{
