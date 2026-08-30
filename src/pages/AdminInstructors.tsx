@@ -380,7 +380,7 @@ export default function AdminInstructors() {
       {/* CREATE / EDIT MODAL */}
       {(creating || editing) && (
         <Modal
-          isOpen={true}
+          open={true}
           onClose={() => { setCreating(false); setEditing(null) }}
           title={creating ? t('adminInstructors.modalAddTitle', 'Add New Instructor') : t('adminInstructors.modalEditTitle', 'Edit Instructor Profile')}
         >
@@ -457,7 +457,7 @@ export default function AdminInstructors() {
       {/* VIEW DETAILS MODAL */}
       {viewing && (
         <Modal
-          isOpen={true}
+          open={true}
           onClose={() => setViewing(null)}
           title={t('adminInstructors.viewTitle', 'Instructor Profile Details')}
         >
@@ -543,7 +543,7 @@ export default function AdminInstructors() {
       {/* CONFIRMATION MODAL */}
       {confirming && (
         <Modal
-          isOpen={true}
+          open={true}
           onClose={() => setConfirming(null)}
           title={confirming.mode === 'toggle'
             ? confirming.instructor.isActive ? t('adminInstructors.suspendConfirmTitle', 'Suspend Instructor?') : t('adminInstructors.activateConfirmTitle', 'Activate Instructor?')
@@ -566,7 +566,8 @@ export default function AdminInstructors() {
                 {t('adminInstructors.cancel', 'Cancel')}
               </Button>
               <Button
-                variant={confirming.mode === 'toggle' && confirming.instructor.isActive ? 'danger' : 'primary'}
+                variant={confirming.mode === 'toggle' && confirming.instructor.isActive ? 'outline' : 'primary'}
+                className={confirming.mode === 'toggle' && confirming.instructor.isActive ? 'border-danger text-danger hover:bg-danger/10' : undefined}
                 onClick={() => confirming.mode === 'toggle' ? handleToggleStatus(confirming.instructor) : handleRemove(confirming.instructor)}
                 disabled={mutating}
               >
