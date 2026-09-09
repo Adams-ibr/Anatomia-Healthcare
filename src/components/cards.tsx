@@ -44,7 +44,7 @@ export function CourseCard({ course, large, compact }: { course: Course; large?:
           <Heart className={cn('h-4 w-4', saved && 'fill-danger')} />
         </button>
         <div className="absolute bottom-3 left-3 flex gap-1.5">
-          {course.level && <Badge color="ink">{course.level}</Badge>}
+          {course.level && <Badge color="ink">{t(`cards.level_${course.level.toLowerCase()}`)}</Badge>}
           {course.hasCertificate && <Badge color="brand">{t('cards.certificate')}</Badge>}
         </div>
       </div>

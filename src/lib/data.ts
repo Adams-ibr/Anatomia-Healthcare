@@ -128,7 +128,7 @@ export const COURSES: Course[] = [
     faqs: [faq('Is the lab environment included?', 'Yes, every student gets step-by-step setup for a free, legal lab.')]
   },
   {
-    id: 'cr_3', slug: 'machine-learning-with-python', title: 'Machine Learning with Python', subtitle: 'From first model to production-grade ML systems.',
+    id: 'cr_3', slug: 'machine-learning-with-python', title: 'AI ga Masu Ƙirƙirar Ƙunshiya', subtitle: 'From first model to production-grade ML systems.',
     description: 'Build, evaluate, and deploy machine learning models with scikit-learn and PyTorch.',
     longDescription: 'A complete, project-driven introduction to machine learning. You will learn the statistics behind the models, build them with Python, and deploy them responsibly. By the end you will have three portfolio projects.',
     categoryId: 'c3', instructorId: 'u_in_3', thumbnail: t('Machine Learning', '#4F7FBE'),
@@ -891,11 +891,11 @@ export const COURSES: Course[] = [
 ]
 
 export const LEARNING_PATHS: LearningPath[] = [
-  { id: 'lp_1', title: 'Cybersecurity Professional', description: 'From fundamentals to SIEM and forensics — a complete path into security operations.', courses: ['cr_1', 'cr_6', 'cr_13', 'cr_17', 'cr_11', 'cr_19'], career: 'SOC Analyst · Security Engineer · DFIR', icon: 'Shield', level: 'Beginner → Advanced' },
-  { id: 'lp_2', title: 'Full-Stack Developer', description: 'Ship modern web applications from frontend to database to deployment.', courses: ['cr_5', 'cr_16', 'cr_20', 'cr_8', 'cr_22'], career: 'Full-Stack Dev · Frontend · Backend', icon: 'Code2', level: 'Beginner → Advanced' },
-  { id: 'lp_3', title: 'Data Analyst', description: 'Turn raw data into decisions with Excel, SQL, Python, and visualization.', courses: ['cr_18', 'cr_20', 'cr_7', 'cr_3'], career: 'Data Analyst · BI Analyst', icon: 'BarChart3', level: 'Beginner → Intermediate' },
-  { id: 'lp_4', title: 'Cloud Engineer', description: 'Architect, secure, and operate cloud infrastructure at scale.', courses: ['cr_4', 'cr_15', 'cr_8', 'cr_22'], career: 'Cloud Architect · DevOps · SRE', icon: 'Cloud', level: 'Intermediate' },
-  { id: 'lp_5', title: 'Digital Marketer', description: 'Grow products with positioning, content, and lifecycle marketing.', courses: ['cr_12', 'cr_9', 'cr_14'], career: 'Growth Marketer · Product Marketer', icon: 'TrendingUp', level: 'Beginner' }
+  { id: 'lp_1', title: 'Kwararren Tsaron Intanet (Cybersecurity)', description: 'Daga muhimman ginshiƙan tsaron intanet zuwa SIEM da binciken dijital — cikakkiyar hanya zuwa ayyukan tsaro.', courses: ['cr_1', 'cr_6', 'cr_13', 'cr_17', 'cr_11', 'cr_19'], career: 'SOC Analyst · Security Engineer · DFIR', icon: 'Shield', level: 'Mafari → Babban Mataki' },
+  { id: 'lp_2', title: 'Mai Haɓaka Manhajar Yanar Gizo (Full-Stack Developer)', description: 'Koyi gina manhajojin yanar gizo na zamani tun daga frontend da backend har zuwa rumbun bayanai da ɗorawa a intanet.', courses: ['cr_5', 'cr_16', 'cr_20', 'cr_8', 'cr_22'], career: 'Full-Stack Dev · Frontend · Backend', icon: 'Code2', level: 'Mafari → Babban Mataki' },
+  { id: 'lp_3', title: 'Mai Nazarin Bayanai (Data Analyst)', description: 'Koyi yadda ake juya ɗanyen bayanai zuwa fahimta da shawara ta amfani da Excel, SQL, Python da zane-zanen bayanai.', courses: ['cr_18', 'cr_20', 'cr_7', 'cr_3'], career: 'Data Analyst · BI Analyst', icon: 'BarChart3', level: 'Mafari → Matsakaici' },
+  { id: 'lp_4', title: 'Cloud Engineer', description: 'Gida, tsaro, da aiki cibiyar bayanai a girman girma.', courses: ['cr_4', 'cr_15', 'cr_8', 'cr_22'], career: 'Cloud Architect · DevOps · SRE', icon: 'Cloud', level: 'Matsakaici' },
+  { id: 'lp_5', title: 'Digital Marketer', description: 'Ci gaba da abubuwa ta taya jiki, ciki, da rayuwar koyan talla.', courses: ['cr_12', 'cr_9', 'cr_14'], career: 'Growth Marketer · Product Marketer', icon: 'TrendingUp', level: 'Mafari' }
 ]
 
 export const BLOG_POSTS: BlogPost[] = [
@@ -938,10 +938,10 @@ export const BLOG_POSTS: BlogPost[] = [
 ]
 
 export const TESTIMONIALS: Testimonial[] = [
-  { id: 'ts_1', name: 'Aisha Musa', role: 'Cybersecurity Analyst', company: 'Access Bank Nigeria', text: 'I transitioned from IT support to a SOC analyst role in seven months. The cybersecurity path gave me exactly the sequence of skills the job needed.', rating: 5 },
-  { id: 'ts_2', name: 'Emeka Okonkwo', role: 'Frontend Developer', company: 'Freelance', text: 'The full-stack course is the best money I have spent on education. I landed my first freelance client the month I finished.', rating: 5 },
-  { id: 'ts_3', name: 'Fatima Abdullahi', role: 'Data Analyst', company: 'MTN Nigeria', text: 'The instructors answer questions quickly and the labs feel like real work. My promotion came three months after finishing the data path.', rating: 5 },
-  { id: 'ts_4', name: 'Chukwuemeka Eze', role: 'Cloud Engineer', company: 'Flutterwave', text: 'Practical, current, and honest about complexity. The cloud course paid for itself in my first architecture review.', rating: 4 }
+  { id: 'ts_1', name: 'Aisha Musa', role: 'Cybersecurity Analyst', company: 'Access Bank Nigeria', text: 'Na ɗauki shiftin SOC analyst daga tallafi na IT cikin kwanaki bakwai. Hanyar tsaron intanet ta ba ni jerin ƙwarewa da aikin bukatan.', rating: 5 },
+  { id: 'ts_2', name: 'Emeka Okonkwo', role: 'Frontend Developer', company: 'Freelance', text: 'Kuas in full-stack shine mafi kyawun kudin da na kashe akan karatu. Na samu aljihe na farko na freelance a jiyar da na kammala.', rating: 5 },
+  { id: 'ts_3', name: 'Fatima Abdullahi', role: 'Data Analyst', company: 'MTN Nigeria', text: 'Malamai suna amsa tambayoyi da sauri kuma ayyukat lab suna kama aiki na gaske. Fada in ta tashi cikin watanni uku bayan kammalawa hanyar bayanai.', rating: 5 },
+  { id: 'ts_4', name: 'Chukwuemeka Eze', role: 'Cloud Engineer', company: 'Flutterwave', text: 'Karwaci, jiya, kuma gaskiya game da hadari. Kuas in cloud ta biyan ta kanta tsakanin bita darasi na farko na injiniya.', rating: 4 }
 ]
 
 export const FAQS: FAQ[] = [
@@ -955,16 +955,16 @@ export const FAQS: FAQ[] = [
 
 export const PLANS: Plan[] = [
   {
-    id: 'pl_free', name: 'Free', price: 0, period: 'forever', description: 'Start learning with our free catalog.',
-    features: ['Access to free courses', 'Basic progress tracking', 'Certificates for eligible free courses', 'Community access']
+    id: 'pl_free', name: 'Kyauta', price: 0, period: 'rayuwa', description: 'Fara koyo da darussanmu na kyauta.',
+    features: ['Samun damar darussan kyauta', 'Bibiyar ci gaban koyo', 'Shaidar Kammalawa ga darussan kyauta da suka cancanta', 'Shiga al\'ummar masu koyo']
   },
   {
-    id: 'pl_premium', name: 'Premium', price: 5000, period: 'month', description: 'Everything you need to go deep and get certified.',
-    features: ['All courses included', 'Certificates with verification', 'Advanced assessments & labs', 'Learning paths & career tracks', 'Priority support', 'Community & events'],
+    id: 'pl_premium', name: 'Premium', price: 5000, period: 'a wata', description: 'Duk abin da kake buƙata domin zurfafa koyo da samun Shaidar Kammalawa.',
+    features: ['Samun duk darussa', 'Shaidar Kammalawa da za a iya tabbatarwa', 'Tantancewa da atisaye na mataki na gaba', 'Hanyoyin koyo da shirye-shiryen sana\'a', 'Tallafi na musamman', 'Al\'umma da taruka'],
     highlight: true
   },
   {
-    id: 'pl_business', name: 'Business', price: 50000, period: 'month', description: 'For teams and institutions building a learning culture.',
-    features: ['Everything in Premium', 'Team & organization management', 'Organization analytics dashboard', 'Private courses & content', 'Administrative controls', 'Dedicated success manager']
+    id: 'pl_business', name: 'Kasuwanci', price: 50000, period: 'a wata', description: 'Ga ƙungiyoyi da cibiyoyin da ke gina al\'adar koyo.',
+    features: ['Duk abubuwan Premium', 'Gudanar da ƙungiya da masu amfani', 'Allon nazarin bayanan ƙungiya', 'Darussa da ƙunshiya na musamman', 'Ikon gudanarwa', 'Mai kula da nasarar ƙungiya na musamman']
   }
 ]

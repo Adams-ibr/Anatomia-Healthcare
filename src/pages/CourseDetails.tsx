@@ -196,7 +196,7 @@ export default function CourseDetails() {
           </div>
           <div className="mt-4 grid gap-8 lg:grid-cols-[1fr_400px]">
             <div>
-              <Badge color="brand" className="mb-3">{course.level} · {category?.name}</Badge>
+              <Badge color="brand" className="mb-3">{t(`cards.level_${course.level.toLowerCase()}`)} · {category?.name}</Badge>
               <h1 className="font-display text-3xl font-bold leading-tight text-ink lg:text-4xl">{course.title}</h1>
               <p className="mt-3 text-lg text-muted">{course.subtitle}</p>
               <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-muted">

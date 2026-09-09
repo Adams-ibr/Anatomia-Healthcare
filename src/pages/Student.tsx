@@ -105,7 +105,7 @@ export function Wishlist() {
               <div key={course.id} className="card flex flex-col overflow-hidden">
                 <button onClick={() => nav(`/courses/${course.slug}`)} className="relative aspect-video bg-brand-900">
                   <img src={course.thumbnail} alt={course.title} className="h-full w-full object-cover" />
-                  <Badge color="brand" className="absolute bottom-2 left-2">{course.level}</Badge>
+                  <Badge color="brand" className="absolute bottom-2 left-2">{t(`cards.level_${course.level.toLowerCase()}`)}</Badge>
                 </button>
                 <div className="flex flex-1 flex-col gap-2 p-4">
                   <button onClick={() => nav(`/courses/${course.slug}`)} className="line-clamp-1 text-left font-semibold text-ink hover:text-brand-700">{course.title}</button>

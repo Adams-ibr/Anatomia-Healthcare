@@ -128,7 +128,7 @@ export default function CourseStudy() {
           </div>
           <div className="flex flex-col gap-3 p-5 sm:p-6">
             <div className="flex flex-wrap items-center gap-2">
-              <Badge color="brand">{course.level}</Badge>
+              <Badge color="brand">{t(`cards.level_${course.level.toLowerCase()}`)}</Badge>
               {course.hasCertificate && <Badge color="success"><Trophy className="mr-1 h-3 w-3" /> {t('study.certificateCourse')}</Badge>}
             </div>
             <h1 className="font-display text-2xl font-bold text-ink">{course.title}</h1>
