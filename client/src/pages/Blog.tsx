@@ -21,6 +21,7 @@ import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import type { Article } from "@shared/schema";
 
 import armImg from "@assets/stock_images/human_arm_muscles_an_9d7db348.jpg";
 import brainImg from "@assets/stock_images/human_brain_anatomy__282b70de.jpg";
@@ -38,64 +39,15 @@ const popularTopics = [
   { name: "Lower Limb Muscles", count: 25 },
 ];
 
-const articles = [
-  {
-    category: "NEUROANATOMY",
-    title: "Understanding the Circle of Willis: A...",
-    excerpt: "A comprehensive look at the arterial blood supply of the brain, its anastomoses, structure, and clinical...",
-    author: "Dr. Sarah Chen",
-    readTime: "8 min read",
-    date: "Oct 24, 2023",
-    image: brainImg
-  },
-  {
-    category: "STUDY TIPS",
-    title: "5 Mnemonics for Cranial Nerves You Won't...",
-    excerpt: "Memorize the 12 cranial nerves faster with these student-approved memory aids and mnemonic devices...",
-    author: "James Victor",
-    readTime: "5 min read",
-    date: "Oct 20, 2023",
-    image: skeletonImg
-  },
-  {
-    category: "MUSCULOSKELETAL",
-    title: "Carpal Bones: Anatomy, Attachments & Clinical...",
-    excerpt: "A deep dive into the 8 carpal bones of the wrist, including the flexor retinaculum attachments and carpal...",
-    author: "Dr. Sarah Chen",
-    readTime: "7 min read",
-    date: "Oct 18, 2023",
-    image: armImg
-  },
-  {
-    category: "CARDIOLOGY",
-    title: "Cardiac Valves: Structure and Function",
-    excerpt: "Exploring the mitral, tricuspid, aortic, and pulmonary valves. Understand diastolic/systolic points and...",
-    author: "Dr. Peter Rodriguez",
-    readTime: "10 min read",
-    date: "Oct 15, 2023",
-    image: heartImg
-  },
-  {
-    category: "CASE STUDIES",
-    title: "Case Study: Lumbar Herniation and Sciatica",
-    excerpt: "A clinical presentation walkthrough through a patient presentation of L5-S1 disc herniation, sensory...",
-    author: "Dr. Big Patel",
-    readTime: "12 min read",
-    date: "Sep 08, 2023",
-    image: spineImg
-  },
-  {
-    category: "PATHOLOGY",
-    title: "Pneumonia vs. Pneumothorax...",
-    excerpt: "Two X-differentiating common lung pathologies on a standard chest X-ray. Key visual markers and...",
-    author: "Dr. James Victor",
-    readTime: "7 min read",
-    date: "Sep 25, 2023",
-    image: doctorImg
-  },
-];
+
 
 export default function Blog() {
+  const { data: apiArticles, isLoading } = useQuery<Article[]>({ queryKey: ["/api/articles"] });
+  const articles = apiArticles || [];
+
+  const featuredArticle = apiArticles?.find(a => a.isFeatured) || apiArticles?.[0];
+
+
   const { toast } = useToast();
   const [email, setEmail] = useState("");
   const [footerEmail, setFooterEmail] = useState("");
@@ -158,25 +110,26 @@ export default function Blog() {
             <div className="grid lg:grid-cols-3 gap-12">
               <div className="lg:col-span-2">
                 <AnimatedSection>
+                  {featuredArticle && (
                   <Card className="mb-8 overflow-hidden">
                     <CardContent className="p-0">
                       <div className="grid md:grid-cols-2 gap-0">
                         <div className="aspect-square md:aspect-auto relative overflow-hidden">
                           <img
-                            src={armImg}
-                            alt="Brachial Plexus"
+                            src={featuredArticle.imageUrl || featuredArticle.image || "/placeholder.svg"}
+                            alt={featuredArticle.title}
                             className="w-full h-full object-cover"
                           />
                           <Badge className="absolute top-4 left-4">FEATURED ARTICLE</Badge>
                         </div>
                         <div className="p-6 md:p-8 flex flex-col justify-center">
                           <h2 className="text-2xl md:text-3xl font-bold text-foreground mb-4" data-testid="text-featured-title">
-                            The Brachial Plexus: A Simplified Guide to Nerve Roots
+                            {featuredArticle.title}
                           </h2>
                           <p className="text-muted-foreground mb-6">
-                            Master the complex network of nerves supplying the upper limb with our step-by-step breakdowns, clinical correlations, and simplified diagrams designed for students.
+                            {featuredArticle.excerpt}
                           </p>
-                          <Link href="/blog/brachial-plexus">
+                          <Link href={`/blog/${featuredArticle.slug}`}>
                             <Button data-testid="button-read-featured">
                               Read Featured Article
                             </Button>
@@ -185,6 +138,7 @@ export default function Blog() {
                       </div>
                     </CardContent>
                   </Card>
+                )}
                 </AnimatedSection>
 
                 <AnimatedSection delay={0.1}>
@@ -229,14 +183,14 @@ export default function Blog() {
                           <CardContent className="p-0">
                             <div className="h-40 relative overflow-hidden">
                               <img
-                                src={article.image}
+                                src={article.imageUrl || article.image || "/placeholder.svg"}
                                 alt={article.title}
                                 className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                               />
                               <Badge variant="secondary" className="absolute top-3 left-3 text-xs">{article.category}</Badge>
                             </div>
                             <div className="p-4">
-                              <p className="text-xs text-muted-foreground mb-1">{article.date} · {article.readTime}</p>
+                              <p className="text-xs text-muted-foreground mb-1">{article.createdAt ? new Date(article.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "N/A"} · {article.readTime}</p>
                               <h3 className="font-semibold text-foreground mb-2 group-hover:text-primary transition-colors line-clamp-2">
                                 {article.title}
                               </h3>

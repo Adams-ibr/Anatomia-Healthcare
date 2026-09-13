@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link } from "wouter";
+import { useQuery } from "@tanstack/react-query";
+import type { Article } from "@shared/schema";
 import { motion, useReducedMotion } from "framer-motion";
 import { Layout } from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
@@ -70,26 +72,7 @@ const defaultPreviewItems = [
   { label: "Skeletal System", image: skullImg },
 ];
 
-const articles = [
-  {
-    category: "NERVES",
-    title: "The Brachial Plexus Explained",
-    readTime: "5 min read",
-    image: brainImg
-  },
-  {
-    category: "VASCULAR",
-    title: "Circle of Willis: Anatomy & Function",
-    readTime: "4 min read",
-    image: heartImg
-  },
-  {
-    category: "JOINTS",
-    title: "Cruciate Ligaments of the Knee",
-    readTime: "6 min read",
-    image: legImg
-  },
-];
+
 
 const cadavericFeatures = [
   { icon: Video, text: "HD video recordings of real dissections" },
@@ -118,6 +101,9 @@ function AnimatedCard({ children, index }: { children: React.ReactNode; index: n
 }
 
 export default function Home() {
+  const { data: apiArticles, isLoading } = useQuery<Article[]>({ queryKey: ["/api/articles"] });
+  const articles = apiArticles?.slice(0, 3) || [];
+
   const prefersReducedMotion = useReducedMotion();
   const heroRef = useInViewAnimation({ threshold: 0.1 });
   const trustedRef = useInViewAnimation({ threshold: 0.2 });
@@ -436,7 +422,7 @@ export default function Home() {
                       <CardContent className="p-0">
                         <div className="h-40 overflow-hidden">
                           <img
-                            src={article.image}
+                            src={article.imageUrl || article.image || "/placeholder.svg"}
                             alt={article.title}
                             className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                           />
