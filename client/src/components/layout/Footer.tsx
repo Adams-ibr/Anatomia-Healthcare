@@ -1,6 +1,7 @@
 import { Link } from "wouter";
 import { Globe, Mail, Phone } from "lucide-react";
-import { SiX, SiLinkedin, SiInstagram } from "react-icons/si";
+import { SiX, SiInstagram } from "react-icons/si";
+import { FaLinkedin } from "react-icons/fa";
 import logoIcon from "@assets/logo.png";
 
 const footerSections = [
@@ -54,7 +55,7 @@ export function Footer() {
                 <SiX className="w-5 h-5" />
               </a>
               <a href="#" className="text-muted-foreground hover:text-primary transition-colors" aria-label="LinkedIn" data-testid="link-linkedin">
-                <SiLinkedin className="w-5 h-5" />
+                <FaLinkedin className="w-5 h-5" />
               </a>
               <a href="#" className="text-muted-foreground hover:text-primary transition-colors" aria-label="Instagram" data-testid="link-instagram">
                 <SiInstagram className="w-5 h-5" />
