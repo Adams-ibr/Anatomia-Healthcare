@@ -1,5 +1,7 @@
 import { useState, useMemo } from "react";
 import { Link, useSearch, useLocation } from "wouter";
+import { useQuery } from "@tanstack/react-query";
+import type { Article } from "@shared/schema";
 import { Layout } from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -32,119 +34,6 @@ const regions = [
 
 const contentTypes = [
   { id: "articles", label: "Articles" },
-  { id: "3d-models", label: "3D Models" },
-  { id: "quizzes", label: "Quizzes" },
-];
-
-const allResults = [
-  {
-    category: "UPPER LIMB",
-    subcategory: "Nerves",
-    title: "The Brachial Plexus",
-    description: "The brachial plexus is a somatic nerve plexus formed by intercommunications among the ventral rami (roots) of the lower 4 cervical nerves (C5-C8) and the first thoracic nerve (T1). It is responsible for...",
-    readTime: "8 min read",
-    views: "12.5k views",
-    badge: "UPPER LIMB",
-    badgeColor: "bg-primary",
-    keywords: ["brachial", "plexus", "nerves", "upper limb", "arm", "cervical"]
-  },
-  {
-    category: "QUIZ",
-    subcategory: "Neuroanatomy",
-    title: "Brachial Plexus: Roots & Trunks",
-    description: "Test your knowledge on the formation of the brachial plexus. This quiz covers the roots, trunks, divisions, cords, and branches, focusing on clinical correlations like Erb's Palsy.",
-    questions: "15 Questions",
-    difficulty: "Intermediate",
-    badge: "QUIZ",
-    badgeColor: "bg-purple-500",
-    keywords: ["brachial", "plexus", "quiz", "roots", "trunks", "erb"]
-  },
-  {
-    category: "3D MODEL",
-    subcategory: "Interactive",
-    title: "Interactive 3D: Axilla & Plexus",
-    description: "Explore the spatial relationship between the brachial plexus, axillary artery, and surrounding musculature in a fully rotatable 3D environment.",
-    access: "Free Access",
-    badge: "3D MODEL",
-    badgeColor: "bg-green-500",
-    keywords: ["3d", "model", "axilla", "plexus", "brachial", "interactive"]
-  },
-  {
-    category: "MUSCULOSKELETAL",
-    subcategory: "Muscles",
-    title: "Muscles of the Anterior Arm",
-    description: "Detailed breakdown of the Biceps Brachii, Coracobrachialis, and Brachialis. Includes innervation by the Musculocutaneous nerve (from Brachial Plexus).",
-    readTime: "5 min read",
-    views: "8k views",
-    badge: "MUSCULOSKELETAL",
-    badgeColor: "bg-orange-500",
-    keywords: ["muscles", "arm", "biceps", "brachii", "anterior", "upper limb"]
-  },
-  {
-    category: "CLINICAL",
-    subcategory: "Pathology",
-    title: "Erb's Palsy & Klumpke's Palsy",
-    description: "Clinical conditions resulting from injury to the roots of the brachial plexus. Includes mechanism of injury, clinical presentation (Waiter's tip position), and management.",
-    readTime: "6 min read",
-    views: "5.2k views",
-    badge: "CLINICAL",
-    badgeColor: "bg-red-500",
-    keywords: ["erb", "klumpke", "palsy", "clinical", "brachial", "plexus", "injury"]
-  },
-  {
-    category: "HEAD & NECK",
-    subcategory: "Anatomy",
-    title: "Cranial Nerves Overview",
-    description: "A comprehensive guide to all 12 cranial nerves, their origins, pathways, and clinical significance. Essential for medical students and professionals.",
-    readTime: "12 min read",
-    views: "25k views",
-    badge: "HEAD & NECK",
-    badgeColor: "bg-teal-500",
-    keywords: ["cranial", "nerves", "head", "neck", "brain", "facial"]
-  },
-  {
-    category: "THORAX",
-    subcategory: "Cardiovascular",
-    title: "Heart Anatomy and Blood Flow",
-    description: "Detailed exploration of cardiac anatomy including chambers, valves, coronary circulation, and the conduction system.",
-    readTime: "10 min read",
-    views: "18k views",
-    badge: "THORAX",
-    badgeColor: "bg-pink-500",
-    keywords: ["heart", "cardiac", "thorax", "cardiovascular", "blood", "circulation"]
-  },
-  {
-    category: "ABDOMEN",
-    subcategory: "Digestive",
-    title: "Gastrointestinal Tract Anatomy",
-    description: "From esophagus to rectum - complete anatomical overview of the digestive system including blood supply and innervation.",
-    readTime: "15 min read",
-    views: "14k views",
-    badge: "ABDOMEN",
-    badgeColor: "bg-amber-500",
-    keywords: ["gi", "gastrointestinal", "abdomen", "digestive", "stomach", "intestine"]
-  },
-  {
-    category: "LOWER LIMB",
-    subcategory: "Muscles",
-    title: "Muscles of the Thigh",
-    description: "Comprehensive study of the anterior, medial, and posterior compartments of the thigh including attachments, actions, and innervation.",
-    readTime: "9 min read",
-    views: "11k views",
-    badge: "LOWER LIMB",
-    badgeColor: "bg-indigo-500",
-    keywords: ["thigh", "leg", "muscles", "lower limb", "quadriceps", "hamstring"]
-  },
-  {
-    category: "3D MODEL",
-    subcategory: "Skeletal",
-    title: "Interactive 3D: Human Skeleton",
-    description: "Explore every bone in the human body with this interactive 3D model. Rotate, zoom, and click for detailed information.",
-    access: "Free Access",
-    badge: "3D MODEL",
-    badgeColor: "bg-green-500",
-    keywords: ["skeleton", "bones", "3d", "model", "interactive", "skeletal"]
-  },
 ];
 
 export default function Search() {
@@ -156,6 +45,25 @@ export default function Search() {
   const [query, setQuery] = useState(initialQuery);
   const [selectedRegions, setSelectedRegions] = useState<string[]>([]);
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
+
+  const { data: apiArticles = [] } = useQuery<Article[]>({ queryKey: ["/api/articles"] });
+
+  const allResults = useMemo(() => {
+    return apiArticles.map(article => ({
+      category: (article.category || "ARTICLE").toUpperCase(),
+      subcategory: article.category || "Article",
+      title: article.title,
+      description: article.excerpt,
+      readTime: article.readTime || undefined,
+      badge: (article.category || "ARTICLE").toUpperCase(),
+      badgeColor: "bg-primary",
+      slug: article.slug,
+      keywords: [
+        ...article.title.toLowerCase().split(/\s+/),
+        ...(article.category || "").toLowerCase().split(/\s+/),
+      ],
+    }));
+  }, [apiArticles]);
 
   const filteredResults = useMemo(() => {
     let results = allResults;
@@ -190,21 +98,8 @@ export default function Search() {
       });
     }
 
-    if (selectedTypes.length > 0) {
-      results = results.filter(result => {
-        const typeMap: Record<string, string[]> = {
-          "articles": ["UPPER LIMB", "HEAD & NECK", "THORAX", "ABDOMEN", "LOWER LIMB", "MUSCULOSKELETAL", "CLINICAL"],
-          "3d-models": ["3D MODEL"],
-          "quizzes": ["QUIZ"],
-        };
-        return selectedTypes.some(type => 
-          typeMap[type]?.includes(result.category)
-        );
-      });
-    }
-
     return results;
-  }, [query, selectedRegions, selectedTypes]);
+  }, [query, selectedRegions, allResults]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -388,7 +283,7 @@ export default function Search() {
               ) : (
                 <div className="space-y-4">
                   {filteredResults.map((result, index) => (
-                    <Link key={index} href="/blog/article">
+                    <Link key={index} href={`/blog/${result.slug}`}>
                       <Card className="group cursor-pointer transition-all duration-300 hover:shadow-md">
                         <CardContent className="p-0">
                           <div className="flex gap-4 p-4">

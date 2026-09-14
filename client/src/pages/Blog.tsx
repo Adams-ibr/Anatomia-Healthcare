@@ -23,21 +23,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { Article } from "@shared/schema";
 
-import armImg from "@assets/stock_images/human_arm_muscles_an_9d7db348.jpg";
-import brainImg from "@assets/stock_images/human_brain_anatomy__282b70de.jpg";
-import heartImg from "@assets/stock_images/human_heart_anatomy__701f24b0.jpg";
-import spineImg from "@assets/stock_images/human_spine_vertebra_b5200c9c.jpg";
-import doctorImg from "@assets/stock_images/doctor_professional__26ea132c.jpg";
-import skeletonImg from "@assets/stock_images/human_skeleton_medic_56e01afd.jpg";
-
 const categories = ["All", "Musculoskeletal", "Neuroanatomy", "Visceral", "Clinical Case"];
-
-const popularTopics = [
-  { name: "Cranial Nerves", count: 12 },
-  { name: "Brachial Plexus", count: 9 },
-  { name: "Cardiac Cycle", count: 18 },
-  { name: "Lower Limb Muscles", count: 25 },
-];
 
 
 
@@ -116,7 +102,7 @@ export default function Blog() {
                       <div className="grid md:grid-cols-2 gap-0">
                         <div className="aspect-square md:aspect-auto relative overflow-hidden">
                           <img
-                            src={featuredArticle.imageUrl || featuredArticle.image || "/placeholder.svg"}
+                            src={featuredArticle.imageUrl || "/placeholder.svg"}
                             alt={featuredArticle.title}
                             className="w-full h-full object-cover"
                           />
@@ -178,12 +164,12 @@ export default function Blog() {
                 >
                   {articles.map((article, index) => (
                     <motion.div key={index} variants={fadeInUp}>
-                      <Link href="/blog/article">
+                      <Link href={`/blog/${article.slug}`}>
                         <Card className="h-full group cursor-pointer transition-all duration-300 hover:shadow-lg">
                           <CardContent className="p-0">
                             <div className="h-40 relative overflow-hidden">
                               <img
-                                src={article.imageUrl || article.image || "/placeholder.svg"}
+                                src={article.imageUrl || "/placeholder.svg"}
                                 alt={article.title}
                                 className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                               />
@@ -270,14 +256,14 @@ export default function Blog() {
 
                 <Card>
                   <CardContent className="p-6">
-                    <h3 className="font-semibold text-foreground mb-4">Popular Topics</h3>
+                    <h3 className="font-semibold text-foreground mb-4">Categories</h3>
                     <div className="space-y-3">
-                      {popularTopics.map((topic) => (
-                        <div key={topic.name} className="flex items-center justify-between py-2 border-b border-border last:border-0">
+                      {Array.from(new Set(articles.map(a => a.category))).slice(0, 5).map((cat) => (
+                        <div key={cat} className="flex items-center justify-between py-2 border-b border-border last:border-0">
                           <Link href="/search" className="text-sm text-muted-foreground hover:text-primary transition-colors">
-                            {topic.name}
+                            {cat}
                           </Link>
-                          <span className="text-xs text-muted-foreground">{topic.count}</span>
+                          <span className="text-xs text-muted-foreground">{articles.filter(a => a.category === cat).length}</span>
                         </div>
                       ))}
                     </div>
