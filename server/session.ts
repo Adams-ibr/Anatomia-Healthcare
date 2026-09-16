@@ -93,11 +93,14 @@ class SupabaseSessionStore extends Store {
       if (expireDate <= now) {
         // Session has expired, delete it and return null
         console.log(`[Session] Session ${sid} has expired, removing from store`);
-        await supabase
-          .from("sessions")
-          .delete()
-          .eq("sid", sid)
-          .catch((err) => console.error("Failed to delete expired session:", err));
+        try {
+          await supabase
+            .from("sessions")
+            .delete()
+            .eq("sid", sid);
+        } catch (deleteErr) {
+          console.error("Failed to delete expired session:", deleteErr);
+        }
         return callback(null, null);
       }
 

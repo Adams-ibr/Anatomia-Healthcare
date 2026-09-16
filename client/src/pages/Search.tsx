@@ -312,26 +312,6 @@ export default function Search() {
                                     <Clock className="w-3 h-3" /> {result.readTime}
                                   </span>
                                 )}
-                                {result.views && (
-                                  <span className="flex items-center gap-1">
-                                    <Eye className="w-3 h-3" /> {result.views}
-                                  </span>
-                                )}
-                                {result.questions && (
-                                  <span className="flex items-center gap-1">
-                                    <HelpCircle className="w-3 h-3" /> {result.questions}
-                                  </span>
-                                )}
-                                {result.difficulty && (
-                                  <span className="flex items-center gap-1">
-                                    <BookOpen className="w-3 h-3" /> {result.difficulty}
-                                  </span>
-                                )}
-                                {result.access && (
-                                  <span className="flex items-center gap-1 text-green-600">
-                                    <Box className="w-3 h-3" /> {result.access}
-                                  </span>
-                                )}
                               </div>
                             </div>
                           </div>

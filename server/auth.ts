@@ -301,11 +301,11 @@ export const isMemberAuthenticated: RequestHandler = async (req, res, next) => {
 
 // Check if member has active subscription (non-bronze tier with valid expiry)
 function hasActiveSubscription(member: Member): boolean {
-  if (!member.membership_tier || member.membership_tier === "bronze") {
+  if (!member.membershipTier || member.membershipTier === "bronze") {
     return false;
   }
-  if (member.membership_expires_at) {
-    return new Date(member.membership_expires_at) > new Date();
+  if (member.membershipExpiresAt) {
+    return new Date(member.membershipExpiresAt) > new Date();
   }
   return true;
 }

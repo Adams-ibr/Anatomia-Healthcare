@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import type { Article } from "@shared/schema";
+import type { Article, GalleryItem } from "@shared/schema";
 import { motion, useReducedMotion } from "framer-motion";
 import { Layout } from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
@@ -36,8 +36,6 @@ import {
   DialogTrigger,
   DialogDescription
 } from "@/components/ui/dialog";
-import { useQuery } from "@tanstack/react-query";
-import type { GalleryItem } from "@shared/schema";
 
 import heroAnatomyImg from "@assets/stock_images/3d_human_anatomy_mus_873f0c5b.jpg";
 import armImg from "@assets/stock_images/human_arm_muscles_an_9d7db348.jpg";
@@ -422,7 +420,7 @@ export default function Home() {
                       <CardContent className="p-0">
                         <div className="h-40 overflow-hidden">
                           <img
-                            src={article.imageUrl || article.image || "/placeholder.svg"}
+                            src={article.imageUrl || "/placeholder.svg"}
                             alt={article.title}
                             className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                           />
