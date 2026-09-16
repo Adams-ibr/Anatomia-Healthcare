@@ -1,5 +1,6 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "http";
 import express, { type Express, type Request, type Response } from "express";
+import cookieParser from "cookie-parser";
 import { registerRoutes } from "../server/routes";
 
 const app = express();
@@ -23,6 +24,9 @@ app.use(
     })
 );
 app.use(express.urlencoded({ extended: false }));
+
+// Parse cookies for CSRF and session management
+app.use(cookieParser());
 
 // Initialize routes (async)
 let routesPromise: Promise<void> | null = null;
