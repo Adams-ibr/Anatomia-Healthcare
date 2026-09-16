@@ -4,44 +4,18 @@
         {
             "src": "api/index.ts",
             "use": "@vercel/node"
-        },
-        {
-            "src": "api/debug-env.ts",
-            "use": "@vercel/node"
-        },
-        {
-            "src": "package.json",
-            "use": "@vercel/static-build",
-            "config": {
-                "distDir": "dist/public",
-                "installCommand": "npm ci"
-            }
         }
     ],
     "routes": [
-        {
-            "src": "/api/test",
-            "dest": "/api/test.ts"
-        },
-        {
-            "src": "/api/debug-env",
-            "dest": "/api/debug-env.ts"
-        },
         {
             "src": "/api/(.*)",
             "dest": "/api/index.ts"
         },
         {
-            "src": "/static/(.*)",
-            "headers": {
-                "Cache-Control": "public, max-age=31536000"
-            }
-        },
-        {
             "handle": "filesystem"
         },
         {
-            "src": "/((?!api).*)",
+            "src": "/(.*)",
             "dest": "/index.html"
         }
     ]
