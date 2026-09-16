@@ -1,14 +1,23 @@
-import { createServer } from "http";
-import express from "express";
+import { createServer, type IncomingMessage, type ServerResponse } from "http";
+import express, { type Express, type Request, type Response } from "express";
 import { registerRoutes } from "../server/routes";
 
 const app = express();
 const server = createServer(app);
 
+// Extend Request interface for rawBody
+declare global {
+  namespace Express {
+    interface Request {
+      rawBody?: Buffer;
+    }
+  }
+}
+
 // Body parsing middleware
 app.use(
     express.json({
-        verify: (req: any, _res: any, buf: any) => {
+        verify: (req: Request, _res: Response, buf: Buffer) => {
             req.rawBody = buf;
         },
     })
@@ -16,9 +25,9 @@ app.use(
 app.use(express.urlencoded({ extended: false }));
 
 // Initialize routes (async)
-let routesPromise: Promise<any> | null = null;
+let routesPromise: Promise<void> | null = null;
 
-function ensureRoutes() {
+function ensureRoutes(): Promise<void> {
     if (!routesPromise) {
         routesPromise = registerRoutes(server, app);
     }
@@ -26,16 +35,22 @@ function ensureRoutes() {
 }
 
 // Export a handler that waits for routes to be registered before handling requests
-export default async function handler(req: any, res: any) {
+export default async function handler(req: IncomingMessage, res: ServerResponse): Promise<void> {
     try {
         await ensureRoutes();
     } catch (err) {
         console.error("Error setting up routes:", err);
-        return res.status(500).json({ 
+        const isDevelopment = process.env.NODE_ENV === "development";
+        const response: Record<string, unknown> = { 
             error: "Internal Server Error during startup", 
-            details: err instanceof Error ? err.message : String(err),
-            stack: err instanceof Error ? err.stack : undefined
-        });
+        };
+        if (isDevelopment && err instanceof Error) {
+            response.details = err.message;
+            response.stack = err.stack;
+        }
+        res.writeHead(500, { "Content-Type": "application/json" });
+        res.end(JSON.stringify(response));
+        return;
     }
-    return app(req, res);
+    app(req, res);
 }

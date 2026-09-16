@@ -542,13 +542,16 @@ export const paymentTransactions = pgTable("payment_transactions", {
   membershipTier: text("membership_tier").notNull(),
   durationMonths: integer("duration_months").notNull().default(1),
   paymentProvider: text("payment_provider").notNull(),
-  providerReference: text("provider_reference"),
+  providerReference: text("provider_reference").notNull(),
   providerTransactionId: text("provider_transaction_id"),
   status: text("status").notNull().default("pending"),
   metadata: jsonb("metadata"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
-});
+}, (table) => ({
+  // Ensure only one transaction per provider reference to prevent duplicate processing
+  providerReferenceUnique: sql`UNIQUE (provider_reference)`,
+}));
 
 export const insertPaymentTransactionSchema = createInsertSchema(paymentTransactions).omit({
   id: true,

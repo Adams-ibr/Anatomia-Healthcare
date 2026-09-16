@@ -141,6 +141,7 @@ export interface ILmsStorage {
   // Question Bank Options
   getQuestionBankOptionsByQuestionId(questionId: string): Promise<QuestionBankOption[]>;
   createQuestionBankOption(option: InsertQuestionBankOption): Promise<QuestionBankOption>;
+  createQuestionBankOptionsBatch(options: InsertQuestionBankOption[]): Promise<QuestionBankOption[]>;
   deleteQuestionBankOption(id: string): Promise<boolean>;
 
   // Flashcard Decks
@@ -1153,6 +1154,25 @@ export class LmsStorage implements ILmsStorage {
 
     if (error) throw error;
     return data;
+  }
+
+  /**
+   * Batch insert multiple question options
+   * Much more efficient than individual inserts (reduces N+1 query problem)
+   */
+  async createQuestionBankOptionsBatch(options: InsertQuestionBankOption[]): Promise<QuestionBankOption[]> {
+    if (!options || options.length === 0) {
+      return [];
+    }
+
+    const snakeCaseOptions = options.map(opt => toSnakeCase(opt));
+    const { data, error } = await supabase
+      .from("question_bank_options")
+      .insert(snakeCaseOptions)
+      .select("id, questionId:question_id, optionText:option_text, isCorrect:is_correct, explanation, order");
+
+    if (error) throw error;
+    return data || [];
   }
 
   async deleteQuestionBankOption(id: string): Promise<boolean> {

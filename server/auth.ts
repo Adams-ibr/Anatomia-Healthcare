@@ -5,6 +5,25 @@ import { z } from "zod";
 import { supabase } from "./db";
 import { users, members, loginSchema, registerSchema, type User, type Member } from "../shared/schema";
 import { sessionStore } from "./session";
+import { sendErrorResponse } from "./errorHandler";
+
+// Augment Express Request with typed user/member properties
+declare global {
+  namespace Express {
+    interface Request {
+      user?: User;
+      member?: Member;
+    }
+  }
+}
+
+// Augment express-session to type session data
+declare module "express-session" {
+  interface SessionData {
+    userId?: string;
+    memberId?: string;
+  }
+}
 
 const SALT_ROUNDS = 12;
 
@@ -13,9 +32,17 @@ const updateProfileSchema = z.object({
   lastName: z.string().min(1).optional(),
 });
 
+// Password validation: minimum 12 characters, requires uppercase, lowercase, number, special char
+const passwordValidation = z.string()
+  .min(12, "Password must be at least 12 characters")
+  .regex(/[a-z]/, "Password must contain at least one lowercase letter")
+  .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
+  .regex(/\d/, "Password must contain at least one number")
+  .regex(/[@$!%*?&_\-#]/, "Password must contain at least one special character (@$!%*?&_-#)");
+
 const changePasswordSchema = z.object({
   currentPassword: z.string().min(1, "Current password is required"),
-  newPassword: z.string().min(6, "New password must be at least 6 characters"),
+  newPassword: passwordValidation,
 });
 
 export function setupSession(app: Express) {
@@ -29,7 +56,26 @@ export function setupSession(app: Express) {
 
   console.log(`Session config: NODE_ENV=${process.env.NODE_ENV}, isProduction=${isProduction}`);
 
-  const secret = process.env.SESSION_SECRET || "anatomia_fallback_secret_for_development_do_not_use_in_prod";
+  // Validate SESSION_SECRET is set and secure
+  const secret = process.env.SESSION_SECRET;
+  if (!secret) {
+    const message = "SESSION_SECRET environment variable is required and must be set to a secure random string";
+    console.error(message);
+    throw new Error(message);
+  }
+
+  if (secret.includes("fallback") || secret.includes("development")) {
+    const message = "SESSION_SECRET must not contain 'fallback' or 'development'. Set a secure random string for production.";
+    console.error(message);
+    throw new Error(message);
+  }
+
+  if (secret.length < 32) {
+    const message = `SESSION_SECRET must be at least 32 characters long for security (current length: ${secret.length})`;
+    console.error(message);
+    throw new Error(message);
+  }
+
   app.use(session({
     secret: secret,
     store: sessionStore,
@@ -90,7 +136,7 @@ export function registerAuthRoutes(app: Express) {
       }
 
       // Set session and save it explicitly
-      (req.session as any).userId = newUser.id;
+      req.session.userId = newUser.id;
       req.session.save((err) => {
         if (err) {
           console.error("Error saving session:", err);
@@ -105,11 +151,7 @@ export function registerAuthRoutes(app: Express) {
       });
     } catch (error) {
       console.error("Error registering user:", error);
-      res.status(500).json({ 
-        error: "Failed to register user", 
-        details: error instanceof Error ? error.message : String(error),
-        stack: process.env.NODE_ENV !== 'production' ? (error instanceof Error ? error.stack : undefined) : undefined
-      });
+      sendErrorResponse(res, 500, "Failed to register user", error);
     }
   });
 
@@ -144,7 +186,7 @@ export function registerAuthRoutes(app: Express) {
       }
 
       // Set session and save it explicitly
-      (req.session as any).userId = user.id;
+      req.session.userId = user.id;
       console.log(`Admin login: setting userId in session: ${user.id}`);
 
       req.session.save((err) => {
@@ -166,19 +208,15 @@ export function registerAuthRoutes(app: Express) {
       });
     } catch (error) {
       console.error("Error logging in:", error);
-      res.status(500).json({ 
-        error: "Failed to log in", 
-        details: error instanceof Error ? error.message : String(error),
-        stack: process.env.NODE_ENV !== 'production' ? (error instanceof Error ? error.stack : undefined) : undefined
-      });
+      sendErrorResponse(res, 500, "Failed to log in", error);
     }
   });
 
   // Get current user
   app.get("/api/auth/user", async (req, res) => {
     try {
-      console.log("[Auth] Checking session for user:", (req.session as any)?.userId);
-      const userId = (req.session as any).userId;
+      console.log("[Auth] Checking session for user:", req.session.userId);
+      const userId = req.session.userId;
       if (!userId) {
         return res.status(401).json({ error: "Not authenticated" });
       }
@@ -207,7 +245,7 @@ export function registerAuthRoutes(app: Express) {
       });
     } catch (error) {
       console.error("[Auth] Detailed error fetching user:", error);
-      res.status(500).json({ error: "Failed to fetch user", details: error instanceof Error ? error.message : String(error) });
+      sendErrorResponse(res, 500, "Failed to fetch user", error);
     }
   });
 
@@ -231,7 +269,7 @@ export function registerAuthRoutes(app: Express) {
 
 // Authentication middleware for admin
 export const isAuthenticated: RequestHandler = async (req, res, next) => {
-  const userId = (req.session as any).userId;
+  const userId = req.session.userId;
   if (!userId) {
     return res.status(401).json({ error: "Unauthorized" });
   }
@@ -241,13 +279,13 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
     return res.status(401).json({ error: "Unauthorized" });
   }
 
-  (req as any).user = user;
+  req.user = user;
   next();
 };
 
 // Authentication middleware for members
 export const isMemberAuthenticated: RequestHandler = async (req, res, next) => {
-  const memberId = (req.session as any).memberId;
+  const memberId = req.session.memberId;
   if (!memberId) {
     return res.status(401).json({ error: "Unauthorized" });
   }
@@ -257,12 +295,12 @@ export const isMemberAuthenticated: RequestHandler = async (req, res, next) => {
     return res.status(401).json({ error: "Unauthorized" });
   }
 
-  (req as any).member = member;
+  req.member = member;
   next();
 };
 
 // Check if member has active subscription (non-bronze tier with valid expiry)
-function hasActiveSubscription(member: any): boolean {
+function hasActiveSubscription(member: Member): boolean {
   if (!member.membership_tier || member.membership_tier === "bronze") {
     return false;
   }
@@ -274,7 +312,7 @@ function hasActiveSubscription(member: any): boolean {
 
 // Subscription validation middleware - requires active membership
 export const requireActiveMembership: RequestHandler = async (req, res, next) => {
-  const memberId = (req.session as any).memberId;
+  const memberId = req.session.memberId;
   if (!memberId) {
     return res.status(401).json({ error: "Unauthorized" });
   }
@@ -288,68 +326,15 @@ export const requireActiveMembership: RequestHandler = async (req, res, next) =>
     return res.status(403).json({ error: "Subscription required", code: "SUBSCRIPTION_REQUIRED" });
   }
 
-  (req as any).member = member;
+  req.member = member;
   next();
 };
 
-// Dynamic Feature Access control middleware
-export const requireFeatureAccess = (featureKey: string): RequestHandler => {
-  return async (req, res, next) => {
-    const memberId = (req.session as any).memberId;
-    if (!memberId) return res.status(401).json({ error: "Unauthorized" });
 
-    const { data: member } = await supabase.from("members").select().eq("id", memberId).single();
-    if (!member) return res.status(401).json({ error: "Unauthorized" });
-
-    // Determine current effective tier (fall back to Bronze if expired)
-    const isActiveTier = member.membership_tier && member.membership_tier.toLowerCase() !== "bronze";
-    const isExpired = member.membership_expires_at && new Date(member.membership_expires_at) < new Date();
-    const effectiveTier = (isActiveTier && !isExpired) ? member.membership_tier : "Bronze";
-
-    const { data: featureAccess } = await supabase
-      .from("feature_access")
-      .select("is_enabled, plan:membership_plans!inner(name)")
-      .ilike("plan.name", effectiveTier)
-      .eq("feature_key", featureKey)
-      .single();
-
-    if (!featureAccess || !featureAccess.is_enabled) {
-      return res.status(403).json({
-        error: "Feature not available on your current plan",
-        code: "UPGRADE_REQUIRED"
-      });
-    }
-
-    (req as any).member = member;
-    next();
-  };
-};
-
-// Role-based access control middleware factory
-export const requireRole = (...allowedRoles: string[]): RequestHandler => {
-  return async (req, res, next) => {
-    const userId = (req.session as any).userId;
-    if (!userId) {
-      return res.status(401).json({ error: "Unauthorized" });
-    }
-
-    const { data: user } = await supabase.from("users").select().eq("id", userId).single();
-    if (!user) {
-      return res.status(401).json({ error: "Unauthorized" });
-    }
-
-    if (!allowedRoles.includes(user.role)) {
-      return res.status(403).json({ error: "Forbidden - Insufficient permissions" });
-    }
-
-    (req as any).user = user;
-    next();
-  };
-};
 
 // Super Admin only middleware
 export const isSuperAdmin: RequestHandler = async (req, res, next) => {
-  const userId = (req.session as any).userId;
+  const userId = req.session.userId;
   if (!userId) {
     return res.status(401).json({ error: "Unauthorized" });
   }
@@ -359,13 +344,13 @@ export const isSuperAdmin: RequestHandler = async (req, res, next) => {
     return res.status(403).json({ error: "Forbidden - Super Admin access required" });
   }
 
-  (req as any).user = user;
+  req.user = user;
   next();
 };
 
 // Content Admin or above middleware
 export const isContentAdmin: RequestHandler = async (req, res, next) => {
-  const userId = (req.session as any).userId;
+  const userId = req.session.userId;
   if (!userId) {
     return res.status(401).json({ error: "Unauthorized" });
   }
@@ -375,7 +360,7 @@ export const isContentAdmin: RequestHandler = async (req, res, next) => {
     return res.status(403).json({ error: "Forbidden - Content Admin access required" });
   }
 
-  (req as any).user = user;
+  req.user = user;
   next();
 };
 
@@ -424,7 +409,7 @@ export function registerMemberRoutes(app: Express) {
       }
 
       // Set session and save it explicitly
-      (req.session as any).memberId = newMember.id;
+      req.session.memberId = newMember.id;
       req.session.save((err) => {
         if (err) {
           console.error("Error saving session:", err);
@@ -477,7 +462,7 @@ export function registerMemberRoutes(app: Express) {
       }
 
       // Set session and save it explicitly
-      (req.session as any).memberId = member.id;
+      req.session.memberId = member.id;
       req.session.save((err) => {
         if (err) {
           console.error("Error saving session:", err);
@@ -497,18 +482,14 @@ export function registerMemberRoutes(app: Express) {
       });
     } catch (error) {
       console.error("Error logging in:", error);
-      res.status(500).json({ 
-        error: "Failed to log in", 
-        details: error instanceof Error ? error.message : String(error),
-        stack: process.env.NODE_ENV !== 'production' ? (error instanceof Error ? error.stack : undefined) : undefined
-      });
+      sendErrorResponse(res, 500, "Failed to log in", error);
     }
   });
 
   // Get current member
   app.get("/api/members/me", async (req, res) => {
     try {
-      const memberId = (req.session as any).memberId;
+      const memberId = req.session.memberId;
       if (!memberId) {
         return res.status(401).json({ error: "Not authenticated" });
       }
@@ -528,11 +509,7 @@ export function registerMemberRoutes(app: Express) {
       });
     } catch (error) {
       console.error("Error fetching member:", error);
-      res.status(500).json({ 
-        error: "Failed to fetch user", 
-        details: error instanceof Error ? error.message : String(error),
-        stack: process.env.NODE_ENV !== 'production' ? (error instanceof Error ? error.stack : undefined) : undefined
-      });
+      sendErrorResponse(res, 500, "Failed to fetch user", error);
     }
   });
 
@@ -551,7 +528,7 @@ export function registerMemberRoutes(app: Express) {
   // Update member profile
   app.patch("/api/members/me", async (req, res) => {
     try {
-      const memberId = (req.session as any).memberId;
+      const memberId = req.session.memberId;
       if (!memberId) {
         return res.status(401).json({ error: "Not authenticated" });
       }
@@ -563,7 +540,7 @@ export function registerMemberRoutes(app: Express) {
 
       const { firstName, lastName } = result.data;
 
-      const updateData: any = {};
+      const updateData: Record<string, unknown> = {};
       if (firstName !== undefined) updateData.first_name = firstName;
       if (lastName !== undefined) updateData.last_name = lastName;
 
@@ -588,18 +565,14 @@ export function registerMemberRoutes(app: Express) {
       });
     } catch (error) {
       console.error("Error updating profile:", error);
-      res.status(500).json({ 
-        error: "Failed to update profile", 
-        details: error instanceof Error ? error.message : String(error),
-        stack: process.env.NODE_ENV !== 'production' ? (error instanceof Error ? error.stack : undefined) : undefined
-      });
+      sendErrorResponse(res, 500, "Failed to update profile", error);
     }
   });
 
   // Change member password
   app.post("/api/members/change-password", async (req, res) => {
     try {
-      const memberId = (req.session as any).memberId;
+      const memberId = req.session.memberId;
       if (!memberId) {
         return res.status(401).json({ error: "Not authenticated" });
       }

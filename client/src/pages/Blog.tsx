@@ -9,6 +9,7 @@ import { PageTransition } from "@/components/PageTransition";
 import { AnimatedSection } from "@/components/AnimatedSection";
 import { fadeInUp, staggerContainer } from "@/lib/motion";
 import { useInViewAnimation } from "@/hooks/use-in-view-animation";
+import { formatFullDate } from "@/lib/dateUtils";
 import {
   Clock,
   Search,
@@ -176,7 +177,7 @@ export default function Blog() {
                               <Badge variant="secondary" className="absolute top-3 left-3 text-xs">{article.category}</Badge>
                             </div>
                             <div className="p-4">
-                              <p className="text-xs text-muted-foreground mb-1">{article.createdAt ? new Date(article.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "N/A"} · {article.readTime}</p>
+                              <p className="text-xs text-muted-foreground mb-1">{article.createdAt ? formatFullDate(article.createdAt) : "N/A"} · {article.readTime}</p>
                               <h3 className="font-semibold text-foreground mb-2 group-hover:text-primary transition-colors line-clamp-2">
                                 {article.title}
                               </h3>

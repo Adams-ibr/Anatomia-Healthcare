@@ -1114,15 +1114,16 @@ adminRouter.post("/question-bank", isContentAdmin, async (req: Request, res: Res
 
     // Create options if provided
     if (options && Array.isArray(options)) {
-      for (let i = 0; i < options.length; i++) {
-        await lmsStorage.createQuestionBankOption({
+      // Use batch insert for better performance (avoids N+1 queries)
+      await lmsStorage.createQuestionBankOptionsBatch(
+        options.map((opt: any, i: number) => ({
           questionId: question.id,
-          optionText: options[i].optionText,
-          isCorrect: options[i].isCorrect || false,
-          explanation: options[i].explanation || null,
+          optionText: opt.optionText,
+          isCorrect: opt.isCorrect || false,
+          explanation: opt.explanation || null,
           order: i,
-        });
-      }
+        }))
+      );
     }
 
     const fullQuestion = await lmsStorage.getQuestionBankItemById(question.id);
@@ -1156,15 +1157,17 @@ adminRouter.put("/question-bank/:id", isContentAdmin, async (req: Request, res: 
         await lmsStorage.deleteQuestionBankOption(opt.id);
       }
 
-      // Create new options
-      for (let i = 0; i < options.length; i++) {
-        await lmsStorage.createQuestionBankOption({
-          questionId: question.id,
-          optionText: options[i].optionText,
-          isCorrect: options[i].isCorrect || false,
-          explanation: options[i].explanation || null,
-          order: i,
-        });
+      // Create new options using batch insert for better performance
+      if (options.length > 0) {
+        await lmsStorage.createQuestionBankOptionsBatch(
+          options.map((opt: any, i: number) => ({
+            questionId: question.id,
+            optionText: opt.optionText,
+            isCorrect: opt.isCorrect || false,
+            explanation: opt.explanation || null,
+            order: i,
+          }))
+        );
       }
     }
 
@@ -1224,15 +1227,17 @@ adminRouter.post("/question-bank/bulk-import", isContentAdmin, async (req: Reque
 
         // Create options if provided
         if (item.options && Array.isArray(item.options)) {
-          for (let j = 0; j < item.options.length; j++) {
-            const opt = item.options[j];
-            await lmsStorage.createQuestionBankOption({
-              questionId: question.id,
-              optionText: opt.optionText || opt.text || "",
-              isCorrect: opt.isCorrect || false,
-              explanation: opt.explanation || null,
-              order: j,
-            });
+          // Collect options for batch insert instead of individual inserts
+          const optionsToInsert = item.options.map((opt: any, j: number) => ({
+            questionId: question.id,
+            optionText: opt.optionText || opt.text || "",
+            isCorrect: opt.isCorrect || false,
+            explanation: opt.explanation || null,
+            order: j,
+          }));
+          
+          if (optionsToInsert.length > 0) {
+            await lmsStorage.createQuestionBankOptionsBatch(optionsToInsert);
           }
         }
 
@@ -1968,8 +1973,12 @@ superAdminRouter.post("/users", async (req: Request, res: Response) => {
       return res.status(400).json({ message: "Invalid role. Must be one of: " + adminRoles.join(", ") });
     }
 
-    if (password.length < 6) {
-      return res.status(400).json({ message: "Password must be at least 6 characters" });
+    // Validate password strength
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&_\-#])[A-Za-z\d@$!%*?&_\-#]{12,}$/;
+    if (!passwordRegex.test(password)) {
+      return res.status(400).json({ 
+        message: "Password must be at least 12 characters and contain uppercase, lowercase, number, and special character (@$!%*?&_-#)"
+      });
     }
 
     const created = await lmsStorage.createAdminUser(email, password, role, firstName, lastName);

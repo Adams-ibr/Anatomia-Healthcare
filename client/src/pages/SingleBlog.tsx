@@ -4,6 +4,7 @@ import type { Article } from "@shared/schema";
 import { Layout } from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { formatFullDate } from "@/lib/dateUtils";
 import { Badge } from "@/components/ui/badge";
 import { 
   Clock, 
@@ -88,7 +89,7 @@ export default function SingleBlog() {
             <span className="flex items-center gap-1">
               <Clock className="w-4 h-4" />
               {article.createdAt
-                ? new Date(article.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+                ? formatFullDate(article.createdAt)
                 : ""}
               {article.readTime ? ` · ${article.readTime}` : ""}
             </span>

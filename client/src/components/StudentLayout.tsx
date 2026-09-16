@@ -4,6 +4,7 @@ import { useLocation } from "wouter";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { StudentSidebar } from "@/components/StudentSidebar";
 import { ChatWidget } from "@/components/ChatWidget";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { getQueryFn } from "@/lib/queryClient";
 import { Loader2 } from "lucide-react";
 import type { Member, MembershipTier } from "@shared/schema";
@@ -36,13 +37,22 @@ const tierOrder: Record<MembershipTier, number> = {
 };
 
 function checkSubscriptionActive(member: Member): boolean {
-  if (!member.membershipTier || member.membershipTier === "bronze") {
+  // Only paid tiers (silver, gold, diamond) count as active
+  // Bronze is free tier, always available if membership_tier is set
+  const paidTiers: MembershipTier[] = ["silver", "gold", "diamond"];
+  
+  if (!member.membershipTier || !paidTiers.includes(member.membershipTier as MembershipTier)) {
     return false;
   }
+  
+  // Check if subscription has expired
   if (member.membershipExpiresAt) {
-    return new Date(member.membershipExpiresAt) > new Date();
+    const expiresAt = new Date(member.membershipExpiresAt);
+    const now = new Date();
+    return expiresAt > now;
   }
-  return true;
+  
+  return false;
 }
 
 export function StudentLayout({ children }: StudentLayoutProps) {
@@ -85,10 +95,13 @@ export function StudentLayout({ children }: StudentLayoutProps) {
   const isActive = checkSubscriptionActive(member);
 
   const hasMinimumTier = (requiredTier: MembershipTier): boolean => {
-    const memberTier = (member.membershipTier || "bronze") as MembershipTier;
-    if (!isActive && memberTier !== "bronze") {
-      return tierOrder["bronze"] >= tierOrder[requiredTier];
+    // If subscription is expired, grant NO access except for free bronze tier
+    if (!isActive) {
+      return requiredTier === "bronze";
     }
+
+    // If subscription is active, check tier hierarchy
+    const memberTier = (member.membershipTier || "bronze") as MembershipTier;
     return tierOrder[memberTier] >= tierOrder[requiredTier];
   };
 
@@ -100,20 +113,22 @@ export function StudentLayout({ children }: StudentLayoutProps) {
 
   return (
     <MemberContext.Provider value={contextValue}>
-      <SidebarProvider style={style as React.CSSProperties}>
-        <div className="flex h-screen w-full">
-          <StudentSidebar />
-          <div className="flex flex-col flex-1 overflow-hidden">
-            <header className="flex items-center justify-between gap-2 p-3 border-b bg-background sticky top-0 z-50">
-              <SidebarTrigger data-testid="button-sidebar-toggle" />
-            </header>
-            <main className="flex-1 overflow-auto">
-              {children}
-            </main>
+      <ErrorBoundary>
+        <SidebarProvider style={style as React.CSSProperties}>
+          <div className="flex h-screen w-full">
+            <StudentSidebar />
+            <div className="flex flex-col flex-1 overflow-hidden">
+              <header className="flex items-center justify-between gap-2 p-3 border-b bg-background sticky top-0 z-50">
+                <SidebarTrigger data-testid="button-sidebar-toggle" />
+              </header>
+              <main className="flex-1 overflow-auto">
+                {children}
+              </main>
+            </div>
           </div>
-        </div>
-      </SidebarProvider>
-      <ChatWidget currentMemberId={member.id} />
+        </SidebarProvider>
+        <ChatWidget currentMemberId={member.id} />
+      </ErrorBoundary>
     </MemberContext.Provider>
   );
 }

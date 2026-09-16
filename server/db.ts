@@ -4,9 +4,11 @@ import pg from "pg";
 import * as schema from "../shared/schema";
 
 // Helper to convert camelCase object keys to snake_case for Supabase
-export function toSnakeCase(obj: any): any {
-  if (!obj || typeof obj !== 'object' || Array.isArray(obj) || obj instanceof Date) return obj;
-  const result: any = {};
+export function toSnakeCase<T extends Record<string, unknown>>(obj: T): Record<string, unknown> {
+  if (!obj || typeof obj !== 'object' || Array.isArray(obj) || obj instanceof Date) {
+    return obj as Record<string, unknown>;
+  }
+  const result: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(obj)) {
     const snakeKey = key.replace(/[A-Z]/g, (letter) => "_" + letter.toLowerCase());
     result[snakeKey] = value;

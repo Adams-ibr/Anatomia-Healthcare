@@ -2,6 +2,7 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
+import { csrfProtection, attachCsrfToken } from "./csrf";
 
 const app = express();
 const httpServer = createServer(app);
@@ -21,6 +22,10 @@ app.use(
 );
 
 app.use(express.urlencoded({ extended: false }));
+
+// Apply CSRF protection to all API routes
+app.use("/api", csrfProtection);
+app.use("/api", attachCsrfToken);
 
 export function log(message: string, source = "express") {
   const formattedTime = new Date().toLocaleTimeString("en-US", {
@@ -65,12 +70,23 @@ app.use((req, res, next) => {
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
+    
+    // Only expose stack traces in development, never in production or staging
+    const isDevelopment = process.env.NODE_ENV === "development";
+    const stack = isDevelopment && err instanceof Error ? err.stack : undefined;
+
+    // Sanitize error message for production to avoid leaking sensitive info
+    let clientMessage = message;
+    if (!isDevelopment && status === 500) {
+      clientMessage = "Internal Server Error";
+    }
 
     res.status(status).json({ 
-      message, 
-      details: err instanceof Error ? err.message : String(err),
-      stack: process.env.NODE_ENV !== 'production' ? (err instanceof Error ? err.stack : undefined) : undefined
+      message: clientMessage, 
+      ...(isDevelopment && { details: err instanceof Error ? err.message : String(err) }),
+      ...(stack && { stack }),
     });
+    
     console.error(`[Server Error] ${status} - ${message}`, err);
   });
 

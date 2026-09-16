@@ -1,10 +1,64 @@
 import { Router, Request, Response } from "express";
+import { Router, Request, Response } from "express";
 import { supabase } from "./db";
 import { PaymentTransaction } from "../shared/schema";
 import crypto from "crypto";
 import { isMemberAuthenticated } from "./auth";
 
 const router = Router();
+
+// Valid membership tier values
+const VALID_TIERS = ["bronze", "silver", "gold", "diamond"] as const;
+type MembershipTier = typeof VALID_TIERS[number];
+
+// Payment reference regex validation
+const PAYMENT_REFERENCE_REGEX = /^(ps_|fw_)[a-zA-Z0-9_]+$/;
+
+// Track processed webhook IDs to prevent duplicate processing
+const processedWebhookIds = new Set<string>();
+
+// Helper to validate and extract tier from plan description
+function extractTierFromPlan(tierDescription: string): MembershipTier {
+  const normalized = tierDescription.toLowerCase().split(" ")[0];
+  if (!VALID_TIERS.includes(normalized as MembershipTier)) {
+    throw new Error(`Invalid membership tier in plan: "${tierDescription}". Expected one of: ${VALID_TIERS.join(", ")}`);
+  }
+  return normalized as MembershipTier;
+}
+
+// Helper to validate payment reference format
+function validatePaymentReference(reference: string): boolean {
+  if (!reference || reference.length > 200) return false;
+  return PAYMENT_REFERENCE_REGEX.test(reference);
+}
+
+// Helper to generate deterministic webhook ID for idempotency
+function generateWebhookId(provider: string, eventId: string): string {
+  return `${provider}:${eventId}`;
+}
+
+// Helper to update transaction status atomically using SQL condition
+async function markTransactionSuccess(transactionId: string, providerTransactionId: string): Promise<boolean> {
+  // Use Supabase SQL to ensure atomic update - only update if status is still 'pending'
+  const { data, error } = await supabase
+    .from("payment_transactions")
+    .update({
+      status: "success",
+      provider_transaction_id: providerTransactionId,
+      updated_at: new Date(),
+    })
+    .eq("id", transactionId)
+    .eq("status", "pending")  // Only update if still pending
+    .select("id")
+    .single();
+
+  if (error) {
+    console.error("Failed to mark transaction as success:", error);
+    return false;
+  }
+
+  return !!data;  // Returns true only if the update was applied
+}
 
 function getDurationMonths(period?: string): number {
   if (!period) return 1;
@@ -225,10 +279,16 @@ router.post("/initialize-flutterwave", isMemberAuthenticated, async (req: Reques
 router.get("/verify-paystack/:reference", async (req: Request, res: Response) => {
   try {
     const { reference } = req.params;
+    
+    // Validate reference format first
+    if (!validatePaymentReference(reference)) {
+      return res.status(400).json({ error: "Invalid reference format" });
+    }
+
     const paystackSecretKey = process.env.PAYSTACK_SECRET_KEY;
     if (!paystackSecretKey) return res.status(500).json({ error: "Paystack not configured" });
 
-    const response = await fetch(`https://api.paystack.co/transaction/verify/${reference}`, {
+    const response = await fetch(`https://api.paystack.co/transaction/verify/${encodeURIComponent(reference)}`, {
       headers: { Authorization: `Bearer ${paystackSecretKey}` },
     });
     const data = await response.json();
@@ -246,16 +306,25 @@ router.get("/verify-paystack/:reference", async (req: Request, res: Response) =>
     if (!transaction) return res.status(404).json({ error: "Transaction not found" });
     if (transaction.status === "success") return res.json({ message: "Payment already verified", status: "success" });
 
-    // Extract raw tier name (format is typically "Gold (student) - X Months")
-    const inferredTier = (transaction.membershipTier.split(" ")[0] || "gold").toLowerCase();
+    // Extract and validate tier with proper error handling
+    let tier: MembershipTier;
+    try {
+      tier = extractTierFromPlan(transaction.membershipTier);
+    } catch (error) {
+      console.error(`Tier extraction failed for transaction ${transaction.id}: ${error}`);
+      return res.status(400).json({ error: "Invalid tier in transaction" });
+    }
 
-    await supabase.from("payment_transactions").update({
-      status: "success",
-      provider_transaction_id: String(data.data.id),
-      updated_at: new Date(),
-    }).eq("id", transaction.id);
+    // Atomically mark transaction as success - only succeeds if status is still 'pending'
+    const updateSucceeded = await markTransactionSuccess(transaction.id, String(data.data.id));
+    
+    if (!updateSucceeded) {
+      // Transaction was already processed by a concurrent request
+      return res.json({ message: "Payment already verified by another request", status: "success" });
+    }
 
-    await updateMembershipTier(transaction.memberId, inferredTier, transaction.durationMonths || 1);
+    // Only extend membership if we successfully marked the transaction
+    await updateMembershipTier(transaction.memberId, tier, transaction.durationMonths || 1);
     res.json({ message: "Payment verified successfully", status: "success" });
   } catch (error) {
     console.error("Paystack verification error:", error);
@@ -266,10 +335,16 @@ router.get("/verify-paystack/:reference", async (req: Request, res: Response) =>
 router.get("/verify-flutterwave/:reference", async (req: Request, res: Response) => {
   try {
     const { reference } = req.params;
+    
+    // Validate reference format first
+    if (!validatePaymentReference(reference)) {
+      return res.status(400).json({ error: "Invalid reference format" });
+    }
+
     const flutterwaveSecretKey = process.env.FLUTTERWAVE_SECRET_KEY;
     if (!flutterwaveSecretKey) return res.status(500).json({ error: "Flutterwave not configured" });
 
-    const response = await fetch(`https://api.flutterwave.com/v3/transactions/verify_by_reference?tx_ref=${reference}`, {
+    const response = await fetch(`https://api.flutterwave.com/v3/transactions/verify_by_reference?tx_ref=${encodeURIComponent(reference)}`, {
       headers: { Authorization: `Bearer ${flutterwaveSecretKey}` },
     });
     const data = await response.json();
@@ -287,15 +362,25 @@ router.get("/verify-flutterwave/:reference", async (req: Request, res: Response)
     if (!transaction) return res.status(404).json({ error: "Transaction not found" });
     if (transaction.status === "success") return res.json({ message: "Payment already verified", status: "success" });
 
-    const inferredTier = (transaction.membershipTier.split(" ")[0] || "gold").toLowerCase();
+    // Extract and validate tier with proper error handling
+    let tier: MembershipTier;
+    try {
+      tier = extractTierFromPlan(transaction.membershipTier);
+    } catch (error) {
+      console.error(`Tier extraction failed for transaction ${transaction.id}: ${error}`);
+      return res.status(400).json({ error: "Invalid tier in transaction" });
+    }
 
-    await supabase.from("payment_transactions").update({
-      status: "success",
-      provider_transaction_id: String(data.data.id),
-      updated_at: new Date(),
-    }).eq("id", transaction.id);
+    // Atomically mark transaction as success - only succeeds if status is still 'pending'
+    const updateSucceeded = await markTransactionSuccess(transaction.id, String(data.data.id));
+    
+    if (!updateSucceeded) {
+      // Transaction was already processed by a concurrent request
+      return res.json({ message: "Payment already verified by another request", status: "success" });
+    }
 
-    await updateMembershipTier(transaction.memberId, inferredTier, transaction.durationMonths || 1);
+    // Only extend membership if we successfully marked the transaction
+    await updateMembershipTier(transaction.memberId, tier, transaction.durationMonths || 1);
     res.json({ message: "Payment verified successfully", status: "success" });
   } catch (error) {
     console.error("Flutterwave verification error:", error);
@@ -306,31 +391,77 @@ router.get("/verify-flutterwave/:reference", async (req: Request, res: Response)
 router.post("/webhook/paystack", async (req: Request, res: Response) => {
   try {
     const paystackSecretKey = process.env.PAYSTACK_SECRET_KEY;
-    if (!paystackSecretKey) return res.status(500).json({ error: "Paystack not configured" });
+    if (!paystackSecretKey) {
+      console.error("PAYSTACK_SECRET_KEY not configured");
+      return res.status(500).json({ error: "Paystack not configured" });
+    }
 
+    // Verify signature FIRST before any processing
     const hash = crypto.createHmac("sha512", paystackSecretKey).update(JSON.stringify(req.body)).digest("hex");
-    if (hash !== req.headers["x-paystack-signature"]) return res.status(401).json({ error: "Invalid signature" });
+    if (hash !== req.headers["x-paystack-signature"]) {
+      console.warn("Paystack webhook signature verification failed");
+      return res.status(401).json({ error: "Invalid signature" });
+    }
 
     const { event, data } = req.body;
 
-    if (event === "charge.success") {
-      const { data: transaction } = await supabase
-        .from("payment_transactions")
-        .select("id, memberId:member_id, status, membershipTier:membership_tier, durationMonths:duration_months")
-        .eq("provider_reference", data.reference)
-        .single();
-
-      if (transaction && transaction.status !== "success") {
-        await supabase.from("payment_transactions").update({
-          status: "success",
-          provider_transaction_id: String(data.id),
-          updated_at: new Date(),
-        }).eq("id", transaction.id);
-
-        const inferredTier = (transaction.membershipTier.split(" ")[0] || "gold").toLowerCase();
-        await updateMembershipTier(transaction.memberId, inferredTier, transaction.durationMonths || 1);
-      }
+    // Only process charge.success events
+    if (event !== "charge.success") {
+      return res.json({ message: "Event processed but not charge.success" });
     }
+
+    // Validate reference format
+    if (!validatePaymentReference(data.reference)) {
+      console.error(`Invalid reference format: ${data.reference}`);
+      return res.status(400).json({ error: "Invalid reference format" });
+    }
+
+    // Check for duplicate webhook processing using event ID
+    const webhookId = generateWebhookId("paystack", String(data.id));
+    if (processedWebhookIds.has(webhookId)) {
+      return res.json({ message: "Webhook already processed" });
+    }
+
+    const { data: transaction } = await supabase
+      .from("payment_transactions")
+      .select("id, memberId:member_id, status, membershipTier:membership_tier, durationMonths:duration_months")
+      .eq("provider_reference", data.reference)
+      .single();
+
+    if (!transaction) {
+      console.warn(`Transaction not found for reference: ${data.reference}`);
+      return res.status(404).json({ error: "Transaction not found" });
+    }
+
+    // Only process if not already marked as success
+    if (transaction.status === "success") {
+      return res.json({ message: "Payment already verified" });
+    }
+
+    // Extract and validate tier
+    let tier: MembershipTier;
+    try {
+      tier = extractTierFromPlan(transaction.membershipTier);
+    } catch (error) {
+      console.error(`Tier extraction failed: ${error}`);
+      return res.status(400).json({ error: "Invalid tier in transaction" });
+    }
+
+    // Atomically mark transaction as success - only succeeds if status is still 'pending'
+    const updateSucceeded = await markTransactionSuccess(transaction.id, String(data.id));
+    
+    if (!updateSucceeded) {
+      // Transaction was already processed by a concurrent request or another webhook
+      console.warn(`Transaction ${transaction.id} was already processed`);
+      return res.json({ message: "Payment already verified" });
+    }
+
+    // Only extend membership if we successfully marked the transaction
+    await updateMembershipTier(transaction.memberId, tier, transaction.durationMonths || 1);
+
+    // Mark as processed to prevent duplicate handling
+    processedWebhookIds.add(webhookId);
+
     res.sendStatus(200);
   } catch (error) {
     console.error("Paystack webhook error:", error);
@@ -341,29 +472,79 @@ router.post("/webhook/paystack", async (req: Request, res: Response) => {
 router.post("/webhook/flutterwave", async (req: Request, res: Response) => {
   try {
     const flutterwaveSecretHash = process.env.FLUTTERWAVE_SECRET_HASH;
-    if (flutterwaveSecretHash && req.headers["verif-hash"] !== flutterwaveSecretHash) {
+    
+    // MANDATORY: Make verification required - throw error if not configured
+    if (!flutterwaveSecretHash) {
+      console.error("FLUTTERWAVE_SECRET_HASH not configured - webhook verification impossible");
+      return res.status(500).json({ error: "Flutterwave webhook validation not configured" });
+    }
+
+    // Verify signature FIRST before any processing
+    const providedHash = req.headers["verif-hash"];
+    if (providedHash !== flutterwaveSecretHash) {
+      console.warn("Flutterwave webhook signature verification failed");
       return res.status(401).json({ error: "Invalid signature" });
     }
 
     const { event, data } = req.body;
-    if (event === "charge.completed" && data.status === "successful") {
-      const { data: transaction } = await supabase
-        .from("payment_transactions")
-        .select("id, memberId:member_id, status, membershipTier:membership_tier, durationMonths:duration_months")
-        .eq("provider_reference", data.tx_ref)
-        .single();
 
-      if (transaction && transaction.status !== "success") {
-        await supabase.from("payment_transactions").update({
-          status: "success",
-          provider_transaction_id: String(data.id),
-          updated_at: new Date(),
-        }).eq("id", transaction.id);
-
-        const inferredTier = (transaction.membershipTier.split(" ")[0] || "gold").toLowerCase();
-        await updateMembershipTier(transaction.memberId, inferredTier, transaction.durationMonths || 1);
-      }
+    // Only process charge.completed events with successful status
+    if (event !== "charge.completed" || data.status !== "successful") {
+      return res.json({ message: "Event processed but not a successful charge" });
     }
+
+    // Validate reference format
+    if (!validatePaymentReference(data.tx_ref)) {
+      console.error(`Invalid reference format: ${data.tx_ref}`);
+      return res.status(400).json({ error: "Invalid reference format" });
+    }
+
+    // Check for duplicate webhook processing using event ID
+    const webhookId = generateWebhookId("flutterwave", String(data.id));
+    if (processedWebhookIds.has(webhookId)) {
+      return res.json({ message: "Webhook already processed" });
+    }
+
+    const { data: transaction } = await supabase
+      .from("payment_transactions")
+      .select("id, memberId:member_id, status, membershipTier:membership_tier, durationMonths:duration_months")
+      .eq("provider_reference", data.tx_ref)
+      .single();
+
+    if (!transaction) {
+      console.warn(`Transaction not found for reference: ${data.tx_ref}`);
+      return res.status(404).json({ error: "Transaction not found" });
+    }
+
+    // Only process if not already marked as success
+    if (transaction.status === "success") {
+      return res.json({ message: "Payment already verified" });
+    }
+
+    // Extract and validate tier
+    let tier: MembershipTier;
+    try {
+      tier = extractTierFromPlan(transaction.membershipTier);
+    } catch (error) {
+      console.error(`Tier extraction failed: ${error}`);
+      return res.status(400).json({ error: "Invalid tier in transaction" });
+    }
+
+    // Atomically mark transaction as success - only succeeds if status is still 'pending'
+    const updateSucceeded = await markTransactionSuccess(transaction.id, String(data.id));
+    
+    if (!updateSucceeded) {
+      // Transaction was already processed by a concurrent request or another webhook
+      console.warn(`Transaction ${transaction.id} was already processed`);
+      return res.json({ message: "Payment already verified" });
+    }
+
+    // Only extend membership if we successfully marked the transaction
+    await updateMembershipTier(transaction.memberId, tier, transaction.durationMonths || 1);
+
+    // Mark as processed to prevent duplicate handling
+    processedWebhookIds.add(webhookId);
+
     res.sendStatus(200);
   } catch (error) {
     console.error("Flutterwave webhook error:", error);

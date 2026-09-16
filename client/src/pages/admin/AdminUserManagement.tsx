@@ -56,7 +56,7 @@ import { AdminLayout } from "@/components/admin/AdminLayout";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import type { Member } from "@shared/schema";
-import { format } from "date-fns";
+import { formatFullDate, formatISODate } from "@/lib/dateUtils";
 
 interface AdminUser {
   id: string;
@@ -248,7 +248,7 @@ export default function AdminUserManagement() {
     setMembershipForm({
       tier: member.membershipTier || "bronze",
       expiresAt: member.membershipExpiresAt 
-        ? new Date(member.membershipExpiresAt).toISOString().split("T")[0] 
+        ? formatISODate(member.membershipExpiresAt)
         : "",
     });
     setIsEditMembershipOpen(true);
@@ -538,14 +538,14 @@ export default function AdminUserManagement() {
                           <TableCell>
                             <span className="text-sm text-muted-foreground">
                               {member.membershipExpiresAt 
-                                ? format(new Date(member.membershipExpiresAt), "MMM d, yyyy")
+                                ? formatFullDate(member.membershipExpiresAt)
                                 : member.membershipTier === "bronze" ? "Never" : "Not set"}
                             </span>
                           </TableCell>
                           <TableCell>
                             <span className="text-sm text-muted-foreground">
                               {member.createdAt 
-                                ? format(new Date(member.createdAt), "MMM d, yyyy")
+                                ? formatFullDate(member.createdAt)
                                 : "-"}
                             </span>
                           </TableCell>

@@ -38,14 +38,23 @@ export const insertUserSchema = createInsertSchema(users).omit({
   updatedAt: true,
 });
 
+// Password validation: minimum 12 characters, requires uppercase, lowercase, number, special char
+const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&_\-#])[A-Za-z\d@$!%*?&_\-#]{12,}$/;
+const passwordValidation = z.string()
+  .min(12, "Password must be at least 12 characters")
+  .regex(/[a-z]/, "Password must contain at least one lowercase letter")
+  .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
+  .regex(/\d/, "Password must contain at least one number")
+  .regex(/[@$!%*?&_\-#]/, "Password must contain at least one special character (@$!%*?&_-#)");
+
 export const loginSchema = z.object({
   email: z.string().email("Invalid email address"),
-  password: z.string().min(6, "Password must be at least 6 characters"),
+  password: z.string().min(1, "Password is required"), // Login doesn't validate strength, just presence
 });
 
 export const registerSchema = z.object({
   email: z.string().email("Invalid email address"),
-  password: z.string().min(6, "Password must be at least 6 characters"),
+  password: passwordValidation,
   firstName: z.string().optional(),
   lastName: z.string().optional(),
 });

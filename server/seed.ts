@@ -231,6 +231,7 @@ async function seedDatabase() {
       }
     }
 
+} catch (error) { console.error(error); }
 }
 
 seedDatabase().then(() => process.exit(0)).catch(() => process.exit(1));

@@ -2,6 +2,8 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { supabase, toSnakeCase, db } from "./db";
 import { eq, desc, sql } from "drizzle-orm";
+import { sendErrorResponse } from "./errorHandler";
+import { rateLimit, startRateLimitCleanup } from "./rateLimit";
 import {
   contactMessages,
   newsletterSubscriptions,
@@ -131,11 +133,7 @@ export async function registerRoutes(
       });
     } catch (error: any) {
       console.error("[Upload] Internal Error:", error);
-      res.status(500).json({ 
-        error: "Failed to create upload URL", 
-        details: error.message || String(error),
-        stack: process.env.NODE_ENV !== 'production' ? error.stack : undefined
-      });
+      sendErrorResponse(res, 500, "Failed to create upload URL", error);
     }
   });
 
@@ -167,88 +165,100 @@ export async function registerRoutes(
     }
   });
 
-  // Public routes
-  app.post("/api/contact", async (req, res) => {
-    try {
-      const result = insertContactMessageSchema.safeParse(req.body);
-      if (!result.success) {
-        return res.status(400).json({ error: "Invalid contact form data", details: result.error.issues });
-      }
-
-      const { data: message, error: createError } = await supabase
-        .from("contact_messages")
-        .insert(result.data)
-        .select()
-        .single();
-
-      if (createError || !message) {
-        throw createError || new Error("Failed to create message");
-      }
-      res.status(201).json({ success: true, message: "Message sent successfully", id: message.id });
-    } catch (error) {
-      console.error("Error creating contact message:", error);
-      res.status(500).json({ error: "Failed to send message" });
-    }
-  });
-
-  app.post("/api/newsletter", async (req, res) => {
-    try {
-      const result = insertNewsletterSubscriptionSchema.safeParse(req.body);
-      if (!result.success) {
-        return res.status(400).json({ error: "Invalid email address", details: result.error.issues });
-      }
-
-      const { data: existing } = await supabase
-        .from("newsletter_subscriptions")
-        .select()
-        .eq("email", result.data.email)
-        .single();
-
-      if (existing) {
-        return res.status(409).json({ error: "Email already subscribed" });
-      }
-
-      const { data: subscription, error: createError } = await supabase
-        .from("newsletter_subscriptions")
-        .insert(result.data)
-        .select()
-        .single();
-
-      if (createError || !subscription) {
-        throw createError || new Error("Failed to subscribe");
-      }
-      res.status(201).json({ success: true, message: "Subscribed successfully", id: subscription.id });
-    } catch (error) {
-      console.error("Error creating newsletter subscription:", error);
-      res.status(500).json({ error: "Failed to subscribe" });
-    }
-  });
-
-  app.post("/api/waitlist", async (req, res) => {
-    try {
-      const result = insertWaitlistSchema.safeParse(req.body);
-      if (!result.success) {
-        return res.status(400).json({ error: "Invalid waitlist data", details: result.error.issues });
-      }
-
-      const { data: entry, error: createError } = await supabase
-        .from("waitlist")
-        .insert(result.data)
-        .select()
-        .single();
-
-      if (createError) {
-        if (createError.code === '23505') { // Unique violation
-          return res.status(409).json({ error: "You are already on the waitlist!" });
+  // Public routes with rate limiting
+  app.post(
+    "/api/contact",
+    rateLimit(60000, 5, "Too many contact form submissions. Please try again in 1 minute."),
+    async (req, res) => {
+      try {
+        const result = insertContactMessageSchema.safeParse(req.body);
+        if (!result.success) {
+          return res.status(400).json({ error: "Invalid contact form data", details: result.error.issues });
         }
-        throw createError;
+
+        const { data: message, error: createError } = await supabase
+          .from("contact_messages")
+          .insert(result.data)
+          .select()
+          .single();
+
+        if (createError || !message) {
+          throw createError || new Error("Failed to create message");
+        }
+        res.status(201).json({ success: true, message: "Message sent successfully", id: message.id });
+      } catch (error) {
+        console.error("Error creating contact message:", error);
+        res.status(500).json({ error: "Failed to send message" });
       }
-      res.status(201).json({ success: true, message: "Joined waitlist successfully", id: entry.id });
-    } catch (error) {
-      console.error("Error joining waitlist:", error);
-      res.status(500).json({ error: "Failed to join waitlist" });
     }
-  });
+  );
+
+  app.post(
+    "/api/newsletter",
+    rateLimit(60000, 3, "Too many newsletter signup attempts. Please try again in 1 minute."),
+    async (req, res) => {
+      try {
+        const result = insertNewsletterSubscriptionSchema.safeParse(req.body);
+        if (!result.success) {
+          return res.status(400).json({ error: "Invalid email address", details: result.error.issues });
+        }
+
+        const { data: existing } = await supabase
+          .from("newsletter_subscriptions")
+          .select()
+          .eq("email", result.data.email)
+          .single();
+
+        if (existing) {
+          return res.status(409).json({ error: "Email already subscribed" });
+        }
+
+        const { data: subscription, error: createError } = await supabase
+          .from("newsletter_subscriptions")
+          .insert(result.data)
+          .select()
+          .single();
+
+        if (createError || !subscription) {
+          throw createError || new Error("Failed to subscribe");
+        }
+        res.status(201).json({ success: true, message: "Subscribed successfully", id: subscription.id });
+      } catch (error) {
+        console.error("Error creating newsletter subscription:", error);
+        res.status(500).json({ error: "Failed to subscribe" });
+      }
+    }
+  );
+
+  app.post(
+    "/api/waitlist",
+    rateLimit(60000, 3, "Too many waitlist signup attempts. Please try again in 1 minute."),
+    async (req, res) => {
+      try {
+        const result = insertWaitlistSchema.safeParse(req.body);
+        if (!result.success) {
+          return res.status(400).json({ error: "Invalid waitlist data", details: result.error.issues });
+        }
+
+        const { data: entry, error: createError } = await supabase
+          .from("waitlist")
+          .insert(result.data)
+          .select()
+          .single();
+
+        if (createError) {
+          if (createError.code === '23505') { // Unique violation
+            return res.status(409).json({ error: "You are already on the waitlist!" });
+          }
+          throw createError;
+        }
+        res.status(201).json({ success: true, message: "Joined waitlist successfully", id: entry.id });
+      } catch (error) {
+        console.error("Error joining waitlist:", error);
+        res.status(500).json({ error: "Failed to join waitlist" });
+      }
+    }
+  );
 
   // Public API for frontend pages
   app.get("/api/articles", async (req, res) => {
@@ -468,13 +478,27 @@ export async function registerRoutes(
   // Admin Contact Messages
   app.get("/api/admin/contacts", isAuthenticated, async (req, res) => {
     try {
-      const { data: messages, error } = await supabase
+      const page = Math.max(1, parseInt(req.query.page as string) || 1);
+      const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 50));
+      const offset = (page - 1) * limit;
+
+      const { data: messages, error, count } = await supabase
         .from("contact_messages")
-        .select()
-        .order("created_at", { ascending: false });
+        .select("*", { count: "exact" })
+        .order("created_at", { ascending: false })
+        .range(offset, offset + limit - 1);
 
       if (error) throw error;
-      res.json(messages);
+      
+      res.json({
+        data: messages,
+        pagination: {
+          page,
+          limit,
+          total: count,
+          pages: Math.ceil((count || 0) / limit),
+        },
+      });
     } catch (error) {
       console.error("Error fetching contacts:", error);
       res.status(500).json({ error: "Failed to fetch contacts" });
@@ -512,13 +536,26 @@ export async function registerRoutes(
   // Admin Newsletter
   app.get("/api/admin/newsletter", isAuthenticated, async (req, res) => {
     try {
-      const { data: subscriptions, error } = await supabase
+      const page = Math.max(1, parseInt(req.query.page as string) || 1);
+      const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 50));
+      const offset = (page - 1) * limit;
+
+      const { data: subscriptions, error, count } = await supabase
         .from("newsletter_subscriptions")
-        .select()
-        .order("created_at", { ascending: false });
+        .select("*", { count: "exact" })
+        .order("created_at", { ascending: false })
+        .range(offset, offset + limit - 1);
 
       if (error) throw error;
-      res.json(subscriptions);
+      res.json({
+        data: subscriptions,
+        pagination: {
+          page,
+          limit,
+          total: count,
+          pages: Math.ceil((count || 0) / limit),
+        },
+      });
     } catch (error) {
       console.error("Error fetching subscriptions:", error);
       res.status(500).json({ error: "Failed to fetch subscriptions" });
@@ -539,17 +576,30 @@ export async function registerRoutes(
   // Admin Articles CRUD
   app.get("/api/admin/articles", isAuthenticated, async (req, res) => {
     try {
-      const { data: allArticles, error } = await supabase
+      const page = Math.max(1, parseInt(req.query.page as string) || 1);
+      const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 50));
+      const offset = (page - 1) * limit;
+
+      const { data: allArticles, error, count } = await supabase
         .from("articles")
         .select(`
           id, title, slug, excerpt, content, category, author,
           imageUrl:image_url, readTime:read_time, isFeatured:is_featured,
           isPublished:is_published, createdAt:created_at, updatedAt:updated_at
-        `)
-        .order("created_at", { ascending: false });
+        `, { count: "exact" })
+        .order("created_at", { ascending: false })
+        .range(offset, offset + limit - 1);
 
       if (error) throw error;
-      res.json(allArticles);
+      res.json({
+        data: allArticles,
+        pagination: {
+          page,
+          limit,
+          total: count,
+          pages: Math.ceil((count || 0) / limit),
+        },
+      });
     } catch (error) {
       console.error("Error fetching articles:", error);
       res.status(500).json({ error: "Failed to fetch articles" });
@@ -1321,6 +1371,9 @@ export async function registerRoutes(
       res.status(500).json({ error: "Failed to delete partner" });
     }
   });
+
+  // Start rate limit cleanup
+  startRateLimitCleanup();
 
   return httpServer;
 }

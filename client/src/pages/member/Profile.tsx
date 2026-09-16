@@ -23,7 +23,12 @@ const profileSchema = z.object({
 
 const passwordSchema = z.object({
   currentPassword: z.string().min(1, "Current password is required"),
-  newPassword: z.string().min(6, "Password must be at least 6 characters"),
+  newPassword: z.string()
+    .min(12, "Password must be at least 12 characters")
+    .regex(/[a-z]/, "Must contain lowercase letter")
+    .regex(/[A-Z]/, "Must contain uppercase letter")
+    .regex(/\d/, "Must contain number")
+    .regex(/[@$!%*?&_\-#]/, "Must contain special character (@$!%*?&_-#)"),
   confirmPassword: z.string().min(1, "Please confirm your password"),
 }).refine((data) => data.newPassword === data.confirmPassword, {
   message: "Passwords don't match",

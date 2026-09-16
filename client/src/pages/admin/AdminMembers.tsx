@@ -33,7 +33,7 @@ import { AdminLayout } from "@/components/admin/AdminLayout";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import type { Member } from "@shared/schema";
-import { format } from "date-fns";
+import { formatFullDate, formatISODate } from "@/lib/dateUtils";
 
 const tierColors: Record<string, string> = {
   bronze: "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400",
@@ -77,7 +77,7 @@ export default function AdminMembers() {
     setFormData({
       tier: member.membershipTier || "bronze",
       expiresAt: member.membershipExpiresAt 
-        ? new Date(member.membershipExpiresAt).toISOString().split("T")[0] 
+        ? formatISODate(member.membershipExpiresAt)
         : "",
     });
     setIsDialogOpen(true);
@@ -190,12 +190,12 @@ export default function AdminMembers() {
                       </TableCell>
                       <TableCell>
                         {member.membershipExpiresAt 
-                          ? format(new Date(member.membershipExpiresAt), "MMM d, yyyy")
+                          ? formatFullDate(member.membershipExpiresAt)
                           : member.membershipTier === "bronze" ? "Never" : "Not set"}
                       </TableCell>
                       <TableCell>
                         {member.createdAt 
-                          ? format(new Date(member.createdAt), "MMM d, yyyy")
+                          ? formatFullDate(member.createdAt)
                           : "-"}
                       </TableCell>
                       <TableCell className="text-right">
