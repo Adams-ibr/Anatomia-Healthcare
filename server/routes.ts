@@ -267,8 +267,8 @@ export async function registerRoutes(
         .from("articles")
         .select(`
           id, title, slug, excerpt, content, category, author,
-          imageUrl:image_url, readTime:read_time, isFeatured:is_featured,
-          isPublished:is_published, createdAt:created_at, updatedAt:updated_at
+          image_url:imageUrl, read_time:readTime, is_featured:isFeatured,
+          is_published:isPublished, created_at:createdAt, updated_at:updatedAt
         `)
         .eq("is_published", true)
         .order("created_at", { ascending: false });
@@ -287,8 +287,8 @@ export async function registerRoutes(
         .from("articles")
         .select(`
           id, title, slug, excerpt, content, category, author,
-          imageUrl:image_url, readTime:read_time, isFeatured:is_featured,
-          isPublished:is_published, createdAt:created_at, updatedAt:updated_at
+          image_url:imageUrl, read_time:readTime, is_featured:isFeatured,
+          is_published:isPublished, created_at:createdAt, updated_at:updatedAt
         `)
         .eq("slug", req.params.slug)
         .single();
@@ -308,10 +308,10 @@ export async function registerRoutes(
       const { data: team, error } = await supabase
         .from("team_members")
         .select(`
-          id, name, slug, role, description, bio, imageUrl:image_url,
-          email, linkedinUrl:linkedin_url, twitterUrl:twitter_url,
-          facebookUrl:facebook_url, instagramUrl:instagram_url,
-          order, isActive:is_active, createdAt:created_at
+          id, name, slug, role, description, bio, image_url:imageUrl,
+          email, linkedin_url:linkedinUrl, twitter_url:twitterUrl,
+          facebook_url:facebookUrl, instagram_url:instagramUrl,
+          order, is_active:isActive, created_at:createdAt
         `)
         .eq("is_active", true)
         .order("order", { ascending: true });
@@ -329,10 +329,10 @@ export async function registerRoutes(
       const { data: member, error } = await supabase
         .from("team_members")
         .select(`
-          id, name, slug, role, description, bio, imageUrl:image_url,
-          email, linkedinUrl:linkedin_url, twitterUrl:twitter_url,
-          facebookUrl:facebook_url, instagramUrl:instagram_url,
-          order, isActive:is_active, createdAt:created_at
+          id, name, slug, role, description, bio, image_url:imageUrl,
+          email, linkedin_url:linkedinUrl, twitter_url:twitterUrl,
+          facebook_url:facebookUrl, instagram_url:instagramUrl,
+          order, is_active:isActive, created_at:createdAt
         `)
         .eq("slug", req.params.slug)
         .single();
@@ -352,9 +352,9 @@ export async function registerRoutes(
       const { data: allProducts, error } = await supabase
         .from("products")
         .select(`
-          id, title, category, description, price, imageUrl:image_url,
-          badge, badgeColor:badge_color, isActive:is_active, order,
-          createdAt:created_at
+          id, title, category, description, price, image_url:imageUrl,
+          badge, badge_color:badgeColor, is_active:isActive, order,
+          created_at:createdAt
         `)
         .eq("is_active", true)
         .order("order", { ascending: true });
@@ -373,7 +373,7 @@ export async function registerRoutes(
         .from("faq_items")
         .select(`
           id, question, answer, category, order,
-          isActive:is_active, createdAt:created_at
+          is_active:isActive, created_at:createdAt
         `)
         .eq("is_active", true)
         .order("order", { ascending: true });
@@ -392,7 +392,7 @@ export async function registerRoutes(
         .from("careers")
         .select(`
           id, title, department, location, type, description, requirements,
-          isActive:is_active, createdAt:created_at
+          is_active:isActive, created_at:createdAt
         `)
         .eq("is_active", true)
         .order("created_at", { ascending: false });
@@ -411,7 +411,7 @@ export async function registerRoutes(
         .from("careers")
         .select(`
           id, title, department, location, type, description, requirements,
-          isActive:is_active, createdAt:created_at
+          is_active:isActive, created_at:createdAt
         `)
         .eq("id", req.params.id)
         .eq("is_active", true)
@@ -584,8 +584,8 @@ export async function registerRoutes(
         .from("articles")
         .select(`
           id, title, slug, excerpt, content, category, author,
-          imageUrl:image_url, readTime:read_time, isFeatured:is_featured,
-          isPublished:is_published, createdAt:created_at, updatedAt:updated_at
+          image_url:imageUrl, read_time:readTime, is_featured:isFeatured,
+          is_published:isPublished, created_at:createdAt, updated_at:updatedAt
         `, { count: "exact" })
         .order("created_at", { ascending: false })
         .range(offset, offset + limit - 1);
@@ -617,8 +617,8 @@ export async function registerRoutes(
         .insert(toSnakeCase(result.data))
         .select(`
           id, title, slug, excerpt, content, category, author,
-          imageUrl:image_url, readTime:read_time, isFeatured:is_featured,
-          isPublished:is_published, createdAt:created_at, updatedAt:updated_at
+          image_url:imageUrl, read_time:readTime, is_featured:isFeatured,
+          is_published:isPublished, created_at:createdAt, updated_at:updatedAt
         `)
         .single();
 
@@ -642,8 +642,8 @@ export async function registerRoutes(
         .eq("id", req.params.id)
         .select(`
           id, title, slug, excerpt, content, category, author,
-          imageUrl:image_url, readTime:read_time, isFeatured:is_featured,
-          isPublished:is_published, createdAt:created_at, updatedAt:updated_at
+          image_url:imageUrl, read_time:readTime, is_featured:isFeatured,
+          is_published:isPublished, created_at:createdAt, updated_at:updatedAt
         `)
         .single();
 
@@ -675,10 +675,10 @@ export async function registerRoutes(
       const { data: team, error } = await supabase
         .from("team_members")
         .select(`
-          id, name, slug, role, description, bio, imageUrl:image_url,
-          email, linkedinUrl:linkedin_url, twitterUrl:twitter_url,
-          facebookUrl:facebook_url, instagramUrl:instagram_url,
-          order, isActive:is_active, createdAt:created_at
+          id, name, slug, role, description, bio, image_url:imageUrl,
+          email, linkedin_url:linkedinUrl, twitter_url:twitterUrl,
+          facebook_url:facebookUrl, instagram_url:instagramUrl,
+          order, is_active:isActive, created_at:createdAt
         `)
         .order("order", { ascending: true });
 
@@ -700,10 +700,10 @@ export async function registerRoutes(
         .from("team_members")
         .insert(toSnakeCase(result.data))
         .select(`
-          id, name, slug, role, description, bio, imageUrl:image_url,
-          email, linkedinUrl:linkedin_url, twitterUrl:twitter_url,
-          facebookUrl:facebook_url, instagramUrl:instagram_url,
-          order, isActive:is_active, createdAt:created_at
+          id, name, slug, role, description, bio, image_url:imageUrl,
+          email, linkedin_url:linkedinUrl, twitter_url:twitterUrl,
+          facebook_url:facebookUrl, instagram_url:instagramUrl,
+          order, is_active:isActive, created_at:createdAt
         `)
         .single();
 
@@ -726,10 +726,10 @@ export async function registerRoutes(
         .update(toSnakeCase(updateData))
         .eq("id", req.params.id)
         .select(`
-          id, name, slug, role, description, bio, imageUrl:image_url,
-          email, linkedinUrl:linkedin_url, twitterUrl:twitter_url,
-          facebookUrl:facebook_url, instagramUrl:instagram_url,
-          order, isActive:is_active, createdAt:created_at
+          id, name, slug, role, description, bio, image_url:imageUrl,
+          email, linkedin_url:linkedinUrl, twitter_url:twitterUrl,
+          facebook_url:facebookUrl, instagram_url:instagramUrl,
+          order, is_active:isActive, created_at:createdAt
         `)
         .single();
 
@@ -761,9 +761,9 @@ export async function registerRoutes(
       const { data: allProducts, error } = await supabase
         .from("products")
         .select(`
-          id, title, category, description, price, imageUrl:image_url,
-          badge, badgeColor:badge_color, isActive:is_active, order,
-          createdAt:created_at
+          id, title, category, description, price, image_url:imageUrl,
+          badge, badge_color:badgeColor, is_active:isActive, order,
+          created_at:createdAt
         `)
         .order("order", { ascending: true });
 
@@ -785,9 +785,9 @@ export async function registerRoutes(
         .from("products")
         .insert(toSnakeCase(result.data))
         .select(`
-          id, title, category, description, price, imageUrl:image_url,
-          badge, badgeColor:badge_color, isActive:is_active, order,
-          createdAt:created_at
+          id, title, category, description, price, image_url:imageUrl,
+          badge, badge_color:badgeColor, is_active:isActive, order,
+          created_at:createdAt
         `)
         .single();
 
@@ -810,9 +810,9 @@ export async function registerRoutes(
         .update(toSnakeCase(updateData))
         .eq("id", req.params.id)
         .select(`
-          id, title, category, description, price, imageUrl:image_url,
-          badge, badgeColor:badge_color, isActive:is_active, order,
-          createdAt:created_at
+          id, title, category, description, price, image_url:imageUrl,
+          badge, badge_color:badgeColor, is_active:isActive, order,
+          created_at:createdAt
         `)
         .single();
 
@@ -845,7 +845,7 @@ export async function registerRoutes(
         .from("faq_items")
         .select(`
           id, question, answer, category, order,
-          isActive:is_active, createdAt:created_at
+          is_active:isActive, created_at:createdAt
         `)
         .order("order", { ascending: true });
 
@@ -868,7 +868,7 @@ export async function registerRoutes(
         .insert(toSnakeCase(result.data))
         .select(`
           id, question, answer, category, order,
-          isActive:is_active, createdAt:created_at
+          is_active:isActive, created_at:createdAt
         `)
         .single();
 
@@ -892,7 +892,7 @@ export async function registerRoutes(
         .eq("id", req.params.id)
         .select(`
           id, question, answer, category, order,
-          isActive:is_active, createdAt:created_at
+          is_active:isActive, created_at:createdAt
         `)
         .single();
 
@@ -925,7 +925,7 @@ export async function registerRoutes(
         .from("careers")
         .select(`
           id, title, department, location, type, description, requirements,
-          isActive:is_active, createdAt:created_at
+          is_active:isActive, created_at:createdAt
         `)
         .order("created_at", { ascending: false });
 
@@ -948,7 +948,7 @@ export async function registerRoutes(
         .insert(toSnakeCase(result.data))
         .select(`
           id, title, department, location, type, description, requirements,
-          isActive:is_active, createdAt:created_at
+          is_active:isActive, created_at:createdAt
         `)
         .single();
 
@@ -972,7 +972,7 @@ export async function registerRoutes(
         .eq("id", req.params.id)
         .select(`
           id, title, department, location, type, description, requirements,
-          isActive:is_active, createdAt:created_at
+          is_active:isActive, created_at:createdAt
         `)
         .single();
 
@@ -1140,8 +1140,8 @@ export async function registerRoutes(
       const { data: allDepartments, error } = await supabase
         .from("departments")
         .select(`
-          id, name, slug, description, headId:head_id, imageUrl:image_url,
-          color, order, isActive:is_active, createdAt:created_at, updatedAt:updated_at
+          id, name, slug, description, head_id:headId, image_url:imageUrl,
+          color, order, is_active:isActive, created_at:createdAt, updated_at:updatedAt
         `)
         .order("order", { ascending: true });
 
@@ -1158,8 +1158,8 @@ export async function registerRoutes(
       const { data: department, error } = await supabase
         .from("departments")
         .select(`
-          id, name, slug, description, headId:head_id, imageUrl:image_url,
-          color, order, isActive:is_active, createdAt:created_at, updatedAt:updated_at
+          id, name, slug, description, head_id:headId, image_url:imageUrl,
+          color, order, is_active:isActive, created_at:createdAt, updated_at:updatedAt
         `)
         .eq("id", req.params.id)
         .single();
@@ -1185,8 +1185,8 @@ export async function registerRoutes(
         .from("departments")
         .insert(toSnakeCase(result.data))
         .select(`
-          id, name, slug, description, headId:head_id, imageUrl:image_url,
-          color, order, isActive:is_active, createdAt:created_at, updatedAt:updated_at
+          id, name, slug, description, head_id:headId, image_url:imageUrl,
+          color, order, is_active:isActive, created_at:createdAt, updated_at:updatedAt
         `)
         .single();
 
@@ -1222,8 +1222,8 @@ export async function registerRoutes(
         .update(toSnakeCase(updateData))
         .eq("id", req.params.id)
         .select(`
-          id, name, slug, description, headId:head_id, imageUrl:image_url,
-          color, order, isActive:is_active, createdAt:created_at, updatedAt:updated_at
+          id, name, slug, description, head_id:headId, image_url:imageUrl,
+          color, order, is_active:isActive, created_at:createdAt, updated_at:updatedAt
         `)
         .single();
 
@@ -1258,8 +1258,8 @@ export async function registerRoutes(
       const { data: activeDepartments, error } = await supabase
         .from("departments")
         .select(`
-          id, name, slug, description, headId:head_id, imageUrl:image_url,
-          color, order, isActive:is_active, createdAt:created_at, updatedAt:updated_at
+          id, name, slug, description, head_id:headId, image_url:imageUrl,
+          color, order, is_active:isActive, created_at:createdAt, updated_at:updatedAt
         `)
         .eq("is_active", true)
         .order("order", { ascending: true });
@@ -1278,8 +1278,8 @@ export async function registerRoutes(
       const { data: activePartners, error } = await supabase
         .from("partners")
         .select(`
-          id, name, logoUrl:logo_url, websiteUrl:website_url, order, 
-          isActive:is_active, createdAt:created_at, updatedAt:updated_at
+          id, name, logo_url:logoUrl, website_url:websiteUrl, order, 
+          is_active:isActive, created_at:createdAt, updated_at:updatedAt
         `)
         .eq("is_active", true)
         .order("order", { ascending: true });
@@ -1298,8 +1298,8 @@ export async function registerRoutes(
       const { data: allPartners, error } = await supabase
         .from("partners")
         .select(`
-          id, name, logoUrl:logo_url, websiteUrl:website_url, order, 
-          isActive:is_active, createdAt:created_at, updatedAt:updated_at
+          id, name, logo_url:logoUrl, website_url:websiteUrl, order, 
+          is_active:isActive, created_at:createdAt, updated_at:updatedAt
         `)
         .order("order", { ascending: true });
 
@@ -1321,8 +1321,8 @@ export async function registerRoutes(
         .from("partners")
         .insert(toSnakeCase(result.data))
         .select(`
-          id, name, logoUrl:logo_url, websiteUrl:website_url, order, 
-          isActive:is_active, createdAt:created_at, updatedAt:updated_at
+          id, name, logo_url:logoUrl, website_url:websiteUrl, order, 
+          is_active:isActive, created_at:createdAt, updated_at:updatedAt
         `)
         .single();
 
@@ -1345,8 +1345,8 @@ export async function registerRoutes(
         .update(toSnakeCase(updateData))
         .eq("id", req.params.id)
         .select(`
-          id, name, logoUrl:logo_url, websiteUrl:website_url, order, 
-          isActive:is_active, createdAt:created_at, updatedAt:updated_at
+          id, name, logo_url:logoUrl, website_url:websiteUrl, order, 
+          is_active:isActive, created_at:createdAt, updated_at:updatedAt
         `)
         .single();
 
