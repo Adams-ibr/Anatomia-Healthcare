@@ -1,10 +1,9 @@
-import { createServer, type IncomingMessage, type ServerResponse } from "http";
+import { IncomingMessage, ServerResponse } from "http";
 import express, { type Express, type Request, type Response } from "express";
 import cookieParser from "cookie-parser";
 import { registerRoutes } from "../server/routes";
 
 const app = express();
-const server = createServer(app);
 
 // Extend Request interface for rawBody
 declare global {
@@ -31,11 +30,11 @@ app.use(cookieParser());
 // Initialize routes (async)
 let routesPromise: Promise<any> | null = null;
 
-function ensureRoutes(): Promise<any> {
+async function ensureRoutes(): Promise<void> {
     if (!routesPromise) {
-        routesPromise = registerRoutes(server, app);
+        routesPromise = registerRoutes(null as any, app);
     }
-    return routesPromise;
+    await routesPromise;
 }
 
 // Export a handler that waits for routes to be registered before handling requests
