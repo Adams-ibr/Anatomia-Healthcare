@@ -1,4 +1,4 @@
-import { IncomingMessage, ServerResponse } from "http";
+import { createServer, IncomingMessage, Server, ServerResponse } from "http";
 import express, { type Express, type Request, type Response } from "express";
 import cookieParser from "cookie-parser";
 import { registerRoutes } from "../server/routes";
@@ -29,10 +29,15 @@ app.use(cookieParser());
 
 // Initialize routes (async)
 let routesPromise: Promise<any> | null = null;
+let httpServer: Server<typeof IncomingMessage, typeof ServerResponse> | null = null;
 
 async function ensureRoutes(): Promise<void> {
     if (!routesPromise) {
-        routesPromise = registerRoutes(null as any, app);
+        // Create http server for Vercel serverless (needed for registerRoutes)
+        if (!httpServer) {
+            httpServer = createServer(app);
+        }
+        routesPromise = registerRoutes(httpServer, app);
     }
     await routesPromise;
 }
