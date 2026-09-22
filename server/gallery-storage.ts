@@ -1,7 +1,7 @@
 import { supabase, toSnakeCase } from "./db";
 import { type GalleryItem, type InsertGalleryItem } from "../shared/schema";
 
-const GALLERY_SELECT = "id, title, description, image_url:imageUrl, category, is_published:isPublished, created_at:createdAt, updated_at:updatedAt";
+const GALLERY_SELECT = "id, title, description, imageUrl:image_url, category, isPublished:is_published, createdAt:created_at, updatedAt:updated_at";
 
 export class GalleryStorage {
   async getGalleryItems(): Promise<GalleryItem[]> {

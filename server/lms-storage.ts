@@ -633,14 +633,15 @@ export class LmsStorage implements ILmsStorage {
 
     if (existing) {
       const accumulatedTime = (existing.timeSpentSeconds || 0) + (progress.timeSpentSeconds || 0);
+      const updateData: Record<string, any> = {
+        ...toSnakeCase(progress),
+        time_spent_seconds: accumulatedTime,
+        last_accessed_at: new Date(),
+        completed_at: progress.isCompleted ? new Date() : existing.completedAt
+      };
       const { data, error } = await supabase
         .from("lesson_progress")
-        .update({
-          ...toSnakeCase(progress),
-          time_spent_seconds: accumulatedTime,
-          last_accessed_at: new Date(),
-          completed_at: progress.isCompleted ? new Date() : existing.completedAt
-        })
+        .update(updateData)
         .eq("id", existing.id)
         .select(`
           id, memberId:member_id, lessonId:lesson_id,
@@ -1023,12 +1024,14 @@ export class LmsStorage implements ILmsStorage {
   }
 
   async createQuestionTopic(topic: InsertQuestionTopic): Promise<QuestionTopic> {
-    const slug = (topic as any).slug ||
-      topic.name.toLowerCase().trim().replace(/\s+/g, "-").replace(/[^\w-]+/g, "").replace(/--+/g, "-") +
+    const topicData = topic as any;
+    const slug = topicData.slug ||
+      topicData.name.toLowerCase().trim().replace(/\s+/g, "-").replace(/[^\w-]+/g, "").replace(/--+/g, "-") +
       "-" + Date.now();
+    const insertData: Record<string, any> = toSnakeCase({ ...topic, slug });
     const { data, error } = await supabase
       .from("question_topics")
-      .insert(toSnakeCase({ ...topic, slug }))
+      .insert(insertData)
       .select("id, name, slug, description, parentId:parent_id, order, createdAt:created_at")
       .single();
 
@@ -1037,9 +1040,10 @@ export class LmsStorage implements ILmsStorage {
   }
 
   async updateQuestionTopic(id: string, topic: Partial<InsertQuestionTopic>): Promise<QuestionTopic | undefined> {
+    const updateData: Record<string, any> = { ...toSnakeCase(topic), updated_at: new Date() };
     const { data, error } = await supabase
       .from("question_topics")
-      .update({ ...toSnakeCase(topic), updated_at: new Date() })
+      .update(updateData)
       .eq("id", id)
       .select("id, name, slug, description, parentId:parent_id, order, createdAt:created_at")
       .single();
@@ -1370,13 +1374,14 @@ export class LmsStorage implements ILmsStorage {
     const existing = await this.getFlashcardProgress(progress.memberId, progress.flashcardId);
 
     if (existing) {
+      const updateData: Record<string, any> = {
+        ...progress,
+        last_reviewed_at: new Date(),
+        review_count: (existing.reviewCount || 0) + 1
+      };
       const { data, error } = await supabase
         .from("flashcard_progress")
-        .update({
-          ...progress,
-          last_reviewed_at: new Date(),
-          review_count: (existing.reviewCount || 0) + 1
-        })
+        .update(updateData)
         .eq("id", existing.id)
         .select(`
           id, memberId:member_id, flashcardId:flashcard_id, masteryLevel:mastery_level,

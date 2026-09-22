@@ -203,7 +203,7 @@ export async function registerRoutes(
           return res.status(400).json({ error: "Invalid email address", details: result.error.issues });
         }
 
-        const { data: existing } = await supabase
+        const { data: existing }: { data: any } = await supabase
           .from("newsletter_subscriptions")
           .select()
           .eq("email", result.data.email)

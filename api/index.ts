@@ -29,9 +29,9 @@ app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 
 // Initialize routes (async)
-let routesPromise: Promise<void> | null = null;
+let routesPromise: Promise<any> | null = null;
 
-function ensureRoutes(): Promise<void> {
+function ensureRoutes(): Promise<any> {
     if (!routesPromise) {
         routesPromise = registerRoutes(server, app);
     }
@@ -56,5 +56,5 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
         res.end(JSON.stringify(response));
         return;
     }
-    app(req, res);
+    return app(req, res) as unknown as Promise<void>;
 }

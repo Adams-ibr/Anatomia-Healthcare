@@ -54,7 +54,7 @@ export interface DiscussionReplyWithMember extends DiscussionReply {
 
 class InteractionStorage {
   async createConversation(data: InsertConversation): Promise<Conversation> {
-    const { data: conversation, error } = await supabase
+    const { data: conversation, error }: { data: any; error: any } = await supabase
       .from("conversations")
       .insert(data)
       .select("id, type, name, createdAt:created_at, updatedAt:updated_at")
@@ -87,13 +87,14 @@ class InteractionStorage {
   }
 
   async addParticipant(data: InsertConversationParticipant): Promise<ConversationParticipant> {
+    const insertData = {
+      conversation_id: data.conversationId,
+      member_id: data.memberId,
+      last_read_at: data.lastReadAt,
+    };
     const { data: participant, error } = await supabase
       .from("conversation_participants")
-      .insert({
-        conversation_id: data.conversationId,
-        member_id: data.memberId,
-        last_read_at: data.lastReadAt,
-      })
+      .insert(insertData)
       .select("id, conversationId:conversation_id, memberId:member_id, lastReadAt:last_read_at, joinedAt:joined_at")
       .single();
 
@@ -103,7 +104,7 @@ class InteractionStorage {
 
   async getConversationsByMemberId(memberId: string): Promise<ConversationWithDetails[]> {
     // 1. Get all conversations for member
-    const { data: participantRows, error } = await supabase
+    const { data: participantRows, error }: { data: any; error: any } = await supabase
       .from("conversation_participants")
       .select("conversation_id, last_read_at")
       .eq("member_id", memberId);
@@ -116,7 +117,7 @@ class InteractionStorage {
       const convId = p.conversation_id;
 
       // Get conversation details
-      const { data: conv } = await supabase
+      const { data: conv }: { data: any } = await supabase
         .from("conversations")
         .select("id, type, name, createdAt:created_at, updatedAt:updated_at")
         .eq("id", convId)
@@ -125,7 +126,7 @@ class InteractionStorage {
       if (!conv) continue;
 
       // Get all participants
-      const { data: participants } = await supabase
+      const { data: participants }: { data: any } = await supabase
         .from("conversation_participants")
         .select(`
           id, memberId:member_id
@@ -247,15 +248,16 @@ class InteractionStorage {
   }
 
   async createMessage(data: InsertMessage): Promise<Message> {
+    const insertData = {
+      conversation_id: data.conversationId,
+      sender_id: data.senderId,
+      content: data.content,
+      is_edited: false,
+      is_deleted: false
+    };
     const { data: message, error } = await supabase
       .from("messages")
-      .insert({
-        conversation_id: data.conversationId,
-        sender_id: data.senderId,
-        content: data.content,
-        is_edited: false,
-        is_deleted: false
-      })
+      .insert(insertData)
       .select("id, conversationId:conversation_id, senderId:sender_id, content, isEdited:is_edited, isDeleted:is_deleted, createdAt:created_at, updatedAt:updated_at")
       .single();
 
@@ -325,17 +327,18 @@ class InteractionStorage {
   }
 
   async createComment(data: InsertComment): Promise<Comment> {
+    const insertData = {
+      commentable_type: data.commentableType,
+      commentable_id: data.commentableId,
+      member_id: data.memberId,
+      content: data.content,
+      parent_id: data.parentId,
+      is_edited: false,
+      is_deleted: false
+    };
     const { data: comment, error } = await supabase
       .from("comments")
-      .insert({
-        commentable_type: data.commentableType,
-        commentable_id: data.commentableId,
-        member_id: data.memberId,
-        content: data.content,
-        parent_id: data.parentId,
-        is_edited: false,
-        is_deleted: false
-      })
+      .insert(insertData)
       .select("id, commentableType:commentable_type, commentableId:commentable_id, memberId:member_id, content, parentId:parent_id, isEdited:is_edited, isDeleted:is_deleted, createdAt:created_at, updatedAt:updated_at")
       .single();
 
@@ -442,16 +445,17 @@ class InteractionStorage {
   }
 
   async createDiscussion(data: InsertDiscussion): Promise<Discussion> {
+    const insertData = {
+      title: data.title,
+      content: data.content,
+      course_id: data.courseId,
+      lesson_id: data.lessonId,
+      member_id: data.memberId,
+      view_count: "0"
+    };
     const { data: discussion, error } = await supabase
       .from("discussions")
-      .insert({
-        title: data.title,
-        content: data.content,
-        course_id: data.courseId,
-        lesson_id: data.lessonId,
-        member_id: data.memberId,
-        view_count: "0"
-      })
+      .insert(insertData)
       .select("id, title, content, courseId:course_id, lessonId:lesson_id, memberId:member_id, isPinned:is_pinned, isLocked:is_locked, viewCount:view_count, createdAt:created_at, updatedAt:updated_at")
       .single();
 
@@ -594,16 +598,17 @@ class InteractionStorage {
   }
 
   async createDiscussionReply(data: InsertDiscussionReply): Promise<DiscussionReply> {
+    const insertData = {
+      discussion_id: data.discussionId,
+      member_id: data.memberId,
+      content: data.content,
+      parent_id: data.parentId,
+      is_edited: false,
+      is_deleted: false
+    };
     const { data: reply, error } = await supabase
       .from("discussion_replies")
-      .insert({
-        discussion_id: data.discussionId,
-        member_id: data.memberId,
-        content: data.content,
-        parent_id: data.parentId,
-        is_edited: false,
-        is_deleted: false
-      })
+      .insert(insertData)
       .select("id, discussionId:discussion_id, memberId:member_id, content, parentId:parent_id, isEdited:is_edited, isDeleted:is_deleted, createdAt:created_at, updatedAt:updated_at")
       .single();
 
