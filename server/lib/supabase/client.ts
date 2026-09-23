@@ -18,30 +18,25 @@ function getServerConfig(): ServerSupabaseConfig {
     );
   }
 
-  return {
-    url,
-    serviceRoleKey,
-    options: {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false,
-        detectSessionInUrl: false,
-      },
-      db: {
-        schema: "public",
-      },
-      global: {
-        headers: {
-          "X-Client-Info": "anatomia-healthcare-server",
+return {
+      url,
+      serviceRoleKey,
+      options: {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false,
+          detectSessionInUrl: false,
+        },
+        db: {
+          schema: "public",
+        },
+        global: {
+          headers: {
+            "X-Client-Info": "anatomia-healthcare-server",
+          },
         },
       },
-      realtime: {
-        params: {
-          eventsPerSecond: 10,
-        },
-      },
-    },
-  };
+    };
 }
 
 export function createServerSupabaseClient(config?: Partial<ServerSupabaseConfig>): SupabaseClient {

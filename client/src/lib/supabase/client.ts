@@ -18,32 +18,27 @@ function getClientConfig(): ClientSupabaseConfig {
     );
   }
 
-  return {
-    url,
-    anonKey,
-    options: {
-      auth: {
-        autoRefreshToken: true,
-        persistSession: true,
-        detectSessionInUrl: true,
-        storageKey: "anatomia-auth",
-        flowType: "pkce",
-      },
-      db: {
-        schema: "public",
-      },
-      global: {
-        headers: {
-          "X-Client-Info": "anatomia-healthcare-client",
+return {
+      url,
+      anonKey,
+      options: {
+        auth: {
+          autoRefreshToken: true,
+          persistSession: true,
+          detectSessionInUrl: true,
+          storageKey: "anatomia-auth",
+          flowType: "pkce",
+        },
+        db: {
+          schema: "public",
+        },
+        global: {
+          headers: {
+            "X-Client-Info": "anatomia-healthcare-client",
+          },
         },
       },
-      realtime: {
-        params: {
-          eventsPerSecond: 10,
-        },
-      },
-    },
-  };
+    };
 }
 
 export function createBrowserSupabaseClient(config?: Partial<ClientSupabaseConfig>): SupabaseClient {
