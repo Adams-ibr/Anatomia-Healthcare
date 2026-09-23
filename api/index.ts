@@ -42,12 +42,24 @@ async function ensureRoutes(): Promise<void> {
     await routesPromise;
 }
 
-// Export a handler that waits for routes to be registered before handling requests
+// Export a handler that waits for routes and response completion before terminating
 export default async function handler(req: IncomingMessage, res: ServerResponse): Promise<void> {
     try {
         await ensureRoutes();
+        return new Promise<void>((resolve, reject) => {
+            res.on("finish", () => resolve());
+            res.on("close", () => resolve());
+            res.on("error", (err) => reject(err));
+            app(req as any, res as any, (err?: any) => {
+                if (err) {
+                    reject(err);
+                } else {
+                    resolve();
+                }
+            });
+        });
     } catch (err) {
-        console.error("Error setting up routes:", err);
+        console.error("Error handling API request:", err);
         const isDevelopment = process.env.NODE_ENV === "development";
         const response: Record<string, unknown> = { 
             error: "Internal Server Error during startup", 
@@ -56,9 +68,9 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
             response.details = err.message;
             response.stack = err.stack;
         }
-        res.writeHead(500, { "Content-Type": "application/json" });
-        res.end(JSON.stringify(response));
-        return;
+        if (!res.headersSent) {
+            res.writeHead(500, { "Content-Type": "application/json" });
+            res.end(JSON.stringify(response));
+        }
     }
-    return app(req, res) as unknown as Promise<void>;
 }

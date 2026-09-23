@@ -81,10 +81,11 @@ export function setupSession(app: Express) {
     store: sessionStore,
     resave: false,
     saveUninitialized: false,
+    proxy: true,
     name: "anatomia.sid",
     cookie: {
       httpOnly: true,
-      secure: isProduction,
+      secure: isProduction ? "auto" : false,
       maxAge: sessionTtl,
       sameSite: "lax",
     },

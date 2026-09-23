@@ -34,13 +34,15 @@ class SupabaseSessionStore extends Store {
         console.error("Error during session cleanup:", err);
       });
     }, 3600000);
+    this.cleanupInterval.unref?.();
 
     // Also run cleanup on startup after a small delay
-    setTimeout(() => {
+    const initialTimer = setTimeout(() => {
       void this.cleanupExpiredSessions().catch((err) => {
         console.error("Error during initial session cleanup:", err);
       });
     }, 5000);
+    initialTimer.unref?.();
   }
 
   /**

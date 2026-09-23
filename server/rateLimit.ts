@@ -98,9 +98,10 @@ export function cleanupRateLimitStore() {
  * Cleans up old entries every 30 minutes
  */
 export function startRateLimitCleanup() {
-  setInterval(() => {
+  const timer = setInterval(() => {
     cleanupRateLimitStore();
   }, 30 * 60 * 1000); // 30 minutes
+  timer.unref?.();
 
   console.log("[RateLimit] Cleanup interval started");
 }
