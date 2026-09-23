@@ -3,12 +3,13 @@ export {
   getServerSupabaseClient,
   resetServerSupabaseClient,
   supabase,
+} from "./client";
+
+export {
   createAdminSupabaseClient,
   getAdminSupabaseClient,
   resetAdminSupabaseClient,
   supabaseAdmin,
-} from "./lib/supabase";
+} from "./admin";
 
-export { toSnakeCase, toCamelCase, handleSupabaseError, isSupabaseError } from "../shared/supabase";
-
-export { db, pool } from "./lib/db";
+export type { ServerSupabaseConfig } from "./client";

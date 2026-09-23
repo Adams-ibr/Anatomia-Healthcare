@@ -3,4 +3,6 @@ export {
   getBrowserSupabaseClient,
   resetBrowserSupabaseClient,
   supabase,
-} from "./supabase/index";
+} from "./client";
+
+export type { ClientSupabaseConfig } from "./client";
