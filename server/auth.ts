@@ -269,7 +269,7 @@ export function registerAuthRoutes(app: Express) {
 
 // Authentication middleware for admin
 export const isAuthenticated: RequestHandler = async (req, res, next) => {
-  const userId = req.session.userId;
+  const userId = req.session?.userId;
   if (!userId) {
     return res.status(401).json({ error: "Unauthorized" });
   }
@@ -285,7 +285,7 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
 
 // Authentication middleware for members
 export const isMemberAuthenticated: RequestHandler = async (req, res, next) => {
-  const memberId = req.session.memberId;
+  const memberId = req.session?.memberId;
   if (!memberId) {
     return res.status(401).json({ error: "Unauthorized" });
   }
@@ -312,7 +312,7 @@ function hasActiveSubscription(member: Member): boolean {
 
 // Subscription validation middleware - requires active membership
 export const requireActiveMembership: RequestHandler = async (req, res, next) => {
-  const memberId = req.session.memberId;
+  const memberId = req.session?.memberId;
   if (!memberId) {
     return res.status(401).json({ error: "Unauthorized" });
   }
@@ -334,7 +334,7 @@ export const requireActiveMembership: RequestHandler = async (req, res, next) =>
 
 // Super Admin only middleware
 export const isSuperAdmin: RequestHandler = async (req, res, next) => {
-  const userId = req.session.userId;
+  const userId = req.session?.userId;
   if (!userId) {
     return res.status(401).json({ error: "Unauthorized" });
   }
@@ -350,7 +350,7 @@ export const isSuperAdmin: RequestHandler = async (req, res, next) => {
 
 // Content Admin or above middleware
 export const isContentAdmin: RequestHandler = async (req, res, next) => {
-  const userId = req.session.userId;
+  const userId = req.session?.userId;
   if (!userId) {
     return res.status(401).json({ error: "Unauthorized" });
   }
@@ -489,7 +489,7 @@ export function registerMemberRoutes(app: Express) {
   // Get current member
   app.get("/api/members/me", async (req, res) => {
     try {
-      const memberId = req.session.memberId;
+      const memberId = req.session?.memberId;
       if (!memberId) {
         return res.status(401).json({ error: "Not authenticated" });
       }
@@ -528,7 +528,7 @@ export function registerMemberRoutes(app: Express) {
   // Update member profile
   app.patch("/api/members/me", async (req, res) => {
     try {
-      const memberId = req.session.memberId;
+      const memberId = req.session?.memberId;
       if (!memberId) {
         return res.status(401).json({ error: "Not authenticated" });
       }
@@ -572,7 +572,7 @@ export function registerMemberRoutes(app: Express) {
   // Change member password
   app.post("/api/members/change-password", async (req, res) => {
     try {
-      const memberId = req.session.memberId;
+      const memberId = req.session?.memberId;
       if (!memberId) {
         return res.status(401).json({ error: "Not authenticated" });
       }
