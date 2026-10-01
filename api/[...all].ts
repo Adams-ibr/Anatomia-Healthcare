@@ -6,7 +6,6 @@ import { setupSession } from "../server/auth";
 
 const app = express();
 
-// Extend Request interface for rawBody
 declare global {
   namespace Express {
     interface Request {
@@ -15,7 +14,6 @@ declare global {
   }
 }
 
-// Body parsing middleware
 app.use(
     express.json({
         verify: (req: Request, _res: Response, buf: Buffer) => {
@@ -24,28 +22,22 @@ app.use(
     })
 );
 app.use(express.urlencoded({ extended: false }));
-
-// Parse cookies for CSRF and session management
 app.use(cookieParser());
 
-// Initialize routes (async)
 let routesPromise: Promise<any> | null = null;
 let httpServer: Server<typeof IncomingMessage, typeof ServerResponse> | null = null;
 
 async function ensureRoutes(): Promise<void> {
     if (!routesPromise) {
-        // Create http server for Vercel serverless (needed for registerRoutes)
         if (!httpServer) {
             httpServer = createServer(app);
         }
-        // Setup session middleware (must be before routes)
         setupSession(app);
         routesPromise = registerRoutes(httpServer, app);
     }
     await routesPromise;
 }
 
-// Export a handler that waits for routes and response completion before terminating
 export default async function handler(req: IncomingMessage, res: ServerResponse): Promise<void> {
     try {
         await ensureRoutes();
