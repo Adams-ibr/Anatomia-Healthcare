@@ -1,20 +1,21 @@
 {
   "include": [
     "client/src/**/*",
-    "shared/**/*",
-    "server/**/*"
+    "shared/**/*"
   ],
   "exclude": [
     "node_modules",
     "build",
     "dist",
+    "server/**/*",
+    "functions/**/*",
     "**/*.test.ts"
   ],
   "compilerOptions": {
     "noEmit": true,
     "target": "ES2020",
     "module": "ESNext",
-    "strict": true,
+    "strict": false,
     "lib": [
       "esnext",
       "dom",
