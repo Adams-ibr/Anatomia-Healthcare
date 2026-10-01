@@ -21,31 +21,54 @@ function getAdminConfig(): FirebaseAdminConfig {
   const privateKey = process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, "\n");
   const storageBucket = process.env.FIREBASE_STORAGE_BUCKET;
 
+  console.log("[Firebase Config Debug]", {
+    hasProjectId: !!projectId,
+    hasClientEmail: !!clientEmail,
+    hasPrivateKey: !!privateKey,
+    hasStorageBucket: !!storageBucket,
+    privateKeyLength: privateKey?.length || 0,
+  });
+
   if (!projectId || !clientEmail || !privateKey || !storageBucket) {
-    throw new Error(
-      "Missing required Firebase Admin environment variables: " +
-      "FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY, FIREBASE_STORAGE_BUCKET"
-    );
+    const missing = [];
+    if (!projectId) missing.push("FIREBASE_PROJECT_ID");
+    if (!clientEmail) missing.push("FIREBASE_CLIENT_EMAIL");
+    if (!privateKey) missing.push("FIREBASE_PRIVATE_KEY");
+    if (!storageBucket) missing.push("FIREBASE_STORAGE_BUCKET");
+    
+    const error = `Missing Firebase environment variables: ${missing.join(", ")}`;
+    console.error("[Firebase Config Error]", error);
+    throw new Error(error);
   }
 
   return { projectId, clientEmail, privateKey, storageBucket };
 }
 
 export function initializeFirebaseAdmin(): App {
-  if (adminApp) return adminApp;
+  if (adminApp) {
+    console.log("[Firebase] Already initialized, returning cached app");
+    return adminApp;
+  }
 
-  const config = getAdminConfig();
+  try {
+    console.log("[Firebase] Initializing Firebase Admin SDK...");
+    const config = getAdminConfig();
 
-  adminApp = initializeApp({
-    credential: cert({
-      projectId: config.projectId,
-      clientEmail: config.clientEmail,
-      privateKey: config.privateKey,
-    }),
-    storageBucket: config.storageBucket,
-  });
+    adminApp = initializeApp({
+      credential: cert({
+        projectId: config.projectId,
+        clientEmail: config.clientEmail,
+        privateKey: config.privateKey,
+      }),
+      storageBucket: config.storageBucket,
+    });
 
-  return adminApp;
+    console.log("[Firebase] Successfully initialized");
+    return adminApp;
+  } catch (err) {
+    console.error("[Firebase] Initialization failed:", err instanceof Error ? err.message : String(err));
+    throw err;
+  }
 }
 
 export function getFirebaseAdminAuth(): Auth {
