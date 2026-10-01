@@ -81,52 +81,37 @@ export function resetFirebaseAdmin(): void {
   adminStorage = null;
 }
 
-// Export lazy-initialized instances
-// These will initialize on first use, not on module import
-export const auth = (() => {
-  let cached: Auth | null = null;
-  return new Proxy({} as any, {
-    get(target, prop) {
-      if (!cached) {
-        if (!adminAuth) {
-          initializeFirebaseAdmin();
-          adminAuth = getFirebaseAdminAuth();
-        }
-        cached = adminAuth;
-      }
-      return (cached as any)[prop];
-    },
-  }) as Auth;
-})();
+// Placeholder exports - will be populated on first access
+let _auth: Auth | null = null;
+let _db: Firestore | null = null;
+let _storage: Storage | null = null;
 
-export const db = (() => {
-  let cached: Firestore | null = null;
-  return new Proxy({} as any, {
-    get(target, prop) {
-      if (!cached) {
-        if (!adminDb) {
-          initializeFirebaseAdmin();
-          adminDb = getFirebaseAdminFirestore();
-        }
-        cached = adminDb;
-      }
-      return (cached as any)[prop];
-    },
-  }) as Firestore;
-})();
+export const auth = new Proxy({} as Auth, {
+  get(target, prop) {
+    if (!_auth) {
+      if (!adminApp) initializeFirebaseAdmin();
+      _auth = getFirebaseAdminAuth();
+    }
+    return (_auth as any)[prop];
+  },
+});
 
-export const storage = (() => {
-  let cached: Storage | null = null;
-  return new Proxy({} as any, {
-    get(target, prop) {
-      if (!cached) {
-        if (!adminStorage) {
-          initializeFirebaseAdmin();
-          adminStorage = getFirebaseAdminStorage();
-        }
-        cached = adminStorage;
-      }
-      return (cached as any)[prop];
-    },
-  }) as Storage;
-})();
+export const db = new Proxy({} as Firestore, {
+  get(target, prop) {
+    if (!_db) {
+      if (!adminApp) initializeFirebaseAdmin();
+      _db = getFirebaseAdminFirestore();
+    }
+    return (_db as any)[prop];
+  },
+});
+
+export const storage = new Proxy({} as Storage, {
+  get(target, prop) {
+    if (!_storage) {
+      if (!adminApp) initializeFirebaseAdmin();
+      _storage = getFirebaseAdminStorage();
+    }
+    return (_storage as any)[prop];
+  },
+});
