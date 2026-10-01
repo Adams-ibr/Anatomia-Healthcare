@@ -1,9 +1,7 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
-import { supabase } from "@/lib/supabase";
-import { RealtimeChannel } from "@supabase/supabase-js";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -11,7 +9,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   MessageCircle, X, Send, Search, ChevronLeft,
-  Users, Loader2, Wifi, WifiOff
+  Users, Loader2
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
@@ -58,62 +56,8 @@ export function ChatWidget({ currentMemberId }: ChatWidgetProps) {
   const [messageInput, setMessageInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [showNewChat, setShowNewChat] = useState(false);
-  const [wsConnected, setWsConnected] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const channelRef = useRef<RealtimeChannel | null>(null);
   const queryClient = useQueryClient();
-
-  const connectSupabaseRealtime = useCallback(() => {
-    // Prevent duplicate subscriptions
-    if (channelRef.current) return;
-
-    const channel = supabase.channel('chat-room');
-
-    channel
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'messages' },
-        (payload) => {
-          // Invalidate messages if it matches the current active conversation
-          if (activeConversation && payload.new.conversation_id === activeConversation.id) {
-            queryClient.invalidateQueries({
-              queryKey: ["/api/interactions/conversations", activeConversation.id, "messages"]
-            });
-          }
-          // Always invalidate conversation list to update unseen counts/last message
-          queryClient.invalidateQueries({
-            queryKey: ["/api/interactions/conversations"]
-          });
-        }
-      )
-      .subscribe((status) => {
-        if (status === 'SUBSCRIBED') {
-          setWsConnected(true);
-        } else if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
-          setWsConnected(false);
-          // Optional: handle reconnection logic here if needed
-        }
-      });
-
-    channelRef.current = channel;
-  }, [activeConversation, queryClient]);
-
-  useEffect(() => {
-    if (isOpen) {
-      connectSupabaseRealtime();
-    }
-    return () => {
-      if (channelRef.current) {
-        supabase.removeChannel(channelRef.current);
-        channelRef.current = null;
-      }
-    };
-  }, [isOpen, connectSupabaseRealtime]);
-
-  // Handle active conversation changes (Realtime doesn't technically "join" tables exactly, but we rebind the ref context above)
-  useEffect(() => {
-    // Optional: we can emit a presence "join" event if we implement presence later
-  }, [activeConversation]);
 
   const { data: conversations = [], isLoading: loadingConversations } = useQuery<Conversation[]>({
     queryKey: ["/api/interactions/conversations"],
@@ -239,19 +183,12 @@ export function ChatWidget({ currentMemberId }: ChatWidgetProps) {
               <ChevronLeft className="h-4 w-4" />
             </Button>
           )}
-          <CardTitle className="text-base flex items-center gap-2">
+          <CardTitle className="text-base">
             {showNewChat
               ? "New Message"
               : activeConversation
                 ? getConversationName(activeConversation)
                 : "Messages"}
-            {activeConversation && (
-              wsConnected ? (
-                <Wifi className="h-3 w-3 text-green-500" />
-              ) : (
-                <WifiOff className="h-3 w-3 text-muted-foreground" />
-              )
-            )}
           </CardTitle>
         </div>
         <div className="flex items-center gap-1">

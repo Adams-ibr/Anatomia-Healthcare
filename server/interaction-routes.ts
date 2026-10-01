@@ -1,351 +1,345 @@
 import { Router, Request, Response } from "express";
 import { isMemberAuthenticated } from "./auth";
-import { interactionStorage } from "./interaction-storage";
 import {
-  insertMessageSchema,
-  insertCommentSchema,
-  insertDiscussionSchema,
-  insertDiscussionReplySchema,
-} from "../shared/schema";
-import { z } from "zod";
+  getDocuments,
+  getDocumentById,
+  createDocument,
+  updateDocument,
+  deleteDocument,
+  serverTimestamp,
+  collections,
+} from "./lib/firebase";
+import { sendErrorResponse } from "./errorHandler";
 
 const router = Router();
 
 const memberRouter = Router();
 memberRouter.use(isMemberAuthenticated);
 
+// ============ CONVERSATIONS ============
+
 memberRouter.get("/conversations", async (req: Request, res: Response) => {
   try {
-    const memberId = (req as any).member?.id;
-    if (!memberId) {
-      return res.status(401).json({ message: "Unauthorized" });
+    if (!req.user?.id) {
+      sendErrorResponse(res, 401, "Not authenticated");
+      return;
     }
 
-    const conversations = await interactionStorage.getConversationsByMemberId(memberId);
+    const conversations = await getDocuments(collections.conversations, {
+      filters: [{ field: "participantIds", operator: "array-contains", value: req.user.id }],
+      orderBy: [{ field: "updatedAt", direction: "desc" }],
+    });
+
     res.json(conversations);
   } catch (error) {
     console.error("Error fetching conversations:", error);
-    res.status(500).json({ message: "Failed to fetch conversations" });
+    sendErrorResponse(res, 500, "Failed to fetch conversations", error);
   }
 });
 
 memberRouter.post("/conversations", async (req: Request, res: Response) => {
   try {
-    const memberId = (req as any).member?.id;
-    if (!memberId) {
-      return res.status(401).json({ message: "Unauthorized" });
+    if (!req.user?.id) {
+      sendErrorResponse(res, 401, "Not authenticated");
+      return;
     }
 
     const { recipientId } = req.body;
     if (!recipientId) {
-      return res.status(400).json({ message: "Recipient ID is required" });
+      return res.status(400).json({ error: "Recipient ID is required" });
     }
 
-    const conversation = await interactionStorage.getOrCreateDirectConversation(memberId, recipientId);
-    res.json(conversation);
-  } catch (error) {
-    console.error("Error creating conversation:", error);
-    res.status(500).json({ message: "Failed to create conversation" });
-  }
-});
-
-memberRouter.get("/conversations/:id/messages", async (req: Request, res: Response) => {
-  try {
-    const memberId = (req as any).member?.id;
-    if (!memberId) {
-      return res.status(401).json({ message: "Unauthorized" });
-    }
-
-    const { id } = req.params;
-
-    const isParticipant = await interactionStorage.isMemberInConversation(id, memberId);
-    if (!isParticipant) {
-      return res.status(403).json({ message: "Access denied to this conversation" });
-    }
-
-    const { limit = "50", offset = "0" } = req.query;
-
-    const messages = await interactionStorage.getMessagesByConversationId(
-      id,
-      parseInt(limit as string, 10),
-      parseInt(offset as string, 10)
-    );
-
-    await interactionStorage.markConversationAsRead(id, memberId);
-
-    res.json(messages);
-  } catch (error) {
-    console.error("Error fetching messages:", error);
-    res.status(500).json({ message: "Failed to fetch messages" });
-  }
-});
-
-memberRouter.post("/conversations/:id/messages", async (req: Request, res: Response) => {
-  try {
-    const memberId = (req as any).member?.id;
-    const member = (req as any).member;
-    if (!memberId) {
-      return res.status(401).json({ message: "Unauthorized" });
-    }
-
-    const { id } = req.params;
-
-    const isParticipant = await interactionStorage.isMemberInConversation(id, memberId);
-    if (!isParticipant) {
-      return res.status(403).json({ message: "Access denied to this conversation" });
-    }
-
-    const validation = insertMessageSchema.safeParse({
-      conversationId: id,
-      senderId: memberId,
-      content: req.body.content,
+    // Check if conversation already exists
+    const existing = await getDocuments(collections.conversations, {
+      filters: [
+        { field: "type", operator: "==", value: "direct" },
+        { field: "participantIds", operator: "array-contains", value: req.user.id },
+      ],
     });
 
-    if (!validation.success) {
-      return res.status(400).json({ message: "Invalid message data", errors: validation.error.errors });
+    const existingConv = existing.find((c: any) => 
+      c.participantIds?.includes(recipientId) && c.participantIds?.length === 2
+    );
+
+    if (existingConv) {
+      res.json(existingConv);
+      return;
     }
 
-    const message = await interactionStorage.createMessage(validation.data);
+    // Create new conversation
+    const conversationData = {
+      type: "direct",
+      participantIds: [req.user.id, recipientId],
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    };
 
-    res.status(201).json(message);
+    const conversationId = await createDocument(collections.conversations, conversationData as any);
+
+    res.status(201).json({
+      id: conversationId,
+      ...conversationData,
+    });
+  } catch (error) {
+    console.error("Error creating conversation:", error);
+    sendErrorResponse(res, 500, "Failed to create conversation", error);
+  }
+});
+
+// ============ MESSAGES ============
+
+memberRouter.get("/conversations/:conversationId/messages", async (req: Request, res: Response) => {
+  try {
+    if (!req.user?.id) {
+      sendErrorResponse(res, 401, "Not authenticated");
+      return;
+    }
+
+    const { conversationId } = req.params;
+    const { limit = 50, offset = 0 } = req.query;
+
+    const messages = await getDocuments(collections.messages, {
+      filters: [
+        { field: "conversationId", operator: "==", value: conversationId },
+        { field: "isDeleted", operator: "==", value: false },
+      ],
+      orderBy: [{ field: "createdAt", direction: "desc" }],
+      limit: parseInt(limit as string),
+    });
+
+    res.json(messages.reverse()); // Reverse to get oldest first
+  } catch (error) {
+    console.error("Error fetching messages:", error);
+    sendErrorResponse(res, 500, "Failed to fetch messages", error);
+  }
+});
+
+memberRouter.post("/conversations/:conversationId/messages", async (req: Request, res: Response) => {
+  try {
+    if (!req.user?.id) {
+      sendErrorResponse(res, 401, "Not authenticated");
+      return;
+    }
+
+    const { conversationId } = req.params;
+    const { content } = req.body;
+
+    if (!content || !content.trim()) {
+      return res.status(400).json({ error: "Message content is required" });
+    }
+
+    const messageData = {
+      conversationId,
+      senderId: req.user.id,
+      content: content.trim(),
+      isEdited: false,
+      isDeleted: false,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    };
+
+    const messageId = await createDocument(collections.messages, messageData as any);
+
+    // Update conversation updatedAt
+    await updateDocument(collections.conversations.doc(conversationId), {
+      updatedAt: serverTimestamp(),
+    });
+
+    res.status(201).json({
+      id: messageId,
+      ...messageData,
+    });
   } catch (error) {
     console.error("Error creating message:", error);
-    res.status(500).json({ message: "Failed to send message" });
+    sendErrorResponse(res, 500, "Failed to create message", error);
   }
 });
 
-memberRouter.post("/conversations/:id/read", async (req: Request, res: Response) => {
+// ============ COMMENTS ============
+
+memberRouter.get("/comments", async (req: Request, res: Response) => {
   try {
-    const memberId = (req as any).member?.id;
-    if (!memberId) {
-      return res.status(401).json({ message: "Unauthorized" });
+    const { commentableType, commentableId } = req.query;
+
+    if (!commentableType || !commentableId) {
+      return res.status(400).json({ error: "commentableType and commentableId are required" });
     }
 
-    const { id } = req.params;
+    const comments = await getDocuments(collections.comments, {
+      filters: [
+        { field: "commentableType", operator: "==", value: commentableType },
+        { field: "commentableId", operator: "==", value: commentableId },
+        { field: "isDeleted", operator: "==", value: false },
+      ],
+      orderBy: [{ field: "createdAt", direction: "asc" }],
+    });
 
-    const isParticipant = await interactionStorage.isMemberInConversation(id, memberId);
-    if (!isParticipant) {
-      return res.status(403).json({ message: "Access denied to this conversation" });
-    }
-
-    await interactionStorage.markConversationAsRead(id, memberId);
-    res.json({ success: true });
-  } catch (error) {
-    console.error("Error marking as read:", error);
-    res.status(500).json({ message: "Failed to mark as read" });
-  }
-});
-
-memberRouter.get("/members/search", async (req: Request, res: Response) => {
-  try {
-    const memberId = (req as any).member?.id;
-    const { q } = req.query;
-
-    if (!q || typeof q !== "string") {
-      return res.status(400).json({ message: "Search query is required" });
-    }
-
-    const members = await interactionStorage.searchMembers(q, memberId);
-    res.json(members);
-  } catch (error) {
-    console.error("Error searching members:", error);
-    res.status(500).json({ message: "Failed to search members" });
-  }
-});
-
-const commentSchema = z.object({
-  content: z.string().min(1, "Comment cannot be empty"),
-  parentId: z.string().optional(),
-});
-
-memberRouter.get("/comments/:type/:id", async (req: Request, res: Response) => {
-  try {
-    const memberId = (req as any).member?.id;
-    const { type, id } = req.params;
-
-    const comments = await interactionStorage.getCommentsByTarget(type, id, memberId);
     res.json(comments);
   } catch (error) {
     console.error("Error fetching comments:", error);
-    res.status(500).json({ message: "Failed to fetch comments" });
+    sendErrorResponse(res, 500, "Failed to fetch comments", error);
   }
 });
 
-memberRouter.post("/comments/:type/:id", async (req: Request, res: Response) => {
+memberRouter.post("/comments", async (req: Request, res: Response) => {
   try {
-    const memberId = (req as any).member?.id;
-    if (!memberId) {
-      return res.status(401).json({ message: "Unauthorized" });
+    if (!req.user?.id) {
+      sendErrorResponse(res, 401, "Not authenticated");
+      return;
     }
 
-    const { type, id } = req.params;
-    const validation = commentSchema.safeParse(req.body);
+    const { commentableType, commentableId, content, parentId } = req.body;
 
-    if (!validation.success) {
-      return res.status(400).json({ message: "Invalid comment data", errors: validation.error.errors });
+    if (!commentableType || !commentableId || !content) {
+      return res.status(400).json({ error: "commentableType, commentableId, and content are required" });
     }
 
-    const comment = await interactionStorage.createComment({
-      commentableType: type,
-      commentableId: id,
-      memberId,
-      content: validation.data.content,
-      parentId: validation.data.parentId || null,
+    const commentData = {
+      commentableType,
+      commentableId,
+      memberId: req.user.id,
+      content: content.trim(),
+      parentId: parentId || null,
+      isEdited: false,
+      isDeleted: false,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    };
+
+    const commentId = await createDocument(collections.comments, commentData as any);
+
+    res.status(201).json({
+      id: commentId,
+      ...commentData,
     });
-
-    res.status(201).json(comment);
   } catch (error) {
     console.error("Error creating comment:", error);
-    res.status(500).json({ message: "Failed to create comment" });
+    sendErrorResponse(res, 500, "Failed to create comment", error);
   }
 });
 
-memberRouter.patch("/comments/:commentId", async (req: Request, res: Response) => {
+memberRouter.put("/comments/:commentId", async (req: Request, res: Response) => {
   try {
-    const memberId = (req as any).member?.id;
-    if (!memberId) {
-      return res.status(401).json({ message: "Unauthorized" });
+    if (!req.user?.id) {
+      sendErrorResponse(res, 401, "Not authenticated");
+      return;
     }
 
     const { commentId } = req.params;
     const { content } = req.body;
 
-    if (!content || typeof content !== "string") {
-      return res.status(400).json({ message: "Content is required" });
+    const comment = await getDocumentById(collections.comments, commentId);
+    if (!comment || (comment as any).memberId !== req.user.id) {
+      sendErrorResponse(res, 403, "Unauthorized");
+      return;
     }
 
-    const updated = await interactionStorage.updateComment(commentId, content);
-    res.json(updated);
+    await updateDocument(collections.comments.doc(commentId), {
+      content: content.trim(),
+      isEdited: true,
+      updatedAt: serverTimestamp(),
+    });
+
+    res.json({ success: true, message: "Comment updated" });
   } catch (error) {
     console.error("Error updating comment:", error);
-    res.status(500).json({ message: "Failed to update comment" });
+    sendErrorResponse(res, 500, "Failed to update comment", error);
   }
 });
 
 memberRouter.delete("/comments/:commentId", async (req: Request, res: Response) => {
   try {
-    const memberId = (req as any).member?.id;
-    if (!memberId) {
-      return res.status(401).json({ message: "Unauthorized" });
+    if (!req.user?.id) {
+      sendErrorResponse(res, 401, "Not authenticated");
+      return;
     }
 
-    await interactionStorage.deleteComment(req.params.commentId);
-    res.json({ success: true });
+    const { commentId } = req.params;
+
+    const comment = await getDocumentById(collections.comments, commentId);
+    if (!comment || (comment as any).memberId !== req.user.id) {
+      sendErrorResponse(res, 403, "Unauthorized");
+      return;
+    }
+
+    await updateDocument(collections.comments.doc(commentId), {
+      isDeleted: true,
+      updatedAt: serverTimestamp(),
+    });
+
+    res.json({ success: true, message: "Comment deleted" });
   } catch (error) {
     console.error("Error deleting comment:", error);
-    res.status(500).json({ message: "Failed to delete comment" });
+    sendErrorResponse(res, 500, "Failed to delete comment", error);
   }
 });
+
+// ============ DISCUSSIONS ============
 
 memberRouter.get("/discussions", async (req: Request, res: Response) => {
   try {
-    const { courseId } = req.query;
+    const { courseId, lessonId } = req.query;
 
-    if (!courseId || typeof courseId !== "string") {
-      return res.status(400).json({ message: "Course ID is required" });
-    }
+    const filters: any[] = [];
+    if (courseId) filters.push({ field: "courseId", operator: "==", value: courseId });
+    if (lessonId) filters.push({ field: "lessonId", operator: "==", value: lessonId });
 
-    const discussions = await interactionStorage.getDiscussionsByCourse(courseId);
+    const discussions = await getDocuments(collections.discussions, {
+      filters: filters.length > 0 ? filters : undefined,
+      orderBy: [{ field: "createdAt", direction: "desc" }],
+    });
+
     res.json(discussions);
   } catch (error) {
     console.error("Error fetching discussions:", error);
-    res.status(500).json({ message: "Failed to fetch discussions" });
-  }
-});
-
-memberRouter.get("/discussions/:id", async (req: Request, res: Response) => {
-  try {
-    const discussion = await interactionStorage.getDiscussionById(req.params.id);
-    if (!discussion) {
-      return res.status(404).json({ message: "Discussion not found" });
-    }
-
-    await interactionStorage.incrementDiscussionViews(req.params.id);
-    res.json(discussion);
-  } catch (error) {
-    console.error("Error fetching discussion:", error);
-    res.status(500).json({ message: "Failed to fetch discussion" });
+    sendErrorResponse(res, 500, "Failed to fetch discussions", error);
   }
 });
 
 memberRouter.post("/discussions", async (req: Request, res: Response) => {
   try {
-    const memberId = (req as any).member?.id;
-    if (!memberId) {
-      return res.status(401).json({ message: "Unauthorized" });
+    if (!req.user?.id) {
+      sendErrorResponse(res, 401, "Not authenticated");
+      return;
     }
 
-    const validation = insertDiscussionSchema.safeParse({
-      ...req.body,
-      memberId,
+    const { title, content, courseId, lessonId } = req.body;
+
+    if (!title || !content) {
+      return res.status(400).json({ error: "title and content are required" });
+    }
+
+    const discussionData = {
+      title: title.trim(),
+      content: content.trim(),
+      courseId: courseId || null,
+      lessonId: lessonId || null,
+      memberId: req.user.id,
+      isPinned: false,
+      isLocked: false,
+      viewCount: 0,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    };
+
+    const discussionId = await createDocument(collections.discussions, discussionData as any);
+
+    res.status(201).json({
+      id: discussionId,
+      ...discussionData,
     });
-
-    if (!validation.success) {
-      return res.status(400).json({ message: "Invalid discussion data", errors: validation.error.errors });
-    }
-
-    const discussion = await interactionStorage.createDiscussion(validation.data);
-    res.status(201).json(discussion);
   } catch (error) {
     console.error("Error creating discussion:", error);
-    res.status(500).json({ message: "Failed to create discussion" });
+    sendErrorResponse(res, 500, "Failed to create discussion", error);
   }
 });
 
-memberRouter.get("/discussions/:id/replies", async (req: Request, res: Response) => {
-  try {
-    const memberId = (req as any).member?.id;
-    const replies = await interactionStorage.getDiscussionReplies(req.params.id, memberId);
-    res.json(replies);
-  } catch (error) {
-    console.error("Error fetching replies:", error);
-    res.status(500).json({ message: "Failed to fetch replies" });
-  }
+// Health check
+router.get("/health", (req: Request, res: Response) => {
+  res.json({ status: "ok" });
 });
 
-memberRouter.post("/discussions/:id/replies", async (req: Request, res: Response) => {
-  try {
-    const memberId = (req as any).member?.id;
-    if (!memberId) {
-      return res.status(401).json({ message: "Unauthorized" });
-    }
-
-    const { id } = req.params;
-    const validation = insertDiscussionReplySchema.safeParse({
-      discussionId: id,
-      memberId,
-      content: req.body.content,
-      parentId: req.body.parentId || null,
-    });
-
-    if (!validation.success) {
-      return res.status(400).json({ message: "Invalid reply data", errors: validation.error.errors });
-    }
-
-    const reply = await interactionStorage.createDiscussionReply(validation.data);
-    res.status(201).json(reply);
-  } catch (error) {
-    console.error("Error creating reply:", error);
-    res.status(500).json({ message: "Failed to create reply" });
-  }
-});
-
-memberRouter.post("/likes/:type/:id", async (req: Request, res: Response) => {
-  try {
-    const memberId = (req as any).member?.id;
-    if (!memberId) {
-      return res.status(401).json({ message: "Unauthorized" });
-    }
-
-    const { type, id } = req.params;
-    const isLiked = await interactionStorage.toggleLike(type, id, memberId);
-    res.json({ liked: isLiked });
-  } catch (error) {
-    console.error("Error toggling like:", error);
-    res.status(500).json({ message: "Failed to toggle like" });
-  }
-});
-
-router.use("/", memberRouter);
+// Mount member routes
+router.use(memberRouter);
 
 export default router;

@@ -1,71 +1,45 @@
-import { supabase, toSnakeCase } from "./db";
+import { getFirebaseAdminFirestore, serverTimestamp, getDocuments, getDocumentById, createDocument, updateDocument, deleteDocument, collections } from "./lib/firebase";
 import { type GalleryItem, type InsertGalleryItem } from "../shared/schema";
 
-const GALLERY_SELECT = "id, title, description, imageUrl:image_url, category, isPublished:is_published, createdAt:created_at, updatedAt:updated_at";
-
 export class GalleryStorage {
+  private db = getFirebaseAdminFirestore();
+  private collection = collections.galleryItems;
+
   async getGalleryItems(): Promise<GalleryItem[]> {
-    const { data, error } = await supabase
-      .from("gallery_items")
-      .select(GALLERY_SELECT)
-      .order("created_at", { ascending: false });
-    
-    if (error) throw error;
-    return data || [];
+    const items = await getDocuments(this.collection, {
+      orderBy: [{ field: "createdAt", direction: "desc" }],
+    });
+    return items as GalleryItem[];
   }
 
   async getPublishedGalleryItems(): Promise<GalleryItem[]> {
-    const { data, error } = await supabase
-      .from("gallery_items")
-      .select(GALLERY_SELECT)
-      .eq("is_published", true)
-      .order("created_at", { ascending: false });
-    
-    if (error) throw error;
-    return data || [];
+    const items = await getDocuments(this.collection, {
+      filters: [{ field: "isPublished", operator: "==", value: true }],
+      orderBy: [{ field: "createdAt", direction: "desc" }],
+    });
+    return items as GalleryItem[];
   }
 
   async getGalleryItemById(id: string): Promise<GalleryItem | undefined> {
-    const { data, error } = await supabase
-      .from("gallery_items")
-      .select(GALLERY_SELECT)
-      .eq("id", id)
-      .single();
-    
-    if (error) return undefined;
-    return data;
+    const item = await getDocumentById(this.collection, id);
+    return item as GalleryItem | undefined;
   }
 
   async createGalleryItem(item: InsertGalleryItem): Promise<GalleryItem> {
-    const { data, error } = await supabase
-      .from("gallery_items")
-      .insert(toSnakeCase(item))
-      .select(GALLERY_SELECT)
-      .single();
-    
-    if (error) throw error;
-    return data;
+    const created = await createDocument(this.collection, item as any);
+    return created as GalleryItem;
   }
 
   async updateGalleryItem(id: string, item: Partial<InsertGalleryItem>): Promise<GalleryItem | undefined> {
-    const { data, error } = await supabase
-      .from("gallery_items")
-      .update({ ...toSnakeCase(item), updated_at: new Date() })
-      .eq("id", id)
-      .select(GALLERY_SELECT)
-      .single();
-    
-    if (error) return undefined;
-    return data;
+    const ref = this.collection.doc(id);
+    await updateDocument(ref, { ...item, updatedAt: serverTimestamp() } as any);
+    const updated = await getDocumentById(this.collection, id);
+    return updated as GalleryItem | undefined;
   }
 
   async deleteGalleryItem(id: string): Promise<boolean> {
-    const { error } = await supabase
-      .from("gallery_items")
-      .delete()
-      .eq("id", id);
-    
-    return !error;
+    await deleteDocument(this.collection.doc(id));
+    return true;
   }
 }
 

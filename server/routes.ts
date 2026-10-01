@@ -1,42 +1,27 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
-import { supabase, toSnakeCase, db } from "./db";
-import { eq, desc, sql } from "drizzle-orm";
+import { 
+  getDocuments, 
+  getDocumentById,
+  createDocument,
+  updateDocument,
+  deleteDocument,
+  serverTimestamp,
+  collections,
+} from "./lib/firebase";
 import { sendErrorResponse } from "./errorHandler";
-import { rateLimit, startRateLimitCleanup } from "./rateLimit";
-import {
-  contactMessages,
-  newsletterSubscriptions,
-  articles,
-  teamMembers,
-  products,
-  faqItems,
-  careers,
-  departments,
-  insertContactMessageSchema,
-  insertNewsletterSubscriptionSchema,
-  insertArticleSchema,
-  insertTeamMemberSchema,
-  insertProductSchema,
-  insertFaqItemSchema,
-  insertCareerSchema,
-  insertDepartmentSchema,
-  insertWaitlistSchema,
-  insertPartnerSchema,
-  jobApplications,
-  insertJobApplicationSchema
-} from "../shared/schema";
-import { setupSession, registerAuthRoutes, registerMemberRoutes, isAuthenticated, isMemberAuthenticated } from "./auth";
+import { rateLimit } from "./rateLimit";
+import { setupSession, registerAuthRoutes, registerMemberRoutes } from "./auth";
 import lmsRoutes from "./lms-routes";
 import paymentRoutes from "./payment-routes";
 import interactionRoutes from "./interaction-routes";
 import galleryRoutes from "./gallery-routes";
+import { getUploadSignedUrl } from "./lib/firebase/storage";
 
 export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
-
   // Set up session and auth routes FIRST
   setupSession(app);
   registerAuthRoutes(app);
@@ -64,85 +49,34 @@ export async function registerRoutes(
 
       console.log(`[Upload] Request for ${name} (${contentType}, ${size} bytes)`);
 
-      // 1. Ensure bucket exists
-      const { data: buckets, error: listError } = await supabase.storage.listBuckets();
-      if (listError) {
-        console.error("[Upload] Failed to list buckets:", listError);
-        throw new Error(`Storage configuration error: ${listError.message}`);
-      }
+      // Generate signed URL for Firebase Storage
+      const timestamp = Date.now();
+      const randomStr = Math.random().toString(36).substring(2, 8);
+      const fileName = `${timestamp}-${randomStr}-${name}`;
+      const filePath = `uploads/items/${fileName}`;
 
-      const bucketName = "uploads";
-      const bucketExists = buckets.some(b => b.name === bucketName);
+      const uploadUrl = await getUploadSignedUrl(filePath, contentType, 15 * 60); // 15 minutes
 
-      if (!bucketExists) {
-        console.log(`[Upload] Bucket '${bucketName}' not found. Attempting to create...`);
-        const { error: createError } = await supabase.storage.createBucket(bucketName, {
-          public: true,
-          allowedMimeTypes: [
-            "image/*",
-            "application/pdf",
-            "application/msword",
-            "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-          ],
-          fileSizeLimit: 10485760 // 10MB
-        });
-        if (createError) {
-          console.error("[Upload] Failed to create bucket:", createError);
-          throw new Error(`Failed to initialize storage bucket: ${createError.message}`);
-        }
-        console.log(`[Upload] Bucket '${bucketName}' created successfully.`);
-      } else {
-        // Ensure existing bucket allows document uploads (update if needed)
-        await supabase.storage.updateBucket(bucketName, {
-          public: true,
-          allowedMimeTypes: [
-            "image/*",
-            "application/pdf",
-            "application/msword",
-            "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-          ],
-          fileSizeLimit: 10485760
-        });
-      }
+      const publicUrl = `https://storage.googleapis.com/${process.env.FIREBASE_STORAGE_BUCKET}/${filePath}`;
 
-      // 2. Generate unique filename
-      const fileExt = name.split('.').pop();
-      const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
-      const objectPath = `items/${fileName}`; // Put in items subfolder
-
-      // 3. Create signed upload URL
-      const { data, error: signError } = await supabase.storage
-        .from(bucketName)
-        .createSignedUploadUrl(objectPath);
-
-      if (signError) {
-        console.error("[Upload] Failed to create signed URL:", signError);
-        throw signError;
-      }
-
-      const { data: publicUrlData } = supabase.storage
-        .from(bucketName)
-        .getPublicUrl(objectPath);
-
-      console.log(`[Upload] Successfully generated URL for ${objectPath}`);
+      console.log(`[Upload] Successfully generated signed URL for ${filePath}`);
 
       res.json({
-        uploadURL: data.signedUrl,
-        objectPath: publicUrlData.publicUrl,
+        uploadURL: uploadUrl,
+        objectPath: publicUrl,
         metadata: { name, size, contentType }
       });
     } catch (error: any) {
-      console.error("[Upload] Internal Error:", error);
+      console.error("[Upload] Error:", error);
       sendErrorResponse(res, 500, "Failed to create upload URL", error);
     }
   });
 
-  // Debug route for DB connection
+  // Debug route for Firestore connection
   app.get("/api/health-db", async (req, res) => {
     try {
-      const { data, error } = await supabase.from("contact_messages").select("created_at").limit(1);
-      if (error) throw error;
-      res.json({ status: "ok", time: new Date().toISOString() });
+      const doc = await getDocuments(collections.contactMessages, { limit: 1 });
+      res.json({ status: "ok", time: new Date().toISOString(), dataCount: doc.length });
     } catch (error) {
       console.error("Health check failed:", error);
       res.status(500).json({ status: "error", message: error instanceof Error ? error.message : "Unknown error" });
@@ -152,15 +86,17 @@ export async function registerRoutes(
   // Debug route for Storage connection
   app.get("/api/health-storage", async (req, res) => {
     try {
-      const { data, error } = await supabase.storage.listBuckets();
-      if (error) throw error;
-      res.json({ status: "ok", buckets: data.map(b => b.name) });
+      const bucket = process.env.FIREBASE_STORAGE_BUCKET;
+      res.json({ 
+        status: "ok", 
+        bucket,
+        timestamp: new Date().toISOString()
+      });
     } catch (error: any) {
       console.error("Storage health check failed:", error);
       res.status(500).json({ 
         status: "error", 
-        message: error.message || "Unknown error",
-        details: error
+        message: error.message || "Unknown error"
       });
     }
   });
@@ -171,21 +107,28 @@ export async function registerRoutes(
     rateLimit(60000, 5, "Too many contact form submissions. Please try again in 1 minute."),
     async (req, res) => {
       try {
-        const result = insertContactMessageSchema.safeParse(req.body);
-        if (!result.success) {
-          return res.status(400).json({ error: "Invalid contact form data", details: result.error.issues });
+        const { name, email, topic, message } = req.body;
+        
+        if (!name || !email || !topic || !message) {
+          return res.status(400).json({ error: "All fields are required" });
         }
 
-        const { data: message, error: createError } = await supabase
-          .from("contact_messages")
-          .insert(result.data)
-          .select()
-          .single();
+        const contactData = {
+          name,
+          email,
+          topic,
+          message,
+          isRead: false,
+          createdAt: serverTimestamp(),
+        };
 
-        if (createError || !message) {
-          throw createError || new Error("Failed to create message");
-        }
-        res.status(201).json({ success: true, message: "Message sent successfully", id: message.id });
+        const docId = await createDocument(collections.contactMessages, contactData as any);
+
+        res.status(201).json({ 
+          success: true, 
+          message: "Message sent successfully", 
+          id: docId 
+        });
       } catch (error) {
         console.error("Error creating contact message:", error);
         res.status(500).json({ error: "Failed to send message" });
@@ -198,31 +141,34 @@ export async function registerRoutes(
     rateLimit(60000, 3, "Too many newsletter signup attempts. Please try again in 1 minute."),
     async (req, res) => {
       try {
-        const result = insertNewsletterSubscriptionSchema.safeParse(req.body);
-        if (!result.success) {
-          return res.status(400).json({ error: "Invalid email address", details: result.error.issues });
+        const { email } = req.body;
+        
+        if (!email) {
+          return res.status(400).json({ error: "Email is required" });
         }
 
-        const { data: existing }: { data: any } = await supabase
-          .from("newsletter_subscriptions")
-          .select()
-          .eq("email", result.data.email)
-          .single();
+        // Check if email already exists
+        const existing = await getDocuments(collections.newsletterSubscriptions, {
+          filters: [{ field: "email", operator: "==", value: email }],
+          limit: 1,
+        });
 
-        if (existing) {
+        if (existing.length > 0) {
           return res.status(409).json({ error: "Email already subscribed" });
         }
 
-        const { data: subscription, error: createError } = await supabase
-          .from("newsletter_subscriptions")
-          .insert(result.data)
-          .select()
-          .single();
+        const subscriptionData = {
+          email,
+          createdAt: serverTimestamp(),
+        };
 
-        if (createError || !subscription) {
-          throw createError || new Error("Failed to subscribe");
-        }
-        res.status(201).json({ success: true, message: "Subscribed successfully", id: subscription.id });
+        const docId = await createDocument(collections.newsletterSubscriptions, subscriptionData as any);
+
+        res.status(201).json({ 
+          success: true, 
+          message: "Subscribed successfully", 
+          id: docId 
+        });
       } catch (error) {
         console.error("Error creating newsletter subscription:", error);
         res.status(500).json({ error: "Failed to subscribe" });
@@ -235,67 +181,67 @@ export async function registerRoutes(
     rateLimit(60000, 3, "Too many waitlist signup attempts. Please try again in 1 minute."),
     async (req, res) => {
       try {
-        const result = insertWaitlistSchema.safeParse(req.body);
-        if (!result.success) {
-          return res.status(400).json({ error: "Invalid waitlist data", details: result.error.issues });
+        const { name, email, interest } = req.body;
+        
+        if (!name || !email) {
+          return res.status(400).json({ error: "Name and email are required" });
         }
 
-        const { data: entry, error: createError } = await supabase
-          .from("waitlist")
-          .insert(result.data)
-          .select()
-          .single();
+        // Check if email already in waitlist
+        const existing = await getDocuments(collections.waitlist, {
+          filters: [{ field: "email", operator: "==", value: email }],
+          limit: 1,
+        });
 
-        if (createError) {
-          if (createError.code === '23505') { // Unique violation
-            return res.status(409).json({ error: "You are already on the waitlist!" });
-          }
-          throw createError;
+        if (existing.length > 0) {
+          return res.status(409).json({ error: "Email already on waitlist" });
         }
-        res.status(201).json({ success: true, message: "Joined waitlist successfully", id: entry.id });
+
+        const waitlistData = {
+          name,
+          email,
+          interest: interest || "3d_beta",
+          createdAt: serverTimestamp(),
+        };
+
+        const docId = await createDocument(collections.waitlist, waitlistData as any);
+
+        res.status(201).json({ 
+          success: true, 
+          message: "Added to waitlist successfully", 
+          id: docId 
+        });
       } catch (error) {
-        console.error("Error joining waitlist:", error);
-        res.status(500).json({ error: "Failed to join waitlist" });
+        console.error("Error creating waitlist entry:", error);
+        res.status(500).json({ error: "Failed to add to waitlist" });
       }
     }
   );
 
-  // Public API for frontend pages
+  // Get articles
   app.get("/api/articles", async (req, res) => {
     try {
-      const { data: allArticles, error } = await supabase
-        .from("articles")
-        .select(`
-          id, title, slug, excerpt, content, category, author,
-          imageUrl:image_url, readTime:read_time, isFeatured:is_featured,
-          isPublished:is_published, createdAt:created_at, updatedAt:updated_at
-        `)
-        .eq("is_published", true)
-        .order("created_at", { ascending: false });
+      const articles = await getDocuments(collections.articles, {
+        filters: [{ field: "isPublished", operator: "==", value: true }],
+        orderBy: [{ field: "createdAt", direction: "desc" }],
+      });
 
-      if (error) throw error;
-      res.json(allArticles);
+      res.json(articles);
     } catch (error) {
       console.error("Error fetching articles:", error);
       res.status(500).json({ error: "Failed to fetch articles" });
     }
   });
 
-  app.get("/api/articles/:slug", async (req, res) => {
+  // Get single article
+  app.get("/api/articles/:id", async (req, res) => {
     try {
-      const { data: article, error } = await supabase
-        .from("articles")
-        .select(`
-          id, title, slug, excerpt, content, category, author,
-          imageUrl:image_url, readTime:read_time, isFeatured:is_featured,
-          isPublished:is_published, createdAt:created_at, updatedAt:updated_at
-        `)
-        .eq("slug", req.params.slug)
-        .single();
-
-      if (error || !article) {
+      const article = await getDocumentById(collections.articles, req.params.id);
+      
+      if (!article) {
         return res.status(404).json({ error: "Article not found" });
       }
+
       res.json(article);
     } catch (error) {
       console.error("Error fetching article:", error);
@@ -303,1077 +249,117 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/team", async (req, res) => {
+  // Get gallery items
+  app.get("/api/gallery", async (req, res) => {
     try {
-      const { data: team, error } = await supabase
-        .from("team_members")
-        .select(`
-          id, name, slug, role, description, bio, imageUrl:image_url,
-          email, linkedinUrl:linkedin_url, twitterUrl:twitter_url,
-          facebookUrl:facebook_url, instagramUrl:instagram_url,
-          order, isActive:is_active, createdAt:created_at
-        `)
-        .eq("is_active", true)
-        .order("order", { ascending: true });
-
-      if (error) throw error;
-      res.json(team);
-    } catch (error) {
-      console.error("Error fetching team:", error);
-      res.status(500).json({ error: "Failed to fetch team" });
-    }
-  });
-
-  app.get("/api/team/:slug", async (req, res) => {
-    try {
-      const { data: member, error } = await supabase
-        .from("team_members")
-        .select(`
-          id, name, slug, role, description, bio, imageUrl:image_url,
-          email, linkedinUrl:linkedin_url, twitterUrl:twitter_url,
-          facebookUrl:facebook_url, instagramUrl:instagram_url,
-          order, isActive:is_active, createdAt:created_at
-        `)
-        .eq("slug", req.params.slug)
-        .single();
-
-      if (error || !member) {
-        return res.status(404).json({ error: "Team member not found" });
-      }
-      res.json(member);
-    } catch (error) {
-      console.error("Error fetching team member:", error);
-      res.status(500).json({ error: "Failed to fetch team member" });
-    }
-  });
-
-  app.get("/api/products", async (req, res) => {
-    try {
-      const { data: allProducts, error } = await supabase
-        .from("products")
-        .select(`
-          id, title, category, description, price, imageUrl:image_url,
-          badge, badgeColor:badge_color, isActive:is_active, order,
-          createdAt:created_at
-        `)
-        .eq("is_active", true)
-        .order("order", { ascending: true });
-
-      if (error) throw error;
-      res.json(allProducts);
-    } catch (error) {
-      console.error("Error fetching products:", error);
-      res.status(500).json({ error: "Failed to fetch products" });
-    }
-  });
-
-  app.get("/api/faq", async (req, res) => {
-    try {
-      const { data: faqs, error } = await supabase
-        .from("faq_items")
-        .select(`
-          id, question, answer, category, order,
-          isActive:is_active, createdAt:created_at
-        `)
-        .eq("is_active", true)
-        .order("order", { ascending: true });
-
-      if (error) throw error;
-      res.json(faqs);
-    } catch (error) {
-      console.error("Error fetching FAQs:", error);
-      res.status(500).json({ error: "Failed to fetch FAQs" });
-    }
-  });
-
-  app.get("/api/careers", async (req, res) => {
-    try {
-      const { data: allCareers, error } = await supabase
-        .from("careers")
-        .select(`
-          id, title, department, location, type, description, requirements,
-          isActive:is_active, createdAt:created_at
-        `)
-        .eq("is_active", true)
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-      res.json(allCareers);
-    } catch (error) {
-      console.error("Error fetching careers:", error);
-      res.status(500).json({ error: "Failed to fetch careers" });
-    }
-  });
-
-  app.get("/api/careers/:id", async (req, res) => {
-    try {
-      const { data: career, error } = await supabase
-        .from("careers")
-        .select(`
-          id, title, department, location, type, description, requirements,
-          isActive:is_active, createdAt:created_at
-        `)
-        .eq("id", req.params.id)
-        .eq("is_active", true)
-        .single();
-
-      if (error || !career) {
-        return res.status(404).json({ error: "Career not found" });
-      }
-      res.json(career);
-    } catch (error) {
-      console.error("Error fetching career:", error);
-      res.status(500).json({ error: "Failed to fetch career" });
-    }
-  });
-
-  app.post("/api/applications", async (req, res) => {
-    try {
-      const result = insertJobApplicationSchema.safeParse(req.body);
-      if (!result.success) {
-        return res.status(400).json({ error: "Invalid application data", details: result.error.issues });
-      }
-
-      const { data: application, error: supabaseError } = await supabase
-        .from("job_applications")
-        .insert(toSnakeCase(result.data))
-        .select()
-        .single();
-
-      if (supabaseError) {
-        console.error("Supabase error creating application:", supabaseError);
-        return res.status(500).json({ 
-          error: "Failed to submit application", 
-          details: supabaseError.message || supabaseError 
-        });
-      }
-
-      res.status(201).json(application);
-    } catch (error) {
-      console.error("Unexpected error submitting application:", error);
-      res.status(500).json({ error: "Failed to submit application", details: error instanceof Error ? error.message : String(error) });
-    }
-  });
-
-  // Admin routes (protected)
-  app.get("/api/admin/stats", isAuthenticated, async (req, res) => {
-    try {
-      const { count: contactCount } = await supabase.from("contact_messages").select("*", { count: "exact", head: true });
-      const { count: newsletterCount } = await supabase.from("newsletter_subscriptions").select("*", { count: "exact", head: true });
-      const { count: articleCount } = await supabase.from("articles").select("*", { count: "exact", head: true });
-      const { count: productCount } = await supabase.from("products").select("*", { count: "exact", head: true });
-
-      res.json({
-        contacts: contactCount || 0,
-        subscribers: newsletterCount || 0,
-        articles: articleCount || 0,
-        products: productCount || 0,
+      const items = await getDocuments(collections.galleryItems, {
+        filters: [{ field: "isPublished", operator: "==", value: true }],
+        orderBy: [{ field: "createdAt", direction: "desc" }],
       });
+
+      res.json(items);
     } catch (error) {
-      console.error("Error fetching stats:", error);
-      res.status(500).json({ error: "Failed to fetch stats" });
+      console.error("Error fetching gallery items:", error);
+      res.status(500).json({ error: "Failed to fetch gallery items" });
     }
   });
 
-  // Admin Contact Messages
-  app.get("/api/admin/contacts", isAuthenticated, async (req, res) => {
-    try {
-      const page = Math.max(1, parseInt(req.query.page as string) || 1);
-      const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 50));
-      const offset = (page - 1) * limit;
-
-      const { data: messages, error, count } = await supabase
-        .from("contact_messages")
-        .select("*", { count: "exact" })
-        .order("created_at", { ascending: false })
-        .range(offset, offset + limit - 1);
-
-      if (error) throw error;
-      
-      res.json({
-        data: messages,
-        pagination: {
-          page,
-          limit,
-          total: count,
-          pages: Math.ceil((count || 0) / limit),
-        },
-      });
-    } catch (error) {
-      console.error("Error fetching contacts:", error);
-      res.status(500).json({ error: "Failed to fetch contacts" });
-    }
-  });
-
-  app.patch("/api/admin/contacts/:id/read", isAuthenticated, async (req, res) => {
-    try {
-      const { data: updated, error } = await supabase
-        .from("contact_messages")
-        .update({ is_read: true })
-        .eq("id", req.params.id)
-        .select()
-        .single();
-
-      if (error) throw error;
-      res.json(updated);
-    } catch (error) {
-      console.error("Error updating contact:", error);
-      res.status(500).json({ error: "Failed to update contact" });
-    }
-  });
-
-  app.delete("/api/admin/contacts/:id", isAuthenticated, async (req, res) => {
-    try {
-      const { error } = await supabase.from("contact_messages").delete().eq("id", req.params.id);
-      if (error) throw error;
-      res.json({ success: true });
-    } catch (error) {
-      console.error("Error deleting contact:", error);
-      res.status(500).json({ error: "Failed to delete contact" });
-    }
-  });
-
-  // Admin Newsletter
-  app.get("/api/admin/newsletter", isAuthenticated, async (req, res) => {
-    try {
-      const page = Math.max(1, parseInt(req.query.page as string) || 1);
-      const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 50));
-      const offset = (page - 1) * limit;
-
-      const { data: subscriptions, error, count } = await supabase
-        .from("newsletter_subscriptions")
-        .select("*", { count: "exact" })
-        .order("created_at", { ascending: false })
-        .range(offset, offset + limit - 1);
-
-      if (error) throw error;
-      res.json({
-        data: subscriptions,
-        pagination: {
-          page,
-          limit,
-          total: count,
-          pages: Math.ceil((count || 0) / limit),
-        },
-      });
-    } catch (error) {
-      console.error("Error fetching subscriptions:", error);
-      res.status(500).json({ error: "Failed to fetch subscriptions" });
-    }
-  });
-
-  app.delete("/api/admin/newsletter/:id", isAuthenticated, async (req, res) => {
-    try {
-      const { error } = await supabase.from("newsletter_subscriptions").delete().eq("id", req.params.id);
-      if (error) throw error;
-      res.json({ success: true });
-    } catch (error) {
-      console.error("Error deleting subscription:", error);
-      res.status(500).json({ error: "Failed to delete subscription" });
-    }
-  });
-
-  // Admin Articles CRUD
-  app.get("/api/admin/articles", isAuthenticated, async (req, res) => {
-    try {
-      const page = Math.max(1, parseInt(req.query.page as string) || 1);
-      const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 50));
-      const offset = (page - 1) * limit;
-
-      const { data: allArticles, error, count } = await supabase
-        .from("articles")
-        .select(`
-          id, title, slug, excerpt, content, category, author,
-          imageUrl:image_url, readTime:read_time, isFeatured:is_featured,
-          isPublished:is_published, createdAt:created_at, updatedAt:updated_at
-        `, { count: "exact" })
-        .order("created_at", { ascending: false })
-        .range(offset, offset + limit - 1);
-
-      if (error) throw error;
-      res.json({
-        data: allArticles,
-        pagination: {
-          page,
-          limit,
-          total: count,
-          pages: Math.ceil((count || 0) / limit),
-        },
-      });
-    } catch (error) {
-      console.error("Error fetching articles:", error);
-      res.status(500).json({ error: "Failed to fetch articles" });
-    }
-  });
-
-  app.post("/api/admin/articles", isAuthenticated, async (req, res) => {
-    try {
-      const result = insertArticleSchema.safeParse(req.body);
-      if (!result.success) {
-        return res.status(400).json({ error: "Invalid article data", details: result.error.issues });
-      }
-      const { data: article, error } = await supabase
-        .from("articles")
-        .insert(toSnakeCase(result.data))
-        .select(`
-          id, title, slug, excerpt, content, category, author,
-          imageUrl:image_url, readTime:read_time, isFeatured:is_featured,
-          isPublished:is_published, createdAt:created_at, updatedAt:updated_at
-        `)
-        .single();
-
-      if (error) {
-        console.error("Supabase error creating article:", error);
-        return res.status(500).json({ error: "Failed to create article", details: error });
-      }
-      res.status(201).json(article);
-    } catch (error) {
-      console.error("Unexpected error creating article:", error);
-      res.status(500).json({ error: "An unexpected error occurred" });
-    }
-  });
-
-  app.patch("/api/admin/articles/:id", isAuthenticated, async (req, res) => {
-    try {
-      const { id, createdAt, updatedAt, ...updateData } = req.body;
-      const { data: article, error } = await supabase
-        .from("articles")
-        .update({ ...toSnakeCase(updateData), updated_at: new Date() })
-        .eq("id", req.params.id)
-        .select(`
-          id, title, slug, excerpt, content, category, author,
-          imageUrl:image_url, readTime:read_time, isFeatured:is_featured,
-          isPublished:is_published, createdAt:created_at, updatedAt:updated_at
-        `)
-        .single();
-
-      if (error) {
-        console.error("Supabase error updating article:", error);
-        return res.status(500).json({ error: "Failed to update article", details: error });
-      }
-      res.json(article);
-    } catch (error) {
-      console.error("Unexpected error updating article:", error);
-      res.status(500).json({ error: "An unexpected error occurred" });
-    }
-  });
-
-  app.delete("/api/admin/articles/:id", isAuthenticated, async (req, res) => {
-    try {
-      const { error } = await supabase.from("articles").delete().eq("id", req.params.id);
-      if (error) throw error;
-      res.json({ success: true });
-    } catch (error) {
-      console.error("Error deleting article:", error);
-      res.status(500).json({ error: "Failed to delete article" });
-    }
-  });
-
-  // Admin Team CRUD
-  app.get("/api/admin/team", isAuthenticated, async (req, res) => {
-    try {
-      const { data: team, error } = await supabase
-        .from("team_members")
-        .select(`
-          id, name, slug, role, description, bio, imageUrl:image_url,
-          email, linkedinUrl:linkedin_url, twitterUrl:twitter_url,
-          facebookUrl:facebook_url, instagramUrl:instagram_url,
-          order, isActive:is_active, createdAt:created_at
-        `)
-        .order("order", { ascending: true });
-
-      if (error) throw error;
-      res.json(team);
-    } catch (error) {
-      console.error("Error fetching team:", error);
-      res.status(500).json({ error: "Failed to fetch team" });
-    }
-  });
-
-  app.post("/api/admin/team", isAuthenticated, async (req, res) => {
-    try {
-      const result = insertTeamMemberSchema.safeParse(req.body);
-      if (!result.success) {
-        return res.status(400).json({ error: "Invalid team member data", details: result.error.issues });
-      }
-      const { data: member, error } = await supabase
-        .from("team_members")
-        .insert(toSnakeCase(result.data))
-        .select(`
-          id, name, slug, role, description, bio, imageUrl:image_url,
-          email, linkedinUrl:linkedin_url, twitterUrl:twitter_url,
-          facebookUrl:facebook_url, instagramUrl:instagram_url,
-          order, isActive:is_active, createdAt:created_at
-        `)
-        .single();
-
-      if (error) {
-        console.error("Supabase error creating team member:", error);
-        return res.status(500).json({ error: "Failed to create team member", details: error });
-      }
-      res.status(201).json(member);
-    } catch (error) {
-      console.error("Unexpected error creating team member:", error);
-      res.status(500).json({ error: "An unexpected error occurred" });
-    }
-  });
-
-  app.patch("/api/admin/team/:id", isAuthenticated, async (req, res) => {
-    try {
-      const { id, createdAt, ...updateData } = req.body;
-      const { data: member, error } = await supabase
-        .from("team_members")
-        .update(toSnakeCase(updateData))
-        .eq("id", req.params.id)
-        .select(`
-          id, name, slug, role, description, bio, imageUrl:image_url,
-          email, linkedinUrl:linkedin_url, twitterUrl:twitter_url,
-          facebookUrl:facebook_url, instagramUrl:instagram_url,
-          order, isActive:is_active, createdAt:created_at
-        `)
-        .single();
-
-      if (error) {
-        console.error("Supabase error updating team member:", error);
-        return res.status(500).json({ error: "Failed to update team member", details: error });
-      }
-      res.json(member);
-    } catch (error) {
-      console.error("Unexpected error updating team member:", error);
-      res.status(500).json({ error: "An unexpected error occurred" });
-    }
-  });
-
-  app.delete("/api/admin/team/:id", isAuthenticated, async (req, res) => {
-    try {
-      const { error } = await supabase.from("team_members").delete().eq("id", req.params.id);
-      if (error) throw error;
-      res.json({ success: true });
-    } catch (error) {
-      console.error("Error deleting team member:", error);
-      res.status(500).json({ error: "Failed to delete team member" });
-    }
-  });
-
-  // Admin Products CRUD
-  app.get("/api/admin/products", isAuthenticated, async (req, res) => {
-    try {
-      const { data: allProducts, error } = await supabase
-        .from("products")
-        .select(`
-          id, title, category, description, price, imageUrl:image_url,
-          badge, badgeColor:badge_color, isActive:is_active, order,
-          createdAt:created_at
-        `)
-        .order("order", { ascending: true });
-
-      if (error) throw error;
-      res.json(allProducts);
-    } catch (error) {
-      console.error("Error fetching products:", error);
-      res.status(500).json({ error: "Failed to fetch products" });
-    }
-  });
-
-  app.post("/api/admin/products", isAuthenticated, async (req, res) => {
-    try {
-      const result = insertProductSchema.safeParse(req.body);
-      if (!result.success) {
-        return res.status(400).json({ error: "Invalid product data", details: result.error.issues });
-      }
-      const { data: product, error } = await supabase
-        .from("products")
-        .insert(toSnakeCase(result.data))
-        .select(`
-          id, title, category, description, price, imageUrl:image_url,
-          badge, badgeColor:badge_color, isActive:is_active, order,
-          createdAt:created_at
-        `)
-        .single();
-
-      if (error) {
-        console.error("Supabase error creating product:", error);
-        return res.status(500).json({ error: "Failed to create product", details: error });
-      }
-      res.status(201).json(product);
-    } catch (error) {
-      console.error("Unexpected error creating product:", error);
-      res.status(500).json({ error: "An unexpected error occurred" });
-    }
-  });
-
-  app.patch("/api/admin/products/:id", isAuthenticated, async (req, res) => {
-    try {
-      const { id, createdAt, ...updateData } = req.body;
-      const { data: product, error } = await supabase
-        .from("products")
-        .update(toSnakeCase(updateData))
-        .eq("id", req.params.id)
-        .select(`
-          id, title, category, description, price, imageUrl:image_url,
-          badge, badgeColor:badge_color, isActive:is_active, order,
-          createdAt:created_at
-        `)
-        .single();
-
-      if (error) {
-        console.error("Supabase error updating product:", error);
-        return res.status(500).json({ error: "Failed to update product", details: error });
-      }
-      res.json(product);
-    } catch (error) {
-      console.error("Unexpected error updating product:", error);
-      res.status(500).json({ error: "An unexpected error occurred" });
-    }
-  });
-
-  app.delete("/api/admin/products/:id", isAuthenticated, async (req, res) => {
-    try {
-      const { error } = await supabase.from("products").delete().eq("id", req.params.id);
-      if (error) throw error;
-      res.json({ success: true });
-    } catch (error) {
-      console.error("Error deleting product:", error);
-      res.status(500).json({ error: "Failed to delete product" });
-    }
-  });
-
-  // Admin FAQ CRUD
-  app.get("/api/admin/faq", isAuthenticated, async (req, res) => {
-    try {
-      const { data: faqs, error } = await supabase
-        .from("faq_items")
-        .select(`
-          id, question, answer, category, order,
-          isActive:is_active, createdAt:created_at
-        `)
-        .order("order", { ascending: true });
-
-      if (error) throw error;
-      res.json(faqs);
-    } catch (error) {
-      console.error("Error fetching FAQs:", error);
-      res.status(500).json({ error: "Failed to fetch FAQs" });
-    }
-  });
-
-  app.post("/api/admin/faq", isAuthenticated, async (req, res) => {
-    try {
-      const result = insertFaqItemSchema.safeParse(req.body);
-      if (!result.success) {
-        return res.status(400).json({ error: "Invalid FAQ data", details: result.error.issues });
-      }
-      const { data: faq, error } = await supabase
-        .from("faq_items")
-        .insert(toSnakeCase(result.data))
-        .select(`
-          id, question, answer, category, order,
-          isActive:is_active, createdAt:created_at
-        `)
-        .single();
-
-      if (error) {
-        console.error("Supabase error creating FAQ item:", error);
-        return res.status(500).json({ error: "Failed to create FAQ item", details: error });
-      }
-      res.status(201).json(faq);
-    } catch (error) {
-      console.error("Unexpected error creating FAQ item:", error);
-      res.status(500).json({ error: "An unexpected error occurred" });
-    }
-  });
-
-  app.patch("/api/admin/faq/:id", isAuthenticated, async (req, res) => {
-    try {
-      const { id, createdAt, ...updateData } = req.body;
-      const { data: faq, error } = await supabase
-        .from("faq_items")
-        .update(toSnakeCase(updateData))
-        .eq("id", req.params.id)
-        .select(`
-          id, question, answer, category, order,
-          isActive:is_active, createdAt:created_at
-        `)
-        .single();
-
-      if (error) {
-        console.error("Supabase error updating FAQ item:", error);
-        return res.status(500).json({ error: "Failed to update FAQ item", details: error });
-      }
-      res.json(faq);
-    } catch (error) {
-      console.error("Unexpected error updating FAQ item:", error);
-      res.status(500).json({ error: "An unexpected error occurred" });
-    }
-  });
-
-  app.delete("/api/admin/faq/:id", isAuthenticated, async (req, res) => {
-    try {
-      const { error } = await supabase.from("faq_items").delete().eq("id", req.params.id);
-      if (error) throw error;
-      res.json({ success: true });
-    } catch (error) {
-      console.error("Error deleting FAQ:", error);
-      res.status(500).json({ error: "Failed to delete FAQ" });
-    }
-  });
-
-  // Admin Careers CRUD
-  app.get("/api/admin/careers", isAuthenticated, async (req, res) => {
-    try {
-      const { data: allCareers, error } = await supabase
-        .from("careers")
-        .select(`
-          id, title, department, location, type, description, requirements,
-          isActive:is_active, createdAt:created_at
-        `)
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-      res.json(allCareers);
-    } catch (error) {
-      console.error("Error fetching careers:", error);
-      res.status(500).json({ error: "Failed to fetch careers" });
-    }
-  });
-
-  app.post("/api/admin/careers", isAuthenticated, async (req, res) => {
-    try {
-      const result = insertCareerSchema.safeParse(req.body);
-      if (!result.success) {
-        return res.status(400).json({ error: "Invalid career data", details: result.error.issues });
-      }
-      const { data: career, error } = await supabase
-        .from("careers")
-        .insert(toSnakeCase(result.data))
-        .select(`
-          id, title, department, location, type, description, requirements,
-          isActive:is_active, createdAt:created_at
-        `)
-        .single();
-
-      if (error) {
-        console.error("Supabase error creating career:", error);
-        return res.status(500).json({ error: "Failed to create career", details: error });
-      }
-      res.status(201).json(career);
-    } catch (error) {
-      console.error("Unexpected error creating career:", error);
-      res.status(500).json({ error: "An unexpected error occurred" });
-    }
-  });
-
-  app.patch("/api/admin/careers/:id", isAuthenticated, async (req, res) => {
-    try {
-      const { id, createdAt, ...updateData } = req.body;
-      const { data: career, error } = await supabase
-        .from("careers")
-        .update(toSnakeCase(updateData))
-        .eq("id", req.params.id)
-        .select(`
-          id, title, department, location, type, description, requirements,
-          isActive:is_active, createdAt:created_at
-        `)
-        .single();
-
-      if (error) {
-        console.error("Supabase error updating career:", error);
-        return res.status(500).json({ error: "Failed to update career", details: error });
-      }
-      res.json(career);
-    } catch (error) {
-      console.error("Unexpected error updating career:", error);
-      res.status(500).json({ error: "An unexpected error occurred" });
-    }
-  });
-
-  app.delete("/api/admin/careers/:id", isAuthenticated, async (req, res) => {
-    try {
-      const { error } = await supabase.from("careers").delete().eq("id", req.params.id);
-      if (error) throw error;
-      res.json({ success: true });
-    } catch (error) {
-      console.error("Error deleting career:", error);
-      res.status(500).json({ error: "Failed to delete career" });
-    }
-  });
-
-  // Admin Applications CRUD
-  app.get("/api/admin/applications", isAuthenticated, async (req, res) => {
-    try {
-      const { jobId, status, sortBy, sortOrder } = req.query as {
-        jobId?: string;
-        status?: string;
-        sortBy?: string;
-        sortOrder?: string;
-      };
-
-      // Validate status if provided
-      const validStatuses = ['pending', 'reviewed', 'accepted', 'rejected'];
-      if (status !== undefined && !validStatuses.includes(status)) {
-        return res.status(400).json({ error: "Invalid status filter", validValues: validStatuses });
-      }
-
-      // Validate sortBy if provided
-      const validSortBy = ['createdAt', 'experience'];
-      if (sortBy !== undefined && !validSortBy.includes(sortBy)) {
-        return res.status(400).json({ error: "Invalid sortBy value", validValues: validSortBy });
-      }
-
-      // Map sortBy param to DB column name; default to created_at
-      const sortColumn = sortBy === 'experience' ? 'experience' : 'created_at';
-      const ascending = sortOrder === 'asc';
-
-      let query = supabase
-        .from("job_applications")
-        .select(`*, careers(title)`);
-
-      // Apply optional filters
-      if (jobId !== undefined) {
-        query = query.eq('job_id', jobId);
-      }
-      if (status !== undefined) {
-        query = query.eq('status', status);
-      }
-
-      query = query.order(sortColumn, { ascending });
-
-      const { data: allApplications, error } = await query;
-
-      if (error) {
-        // Fallback if foreign key join fails — retry without the join
-        let fallbackQuery = supabase.from("job_applications").select("*");
-        if (jobId !== undefined) fallbackQuery = fallbackQuery.eq('job_id', jobId);
-        if (status !== undefined) fallbackQuery = fallbackQuery.eq('status', status);
-        fallbackQuery = fallbackQuery.order(sortColumn, { ascending });
-
-        const { data: fallbackData, error: fallbackError } = await fallbackQuery;
-        if (fallbackError) throw fallbackError;
-        return res.json(fallbackData);
-      }
-      res.json(allApplications);
-    } catch (error) {
-      console.error("Error fetching applications:", error);
-      res.status(500).json({ error: "Failed to fetch applications" });
-    }
-  });
-
-  // Bulk status update — must be registered BEFORE /:id/status to prevent Express
-  // treating "bulk-status" as an :id parameter value.
-  app.patch("/api/admin/applications/bulk-status", isAuthenticated, async (req, res) => {
-    try {
-      const { ids, status } = req.body;
-
-      // Validate status against allowed enum values
-      const allowedStatuses = ["pending", "reviewed", "accepted", "rejected"];
-      if (!status || !allowedStatuses.includes(status)) {
-        return res.status(400).json({ error: "Invalid status value" });
-      }
-
-      // Validate ids is a non-empty array
-      if (!Array.isArray(ids) || ids.length === 0) {
-        return res.status(400).json({ error: "Invalid request", invalidIds: [] });
-      }
-
-      // Query Supabase for all provided ids to detect any that don't exist
-      const { data: existingApplications, error: fetchError } = await supabase
-        .from("job_applications")
-        .select("id")
-        .in("id", ids);
-
-      if (fetchError) {
-        console.error("Supabase error fetching applications for bulk update:", fetchError);
-        return res.status(500).json({ error: "Failed to validate application IDs", details: fetchError });
-      }
-
-      const foundIds = new Set((existingApplications || []).map((a: { id: string }) => a.id));
-      const invalidIds = ids.filter((id: string) => !foundIds.has(id));
-
-      // If any IDs are not found, return 400 without updating anything
-      if (invalidIds.length > 0) {
-        return res.status(400).json({ error: "Invalid request", invalidIds });
-      }
-
-      // All IDs are valid — run a single UPDATE WHERE id IN (...)
-      const { data: updatedApplications, error: updateError } = await supabase
-        .from("job_applications")
-        .update({ status, updated_at: new Date().toISOString() })
-        .in("id", ids)
-        .select();
-
-      if (updateError) {
-        console.error("Supabase error bulk updating applications:", updateError);
-        return res.status(500).json({ error: "Failed to bulk update applications", details: updateError });
-      }
-
-      res.json({ updated: updatedApplications, failed: [] });
-    } catch (error) {
-      console.error("Unexpected error in bulk status update:", error);
-      res.status(500).json({ error: "An unexpected error occurred" });
-    }
-  });
-
-  app.patch("/api/admin/applications/:id/status", isAuthenticated, async (req, res) => {
-    try {
-      const { status } = req.body;
-      const { data: application, error } = await supabase
-        .from("job_applications")
-        .update({ status, updated_at: new Date() })
-        .eq("id", req.params.id)
-        .select()
-        .single();
-
-      if (error) {
-        console.error("Supabase error updating application:", error);
-        return res.status(500).json({ error: "Failed to update application", details: error });
-      }
-      res.json(application);
-    } catch (error) {
-      console.error("Unexpected error updating application:", error);
-      res.status(500).json({ error: "An unexpected error occurred" });
-    }
-  });
-
-  // Department Management Routes
-  app.get("/api/admin/departments", isAuthenticated, async (req, res) => {
-    try {
-      const { data: allDepartments, error } = await supabase
-        .from("departments")
-        .select(`
-          id, name, slug, description, headId:head_id, imageUrl:image_url,
-          color, order, isActive:is_active, createdAt:created_at, updatedAt:updated_at
-        `)
-        .order("order", { ascending: true });
-
-      if (error) throw error;
-      res.json(allDepartments);
-    } catch (error) {
-      console.error("Error fetching departments:", error);
-      res.status(500).json({ error: "Failed to fetch departments" });
-    }
-  });
-
-  app.get("/api/admin/departments/:id", isAuthenticated, async (req, res) => {
-    try {
-      const { data: department, error } = await supabase
-        .from("departments")
-        .select(`
-          id, name, slug, description, headId:head_id, imageUrl:image_url,
-          color, order, isActive:is_active, createdAt:created_at, updatedAt:updated_at
-        `)
-        .eq("id", req.params.id)
-        .single();
-
-      if (error || !department) {
-        return res.status(404).json({ error: "Department not found" });
-      }
-      res.json(department);
-    } catch (error) {
-      console.error("Error fetching department:", error);
-      res.status(500).json({ error: "Failed to fetch department" });
-    }
-  });
-
-  app.post("/api/admin/departments", isAuthenticated, async (req, res) => {
-    try {
-      const slug = req.body.name?.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "") || "";
-      const result = insertDepartmentSchema.safeParse({ ...req.body, slug });
-      if (!result.success) {
-        return res.status(400).json({ error: "Invalid department data", details: result.error.issues });
-      }
-      const { data: department, error } = await supabase
-        .from("departments")
-        .insert(toSnakeCase(result.data))
-        .select(`
-          id, name, slug, description, headId:head_id, imageUrl:image_url,
-          color, order, isActive:is_active, createdAt:created_at, updatedAt:updated_at
-        `)
-        .single();
-
-      if (error) {
-        console.error("Supabase error creating department:", error);
-        return res.status(500).json({ error: "Failed to create department", details: error });
-      }
-      res.status(201).json(department);
-    } catch (error) {
-      console.error("Unexpected error creating department:", error);
-      res.status(500).json({ error: "An unexpected error occurred" });
-    }
-  });
-
-  app.patch("/api/admin/departments/:id", isAuthenticated, async (req, res) => {
-    try {
-      const updateSchema = insertDepartmentSchema.partial();
-      const result = updateSchema.safeParse(req.body);
-      if (!result.success) {
-        return res.status(400).json({ error: "Invalid department data", details: result.error.issues });
-      }
-      // Sanitize req.body and add slug/updated_at logic
-      const { id, createdAt, updatedAt, ...sanitizedUpdateData } = req.body;
-      const updateData: Record<string, unknown> = { ...sanitizedUpdateData };
-
-      if (updateData.name) { // Use updateData.name instead of result.data.name
-        updateData.slug = (updateData.name as string).toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
-      }
-      updateData.updated_at = new Date();
-
-      const { data: department, error } = await supabase
-        .from("departments")
-        .update(toSnakeCase(updateData))
-        .eq("id", req.params.id)
-        .select(`
-          id, name, slug, description, headId:head_id, imageUrl:image_url,
-          color, order, isActive:is_active, createdAt:created_at, updatedAt:updated_at
-        `)
-        .single();
-
-      if (error) {
-        console.error("Supabase error updating department:", error);
-        return res.status(500).json({ error: "Failed to update department", details: error });
-      }
-      if (!department) {
-        return res.status(404).json({ error: "Department not found" });
-      }
-      res.json(department);
-    } catch (error) {
-      console.error("Unexpected error updating department:", error);
-      res.status(500).json({ error: "An unexpected error occurred" });
-    }
-  });
-
-  app.delete("/api/admin/departments/:id", isAuthenticated, async (req, res) => {
-    try {
-      const { error } = await supabase.from("departments").delete().eq("id", req.params.id);
-      if (error) throw error;
-      res.json({ success: true });
-    } catch (error) {
-      console.error("Error deleting department:", error);
-      res.status(500).json({ error: "Failed to delete department" });
-    }
-  });
-
-  // Public departments endpoint
-  app.get("/api/departments", async (req, res) => {
-    try {
-      const { data: activeDepartments, error } = await supabase
-        .from("departments")
-        .select(`
-          id, name, slug, description, headId:head_id, imageUrl:image_url,
-          color, order, isActive:is_active, createdAt:created_at, updatedAt:updated_at
-        `)
-        .eq("is_active", true)
-        .order("order", { ascending: true });
-
-      if (error) throw error;
-      res.json(activeDepartments);
-    } catch (error) {
-      console.error("Error fetching departments:", error);
-      res.status(500).json({ error: "Failed to fetch departments" });
-    }
-  });
-
-  // Public partners endpoint
+  // Get partners
   app.get("/api/partners", async (req, res) => {
     try {
-      const { data: activePartners, error } = await supabase
-        .from("partners")
-        .select(`
-          id, name, logoUrl:logo_url, websiteUrl:website_url, order, 
-          isActive:is_active, createdAt:created_at, updatedAt:updated_at
-        `)
-        .eq("is_active", true)
-        .order("order", { ascending: true });
+      const partners = await getDocuments(collections.partners, {
+        orderBy: [{ field: "order", direction: "asc" }],
+      });
 
-      if (error) throw error;
-      res.json(activePartners);
+      res.json(partners);
     } catch (error) {
       console.error("Error fetching partners:", error);
       res.status(500).json({ error: "Failed to fetch partners" });
     }
   });
 
-  // Admin partners endpoints
-  app.get("/api/admin/partners", isAuthenticated, async (req, res) => {
+  // Get team members
+  app.get("/api/team", async (req, res) => {
     try {
-      const { data: allPartners, error } = await supabase
-        .from("partners")
-        .select(`
-          id, name, logoUrl:logo_url, websiteUrl:website_url, order, 
-          isActive:is_active, createdAt:created_at, updatedAt:updated_at
-        `)
-        .order("order", { ascending: true });
+      const members = await getDocuments(collections.teamMembers, {
+        filters: [{ field: "isActive", operator: "==", value: true }],
+        orderBy: [{ field: "order", direction: "asc" }],
+      });
 
-      if (error) throw error;
-      res.json(allPartners);
+      res.json(members);
     } catch (error) {
-      console.error("Error fetching admin partners:", error);
-      res.status(500).json({ error: "Failed to fetch admin partners" });
+      console.error("Error fetching team members:", error);
+      res.status(500).json({ error: "Failed to fetch team members" });
     }
   });
 
-  app.post("/api/admin/partners", isAuthenticated, async (req, res) => {
+  // Get single team member
+  app.get("/api/team/:slug", async (req, res) => {
     try {
-      const result = insertPartnerSchema.safeParse(req.body);
-      if (!result.success) {
-        return res.status(400).json({ error: "Invalid partner data", details: result.error.issues });
+      const members = await getDocuments(collections.teamMembers, {
+        filters: [{ field: "slug", operator: "==", value: req.params.slug }],
+        limit: 1,
+      });
+
+      if (members.length === 0) {
+        return res.status(404).json({ error: "Team member not found" });
       }
-      const { data: partner, error } = await supabase
-        .from("partners")
-        .insert(toSnakeCase(result.data))
-        .select(`
-          id, name, logoUrl:logo_url, websiteUrl:website_url, order, 
-          isActive:is_active, createdAt:created_at, updatedAt:updated_at
-        `)
-        .single();
 
-      if (error) {
-        console.error("Supabase error creating partner:", error);
-        return res.status(500).json({ error: "Failed to create partner", details: error });
-      }
-      res.status(201).json(partner);
+      res.json(members[0]);
     } catch (error) {
-      console.error("Unexpected error creating partner:", error);
-      res.status(500).json({ error: "An unexpected error occurred" });
+      console.error("Error fetching team member:", error);
+      res.status(500).json({ error: "Failed to fetch team member" });
     }
   });
 
-  app.patch("/api/admin/partners/:id", isAuthenticated, async (req, res) => {
+  // Get products
+  app.get("/api/products", async (req, res) => {
     try {
-      const { id, createdAt, ...updateData } = req.body;
-      const { data: partner, error } = await supabase
-        .from("partners")
-        .update(toSnakeCase(updateData))
-        .eq("id", req.params.id)
-        .select(`
-          id, name, logoUrl:logo_url, websiteUrl:website_url, order, 
-          isActive:is_active, createdAt:created_at, updatedAt:updated_at
-        `)
-        .single();
+      const products = await getDocuments(collections.products, {
+        filters: [{ field: "isActive", operator: "==", value: true }],
+        orderBy: [{ field: "order", direction: "asc" }],
+      });
 
-      if (error) {
-        console.error("Supabase error updating partner:", error);
-        return res.status(500).json({ error: "Failed to update partner", details: error });
-      }
-      res.json(partner);
+      res.json(products);
     } catch (error) {
-      console.error("Unexpected error updating partner:", error);
-      res.status(500).json({ error: "An unexpected error occurred" });
+      console.error("Error fetching products:", error);
+      res.status(500).json({ error: "Failed to fetch products" });
     }
   });
 
-  app.delete("/api/admin/partners/:id", isAuthenticated, async (req, res) => {
+  // Get FAQs
+  app.get("/api/faqs", async (req, res) => {
     try {
-      const { error } = await supabase.from("partners").delete().eq("id", req.params.id);
-      if (error) throw error;
-      res.json({ success: true });
+      const faqs = await getDocuments(collections.faqItems, {
+        filters: [{ field: "isActive", operator: "==", value: true }],
+        orderBy: [{ field: "order", direction: "asc" }],
+      });
+
+      res.json(faqs);
     } catch (error) {
-      console.error("Error deleting partner:", error);
-      res.status(500).json({ error: "Failed to delete partner" });
+      console.error("Error fetching FAQs:", error);
+      res.status(500).json({ error: "Failed to fetch FAQs" });
     }
   });
 
-  // Start rate limit cleanup
-  startRateLimitCleanup();
+  // Get careers
+  app.get("/api/careers", async (req, res) => {
+    try {
+      const careers = await getDocuments(collections.careers, {
+        filters: [{ field: "isActive", operator: "==", value: true }],
+      });
+
+      res.json(careers);
+    } catch (error) {
+      console.error("Error fetching careers:", error);
+      res.status(500).json({ error: "Failed to fetch careers" });
+    }
+  });
+
+  // Health check
+  app.get("/api/health", (req, res) => {
+    res.json({ status: "ok", timestamp: new Date().toISOString() });
+  });
 
   return httpServer;
 }

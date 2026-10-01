@@ -2,12 +2,11 @@ import { type Express, type RequestHandler } from "express";
 import session from "express-session";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
-import { supabase } from "./db";
+import { getFirebaseAdminFirestore, getFirebaseAdminAuth, serverTimestamp } from "./lib/firebase";
 import { users, members, loginSchema, registerSchema, type User, type Member } from "../shared/schema";
 import { sessionStore } from "./session";
 import { sendErrorResponse } from "./errorHandler";
 
-// Augment Express Request with typed user/member properties
 declare global {
   namespace Express {
     interface Request {
@@ -17,7 +16,6 @@ declare global {
   }
 }
 
-// Augment express-session to type session data
 declare module "express-session" {
   interface SessionData {
     userId?: string;
@@ -32,7 +30,6 @@ const updateProfileSchema = z.object({
   lastName: z.string().min(1).optional(),
 });
 
-// Password validation: minimum 12 characters, requires uppercase, lowercase, number, special char
 const passwordValidation = z.string()
   .min(12, "Password must be at least 12 characters")
   .regex(/[a-z]/, "Password must contain at least one lowercase letter")
@@ -45,18 +42,27 @@ const changePasswordSchema = z.object({
   newPassword: passwordValidation,
 });
 
-export function setupSession(app: Express) {
-  const sessionTtl = 7 * 24 * 60 * 60 * 1000; // 1 week
+function toCamelCase<T extends Record<string, unknown>>(obj: T): Record<string, unknown> {
+  if (!obj || typeof obj !== "object" || Array.isArray(obj) || obj instanceof Date) {
+    return obj as Record<string, unknown>;
+  }
+  const result: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(obj)) {
+    const camelKey = key.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
+    result[camelKey] = value;
+  }
+  return result;
+}
 
-  // Trust proxy for Replit environment (required for secure cookies behind proxy)
+export function setupSession(app: Express) {
+  const sessionTtl = 7 * 24 * 60 * 60 * 1000;
+
   app.set("trust proxy", 1);
 
-  // Check if we're in production
   const isProduction = process.env.NODE_ENV === "production";
 
   console.log(`Session config: NODE_ENV=${process.env.NODE_ENV}, isProduction=${isProduction}`);
 
-  // Validate SESSION_SECRET is set and secure
   const secret = process.env.SESSION_SECRET;
   if (!secret) {
     const message = "SESSION_SECRET environment variable is required and must be set to a secure random string";
@@ -93,7 +99,9 @@ export function setupSession(app: Express) {
 }
 
 export function registerAuthRoutes(app: Express) {
-  // Register new admin user
+  const db = getFirebaseAdminFirestore();
+  const auth = getFirebaseAdminAuth();
+
   app.post("/api/auth/register", async (req, res) => {
     try {
       const result = registerSchema.safeParse(req.body);
@@ -103,51 +111,40 @@ export function registerAuthRoutes(app: Express) {
 
       const { email, password, firstName, lastName } = result.data;
 
-      // Check if user already exists
-      const { data: existingUser } = await supabase
-        .from("users")
-        .select()
-        .eq("email", email)
-        .single();
-
-      if (existingUser) {
+      const userSnap = await db.collection("users").where("email", "==", email).limit(1).get();
+      if (!userSnap.empty) {
         return res.status(409).json({ error: "Email already registered" });
       }
 
-      // Hash password
       const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
 
-      // Create user
-      const { data: newUser, error: createError } = await supabase
-        .from("users")
-        .insert({
-          email,
-          password: hashedPassword,
-          first_name: firstName || null,
-          last_name: lastName || null,
-          role: "content_admin", // Default role
-          is_active: true,
-        })
-        .select()
-        .single();
+      const now = serverTimestamp();
+      const userRef = db.collection("users").doc();
+      await userRef.set({
+        email,
+        password: hashedPassword,
+        firstName: firstName || null,
+        lastName: lastName || null,
+        role: "content_admin",
+        isActive: true,
+        createdAt: now,
+        updatedAt: now,
+      });
 
-      if (createError || !newUser) {
-        console.error("Error creating user:", createError);
-        return res.status(500).json({ error: "Failed to register user" });
-      }
+      const newUser = await userRef.get();
+      const userData = { id: newUser.id, ...newUser.data() } as User;
 
-      // Set session and save it explicitly
-      req.session.userId = newUser.id;
+      req.session.userId = userData.id;
       req.session.save((err) => {
         if (err) {
           console.error("Error saving session:", err);
           return res.status(500).json({ error: "Failed to register user" });
         }
         res.status(201).json({
-          id: newUser.id,
-          email: newUser.email,
-          firstName: newUser.first_name,
-          lastName: newUser.last_name,
+          id: userData.id,
+          email: userData.email,
+          firstName: userData.firstName,
+          lastName: userData.lastName,
         });
       });
     } catch (error) {
@@ -156,7 +153,6 @@ export function registerAuthRoutes(app: Express) {
     }
   });
 
-  // Login
   app.post("/api/auth/login", async (req, res) => {
     try {
       const result = loginSchema.safeParse(req.body);
@@ -167,43 +163,38 @@ export function registerAuthRoutes(app: Express) {
       const { email, password } = result.data;
       console.log(`Admin login attempt for: ${email}`);
 
-      // Find user
-      const { data: user } = await supabase
-        .from("users")
-        .select()
-        .eq("email", email)
-        .single();
-
-      if (!user) {
+      const userSnap = await db.collection("users").where("email", "==", email).limit(1).get();
+      if (userSnap.empty) {
         console.log(`Admin login failed: user not found for ${email}`);
         return res.status(401).json({ error: "Invalid email or password" });
       }
 
-      // Verify password
+      const userDoc = userSnap.docs[0];
+      const user = { id: userDoc.id, ...userDoc.data() } as User;
+
       const isValid = await bcrypt.compare(password, user.password);
       if (!isValid) {
         console.log(`Admin login failed: invalid password for ${email}`);
         return res.status(401).json({ error: "Invalid email or password" });
       }
 
-      // Set session and save it explicitly
       req.session.userId = user.id;
       console.log(`Admin login: setting userId in session: ${user.id}`);
 
       req.session.save((err) => {
         if (err) {
           console.error("Error saving admin session:", err);
-          return res.status(500).json({ 
-            error: "Failed to log in", 
-            details: err instanceof Error ? err.message : String(err) 
+          return res.status(500).json({
+            error: "Failed to log in",
+            details: err instanceof Error ? err.message : String(err)
           });
         }
         console.log(`Admin login successful for ${email}, session ID: ${req.sessionID}`);
         res.json({
           id: user.id,
           email: user.email,
-          firstName: user.first_name,
-          lastName: user.last_name,
+          firstName: user.firstName,
+          lastName: user.lastName,
           role: user.role,
         });
       });
@@ -213,7 +204,6 @@ export function registerAuthRoutes(app: Express) {
     }
   });
 
-  // Get current user
   app.get("/api/auth/user", async (req, res) => {
     try {
       console.log("[Auth] Checking session for user:", req.session.userId);
@@ -222,27 +212,19 @@ export function registerAuthRoutes(app: Express) {
         return res.status(401).json({ error: "Not authenticated" });
       }
 
-      const { data: user, error } = await supabase
-        .from("users")
-        .select()
-        .eq("id", userId)
-        .single();
-
-      if (error) {
-        console.error("[Auth] Database error fetching user:", error);
-        throw error;
-      }
-
-      if (!user) {
+      const userSnap = await db.collection("users").doc(userId).get();
+      if (!userSnap.exists) {
         console.warn("[Auth] Session active but user not found in DB:", userId);
         return res.status(401).json({ error: "User not found" });
       }
 
+      const user = { id: userSnap.id, ...userSnap.data() } as User;
+
       res.json({
         id: user.id,
         email: user.email,
-        firstName: user.first_name,
-        lastName: user.last_name,
+        firstName: user.firstName,
+        lastName: user.lastName,
       });
     } catch (error) {
       console.error("[Auth] Detailed error fetching user:", error);
@@ -250,7 +232,6 @@ export function registerAuthRoutes(app: Express) {
     }
   });
 
-  // Logout
   app.post("/api/auth/logout", (req, res) => {
     try {
       req.session.destroy((err) => {
@@ -268,39 +249,38 @@ export function registerAuthRoutes(app: Express) {
   });
 }
 
-// Authentication middleware for admin
 export const isAuthenticated: RequestHandler = async (req, res, next) => {
   const userId = req.session?.userId;
   if (!userId) {
     return res.status(401).json({ error: "Unauthorized" });
   }
 
-  const { data: user } = await supabase.from("users").select().eq("id", userId).single();
-  if (!user) {
+  const db = getFirebaseAdminFirestore();
+  const userSnap = await db.collection("users").doc(userId).get();
+  if (!userSnap.exists) {
     return res.status(401).json({ error: "Unauthorized" });
   }
 
-  req.user = user;
+  req.user = { id: userSnap.id, ...userSnap.data() } as User;
   next();
 };
 
-// Authentication middleware for members
 export const isMemberAuthenticated: RequestHandler = async (req, res, next) => {
   const memberId = req.session?.memberId;
   if (!memberId) {
     return res.status(401).json({ error: "Unauthorized" });
   }
 
-  const { data: member } = await supabase.from("members").select().eq("id", memberId).single();
-  if (!member) {
+  const db = getFirebaseAdminFirestore();
+  const memberSnap = await db.collection("members").doc(memberId).get();
+  if (!memberSnap.exists) {
     return res.status(401).json({ error: "Unauthorized" });
   }
 
-  req.member = member;
+  req.member = { id: memberSnap.id, ...memberSnap.data() } as Member;
   next();
 };
 
-// Check if member has active subscription (non-bronze tier with valid expiry)
 function hasActiveSubscription(member: Member): boolean {
   if (!member.membershipTier || member.membershipTier === "bronze") {
     return false;
@@ -311,17 +291,19 @@ function hasActiveSubscription(member: Member): boolean {
   return true;
 }
 
-// Subscription validation middleware - requires active membership
 export const requireActiveMembership: RequestHandler = async (req, res, next) => {
   const memberId = req.session?.memberId;
   if (!memberId) {
     return res.status(401).json({ error: "Unauthorized" });
   }
 
-  const { data: member } = await supabase.from("members").select().eq("id", memberId).single();
-  if (!member) {
+  const db = getFirebaseAdminFirestore();
+  const memberSnap = await db.collection("members").doc(memberId).get();
+  if (!memberSnap.exists) {
     return res.status(401).json({ error: "Unauthorized" });
   }
+
+  const member = { id: memberSnap.id, ...memberSnap.data() } as Member;
 
   if (!hasActiveSubscription(member)) {
     return res.status(403).json({ error: "Subscription required", code: "SUBSCRIPTION_REQUIRED" });
@@ -331,17 +313,20 @@ export const requireActiveMembership: RequestHandler = async (req, res, next) =>
   next();
 };
 
-
-
-// Super Admin only middleware
 export const isSuperAdmin: RequestHandler = async (req, res, next) => {
   const userId = req.session?.userId;
   if (!userId) {
     return res.status(401).json({ error: "Unauthorized" });
   }
 
-  const { data: user } = await supabase.from("users").select().eq("id", userId).single();
-  if (!user || user.role !== "super_admin") {
+  const db = getFirebaseAdminFirestore();
+  const userSnap = await db.collection("users").doc(userId).get();
+  if (!userSnap.exists) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+
+  const user = { id: userSnap.id, ...userSnap.data() } as User;
+  if (user.role !== "super_admin") {
     return res.status(403).json({ error: "Forbidden - Super Admin access required" });
   }
 
@@ -349,15 +334,20 @@ export const isSuperAdmin: RequestHandler = async (req, res, next) => {
   next();
 };
 
-// Content Admin or above middleware
 export const isContentAdmin: RequestHandler = async (req, res, next) => {
   const userId = req.session?.userId;
   if (!userId) {
     return res.status(401).json({ error: "Unauthorized" });
   }
 
-  const { data: user } = await supabase.from("users").select().eq("id", userId).single();
-  if (!user || !["super_admin", "content_admin"].includes(user.role)) {
+  const db = getFirebaseAdminFirestore();
+  const userSnap = await db.collection("users").doc(userId).get();
+  if (!userSnap.exists) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+
+  const user = { id: userSnap.id, ...userSnap.data() } as User;
+  if (!["super_admin", "content_admin"].includes(user.role)) {
     return res.status(403).json({ error: "Forbidden - Content Admin access required" });
   }
 
@@ -365,9 +355,9 @@ export const isContentAdmin: RequestHandler = async (req, res, next) => {
   next();
 };
 
-// Member (regular user) routes
 export function registerMemberRoutes(app: Express) {
-  // Register new member
+  const db = getFirebaseAdminFirestore();
+
   app.post("/api/members/register", async (req, res) => {
     try {
       const result = registerSchema.safeParse(req.body);
@@ -377,65 +367,53 @@ export function registerMemberRoutes(app: Express) {
 
       const { email, password, firstName, lastName } = result.data;
 
-      // Check if member already exists
-      const { data: existingMember } = await supabase
-        .from("members")
-        .select()
-        .eq("email", email)
-        .single();
-
-      if (existingMember) {
+      const memberSnap = await db.collection("members").where("email", "==", email).limit(1).get();
+      if (!memberSnap.empty) {
         return res.status(409).json({ error: "Email already registered" });
       }
 
-      // Hash password
       const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
 
-      // Create member
-      const { data: newMember, error: createError } = await supabase
-        .from("members")
-        .insert({
-          email,
-          password: hashedPassword,
-          first_name: firstName || null,
-          last_name: lastName || null,
-          membership_tier: "bronze",
-        })
-        .select()
-        .single();
+      const now = serverTimestamp();
+      const memberRef = db.collection("members").doc();
+      await memberRef.set({
+        email,
+        password: hashedPassword,
+        firstName: firstName || null,
+        lastName: lastName || null,
+        membershipTier: "bronze",
+        createdAt: now,
+        updatedAt: now,
+      });
 
-      if (createError || !newMember) {
-        console.error("Error creating member:", createError);
-        return res.status(500).json({ error: "Failed to register" });
-      }
+      const newMember = await memberRef.get();
+      const memberData = { id: newMember.id, ...newMember.data() } as Member;
 
-      // Set session and save it explicitly
-      req.session.memberId = newMember.id;
+      req.session.memberId = memberData.id;
       req.session.save((err) => {
         if (err) {
           console.error("Error saving session:", err);
           return res.status(500).json({ error: "Failed to register" });
         }
         res.status(201).json({
-          id: newMember.id,
-          email: newMember.email,
-          firstName: newMember.first_name,
-          lastName: newMember.last_name,
-          membershipTier: newMember.membership_tier,
-          membershipExpiresAt: newMember.membership_expires_at,
+          id: memberData.id,
+          email: memberData.email,
+          firstName: memberData.firstName,
+          lastName: memberData.lastName,
+          membershipTier: memberData.membershipTier,
+          membershipExpiresAt: memberData.membershipExpiresAt,
         });
       });
     } catch (error) {
       console.error("Error fetching member:", error);
-      res.status(500).json({ 
-        error: "Failed to fetch user", 
+      res.status(500).json({
+        error: "Failed to fetch user",
         details: error instanceof Error ? error.message : String(error),
         stack: process.env.NODE_ENV !== 'production' ? (error instanceof Error ? error.stack : undefined) : undefined
       });
     }
   });
 
-  // Member login
   app.post("/api/members/login", async (req, res) => {
     try {
       const result = loginSchema.safeParse(req.body);
@@ -445,40 +423,35 @@ export function registerMemberRoutes(app: Express) {
 
       const { email, password } = result.data;
 
-      // Find member
-      const { data: member } = await supabase
-        .from("members")
-        .select()
-        .eq("email", email)
-        .single();
-
-      if (!member) {
+      const memberSnap = await db.collection("members").where("email", "==", email).limit(1).get();
+      if (memberSnap.empty) {
         return res.status(401).json({ error: "Invalid email or password" });
       }
 
-      // Verify password
+      const memberDoc = memberSnap.docs[0];
+      const member = { id: memberDoc.id, ...memberDoc.data() } as Member;
+
       const isValid = await bcrypt.compare(password, member.password);
       if (!isValid) {
         return res.status(401).json({ error: "Invalid email or password" });
       }
 
-      // Set session and save it explicitly
       req.session.memberId = member.id;
       req.session.save((err) => {
         if (err) {
           console.error("Error saving session:", err);
-          return res.status(500).json({ 
-            error: "Failed to log in", 
+          return res.status(500).json({
+            error: "Failed to log in",
             details: err instanceof Error ? err.message : String(err)
           });
         }
         res.json({
           id: member.id,
           email: member.email,
-          firstName: member.first_name,
-          lastName: member.last_name,
-          membershipTier: member.membership_tier,
-          membershipExpiresAt: member.membership_expires_at,
+          firstName: member.firstName,
+          lastName: member.lastName,
+          membershipTier: member.membershipTier,
+          membershipExpiresAt: member.membershipExpiresAt,
         });
       });
     } catch (error) {
@@ -487,7 +460,6 @@ export function registerMemberRoutes(app: Express) {
     }
   });
 
-  // Get current member
   app.get("/api/members/me", async (req, res) => {
     try {
       const memberId = req.session?.memberId;
@@ -495,18 +467,20 @@ export function registerMemberRoutes(app: Express) {
         return res.status(401).json({ error: "Not authenticated" });
       }
 
-      const { data: member } = await supabase.from("members").select().eq("id", memberId).single();
-      if (!member) {
+      const memberSnap = await db.collection("members").doc(memberId).get();
+      if (!memberSnap.exists) {
         return res.status(401).json({ error: "User not found" });
       }
+
+      const member = { id: memberSnap.id, ...memberSnap.data() } as Member;
 
       res.json({
         id: member.id,
         email: member.email,
-        firstName: member.first_name,
-        lastName: member.last_name,
-        membershipTier: member.membership_tier,
-        membershipExpiresAt: member.membership_expires_at,
+        firstName: member.firstName,
+        lastName: member.lastName,
+        membershipTier: member.membershipTier,
+        membershipExpiresAt: member.membershipExpiresAt,
       });
     } catch (error) {
       console.error("Error fetching member:", error);
@@ -514,7 +488,6 @@ export function registerMemberRoutes(app: Express) {
     }
   });
 
-  // Member logout
   app.post("/api/members/logout", (req, res) => {
     req.session.destroy((err) => {
       if (err) {
@@ -526,7 +499,6 @@ export function registerMemberRoutes(app: Express) {
     });
   });
 
-  // Update member profile
   app.patch("/api/members/me", async (req, res) => {
     try {
       const memberId = req.session?.memberId;
@@ -542,27 +514,23 @@ export function registerMemberRoutes(app: Express) {
       const { firstName, lastName } = result.data;
 
       const updateData: Record<string, unknown> = {};
-      if (firstName !== undefined) updateData.first_name = firstName;
-      if (lastName !== undefined) updateData.last_name = lastName;
+      if (firstName !== undefined) updateData.firstName = firstName;
+      if (lastName !== undefined) updateData.lastName = lastName;
+      updateData.updatedAt = serverTimestamp();
 
-      const { data: updatedMember, error: updateError } = await supabase
-        .from("members")
-        .update(updateData)
-        .eq("id", memberId)
-        .select()
-        .single();
+      const memberRef = db.collection("members").doc(memberId);
+      await memberRef.update(updateData);
 
-      if (updateError || !updatedMember) {
-        throw updateError || new Error("Failed to update");
-      }
+      const updatedMemberSnap = await memberRef.get();
+      const updatedMember = { id: updatedMemberSnap.id, ...updatedMemberSnap.data() } as Member;
 
       res.json({
         id: updatedMember.id,
         email: updatedMember.email,
-        firstName: updatedMember.first_name,
-        lastName: updatedMember.last_name,
-        membershipTier: updatedMember.membership_tier,
-        membershipExpiresAt: updatedMember.membership_expires_at,
+        firstName: updatedMember.firstName,
+        lastName: updatedMember.lastName,
+        membershipTier: updatedMember.membershipTier,
+        membershipExpiresAt: updatedMember.membershipExpiresAt,
       });
     } catch (error) {
       console.error("Error updating profile:", error);
@@ -570,7 +538,6 @@ export function registerMemberRoutes(app: Express) {
     }
   });
 
-  // Change member password
   app.post("/api/members/change-password", async (req, res) => {
     try {
       const memberId = req.session?.memberId;
@@ -585,24 +552,24 @@ export function registerMemberRoutes(app: Express) {
 
       const { currentPassword, newPassword } = result.data;
 
-      const { data: member } = await supabase.from("members").select().eq("id", memberId).single();
-      if (!member) {
+      const memberSnap = await db.collection("members").doc(memberId).get();
+      if (!memberSnap.exists) {
         return res.status(401).json({ error: "User not found" });
       }
 
-      // Verify current password
+      const member = { id: memberSnap.id, ...memberSnap.data() } as Member;
+
       const isValid = await bcrypt.compare(currentPassword, member.password);
       if (!isValid) {
         return res.status(401).json({ error: "Current password is incorrect" });
       }
 
-      // Hash new password
       const hashedPassword = await bcrypt.hash(newPassword, SALT_ROUNDS);
 
-      await supabase
-        .from("members")
-        .update({ password: hashedPassword })
-        .eq("id", memberId);
+      await db.collection("members").doc(memberId).update({
+        password: hashedPassword,
+        updatedAt: serverTimestamp(),
+      });
 
       res.json({ success: true, message: "Password changed successfully" });
     } catch (error) {
