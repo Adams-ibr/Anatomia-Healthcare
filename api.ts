@@ -65,7 +65,8 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
         console.error("Error handling API request:", err);
         const isDevelopment = process.env.NODE_ENV === "development";
         const response: Record<string, unknown> = { 
-            error: "Internal Server Error during startup", 
+            error: "Internal Server Error during startup",
+            message: err instanceof Error ? err.message : String(err),
         };
         if (isDevelopment && err instanceof Error) {
             response.details = err.message;
@@ -74,6 +75,8 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
         if (!res.headersSent) {
             res.writeHead(500, { "Content-Type": "application/json" });
             res.end(JSON.stringify(response));
+        } else {
+            res.end();
         }
     }
 }
