@@ -81,14 +81,52 @@ export function resetFirebaseAdmin(): void {
   adminStorage = null;
 }
 
-// Initialize on import - errors will be caught at route level
-try {
-  initializeFirebaseAdmin();
-} catch (err) {
-  console.error("[Firebase] Warning: Could not initialize on import:", err instanceof Error ? err.message : String(err));
-  // Don't throw - let routes handle initialization
-}
+// Export lazy-initialized instances
+// These will initialize on first use, not on module import
+export const auth = (() => {
+  let cached: Auth | null = null;
+  return new Proxy({} as any, {
+    get(target, prop) {
+      if (!cached) {
+        if (!adminAuth) {
+          initializeFirebaseAdmin();
+          adminAuth = getFirebaseAdminAuth();
+        }
+        cached = adminAuth;
+      }
+      return (cached as any)[prop];
+    },
+  }) as Auth;
+})();
 
-export const auth = getFirebaseAdminAuth();
-export const db = getFirebaseAdminFirestore();
-export const storage = getFirebaseAdminStorage();
+export const db = (() => {
+  let cached: Firestore | null = null;
+  return new Proxy({} as any, {
+    get(target, prop) {
+      if (!cached) {
+        if (!adminDb) {
+          initializeFirebaseAdmin();
+          adminDb = getFirebaseAdminFirestore();
+        }
+        cached = adminDb;
+      }
+      return (cached as any)[prop];
+    },
+  }) as Firestore;
+})();
+
+export const storage = (() => {
+  let cached: Storage | null = null;
+  return new Proxy({} as any, {
+    get(target, prop) {
+      if (!cached) {
+        if (!adminStorage) {
+          initializeFirebaseAdmin();
+          adminStorage = getFirebaseAdminStorage();
+        }
+        cached = adminStorage;
+      }
+      return (cached as any)[prop];
+    },
+  }) as Storage;
+})();
