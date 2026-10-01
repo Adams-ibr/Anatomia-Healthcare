@@ -2,6 +2,7 @@ import { createServer, IncomingMessage, Server, ServerResponse } from "http";
 import express, { type Express, type Request, type Response } from "express";
 import cookieParser from "cookie-parser";
 import { registerRoutes } from "../server/routes";
+import { setupSession } from "../server/auth";
 
 const app = express();
 
@@ -26,6 +27,9 @@ app.use(express.urlencoded({ extended: false }));
 
 // Parse cookies for CSRF and session management
 app.use(cookieParser());
+
+// Setup session middleware (required for authentication)
+setupSession(app);
 
 // Initialize routes (async)
 let routesPromise: Promise<any> | null = null;
