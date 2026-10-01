@@ -14,6 +14,30 @@ declare module "http" {
   }
 }
 
+// Enable CORS for frontend on different domain
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  const allowedOrigins = [
+    "https://www.anatomia.co",
+    "https://anatomia.co",
+    "http://localhost:5173",
+    "http://localhost:3000",
+  ];
+  
+  if (allowedOrigins.includes(origin || "")) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+    res.setHeader("Access-Control-Allow-Credentials", "true");
+    res.setHeader("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, X-CSRF-Token");
+  }
+  
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(200);
+  }
+  
+  next();
+});
+
 app.use(
   express.json({
     verify: (req, _res, buf) => {
