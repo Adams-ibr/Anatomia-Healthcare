@@ -4,10 +4,10 @@ export {
   getFirebaseAdminFirestore,
   getFirebaseAdminStorage,
   resetFirebaseAdmin,
-  auth,
-  db,
-  storage,
 } from "./admin";
+
+// Re-export the getter functions with convenient names
+export { getFirebaseAdminAuth as getAuth, getFirebaseAdminFirestore as getDb, getFirebaseAdminStorage as getStorage } from "./admin";
 
 export {
   buildQuery,
