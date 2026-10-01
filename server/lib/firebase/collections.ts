@@ -40,6 +40,7 @@ export const collections = {
   analyticsEvents: db.collection("analytics_events") as CollectionReference<AnalyticsEventDoc>,
   emailTemplates: db.collection("email_templates") as CollectionReference<EmailTemplateDoc>,
   activityLogs: db.collection("activity_logs") as CollectionReference<ActivityLogDoc>,
+  sessions: db.collection("sessions") as CollectionReference<SessionDoc>,
 };
 
 export function getCollection<T>(name: keyof typeof collections): CollectionReference<T> {
@@ -491,4 +492,10 @@ export interface ActivityLogDoc {
   ipAddress?: string;
   userAgent?: string;
   createdAt: Timestamp;
+}
+
+export interface SessionDoc {
+  sid: string;
+  sess: Record<string, unknown>;
+  expire: number; // Timestamp in milliseconds
 }

@@ -1,6 +1,7 @@
 import session from "express-session";
-import { supabase } from "./db";
+import { getDocuments, createDocument, updateDocument, deleteDocument, getDocumentById, collections } from "./lib/firebase";
 import { Store } from "express-session";
+import { getFirebaseAdminFirestore } from "./lib/firebase";
 
 // Type augmentation for SessionData
 declare module "express-session" {
@@ -10,12 +11,18 @@ declare module "express-session" {
   }
 }
 
+interface FirebaseSession {
+  sid: string;
+  sess: session.SessionData;
+  expire: number; // Timestamp in milliseconds
+}
+
 /**
- * Custom session store backed by Supabase.
- * Uses the existing Supabase client — no pg Pool needed.
- * Requires a "sessions" table with columns: sid (text PK), sess (jsonb), expire (timestamptz).
+ * Custom session store backed by Firebase Firestore.
+ * Uses Firestore to persist session data.
+ * Requires read/write permissions on "sessions" collection.
  */
-class SupabaseSessionStore extends Store {
+class FirebaseSessionStore extends Store {
   private cleanupInterval: NodeJS.Timeout | null = null;
 
   constructor() {
@@ -50,16 +57,20 @@ class SupabaseSessionStore extends Store {
    */
   private async cleanupExpiredSessions(): Promise<void> {
     try {
-      const now = new Date().toISOString();
-      const { error, count } = await supabase
-        .from("sessions")
-        .delete()
-        .lt("expire", now);  // Delete where expire < now
+      const db = getFirebaseAdminFirestore();
+      const now = Date.now();
+      const expiredSessions = await getDocuments(collections.sessions, {
+        filters: [{ field: "expire", operator: "<", value: now }],
+      });
 
-      if (error) {
-        console.error("Session cleanup error:", error);
-      } else {
-        console.log(`[Session Cleanup] Removed ${count} expired sessions`);
+      let deletedCount = 0;
+      for (const sessionDoc of expiredSessions) {
+        await deleteDocument(collections.sessions, sessionDoc.sid);
+        deletedCount++;
+      }
+
+      if (deletedCount > 0) {
+        console.log(`[Session Cleanup] Removed ${deletedCount} expired sessions`);
       }
     } catch (err) {
       console.error("Session cleanup exception:", err);
@@ -78,28 +89,19 @@ class SupabaseSessionStore extends Store {
 
   async get(sid: string, callback: (err: Error | null, session?: session.SessionData | null) => void): Promise<void> {
     try {
-      const { data, error } = await supabase
-        .from("sessions")
-        .select("sess, expire")
-        .eq("sid", sid)
-        .single();
+      const sessionDoc = await getDocumentById<FirebaseSession>(collections.sessions, sid);
 
-      if (error || !data) {
+      if (!sessionDoc) {
         return callback(null, null);
       }
 
       // Check if session has expired
-      const now = new Date();
-      const expireDate = new Date(data.expire);
-
-      if (expireDate <= now) {
+      const now = Date.now();
+      if (sessionDoc.expire <= now) {
         // Session has expired, delete it and return null
         console.log(`[Session] Session ${sid} has expired, removing from store`);
         try {
-          await supabase
-            .from("sessions")
-            .delete()
-            .eq("sid", sid);
+          await deleteDocument(collections.sessions, sid);
         } catch (deleteErr) {
           console.error("Failed to delete expired session:", deleteErr);
         }
@@ -107,7 +109,7 @@ class SupabaseSessionStore extends Store {
       }
 
       // Session is valid
-      callback(null, data.sess as session.SessionData);
+      callback(null, sessionDoc.sess);
     } catch (err) {
       callback(err instanceof Error ? err : new Error(String(err)));
     }
@@ -116,19 +118,16 @@ class SupabaseSessionStore extends Store {
   async set(sid: string, sessionData: session.SessionData, callback?: (err?: Error | null) => void): Promise<void> {
     try {
       const maxAge = sessionData.cookie?.maxAge || 7 * 24 * 60 * 60 * 1000;
-      const expire = new Date(Date.now() + maxAge).toISOString();
+      const expire = Date.now() + maxAge;
 
-      const { error } = await supabase
-        .from("sessions")
-        .upsert(
-          { sid, sess: sessionData, expire },
-          { onConflict: "sid" }
-        );
+      const firebaseSession: FirebaseSession = {
+        sid,
+        sess: sessionData,
+        expire,
+      };
 
-      if (error) {
-        console.error("Session set error:", error);
-      }
-      callback?.(error ? new Error(String(error)) : null);
+      await updateDocument(collections.sessions, sid, firebaseSession, { merge: true });
+      callback?.(null);
     } catch (err) {
       callback?.(err instanceof Error ? err : new Error(String(err)));
     }
@@ -136,12 +135,8 @@ class SupabaseSessionStore extends Store {
 
   async destroy(sid: string, callback?: (err?: Error | null) => void): Promise<void> {
     try {
-      const { error } = await supabase
-        .from("sessions")
-        .delete()
-        .eq("sid", sid);
-
-      callback?.(error ? new Error(String(error)) : null);
+      await deleteDocument(collections.sessions, sid);
+      callback?.(null);
     } catch (err) {
       callback?.(err instanceof Error ? err : new Error(String(err)));
     }
@@ -150,21 +145,17 @@ class SupabaseSessionStore extends Store {
   async touch(sid: string, sessionData: session.SessionData, callback?: (err?: Error | null) => void): Promise<void> {
     try {
       const maxAge = sessionData.cookie?.maxAge || 7 * 24 * 60 * 60 * 1000;
-      const expire = new Date(Date.now() + maxAge).toISOString();
+      const expire = Date.now() + maxAge;
 
-      const { error } = await supabase
-        .from("sessions")
-        .update({ expire })
-        .eq("sid", sid);
-
-      callback?.(error ? new Error(String(error)) : null);
+      await updateDocument(collections.sessions, sid, { expire }, { merge: true });
+      callback?.(null);
     } catch (err) {
       callback?.(err instanceof Error ? err : new Error(String(err)));
     }
   }
 }
 
-export const sessionStore = new SupabaseSessionStore();
+export const sessionStore = new FirebaseSessionStore();
 
 export function getSessionAsync(sid: string): Promise<session.SessionData | null> {
   return new Promise((resolve) => {
@@ -184,4 +175,3 @@ export function getSessionAsync(sid: string): Promise<session.SessionData | null
 export function cleanupSessions(): void {
   sessionStore.stopCleanup();
 }
-

@@ -70,6 +70,7 @@ export {
   type AnalyticsEventDoc,
   type EmailTemplateDoc,
   type ActivityLogDoc,
+  type SessionDoc,
 } from "./collections";
 
 export {
