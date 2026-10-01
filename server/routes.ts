@@ -77,10 +77,33 @@ export async function registerRoutes(
     try {
       const doc = await getDocuments(collections.contactMessages, { limit: 1 });
       res.json({ status: "ok", time: new Date().toISOString(), dataCount: doc.length });
-    } catch (error) {
-      console.error("Health check failed:", error);
-      res.status(500).json({ status: "error", message: error instanceof Error ? error.message : "Unknown error" });
+    } catch (error: any) {
+      console.error("[/api/health-db] Error:", error?.message);
+      res.status(500).json({ 
+        status: "error", 
+        message: error?.message,
+        code: error?.code
+      });
     }
+  });
+
+  // Debug route for credential check
+  app.get("/api/health-config", async (req, res) => {
+    const hasProjectId = !!process.env.FIREBASE_PROJECT_ID;
+    const hasClientEmail = !!process.env.FIREBASE_CLIENT_EMAIL;
+    const hasPrivateKey = !!process.env.FIREBASE_PRIVATE_KEY;
+    const hasBucket = !!process.env.FIREBASE_STORAGE_BUCKET;
+
+    res.json({
+      status: "ok",
+      firebaseConfig: {
+        projectId: hasProjectId ? "✓" : "✗",
+        clientEmail: hasClientEmail ? "✓" : "✗",
+        privateKey: hasPrivateKey ? "✓" : "✗",
+        storageBucket: hasBucket ? "✓" : "✗",
+      },
+      allConfigured: hasProjectId && hasClientEmail && hasPrivateKey && hasBucket,
+    });
   });
 
   // Debug route for Storage connection
@@ -227,9 +250,17 @@ export async function registerRoutes(
       });
 
       res.json(articles);
-    } catch (error) {
-      console.error("Error fetching articles:", error);
-      res.status(500).json({ error: "Failed to fetch articles" });
+    } catch (error: any) {
+      console.error("[/api/articles] Error:", {
+        message: error?.message,
+        code: error?.code,
+        stack: error?.stack?.split('\n')[0],
+      });
+      const isDev = process.env.NODE_ENV === "development";
+      res.status(500).json({ 
+        error: "Failed to fetch articles",
+        ...(isDev && { details: error?.message })
+      });
     }
   });
 

@@ -81,8 +81,13 @@ export function resetFirebaseAdmin(): void {
   adminStorage = null;
 }
 
-// Initialize on import
-initializeFirebaseAdmin();
+// Initialize on import - errors will be caught at route level
+try {
+  initializeFirebaseAdmin();
+} catch (err) {
+  console.error("[Firebase] Warning: Could not initialize on import:", err instanceof Error ? err.message : String(err));
+  // Don't throw - let routes handle initialization
+}
 
 export const auth = getFirebaseAdminAuth();
 export const db = getFirebaseAdminFirestore();
