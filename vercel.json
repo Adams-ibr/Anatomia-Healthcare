@@ -2,11 +2,10 @@
   "version": 2,
   "buildCommand": "npm run build",
   "outputDirectory": "dist/public",
-  "serverlessFunctionRegion": "iad1",
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": "/index.cjs"
+      "destination": "/"
     },
     {
       "source": "/(.*)",
@@ -15,11 +14,5 @@
   ],
   "env": {
     "NODE_ENV": "production"
-  },
-  "functions": {
-    "api/**": {
-      "memory": 1024,
-      "maxDuration": 60
-    }
   }
 }
