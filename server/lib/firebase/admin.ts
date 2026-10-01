@@ -81,37 +81,43 @@ export function resetFirebaseAdmin(): void {
   adminStorage = null;
 }
 
-// Placeholder exports - will be populated on first access
+// Lazy-initialized exports
 let _auth: Auth | null = null;
 let _db: Firestore | null = null;
 let _storage: Storage | null = null;
 
-export const auth = new Proxy({} as Auth, {
-  get(target, prop) {
-    if (!_auth) {
-      if (!adminApp) initializeFirebaseAdmin();
-      _auth = getFirebaseAdminAuth();
-    }
-    return (_auth as any)[prop];
-  },
-});
+// Dummy exports for TypeScript
+export const auth: Auth = null as any;
+export const db: Firestore = null as any;
+export const storage: Storage = null as any;
 
-export const db = new Proxy({} as Firestore, {
-  get(target, prop) {
-    if (!_db) {
-      if (!adminApp) initializeFirebaseAdmin();
-      _db = getFirebaseAdminFirestore();
-    }
-    return (_db as any)[prop];
+// These getters will initialize Firebase on first access
+Object.defineProperties(module.exports, {
+  auth: {
+    get() {
+      if (!_auth) {
+        if (!adminApp) initializeFirebaseAdmin();
+        _auth = getFirebaseAdminAuth();
+      }
+      return _auth;
+    },
   },
-});
-
-export const storage = new Proxy({} as Storage, {
-  get(target, prop) {
-    if (!_storage) {
-      if (!adminApp) initializeFirebaseAdmin();
-      _storage = getFirebaseAdminStorage();
-    }
-    return (_storage as any)[prop];
+  db: {
+    get() {
+      if (!_db) {
+        if (!adminApp) initializeFirebaseAdmin();
+        _db = getFirebaseAdminFirestore();
+      }
+      return _db;
+    },
+  },
+  storage: {
+    get() {
+      if (!_storage) {
+        if (!adminApp) initializeFirebaseAdmin();
+        _storage = getFirebaseAdminStorage();
+      }
+      return _storage;
+    },
   },
 });
