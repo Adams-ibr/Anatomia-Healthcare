@@ -28,9 +28,6 @@ app.use(express.urlencoded({ extended: false }));
 // Parse cookies for CSRF and session management
 app.use(cookieParser());
 
-// Setup session middleware (required for authentication)
-setupSession(app);
-
 // Initialize routes (async)
 let routesPromise: Promise<any> | null = null;
 let httpServer: Server<typeof IncomingMessage, typeof ServerResponse> | null = null;
@@ -41,6 +38,8 @@ async function ensureRoutes(): Promise<void> {
         if (!httpServer) {
             httpServer = createServer(app);
         }
+        // Setup session middleware (must be before routes)
+        setupSession(app);
         routesPromise = registerRoutes(httpServer, app);
     }
     await routesPromise;
