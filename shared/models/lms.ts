@@ -21,7 +21,7 @@ export const insertCourseCategorySchema = createInsertSchema(courseCategories).o
   id: true,
   createdAt: true,
   updatedAt: true,
-});
+}).passthrough();
 
 export type InsertCourseCategory = z.infer<typeof insertCourseCategorySchema>;
 export type CourseCategory = typeof courseCategories.$inferSelect;
@@ -51,7 +51,7 @@ export const insertCourseSchema = createInsertSchema(courses).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
-});
+}).passthrough();
 
 export type InsertCourse = z.infer<typeof insertCourseSchema>;
 export type Course = typeof courses.$inferSelect;
@@ -70,7 +70,7 @@ export const courseModules = pgTable("course_modules", {
 export const insertCourseModuleSchema = createInsertSchema(courseModules).omit({
   id: true,
   createdAt: true,
-});
+}).passthrough();
 
 export type InsertCourseModule = z.infer<typeof insertCourseModuleSchema>;
 export type CourseModule = typeof courseModules.$inferSelect;
@@ -96,7 +96,7 @@ export const insertLessonSchema = createInsertSchema(lessons).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
-});
+}).passthrough();
 
 export type InsertLesson = z.infer<typeof insertLessonSchema>;
 export type Lesson = typeof lessons.$inferSelect;
@@ -115,7 +115,7 @@ export const lessonAssets = pgTable("lesson_assets", {
 export const insertLessonAssetSchema = createInsertSchema(lessonAssets).omit({
   id: true,
   createdAt: true,
-});
+}).passthrough();
 
 export type InsertLessonAsset = z.infer<typeof insertLessonAssetSchema>;
 export type LessonAsset = typeof lessonAssets.$inferSelect;
@@ -137,7 +137,7 @@ export const insertEnrollmentSchema = createInsertSchema(enrollments).omit({
   id: true,
   enrolledAt: true,
   completedAt: true,
-});
+}).passthrough();
 
 export type InsertEnrollment = z.infer<typeof insertEnrollmentSchema>;
 export type Enrollment = typeof enrollments.$inferSelect;
@@ -161,7 +161,7 @@ export const insertLessonProgressSchema = createInsertSchema(lessonProgress).omi
   id: true,
   lastAccessedAt: true,
   completedAt: true,
-});
+}).passthrough();
 
 export type InsertLessonProgress = z.infer<typeof insertLessonProgressSchema>;
 export type LessonProgress = typeof lessonProgress.$inferSelect;
@@ -183,7 +183,7 @@ export const quizzes = pgTable("quizzes", {
 export const insertQuizSchema = createInsertSchema(quizzes).omit({
   id: true,
   createdAt: true,
-});
+}).passthrough();
 
 export type InsertQuiz = z.infer<typeof insertQuizSchema>;
 export type Quiz = typeof quizzes.$inferSelect;
@@ -201,7 +201,7 @@ export const quizQuestions = pgTable("quiz_questions", {
 
 export const insertQuizQuestionSchema = createInsertSchema(quizQuestions).omit({
   id: true,
-});
+}).passthrough();
 
 export type InsertQuizQuestion = z.infer<typeof insertQuizQuestionSchema>;
 export type QuizQuestion = typeof quizQuestions.$inferSelect;
@@ -217,7 +217,7 @@ export const quizOptions = pgTable("quiz_options", {
 
 export const insertQuizOptionSchema = createInsertSchema(quizOptions).omit({
   id: true,
-});
+}).passthrough();
 
 export type InsertQuizOption = z.infer<typeof insertQuizOptionSchema>;
 export type QuizOption = typeof quizOptions.$inferSelect;
@@ -239,7 +239,7 @@ export const insertQuizAttemptSchema = createInsertSchema(quizAttempts).omit({
   id: true,
   startedAt: true,
   completedAt: true,
-});
+}).passthrough();
 
 export type InsertQuizAttempt = z.infer<typeof insertQuizAttemptSchema>;
 export type QuizAttempt = typeof quizAttempts.$inferSelect;
@@ -257,7 +257,7 @@ export const certificates = pgTable("certificates", {
 export const insertCertificateSchema = createInsertSchema(certificates).omit({
   id: true,
   issuedAt: true,
-});
+}).passthrough();
 
 export type InsertCertificate = z.infer<typeof insertCertificateSchema>;
 export type Certificate = typeof certificates.$inferSelect;
@@ -275,7 +275,7 @@ export const coursePrerequisites = pgTable("course_prerequisites", {
 export const insertCoursePrerequisiteSchema = createInsertSchema(coursePrerequisites).omit({
   id: true,
   createdAt: true,
-});
+}).passthrough();
 
 export type InsertCoursePrerequisite = z.infer<typeof insertCoursePrerequisiteSchema>;
 export type CoursePrerequisite = typeof coursePrerequisites.$inferSelect;
@@ -297,7 +297,7 @@ export const auditLogs = pgTable("audit_logs", {
 export const insertAuditLogSchema = createInsertSchema(auditLogs).omit({
   id: true,
   createdAt: true,
-});
+}).passthrough();
 
 export type InsertAuditLog = z.infer<typeof insertAuditLogSchema>;
 export type AuditLog = typeof auditLogs.$inferSelect;
@@ -316,7 +316,7 @@ export const questionTopics = pgTable("question_topics", {
 export const insertQuestionTopicSchema = createInsertSchema(questionTopics).omit({
   id: true,
   createdAt: true,
-});
+}).passthrough();
 
 export type InsertQuestionTopic = z.infer<typeof insertQuestionTopicSchema>;
 export type QuestionTopic = typeof questionTopics.$inferSelect;
@@ -341,7 +341,7 @@ export const insertQuestionBankSchema = createInsertSchema(questionBank).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
-});
+}).passthrough();
 
 export type InsertQuestionBank = z.infer<typeof insertQuestionBankSchema>;
 export type QuestionBankItem = typeof questionBank.$inferSelect;
@@ -358,7 +358,7 @@ export const questionBankOptions = pgTable("question_bank_options", {
 
 export const insertQuestionBankOptionSchema = createInsertSchema(questionBankOptions).omit({
   id: true,
-});
+}).passthrough();
 
 export type InsertQuestionBankOption = z.infer<typeof insertQuestionBankOptionSchema>;
 export type QuestionBankOption = typeof questionBankOptions.$inferSelect;
@@ -378,7 +378,7 @@ export const flashcardDecks = pgTable("flashcard_decks", {
 export const insertFlashcardDeckSchema = createInsertSchema(flashcardDecks).omit({
   id: true,
   createdAt: true,
-});
+}).passthrough();
 
 export type InsertFlashcardDeck = z.infer<typeof insertFlashcardDeckSchema>;
 export type FlashcardDeck = typeof flashcardDecks.$inferSelect;
@@ -402,7 +402,7 @@ export const flashcards = pgTable("flashcards", {
 export const insertFlashcardSchema = createInsertSchema(flashcards).omit({
   id: true,
   createdAt: true,
-});
+}).passthrough();
 
 export type InsertFlashcard = z.infer<typeof insertFlashcardSchema>;
 export type Flashcard = typeof flashcards.$inferSelect;
@@ -425,7 +425,7 @@ export const flashcardProgress = pgTable("flashcard_progress", {
 export const insertFlashcardProgressSchema = createInsertSchema(flashcardProgress).omit({
   id: true,
   lastReviewedAt: true,
-});
+}).passthrough();
 
 export type InsertFlashcardProgress = z.infer<typeof insertFlashcardProgressSchema>;
 export type FlashcardProgress = typeof flashcardProgress.$inferSelect;
@@ -446,7 +446,7 @@ export const notifications = pgTable("notifications", {
 export const insertNotificationSchema = createInsertSchema(notifications).omit({
   id: true,
   createdAt: true,
-});
+}).passthrough();
 
 export type InsertNotification = z.infer<typeof insertNotificationSchema>;
 export type Notification = typeof notifications.$inferSelect;
@@ -466,7 +466,7 @@ export const achievements = pgTable("achievements", {
 export const insertAchievementSchema = createInsertSchema(achievements).omit({
   id: true,
   createdAt: true,
-});
+}).passthrough();
 
 export type InsertAchievement = z.infer<typeof insertAchievementSchema>;
 export type Achievement = typeof achievements.$inferSelect;
@@ -484,7 +484,7 @@ export const memberAchievements = pgTable("member_achievements", {
 export const insertMemberAchievementSchema = createInsertSchema(memberAchievements).omit({
   id: true,
   earnedAt: true,
-});
+}).passthrough();
 
 export type InsertMemberAchievement = z.infer<typeof insertMemberAchievementSchema>;
 export type MemberAchievement = typeof memberAchievements.$inferSelect;
@@ -510,7 +510,7 @@ export const insertAnatomyModelSchema = createInsertSchema(anatomyModels).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
-});
+}).passthrough();
 
 export type InsertAnatomyModel = z.infer<typeof insertAnatomyModelSchema>;
 export type AnatomyModel = typeof anatomyModels.$inferSelect;
@@ -528,7 +528,7 @@ export const lessonAnatomyModels = pgTable("lesson_anatomy_models", {
 export const insertLessonAnatomyModelSchema = createInsertSchema(lessonAnatomyModels).omit({
   id: true,
   createdAt: true,
-});
+}).passthrough();
 
 export type LessonAnatomyModel = typeof lessonAnatomyModels.$inferSelect;
 export type InsertLessonAnatomyModel = typeof lessonAnatomyModels.$inferInsert;
@@ -557,7 +557,7 @@ export const insertPaymentTransactionSchema = createInsertSchema(paymentTransact
   id: true,
   createdAt: true,
   updatedAt: true,
-});
+}).passthrough();
 
 export type InsertPaymentTransaction = z.infer<typeof insertPaymentTransactionSchema>;
 export type PaymentTransaction = typeof paymentTransactions.$inferSelect;

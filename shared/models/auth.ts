@@ -36,7 +36,7 @@ export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
-});
+}).passthrough();
 
 // Password validation: minimum 12 characters, requires uppercase, lowercase, number, special char
 const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&_\-#])[A-Za-z\d@$!%*?&_\-#]{12,}$/;
@@ -95,7 +95,7 @@ export const insertMemberSchema = createInsertSchema(members).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
-});
+}).passthrough();
 
 export type InsertMember = z.infer<typeof insertMemberSchema>;
 export type Member = typeof members.$inferSelect;

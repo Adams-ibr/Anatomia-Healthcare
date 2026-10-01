@@ -18,7 +18,7 @@ export const insertConversationSchema = createInsertSchema(conversations).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
-});
+}).passthrough();
 
 export type InsertConversation = z.infer<typeof insertConversationSchema>;
 export type Conversation = typeof conversations.$inferSelect;
@@ -41,7 +41,7 @@ export const conversationParticipants = pgTable(
 export const insertConversationParticipantSchema = createInsertSchema(conversationParticipants).omit({
   id: true,
   joinedAt: true,
-});
+}).passthrough();
 
 export type InsertConversationParticipant = z.infer<typeof insertConversationParticipantSchema>;
 export type ConversationParticipant = typeof conversationParticipants.$inferSelect;
@@ -71,7 +71,7 @@ export const insertMessageSchema = createInsertSchema(messages).omit({
   isDeleted: true,
   createdAt: true,
   updatedAt: true,
-});
+}).passthrough();
 
 export type InsertMessage = z.infer<typeof insertMessageSchema>;
 export type Message = typeof messages.$inferSelect;
@@ -106,7 +106,7 @@ export const insertCommentSchema = createInsertSchema(comments).omit({
   isDeleted: true,
   createdAt: true,
   updatedAt: true,
-});
+}).passthrough();
 
 export type InsertComment = z.infer<typeof insertCommentSchema>;
 export type Comment = typeof comments.$inferSelect;
@@ -140,7 +140,7 @@ export const insertDiscussionSchema = createInsertSchema(discussions).omit({
   viewCount: true,
   createdAt: true,
   updatedAt: true,
-});
+}).passthrough();
 
 export type InsertDiscussion = z.infer<typeof insertDiscussionSchema>;
 export type Discussion = typeof discussions.$inferSelect;
@@ -171,7 +171,7 @@ export const insertDiscussionReplySchema = createInsertSchema(discussionReplies)
   isDeleted: true,
   createdAt: true,
   updatedAt: true,
-});
+}).passthrough();
 
 export type InsertDiscussionReply = z.infer<typeof insertDiscussionReplySchema>;
 export type DiscussionReply = typeof discussionReplies.$inferSelect;
@@ -194,7 +194,7 @@ export const likes = pgTable(
 export const insertLikeSchema = createInsertSchema(likes).omit({
   id: true,
   createdAt: true,
-});
+}).passthrough();
 
 export type InsertLike = z.infer<typeof insertLikeSchema>;
 export type Like = typeof likes.$inferSelect;

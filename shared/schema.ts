@@ -31,7 +31,7 @@ export const insertContactMessageSchema = createInsertSchema(contactMessages).pi
   email: true,
   topic: true,
   message: true,
-});
+}).passthrough();
 
 export type InsertContactMessage = z.infer<typeof insertContactMessageSchema>;
 export type ContactMessage = typeof contactMessages.$inferSelect;
@@ -45,7 +45,7 @@ export const newsletterSubscriptions = pgTable("newsletter_subscriptions", {
 
 export const insertNewsletterSubscriptionSchema = createInsertSchema(newsletterSubscriptions).pick({
   email: true,
-});
+}).passthrough();
 
 export type InsertNewsletterSubscription = z.infer<typeof insertNewsletterSubscriptionSchema>;
 export type NewsletterSubscription = typeof newsletterSubscriptions.$inferSelect;
@@ -71,7 +71,7 @@ export const insertArticleSchema = createInsertSchema(articles).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
-});
+}).passthrough();
 
 export type InsertArticle = z.infer<typeof insertArticleSchema>;
 export type Article = typeof articles.$inferSelect;
@@ -98,7 +98,7 @@ export const teamMembers = pgTable("team_members", {
 export const insertTeamMemberSchema = createInsertSchema(teamMembers).omit({
   id: true,
   createdAt: true,
-});
+}).passthrough();
 
 export type InsertTeamMember = z.infer<typeof insertTeamMemberSchema>;
 export type TeamMember = typeof teamMembers.$inferSelect;
@@ -121,7 +121,7 @@ export const products = pgTable("products", {
 export const insertProductSchema = createInsertSchema(products).omit({
   id: true,
   createdAt: true,
-});
+}).passthrough();
 
 export type InsertProduct = z.infer<typeof insertProductSchema>;
 export type Product = typeof products.$inferSelect;
@@ -140,7 +140,7 @@ export const faqItems = pgTable("faq_items", {
 export const insertFaqItemSchema = createInsertSchema(faqItems).omit({
   id: true,
   createdAt: true,
-});
+}).passthrough();
 
 export type InsertFaqItem = z.infer<typeof insertFaqItemSchema>;
 export type FaqItem = typeof faqItems.$inferSelect;
@@ -161,7 +161,7 @@ export const careers = pgTable("careers", {
 export const insertCareerSchema = createInsertSchema(careers).omit({
   id: true,
   createdAt: true,
-});
+}).passthrough();
 
 export type InsertCareer = z.infer<typeof insertCareerSchema>;
 export type Career = typeof careers.$inferSelect;
@@ -185,7 +185,7 @@ export const insertDepartmentSchema = createInsertSchema(departments).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
-});
+}).passthrough();
 
 export type InsertDepartment = z.infer<typeof insertDepartmentSchema>;
 export type Department = typeof departments.$inferSelect;
@@ -205,7 +205,7 @@ export const insertGalleryItemSchema = createInsertSchema(galleryItems).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
-});
+}).passthrough();
 
 export type InsertGalleryItem = z.infer<typeof insertGalleryItemSchema>;
 export type GalleryItem = typeof galleryItems.$inferSelect;
@@ -222,7 +222,7 @@ export const waitlist = pgTable("waitlist", {
 export const insertWaitlistSchema = createInsertSchema(waitlist).omit({
   id: true,
   createdAt: true,
-});
+}).passthrough();
 
 export type InsertWaitlist = z.infer<typeof insertWaitlistSchema>;
 export type WaitlistItem = typeof waitlist.$inferSelect;
@@ -243,7 +243,7 @@ export const insertPartnerSchema = createInsertSchema(partners).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
-});
+}).passthrough();
 
 export type InsertPartner = z.infer<typeof insertPartnerSchema>;
 export type Partner = typeof partners.$inferSelect;
@@ -270,7 +270,7 @@ export const insertJobApplicationSchema = createInsertSchema(jobApplications).om
   id: true,
   createdAt: true,
   updatedAt: true,
-});
+}).passthrough();
 
 export type InsertJobApplication = z.infer<typeof insertJobApplicationSchema>;
 export type JobApplication = typeof jobApplications.$inferSelect;

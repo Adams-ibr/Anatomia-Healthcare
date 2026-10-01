@@ -22,7 +22,7 @@ export const insertMembershipPlanSchema = createInsertSchema(membershipPlans).om
     id: true,
     createdAt: true,
     updatedAt: true,
-});
+}).passthrough();
 
 export type InsertMembershipPlan = z.infer<typeof insertMembershipPlanSchema>;
 export type MembershipPlan = typeof membershipPlans.$inferSelect;
@@ -43,7 +43,7 @@ export const insertPlanPricingSchema = createInsertSchema(planPricing).omit({
     id: true,
     createdAt: true,
     updatedAt: true,
-});
+}).passthrough();
 
 export type InsertPlanPricing = z.infer<typeof insertPlanPricingSchema>;
 export type PlanPricing = typeof planPricing.$inferSelect;
@@ -60,7 +60,7 @@ export const featureAccess = pgTable("feature_access", {
 export const insertFeatureAccessSchema = createInsertSchema(featureAccess).omit({
     id: true,
     createdAt: true,
-});
+}).passthrough();
 
 export type InsertFeatureAccess = z.infer<typeof insertFeatureAccessSchema>;
 export type FeatureAccess = typeof featureAccess.$inferSelect;
