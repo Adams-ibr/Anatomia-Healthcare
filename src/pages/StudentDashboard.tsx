@@ -78,7 +78,7 @@ export default function StudentDashboard() {
               <p className="text-sm text-muted">{t('sdash.overallProgressBody', { done: completed.length, total: mine.length })}</p>
             </div>
           </div>
-          <div className="grid flex-1 gap-3 grid-cols-1 xs:grid-cols-3 sm:grid-cols-3 lg:pl-6">
+          <div className="grid flex-1 gap-3 grid-cols-1 sm:grid-cols-3 lg:pl-6">
             <div className="rounded-card border border-line p-3">
               <p className="text-2xl font-bold text-ink">{inProgress.length}</p>
               <p className="text-xs text-muted">{t('sdash.inProgressCourses')}</p>

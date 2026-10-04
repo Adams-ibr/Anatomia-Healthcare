@@ -25,7 +25,7 @@ export interface NavItem {
 const STUDENT_NAV: NavItem[] = [
   { label: 'dashboard', to: '/dashboard', icon: <LayoutDashboard className="h-4 w-4" />, end: true },
   {
-    label: 'Learning',
+    label: 'nav.learning',
     icon: <BookOpen className="h-4 w-4" />,
     children: [
       { label: 'myLearning', to: '/my-learning', icon: <BookOpen className="h-4 w-4" /> },
@@ -34,7 +34,7 @@ const STUDENT_NAV: NavItem[] = [
     ]
   },
   {
-    label: 'Academics',
+    label: 'nav.academics',
     icon: <ClipboardList className="h-4 w-4" />,
     children: [
       { label: 'assignments', to: '/assignments', icon: <ClipboardList className="h-4 w-4" /> },
@@ -43,7 +43,7 @@ const STUDENT_NAV: NavItem[] = [
     ]
   },
   {
-    label: 'Account',
+    label: 'nav.account',
     icon: <UserCog className="h-4 w-4" />,
     children: [
       { label: 'certificates', to: '/certificates', icon: <GraduationCap className="h-4 w-4" /> },
@@ -57,7 +57,7 @@ const STUDENT_NAV: NavItem[] = [
 const INSTRUCTOR_NAV: NavItem[] = [
   { label: 'dashboard', to: '/instructor', icon: <LayoutDashboard className="h-4 w-4" />, end: true },
   {
-    label: 'Courses',
+    label: 'nav.courses',
     icon: <BookOpen className="h-4 w-4" />,
     children: [
       { label: 'myCourses', to: '/instructor/courses', icon: <BookOpen className="h-4 w-4" /> },
@@ -65,7 +65,7 @@ const INSTRUCTOR_NAV: NavItem[] = [
     ]
   },
   {
-    label: 'Insights',
+    label: 'nav.insights',
     icon: <BarChart3 className="h-4 w-4" />,
     children: [
       { label: 'students', to: '/instructor/students', icon: <Users className="h-4 w-4" /> },
@@ -389,8 +389,9 @@ export function PortalLayout({ nav, role }: { nav: NavItem[]; role: string }) {
 
       <nav className="fixed inset-x-0 bottom-0 z-30 flex items-center justify-around border-t border-line bg-surface py-1.5 pb-[max(6px,env(safe-area-inset-bottom))] lg:hidden" aria-label="Mobile">
         {getMobileNav(role).map((item) => (
-          <NavLink key={item.label} to={item.to!} end={item.end} className={({ isActive }) => cn('flex min-h-[44px] flex-col items-center justify-center gap-0.5 rounded px-3 py-1 text-[10px] font-medium', isActive ? 'text-brand-700' : 'text-muted')}>
-            {item.icon}{t(item.label)}
+          <NavLink key={item.label} to={item.to!} end={item.end} aria-label={t(item.label)} className={({ isActive }) => cn('flex min-h-[44px] flex-col items-center justify-center gap-0.5 rounded px-3 py-1 text-[10px] font-medium', isActive ? 'text-brand-700' : 'text-muted')}>
+            {item.icon}
+            <span>{t(item.label)}</span>
           </NavLink>
         ))}
       </nav>

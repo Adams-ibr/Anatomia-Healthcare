@@ -235,15 +235,15 @@ export default function Courses() {
           ))}
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center">
           <button onClick={() => setShowFilters(!showFilters)} className="btn-outline">
             <Filter className="h-4 w-4" /> {t('catalog.filters')} <ChevronDown className={cn('h-4 w-4 transition-transform', showFilters && 'rotate-180')} />
           </button>
-          <div className="ml-auto flex items-center gap-2 text-sm">
+          <div className="flex items-center gap-2 text-sm sm:ml-auto">
             <span className="hidden text-muted sm:inline">{t('catalog.coursesCount', { count: courses.length })}</span>
-            <label className="hidden items-center gap-2 text-muted md:flex">
+            <label className="flex w-full items-center gap-2 text-muted sm:w-auto">
               <SlidersHorizontal className="h-4 w-4" />
-              <select value={sort} onChange={(e) => setSort(e.target.value)} className="input-base w-auto py-1.5 pr-8">
+              <select value={sort} onChange={(e) => setSort(e.target.value)} className="input-base w-full py-1.5 pr-8 sm:w-auto">
                 <option value="popular">{t('catalog.mostPopular')}</option>
                 <option value="rating">{t('catalog.highestRated')}</option>
                 <option value="new">{t('catalog.newest')}</option>
@@ -263,7 +263,7 @@ export default function Courses() {
             transition={{ duration: 0.25, ease: EASE }}
             className="overflow-hidden"
           >
-            <div className="card mt-4 grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="card mt-4 grid grid-cols-1 gap-4 p-5 sm:grid-cols-2 lg:grid-cols-4">
               <div>
                 <label className="label-base">{t('catalog.level')}</label>
                 <select value={level} onChange={(e) => setLevel(e.target.value)} className="input-base">
@@ -287,23 +287,13 @@ export default function Courses() {
                   {t('catalog.certificateAvailable')}
                 </label>
               </div>
-              <div>
-                <label className="label-base">{t('catalog.sort')}</label>
-                <select value={sort} onChange={(e) => setSort(e.target.value)} className="input-base md:hidden">
-                  <option value="popular">{t('catalog.mostPopular')}</option>
-                  <option value="rating">{t('catalog.highestRated')}</option>
-                  <option value="new">{t('catalog.newest')}</option>
-                  <option value="price-asc">{t('catalog.priceLowHigh')}</option>
-                  <option value="price-desc">{t('catalog.priceHighLow')}</option>
-                </select>
-              </div>
             </div>
           </motion.div>
         )}
 
         <div className="mt-6">
           {loading ? (
-            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="h-80" />)}
             </div>
           ) : courses.length === 0 ? (
@@ -313,7 +303,7 @@ export default function Courses() {
               <Button variant="outline" className="mt-4" onClick={() => { setSearch(''); setLevel('all'); setPrice('all'); setCertOnly(false) }}>{t('catalog.clearFilters')}</Button>
             </div>
           ) : (
-            <motion.div layout className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            <motion.div layout className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {renderCourses().map((c) => (
                 <motion.div key={c.id} layout initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, ease: EASE }}>
                   <CourseCard course={c as unknown as Course} />

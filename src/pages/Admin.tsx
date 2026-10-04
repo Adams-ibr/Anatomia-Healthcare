@@ -61,13 +61,13 @@ export function AdminDashboard() {
         <p className="mt-1 text-sm text-muted">{t('admin.platformDesc')}</p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard label={t('admin.totalUsers')} value={(stats?.users ?? 0).toLocaleString()} sub={t('admin.registered')} icon={<Users className="h-5 w-5" />} />
         <StatCard label={t('admin.students')} value={(stats?.students ?? 0).toLocaleString()} sub={t('admin.activeLearners')} icon={<GraduationCap className="h-5 w-5" />} />
         <StatCard label={t('admin.instructors')} value={(stats?.instructors ?? 0).toLocaleString()} sub={t('admin.plusNewThisMonth')} icon={<UserCog className="h-5 w-5" />} />
         <StatCard label={t('admin.revenue')} value={formatPrice(stats?.revenue ?? 0)} sub={t('admin.allTime')} icon={<Banknote className="h-5 w-5" />} />
       </div>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard label={t('admin.courses')} value={(stats?.courses ?? 0).toLocaleString()} sub={t('admin.publishedCount')} icon={<BookOpen className="h-5 w-5" />} />
         <StatCard label={t('admin.enrollments')} value={enrollments.length.toLocaleString()} sub={t('admin.platformWide')} icon={<TrendingUp className="h-5 w-5" />} />
         <StatCard label={t('admin.certificatesIssued')} value={(stats?.certificates ?? 0).toLocaleString()} sub={t('admin.issuedAllTime')} icon={<Award className="h-5 w-5" />} />
