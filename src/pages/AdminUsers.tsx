@@ -57,6 +57,13 @@ export default function AdminUsers() {
     if (!token) return
     setLoading(true)
     setError(null)
+    
+    // Add timeout fallback to prevent infinite loading states
+    const timeoutId = setTimeout(() => {
+      setLoading(false)
+      setError(t('admin.loadTimeout') || 'Request timed out. Please try again.')
+    }, 15000) // 15 second timeout
+    
     try {
       const res = await adminApi.listUsers(token, {
         search: debouncedSearch,
@@ -65,19 +72,21 @@ export default function AdminUsers() {
         page: p,
         perPage
       })
+      clearTimeout(timeoutId)
       setUsers(res.users)
       setTotal(res.total)
       setPage(res.page)
     } catch (err) {
+      clearTimeout(timeoutId)
       setError(err instanceof Error ? err.message : t('admin.loadFailed'))
     } finally {
       setLoading(false)
     }
-  }, [debouncedSearch, roleFilter, statusFilter, t])
+  }, [debouncedSearch, roleFilter, statusFilter, t, perPage])
 
   useEffect(() => {
     loadUsers(page)
-  }, [loadUsers])
+  }, [loadUsers, page])
 
   const totalPages = Math.max(1, Math.ceil(total / perPage))
 
@@ -271,7 +280,12 @@ export default function AdminUsers() {
           async () => { const token = getStoredToken(); if (token) await adminApi.createUser(token, input) },
           t('admin.userCreated'),
           input.name
-        ).then((ok) => { if (ok) setCreating(false) })}
+        ).then((ok) => { 
+          if (ok) {
+            setCreating(false)
+            setPage(1) // Reset to page 1 to show the new user
+          }
+        })}
       />
 
       {editing && (

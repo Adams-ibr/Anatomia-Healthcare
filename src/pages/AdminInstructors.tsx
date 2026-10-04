@@ -53,14 +53,23 @@ export default function AdminInstructors() {
     if (!token) return
     setLoading(true)
     setError(null)
+    
+    // Add timeout fallback to prevent infinite loading states
+    const timeoutId = setTimeout(() => {
+      setLoading(false)
+      setError(t('adminInstructors.loadTimeout', 'Request timed out. Please try again.'))
+    }, 15000) // 15 second timeout
+    
     try {
       const res = await adminApi.listInstructorsDetailed(token, {
         search: debouncedSearch,
         status: statusFilter
       })
+      clearTimeout(timeoutId)
       setInstructors(res.instructors)
       setTotal(res.total)
     } catch (err) {
+      clearTimeout(timeoutId)
       setError(err instanceof Error ? err.message : t('adminInstructors.loadFailed', 'Failed to load instructors.'))
     } finally {
       setLoading(false)

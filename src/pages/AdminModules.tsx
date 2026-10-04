@@ -58,6 +58,10 @@ export default function AdminModules() {
   // Mock data
   useEffect(() => {
     setLoading(true)
+    // TODO: When switching from mock data to real API:
+    // - Wrap the fetch function in useCallback with proper dependencies (search, courseFilter, perPage if pagination is added)
+    // - Ensure dependencies are included in both the callback deps and the useEffect deps
+    // - Add the same timeout fallback as AdminCourses to prevent infinite loading
     setTimeout(() => {
       const mockModules: Module[] = [
         {

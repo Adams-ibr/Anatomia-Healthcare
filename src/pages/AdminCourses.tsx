@@ -63,6 +63,13 @@ export default function AdminCourses() {
     if (!token) return
     setLoading(true)
     setError(null)
+    
+    // Add timeout fallback to prevent infinite loading states
+    const timeoutId = setTimeout(() => {
+      setLoading(false)
+      setError(t('admin.loadTimeout') || 'Request timed out. Please try again.')
+    }, 15000) // 15 second timeout
+    
     try {
       const res = await courseApi.listCourses(token, {
         search: debouncedSearch,
@@ -71,15 +78,17 @@ export default function AdminCourses() {
         page: p,
         perPage
       })
+      clearTimeout(timeoutId) // Clear timeout if request succeeds
       setCourses(res.courses)
       setTotal(res.total)
       setPage(res.page)
     } catch (err) {
+      clearTimeout(timeoutId) // Clear timeout if request fails
       setError(err instanceof Error ? err.message : t('admin.coursesLoadFailed'))
     } finally {
       setLoading(false)
     }
-  }, [debouncedSearch, statusFilter, categoryFilter, t])
+  }, [debouncedSearch, statusFilter, categoryFilter, t, perPage])
 
   const loadCategories = useCallback(async () => {
     const token = getStoredToken()
@@ -110,7 +119,7 @@ export default function AdminCourses() {
 
   useEffect(() => {
     loadCourses(page)
-  }, [loadCourses])
+  }, [loadCourses, page])
 
   const totalPages = Math.max(1, Math.ceil(total / perPage))
   const refetch = useCallback(() => loadCourses(page), [loadCourses, page])
@@ -316,7 +325,12 @@ export default function AdminCourses() {
           async () => { const token = getStoredToken(); if (token) await courseApi.createCourse(token, input) },
           t('admin.courseCreated'),
           input.title
-        ).then((ok) => { if (ok) setCreating(false) })}
+        ).then((ok) => { 
+          if (ok) {
+            setCreating(false)
+            setPage(1) // Reset to page 1 to show the new course
+          }
+        })}
       />
 
       {editing && (
