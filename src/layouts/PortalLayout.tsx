@@ -6,7 +6,7 @@ import {
   ClipboardList, FileText, GraduationCap, Heart, LayoutDashboard, LogOut, Mail,
   Megaphone, MessageSquare, Package, Palette, Settings, ShoppingBag,
   Tag, Users, Wallet, X, Home, Search, Trophy, UserCog, DollarSign, Receipt, ChartColumn, PanelLeft,
-  Cube, Layers, HelpCircle
+  Box, Layers, HelpCircle
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useApp } from '../lib/store'
@@ -46,7 +46,7 @@ const ADMIN_NAV: NavItem[] = [
   { label: 'categories', to: '/admin/categories', icon: <Tag className="h-4 w-4" /> },
   { label: 'modules', to: '/admin/modules', icon: <Layers className="h-4 w-4" /> },
   { label: 'lessons', to: '/admin/lessons', icon: <FileText className="h-4 w-4" /> },
-  { label: '3D Models', to: '/admin/anatomy-models', icon: <Cube className="h-4 w-4" /> },
+  { label: '3D Models', to: '/admin/anatomy-models', icon: <Box className="h-4 w-4" /> },
   { label: 'flashcards', to: '/admin/flashcards', icon: <Layers className="h-4 w-4" /> },
   { label: 'questionBank', to: '/admin/question-bank', icon: <HelpCircle className="h-4 w-4" /> },
   { label: 'enrollments', to: '/admin/enrollments', icon: <Users className="h-4 w-4" /> },

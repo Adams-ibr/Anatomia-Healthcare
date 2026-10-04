@@ -625,7 +625,7 @@ export default function AdminQuestionBank() {
       )}
 
       {deletingQuestion && (
-        <Modal isOpen={true} onClose={() => setDeletingQuestion(null)} title="Delete Question">
+        <Modal open={true} onClose={() => setDeletingQuestion(null)} title="Delete Question">
           <p className="text-sm text-muted">
             Are you sure you want to delete this question? This action cannot be undone.
           </p>
@@ -663,7 +663,7 @@ export default function AdminQuestionBank() {
       )}
 
       {deletingTopic && (
-        <Modal isOpen={true} onClose={() => setDeletingTopic(null)} title="Delete Topic">
+        <Modal open={true} onClose={() => setDeletingTopic(null)} title="Delete Topic">
           <p className="text-sm text-muted">
             Are you sure you want to delete "{deletingTopic.name}"? Questions tagged with this topic will not be deleted but will lose this tag. This action cannot be undone.
           </p>
@@ -752,7 +752,7 @@ function QuestionFormModal({ question, topics, onClose, onSuccess }: {
   }
 
   return (
-    <Modal isOpen={true} onClose={onClose} title={question ? 'Edit Question' : 'Create Question'} size="large">
+    <Modal open={true} onClose={onClose} title={question ? 'Edit Question' : 'Create Question'} size="large">
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* Type */}
         <div>
@@ -981,7 +981,7 @@ function QuestionFormModal({ question, topics, onClose, onSuccess }: {
 
 function QuestionViewModal({ question, onClose }: { question: Question; onClose: () => void }) {
   return (
-    <Modal isOpen={true} onClose={onClose} title="Question Preview">
+    <Modal open={true} onClose={onClose} title="Question Preview">
       <div className="space-y-4">
         <div className="flex flex-wrap gap-2">
           <Badge color={question.type === 'multiple-choice' ? 'brand' : 'warning'}>
@@ -1072,7 +1072,7 @@ function TopicFormModal({ topic, onClose, onSuccess }: { topic?: Topic | null; o
   }
 
   return (
-    <Modal isOpen={true} onClose={onClose} title={topic ? 'Edit Topic' : 'Create Topic'}>
+    <Modal open={true} onClose={onClose} title={topic ? 'Edit Topic' : 'Create Topic'}>
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <label className="label-base">Topic Name</label>
@@ -1179,7 +1179,7 @@ true-false,The left ventricle pumps blood to the lungs.,medium,1,Blood Circulati
   }
 
   return (
-    <Modal isOpen={true} onClose={onClose} title="Bulk Import Questions">
+    <Modal open={true} onClose={onClose} title="Bulk Import Questions">
       <form onSubmit={handleImport} className="space-y-4">
         <div>
           <label className="label-base">Import Format</label>

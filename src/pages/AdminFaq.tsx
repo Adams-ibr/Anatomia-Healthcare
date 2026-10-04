@@ -307,7 +307,6 @@ export default function AdminFaq() {
                   <div className="mt-4 flex items-center gap-2 border-t border-line pt-4">
                     <Button
                       variant="outline"
-                      size="sm"
                       onClick={(e) => {
                         e.stopPropagation()
                         setEditing(faq)
@@ -317,7 +316,6 @@ export default function AdminFaq() {
                     </Button>
                     <Button
                       variant="outline"
-                      size="sm"
                       onClick={(e) => {
                         e.stopPropagation()
                         togglePublish(faq.id)
@@ -327,7 +325,6 @@ export default function AdminFaq() {
                     </Button>
                     <Button
                       variant="outline"
-                      size="sm"
                       onClick={(e) => {
                         e.stopPropagation()
                         setDeleting(faq)

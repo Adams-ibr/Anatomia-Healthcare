@@ -456,7 +456,7 @@ export default function AdminFlashcards() {
 
       {/* Delete Deck Confirmation */}
       {deletingDeck && (
-        <Modal isOpen={true} onClose={() => setDeletingDeck(null)} title="Delete Deck">
+        <Modal open={true} onClose={() => setDeletingDeck(null)} title="Delete Deck">
           <p className="text-sm text-muted">
             Are you sure you want to delete "{deletingDeck.name}"? This will also delete all {deletingDeck.cardCount} flashcards in this deck. This action cannot be undone.
           </p>
@@ -504,7 +504,7 @@ export default function AdminFlashcards() {
 
       {/* Delete Card Confirmation */}
       {deletingCard && (
-        <Modal isOpen={true} onClose={() => setDeletingCard(null)} title="Delete Card">
+        <Modal open={true} onClose={() => setDeletingCard(null)} title="Delete Card">
           <p className="text-sm text-muted">
             Are you sure you want to delete this flashcard? This action cannot be undone.
           </p>
@@ -559,7 +559,7 @@ function DeckFormModal({ deck, onClose, onSuccess }: { deck?: FlashcardDeck; onC
   }
 
   return (
-    <Modal isOpen={true} onClose={onClose} title={deck ? 'Edit Deck' : 'Create Deck'}>
+    <Modal open={true} onClose={onClose} title={deck ? 'Edit Deck' : 'Create Deck'}>
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <label className="label-base">Deck Name</label>
@@ -649,7 +649,7 @@ function CardFormModal({ deckId, card, onClose, onSuccess }: { deckId: string; c
   }
 
   return (
-    <Modal isOpen={true} onClose={onClose} title={card ? 'Edit Flashcard' : 'Create Flashcard'}>
+    <Modal open={true} onClose={onClose} title={card ? 'Edit Flashcard' : 'Create Flashcard'}>
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <label className="label-base">Card Type</label>
@@ -734,7 +734,7 @@ function CardViewModal({ card, onClose }: { card: Flashcard; onClose: () => void
   const Icon = cardType.icon
 
   return (
-    <Modal isOpen={true} onClose={onClose} title="Flashcard Preview">
+    <Modal open={true} onClose={onClose} title="Flashcard Preview">
       <div className="space-y-4">
         <Badge color={cardType.color}>{cardType.label}</Badge>
         
@@ -811,7 +811,7 @@ tip,Study Tip,Remember: Right=deoxygenated Left=oxygenated,`
   }
 
   return (
-    <Modal isOpen={true} onClose={onClose} title="Bulk Import Flashcards">
+    <Modal open={true} onClose={onClose} title="Bulk Import Flashcards">
       <form onSubmit={handleImport} className="space-y-4">
         <div>
           <label className="label-base">Import Format</label>

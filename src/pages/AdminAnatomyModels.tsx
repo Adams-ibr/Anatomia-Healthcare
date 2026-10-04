@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
-  Box, ChevronLeft, ChevronRight, Cube, Filter, Loader2, MoreVertical,
+  Box, ChevronLeft, ChevronRight, Filter, Loader2, MoreVertical,
   PencilLine, Plus, Search, Trash2, Upload, X, Eye
 } from 'lucide-react'
 import { useApp } from '../lib/store'
@@ -281,7 +281,7 @@ export default function AdminAnatomyModels() {
                     <img src={model.thumbnailUrl} alt={model.name} className="h-full w-full object-cover" />
                   ) : (
                     <div className="flex h-full items-center justify-center">
-                      <Cube className="h-16 w-16 text-brand-300" />
+                      <Box className="h-16 w-16 text-brand-300" />
                     </div>
                   )}
                   <div className="absolute right-2 top-2 flex gap-1">
@@ -453,7 +453,7 @@ function ModelUploadModal({ onClose, onSuccess }: { onClose: () => void; onSucce
   }
 
   return (
-    <Modal isOpen={true} onClose={onClose} title="Upload 3D Model">
+    <Modal open={true} onClose={onClose} title="Upload 3D Model">
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* File Upload */}
         <div>
@@ -610,7 +610,7 @@ function ModelEditModal({ model, onClose, onSuccess }: { model: AnatomyModel; on
   }
 
   return (
-    <Modal isOpen={true} onClose={onClose} title="Edit Model">
+    <Modal open={true} onClose={onClose} title="Edit Model">
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <label className="label-base">Model Name</label>
@@ -707,14 +707,14 @@ function ModelEditModal({ model, onClose, onSuccess }: { model: AnatomyModel; on
 
 function ModelViewModal({ model, onClose }: { model: AnatomyModel; onClose: () => void }) {
   return (
-    <Modal isOpen={true} onClose={onClose} title="Model Details">
+    <Modal open={true} onClose={onClose} title="Model Details">
       <div className="space-y-4">
         <div className="aspect-video rounded-card bg-gradient-to-br from-brand-50 to-brand-100">
           {model.thumbnailUrl ? (
             <img src={model.thumbnailUrl} alt={model.name} className="h-full w-full rounded-card object-cover" />
           ) : (
             <div className="flex h-full items-center justify-center">
-              <Cube className="h-24 w-24 text-brand-300" />
+              <Box className="h-24 w-24 text-brand-300" />
             </div>
           )}
         </div>

@@ -441,7 +441,7 @@ export default function AdminContacts() {
 
       {/* Delete Confirmation */}
       {deleting && (
-        <Modal isOpen={true} onClose={() => setDeleting(null)} title="Delete Contact">
+        <Modal open={true} onClose={() => setDeleting(null)} title="Delete Contact">
           <p className="text-sm text-muted">
             Are you sure you want to delete this contact message from {deleting.name}? This action cannot be undone.
           </p>
@@ -471,7 +471,7 @@ function ContactViewModal({ contact, onClose, onUpdateStatus }: {
   onUpdateStatus: (status: ContactStatus) => void
 }) {
   return (
-    <Modal isOpen={true} onClose={onClose} title="Contact Message">
+    <Modal open={true} onClose={onClose} title="Contact Message">
       <div className="space-y-4">
         <div className="flex items-center gap-2">
           <Badge color={
@@ -595,7 +595,7 @@ function AddNoteModal({ contact, onClose, onSuccess }: {
   }
 
   return (
-    <Modal isOpen={true} onClose={onClose} title="Add Internal Note">
+    <Modal open={true} onClose={onClose} title="Add Internal Note">
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <label className="label-base">Note</label>

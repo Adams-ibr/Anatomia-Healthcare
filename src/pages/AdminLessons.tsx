@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
-  BookOpen, ChevronLeft, ChevronRight, Clock, Cube, Eye, FileText,
+  BookOpen, ChevronLeft, ChevronRight, Clock, Box, Eye, FileText,
   HelpCircle, Layers, Loader2, Play, PlusCircle, Save, Search,
   Trash2, Type, Video, X, Image as ImageIcon, Link as LinkIcon
 } from 'lucide-react'
@@ -338,7 +338,7 @@ export default function AdminLessons() {
                           >
                             {res.type === 'quiz' && <HelpCircle className="h-3 w-3" />}
                             {res.type === 'flashcard' && <Layers className="h-3 w-3" />}
-                            {res.type === 'model' && <Cube className="h-3 w-3" />}
+                            {res.type === 'model' && <Box className="h-3 w-3" />}
                             {res.resourceName}
                           </Badge>
                         ))}
@@ -426,7 +426,7 @@ export default function AdminLessons() {
 
       {/* Delete Confirmation */}
       {deleting && (
-        <Modal isOpen={true} onClose={() => setDeleting(null)} title="Delete Lesson">
+        <Modal open={true} onClose={() => setDeleting(null)} title="Delete Lesson">
           <p className="text-sm text-muted">
             Are you sure you want to delete "{deleting.title}"? This action cannot be undone.
           </p>
@@ -519,7 +519,7 @@ function LessonEditorModal({ lesson, onClose, onSuccess }: { lesson?: Lesson | n
   }
 
   return (
-    <Modal isOpen={true} onClose={onClose} title={lesson ? 'Edit Lesson' : 'Create Lesson'} size="large">
+    <Modal open={true} onClose={onClose} title={lesson ? 'Edit Lesson' : 'Create Lesson'} size="large">
       <div className="space-y-6">
         {/* Tabs */}
         <Tabs
@@ -633,7 +633,7 @@ function LessonEditorModal({ lesson, onClose, onSuccess }: { lesson?: Lesson | n
                     { type: 'video' as const, icon: Video, label: 'Video' },
                     { type: 'image' as const, icon: ImageIcon, label: 'Image' },
                     { type: 'embed' as const, icon: LinkIcon, label: 'Embed' },
-                    { type: 'interactive' as const, icon: Cube, label: 'Interactive' }
+                    { type: 'interactive' as const, icon: Box, label: 'Interactive' }
                   ].map(({ type, icon: Icon, label }) => (
                     <button
                       key={type}
@@ -684,7 +684,7 @@ function LessonEditorModal({ lesson, onClose, onSuccess }: { lesson?: Lesson | n
                     <div className="flex items-center gap-3">
                       {resource.type === 'quiz' && <HelpCircle className="h-5 w-5 text-warning" />}
                       {resource.type === 'flashcard' && <Layers className="h-5 w-5 text-brand-700" />}
-                      {resource.type === 'model' && <Cube className="h-5 w-5 text-success" />}
+                      {resource.type === 'model' && <Box className="h-5 w-5 text-success" />}
                       <div>
                         <p className="text-sm font-medium text-ink">{resource.resourceName}</p>
                         <p className="text-xs text-muted capitalize">{resource.type}</p>
@@ -730,7 +730,7 @@ function LessonEditorModal({ lesson, onClose, onSuccess }: { lesson?: Lesson | n
                 }}
                 className="flex flex-col items-center gap-2 rounded-card border-2 border-dashed border-line p-4 hover:border-success hover:bg-success/5"
               >
-                <Cube className="h-6 w-6 text-success" />
+                <Box className="h-6 w-6 text-success" />
                 <span className="text-xs font-medium">Import 3D Model</span>
               </button>
             </div>
@@ -773,7 +773,7 @@ function ContentBlockEditor({ block, index, onUpdate, onRemove }: {
       case 'video': return <Video className="h-5 w-5" />
       case 'image': return <ImageIcon className="h-5 w-5" />
       case 'embed': return <LinkIcon className="h-5 w-5" />
-      case 'interactive': return <Cube className="h-5 w-5" />
+      case 'interactive': return <Box className="h-5 w-5" />
     }
   }
 
@@ -863,7 +863,7 @@ function ContentBlockEditor({ block, index, onUpdate, onRemove }: {
 
 function LessonViewModal({ lesson, onClose }: { lesson: Lesson; onClose: () => void }) {
   return (
-    <Modal isOpen={true} onClose={onClose} title="Lesson Preview" size="large">
+    <Modal open={true} onClose={onClose} title="Lesson Preview" size="large">
       <div className="space-y-6">
         <div>
           <div className="flex items-center gap-3 mb-2">

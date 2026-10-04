@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
-  BookOpen, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Cube,
+  BookOpen, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Box,
   Eye, Layers, Loader2, MoreVertical, Move, PencilLine, Plus,
   PlusCircle, Search, Trash2, X
 } from 'lucide-react'
@@ -301,7 +301,7 @@ export default function AdminModules() {
                               {res.type === 'flashcard' ? (
                                 <Layers className="h-3 w-3" />
                               ) : (
-                                <Cube className="h-3 w-3" />
+                                <Box className="h-3 w-3" />
                               )}
                               {res.resourceName}
                             </Badge>
@@ -404,7 +404,7 @@ export default function AdminModules() {
                               variant="outline"
                               onClick={() => setManagingResources(module)}
                             >
-                              <Cube className="h-4 w-4" />
+                              <Box className="h-4 w-4" />
                               Import 3D Model
                             </Button>
                           </div>
@@ -420,7 +420,7 @@ export default function AdminModules() {
                                 {resource.type === 'flashcard' ? (
                                   <Layers className="h-5 w-5 text-brand-700" />
                                 ) : (
-                                  <Cube className="h-5 w-5 text-success" />
+                                  <Box className="h-5 w-5 text-success" />
                                 )}
                                 <div>
                                   <p className="text-sm font-medium text-ink">{resource.resourceName}</p>
@@ -470,7 +470,7 @@ export default function AdminModules() {
 
       {/* Delete Confirmation */}
       {deleting && (
-        <Modal isOpen={true} onClose={() => setDeleting(null)} title="Delete Module">
+        <Modal open={true} onClose={() => setDeleting(null)} title="Delete Module">
           <p className="text-sm text-muted">
             Are you sure you want to delete "{deleting.title}"? This will also remove all lessons in this module. This action cannot be undone.
           </p>
@@ -521,7 +521,7 @@ function ModuleFormModal({ module, onClose, onSuccess }: { module?: Module | nul
   }
 
   return (
-    <Modal isOpen={true} onClose={onClose} title={module ? 'Edit Module' : 'Create Module'}>
+    <Modal open={true} onClose={onClose} title={module ? 'Edit Module' : 'Create Module'}>
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <label className="label-base">Course</label>
@@ -653,7 +653,7 @@ function ManageResourcesModal({ module, onClose, onSuccess }: { module: Module; 
   }
 
   return (
-    <Modal isOpen={true} onClose={onClose} title={`Manage Resources - ${module.title}`} size="large">
+    <Modal open={true} onClose={onClose} title={`Manage Resources - ${module.title}`} size="large">
       <div className="space-y-6">
         {/* Current Resources */}
         <div>
@@ -673,7 +673,7 @@ function ManageResourcesModal({ module, onClose, onSuccess }: { module: Module; 
                     {resource.type === 'flashcard' ? (
                       <Layers className="h-5 w-5 text-brand-700" />
                     ) : (
-                      <Cube className="h-5 w-5 text-success" />
+                      <Box className="h-5 w-5 text-success" />
                     )}
                     <div>
                       <p className="text-sm font-medium text-ink">{resource.resourceName}</p>
@@ -726,7 +726,7 @@ function ManageResourcesModal({ module, onClose, onSuccess }: { module: Module; 
         {/* Import 3D Models */}
         <div>
           <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-ink">
-            <Cube className="h-5 w-5 text-success" />
+            <Box className="h-5 w-5 text-success" />
             Import 3D Models
           </h3>
           <div className="space-y-2">
@@ -738,7 +738,7 @@ function ManageResourcesModal({ module, onClose, onSuccess }: { module: Module; 
                   className="flex items-center justify-between rounded-card border border-line p-3"
                 >
                   <div className="flex items-center gap-3">
-                    <Cube className="h-4 w-4 text-success" />
+                    <Box className="h-4 w-4 text-success" />
                     <p className="text-sm text-ink">{model.name}</p>
                   </div>
                   <Button
