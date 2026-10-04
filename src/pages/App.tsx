@@ -147,59 +147,155 @@ const NAV_ICONS = {
 
 const STUDENT_NAV: NavItem[] = [
   { label: 'Dashboard', to: '/dashboard', icon: I(NAV_ICONS.dash), end: true },
-  { label: 'My Learning', to: '/my-learning', icon: I(NAV_ICONS.book) },
-  { label: 'Discover', to: '/courses', icon: I(NAV_ICONS.search) },
-  { label: 'Wishlist', to: '/wishlist', icon: I(NAV_ICONS.heart) },
-  { label: 'Certificates', to: '/certificates', icon: I(NAV_ICONS.cert) },
-  { label: 'My Orders', to: '/orders', icon: I(NAV_ICONS.cart) },
-  { label: 'Assignments', to: '/assignments', icon: I(NAV_ICONS.assign) },
-  { label: 'Assessments', to: '/assessments', icon: I(NAV_ICONS.assess) },
-  { label: 'Calendar', to: '/calendar', icon: I(NAV_ICONS.cal) },
+  {
+    label: 'Learning',
+    icon: I(NAV_ICONS.book),
+    children: [
+      { label: 'My Learning', to: '/my-learning', icon: I(NAV_ICONS.book) },
+      { label: 'Discover', to: '/courses', icon: I(NAV_ICONS.search) },
+      { label: 'Wishlist', to: '/wishlist', icon: I(NAV_ICONS.heart) }
+    ]
+  },
+  {
+    label: 'Academics',
+    icon: I(NAV_ICONS.assign),
+    children: [
+      { label: 'Assignments', to: '/assignments', icon: I(NAV_ICONS.assign) },
+      { label: 'Assessments', to: '/assessments', icon: I(NAV_ICONS.assess) },
+      { label: 'Calendar', to: '/calendar', icon: I(NAV_ICONS.cal) }
+    ]
+  },
+  {
+    label: 'Account',
+    icon: I(NAV_ICONS.user),
+    children: [
+      { label: 'Certificates', to: '/certificates', icon: I(NAV_ICONS.cert) },
+      { label: 'My Orders', to: '/orders', icon: I(NAV_ICONS.cart) }
+    ]
+  },
   { label: 'Messages', to: '/messages', icon: I(NAV_ICONS.msg) },
   { label: 'Community', to: '/community', icon: I(NAV_ICONS.users) }
 ]
 
 const INSTRUCTOR_NAV: NavItem[] = [
   { label: 'Dashboard', to: '/instructor', icon: I(NAV_ICONS.dash), end: true },
-  { label: 'My Courses', to: '/instructor/courses', icon: I(NAV_ICONS.book) },
-  { label: 'Create Course', to: '/instructor/courses/new', icon: I(NAV_ICONS.plus) },
-  { label: 'Students', to: '/instructor/students', icon: I(NAV_ICONS.users) },
-  { label: 'Analytics', to: '/instructor/analytics', icon: I(NAV_ICONS.chart) },
-  { label: 'Earnings', to: '/instructor/earnings', icon: I(NAV_ICONS.wallet) },
+  {
+    label: 'Courses',
+    icon: I(NAV_ICONS.book),
+    children: [
+      { label: 'My Courses', to: '/instructor/courses', icon: I(NAV_ICONS.book) },
+      { label: 'Create Course', to: '/instructor/courses/new', icon: I(NAV_ICONS.plus) }
+    ]
+  },
+  {
+    label: 'Insights',
+    icon: I(NAV_ICONS.chart),
+    children: [
+      { label: 'Students', to: '/instructor/students', icon: I(NAV_ICONS.users) },
+      { label: 'Analytics', to: '/instructor/analytics', icon: I(NAV_ICONS.chart) },
+      { label: 'Earnings', to: '/instructor/earnings', icon: I(NAV_ICONS.wallet) }
+    ]
+  },
   { label: 'Messages', to: '/messages', icon: I(NAV_ICONS.msg) }
 ]
 
 const ADMIN_NAV: NavItem[] = [
   { label: 'Dashboard', to: '/admin', icon: I(NAV_ICONS.dash), end: true },
-  { label: 'Users', to: '/admin/users', icon: I(NAV_ICONS.user) },
-  { label: 'Instructors', to: '/admin/instructors', icon: I(NAV_ICONS.users) },
-  { label: 'Members', to: '/admin/members', icon: I(NAV_ICONS.users) },
-  { label: 'Courses', to: '/admin/courses', icon: I(NAV_ICONS.book) },
-  { label: 'Categories', to: '/admin/categories', icon: I(NAV_ICONS.tag) },
-  { label: 'Modules', to: '/admin/modules', icon: I(NAV_ICONS.book) },
-  { label: 'Lessons', to: '/admin/lessons', icon: I(NAV_ICONS.book) },
-  { label: '3D Models', to: '/admin/anatomy-models', icon: I(NAV_ICONS.tag) },
-  { label: 'Flashcards', to: '/admin/flashcards', icon: I(NAV_ICONS.tag) },
-  { label: 'Question Bank', to: '/admin/question-bank', icon: I(NAV_ICONS.assess) },
-  { label: 'Enrollments', to: '/admin/enrollments', icon: I(NAV_ICONS.users) },
-  { label: 'Certificates', to: '/admin/certificates', icon: I(NAV_ICONS.cert) },
-  { label: 'Orders', to: '/admin/orders', icon: I(NAV_ICONS.cart) },
-  { label: 'Payments', to: '/admin/payments', icon: I(NAV_ICONS.card) },
-  { label: 'Articles', to: '/admin/articles', icon: I(NAV_ICONS.report) },
-  { label: 'Contacts', to: '/admin/contacts', icon: I(NAV_ICONS.msg) },
-  { label: 'Departments', to: '/admin/departments', icon: I(NAV_ICONS.tag) },
-  { label: 'FAQ', to: '/admin/faq', icon: I(NAV_ICONS.report) },
-  { label: 'Products', to: '/admin/products', icon: I(NAV_ICONS.cart) },
-  { label: 'Team', to: '/admin/team', icon: I(NAV_ICONS.users) },
-  { label: 'Careers', to: '/admin/careers', icon: I(NAV_ICONS.report) },
-  { label: 'Applications', to: '/admin/applications', icon: I(NAV_ICONS.report) },
-  { label: 'Gallery', to: '/admin/gallery', icon: I(NAV_ICONS.tag) },
-  { label: 'Partners', to: '/admin/partners', icon: I(NAV_ICONS.users) },
-  { label: 'Newsletter', to: '/admin/newsletter', icon: I(NAV_ICONS.msg) },
-  { label: 'Announcements', to: '/admin/announcements', icon: I(NAV_ICONS.megaphone) },
+  
+  // User Management Group
+  { 
+    label: 'User Management', 
+    icon: I(NAV_ICONS.users),
+    children: [
+      { label: 'Users', to: '/admin/users', icon: I(NAV_ICONS.user) },
+      { label: 'Instructors', to: '/admin/instructors', icon: I(NAV_ICONS.users) },
+      { label: 'Members', to: '/admin/members', icon: I(NAV_ICONS.users) },
+    ]
+  },
+  
+  // Learning Content Group
+  {
+    label: 'Learning Content',
+    icon: I(NAV_ICONS.book),
+    children: [
+      { label: 'Courses', to: '/admin/courses', icon: I(NAV_ICONS.book) },
+      { label: 'Categories', to: '/admin/categories', icon: I(NAV_ICONS.tag) },
+      { label: 'Modules', to: '/admin/modules', icon: I(NAV_ICONS.book) },
+      { label: 'Lessons', to: '/admin/lessons', icon: I(NAV_ICONS.book) },
+      { label: '3D Models', to: '/admin/anatomy-models', icon: I(NAV_ICONS.tag) },
+      { label: 'Flashcards', to: '/admin/flashcards', icon: I(NAV_ICONS.tag) },
+      { label: 'Question Bank', to: '/admin/question-bank', icon: I(NAV_ICONS.assess) },
+    ]
+  },
+  
+  // Enrollments & Certifications
+  {
+    label: 'Enrollments',
+    icon: I(NAV_ICONS.cert),
+    children: [
+      { label: 'Enrollments', to: '/admin/enrollments', icon: I(NAV_ICONS.users) },
+      { label: 'Certificates', to: '/admin/certificates', icon: I(NAV_ICONS.cert) },
+    ]
+  },
+  
+  // E-commerce Group
+  {
+    label: 'E-commerce',
+    icon: I(NAV_ICONS.cart),
+    children: [
+      { label: 'Orders', to: '/admin/orders', icon: I(NAV_ICONS.cart) },
+      { label: 'Payments', to: '/admin/payments', icon: I(NAV_ICONS.card) },
+      { label: 'Products', to: '/admin/products', icon: I(NAV_ICONS.cart) },
+    ]
+  },
+  
+  // Content Management Group
+  {
+    label: 'Content',
+    icon: I(NAV_ICONS.report),
+    children: [
+      { label: 'Articles', to: '/admin/articles', icon: I(NAV_ICONS.report) },
+      { label: 'FAQ', to: '/admin/faq', icon: I(NAV_ICONS.report) },
+      { label: 'Gallery', to: '/admin/gallery', icon: I(NAV_ICONS.tag) },
+    ]
+  },
+  
+  // Organization Group
+  {
+    label: 'Organization',
+    icon: I(NAV_ICONS.users),
+    children: [
+      { label: 'Team', to: '/admin/team', icon: I(NAV_ICONS.users) },
+      { label: 'Departments', to: '/admin/departments', icon: I(NAV_ICONS.tag) },
+      { label: 'Partners', to: '/admin/partners', icon: I(NAV_ICONS.users) },
+    ]
+  },
+  
+  // Careers Group
+  {
+    label: 'Careers',
+    icon: I(NAV_ICONS.report),
+    children: [
+      { label: 'Job Postings', to: '/admin/careers', icon: I(NAV_ICONS.report) },
+      { label: 'Applications', to: '/admin/applications', icon: I(NAV_ICONS.report) },
+    ]
+  },
+  
+  // Communications Group
+  {
+    label: 'Communications',
+    icon: I(NAV_ICONS.msg),
+    children: [
+      { label: 'Contacts', to: '/admin/contacts', icon: I(NAV_ICONS.msg) },
+      { label: 'Newsletter', to: '/admin/newsletter', icon: I(NAV_ICONS.msg) },
+      { label: 'Announcements', to: '/admin/announcements', icon: I(NAV_ICONS.megaphone) },
+    ]
+  },
+  
+  // Analytics & Reports
   { label: 'Reports', to: '/admin/reports', icon: I(NAV_ICONS.report) },
   { label: 'Analytics', to: '/admin/analytics', icon: I(NAV_ICONS.chart) },
-  { label: 'Settings', to: '/admin/settings', icon: I(NAV_ICONS.settings) }
+  { label: 'Settings', to: '/admin/settings', icon: I(NAV_ICONS.settings) },
 ]
 
 export default function App() {

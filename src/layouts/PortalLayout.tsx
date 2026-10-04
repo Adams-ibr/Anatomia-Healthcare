@@ -14,28 +14,65 @@ import { Avatar, Badge } from '../components/ui'
 import { cn, initials } from '../lib/utils'
 import { EASE } from '../lib/motion'
 
-export interface NavItem { label: string; to: string; icon: React.ReactNode; end?: boolean }
+export interface NavItem { 
+  label: string
+  to?: string
+  icon: React.ReactNode
+  end?: boolean
+  children?: NavItem[]
+}
 
 const STUDENT_NAV: NavItem[] = [
   { label: 'dashboard', to: '/dashboard', icon: <LayoutDashboard className="h-4 w-4" />, end: true },
-  { label: 'myLearning', to: '/my-learning', icon: <BookOpen className="h-4 w-4" /> },
-  { label: 'discover', to: '/courses', icon: <Search className="h-4 w-4" /> },
-  { label: 'wishlist', to: '/wishlist', icon: <Heart className="h-4 w-4" /> },
-  { label: 'certificates', to: '/certificates', icon: <GraduationCap className="h-4 w-4" /> },
-  { label: 'assignments', to: '/assignments', icon: <ClipboardList className="h-4 w-4" /> },
-  { label: 'assessments', to: '/assessments', icon: <CheckSquare className="h-4 w-4" /> },
-  { label: 'calendar', to: '/calendar', icon: <Calendar className="h-4 w-4" /> },
+  {
+    label: 'Learning',
+    icon: <BookOpen className="h-4 w-4" />,
+    children: [
+      { label: 'myLearning', to: '/my-learning', icon: <BookOpen className="h-4 w-4" /> },
+      { label: 'discover', to: '/courses', icon: <Search className="h-4 w-4" /> },
+      { label: 'wishlist', to: '/wishlist', icon: <Heart className="h-4 w-4" /> }
+    ]
+  },
+  {
+    label: 'Academics',
+    icon: <ClipboardList className="h-4 w-4" />,
+    children: [
+      { label: 'assignments', to: '/assignments', icon: <ClipboardList className="h-4 w-4" /> },
+      { label: 'assessments', to: '/assessments', icon: <CheckSquare className="h-4 w-4" /> },
+      { label: 'calendar', to: '/calendar', icon: <Calendar className="h-4 w-4" /> }
+    ]
+  },
+  {
+    label: 'Account',
+    icon: <UserCog className="h-4 w-4" />,
+    children: [
+      { label: 'certificates', to: '/certificates', icon: <GraduationCap className="h-4 w-4" /> },
+      { label: 'My Orders', to: '/orders', icon: <ShoppingBag className="h-4 w-4" /> }
+    ]
+  },
   { label: 'messages', to: '/messages', icon: <MessageSquare className="h-4 w-4" /> },
   { label: 'community', to: '/community', icon: <Users className="h-4 w-4" /> }
 ]
 
 const INSTRUCTOR_NAV: NavItem[] = [
   { label: 'dashboard', to: '/instructor', icon: <LayoutDashboard className="h-4 w-4" />, end: true },
-  { label: 'myCourses', to: '/instructor/courses', icon: <BookOpen className="h-4 w-4" /> },
-  { label: 'createCourse', to: '/instructor/courses/new', icon: <PanelLeft className="h-4 w-4" /> },
-  { label: 'students', to: '/instructor/students', icon: <Users className="h-4 w-4" /> },
-  { label: 'analytics', to: '/instructor/analytics', icon: <BarChart3 className="h-4 w-4" /> },
-  { label: 'earnings', to: '/instructor/earnings', icon: <Wallet className="h-4 w-4" /> },
+  {
+    label: 'Courses',
+    icon: <BookOpen className="h-4 w-4" />,
+    children: [
+      { label: 'myCourses', to: '/instructor/courses', icon: <BookOpen className="h-4 w-4" /> },
+      { label: 'createCourse', to: '/instructor/courses/new', icon: <PanelLeft className="h-4 w-4" /> }
+    ]
+  },
+  {
+    label: 'Insights',
+    icon: <BarChart3 className="h-4 w-4" />,
+    children: [
+      { label: 'students', to: '/instructor/students', icon: <Users className="h-4 w-4" /> },
+      { label: 'analytics', to: '/instructor/analytics', icon: <BarChart3 className="h-4 w-4" /> },
+      { label: 'earnings', to: '/instructor/earnings', icon: <Wallet className="h-4 w-4" /> }
+    ]
+  },
   { label: 'messages', to: '/messages', icon: <MessageSquare className="h-4 w-4" /> }
 ]
 
@@ -61,34 +98,113 @@ const ADMIN_NAV: NavItem[] = [
 
 function SidebarContent({ nav, role }: { nav: NavItem[]; role: string }) {
   const { t } = useTranslation()
+  const [expandedGroups, setExpandedGroups] = useState<string[]>([])
+
+  const toggleGroup = (label: string) => {
+    setExpandedGroups(prev => 
+      prev.includes(label) 
+        ? prev.filter(l => l !== label)
+        : [...prev, label]
+    )
+  }
+
   return (
-    <div className="flex flex-col gap-5">
-      <Link to="/" className="flex items-center px-2">
+    <div className="flex h-full flex-col gap-5">
+      <Link to="/" className="flex shrink-0 items-center px-2">
         <img src="/logo.png" alt="Anatomia" className="h-12 w-auto" />
       </Link>
-      <div>
-        <p className="px-2 pb-2 text-[11px] font-semibold uppercase tracking-wider text-muted">{t(`nav.${role}Dashboard`)}</p>
+      
+      {/* Scrollable nav area */}
+      <div className="flex-1 overflow-y-auto overflow-x-hidden pr-2">
+        <p className="px-2 pb-2 text-[11px] font-semibold uppercase tracking-wider text-muted">
+          {t(`nav.${role}Dashboard`)}
+        </p>
         <nav className="flex flex-col gap-0.5" aria-label="Portal navigation">
-          {nav.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end={item.end}
-              className={({ isActive }) => cn(
-                'flex items-center gap-3 rounded-control px-2.5 py-2 text-sm font-medium transition-colors',
-                isActive ? 'bg-brand-50 text-brand-700' : 'text-muted hover:bg-line/40 hover:text-ink'
-              )}
-            >
-              {item.icon}{t(item.label)}
-            </NavLink>
-          ))}
+          {nav.map((item) => {
+            const isExpanded = expandedGroups.includes(item.label)
+            
+            // Group with children (dropdown)
+            if (item.children) {
+              return (
+                <div key={item.label}>
+                  <button
+                    onClick={() => toggleGroup(item.label)}
+                    className="flex w-full items-center justify-between gap-3 rounded-control px-2.5 py-2 text-sm font-medium text-muted transition-colors hover:bg-line/40 hover:text-ink"
+                  >
+                    <div className="flex items-center gap-3">
+                      {item.icon}
+                      {t(item.label)}
+                    </div>
+                    <ChevronDown className={cn(
+                      "h-4 w-4 transition-transform",
+                      isExpanded && "rotate-180"
+                    )} />
+                  </button>
+                  <AnimatePresence>
+                    {isExpanded && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: "auto", opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.2 }}
+                        className="overflow-hidden"
+                      >
+                        <div className="ml-7 mt-1 space-y-0.5 border-l border-line pl-2">
+                          {item.children.map((child) => (
+                            <NavLink
+                              key={child.to}
+                              to={child.to!}
+                              end={child.end}
+                              className={({ isActive }) => cn(
+                                'flex items-center gap-2 rounded-control px-2.5 py-1.5 text-sm transition-colors',
+                                isActive ? 'bg-brand-50 text-brand-700 font-medium' : 'text-muted hover:bg-line/40 hover:text-ink'
+                              )}
+                            >
+                              {child.icon}
+                              {t(child.label)}
+                            </NavLink>
+                          ))}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              )
+            }
+            
+            // Regular nav item
+            return (
+              <NavLink
+                key={item.to}
+                to={item.to!}
+                end={item.end}
+                className={({ isActive }) => cn(
+                  'flex items-center gap-3 rounded-control px-2.5 py-2 text-sm font-medium transition-colors',
+                  isActive ? 'bg-brand-50 text-brand-700' : 'text-muted hover:bg-line/40 hover:text-ink'
+                )}
+              >
+                {item.icon}{t(item.label)}
+              </NavLink>
+            )
+          })}
         </nav>
       </div>
-      <div className="mt-auto border-t border-line pt-3">
-        <NavLink to="/settings" className={({ isActive }) => cn('flex items-center gap-3 rounded-control px-2.5 py-2 text-sm font-medium', isActive ? 'bg-brand-50 text-brand-700' : 'text-muted hover:bg-line/40 hover:text-ink')}>
+      
+      {/* Fixed bottom section */}
+      <div className="shrink-0 border-t border-line pt-3">
+        <NavLink 
+          to="/settings" 
+          className={({ isActive }) => cn(
+            'flex items-center gap-3 rounded-control px-2.5 py-2 text-sm font-medium', 
+            isActive ? 'bg-brand-50 text-brand-700' : 'text-muted hover:bg-line/40 hover:text-ink'
+          )}
+        >
           <Settings className="h-4 w-4" />{t('nav.settings')}
         </NavLink>
-        <Link to="/" className="flex items-center gap-3 rounded-control px-2.5 py-2 text-sm font-medium text-muted hover:bg-line/40 hover:text-ink">
+        <Link 
+          to="/" 
+          className="flex items-center gap-3 rounded-control px-2.5 py-2 text-sm font-medium text-muted hover:bg-line/40 hover:text-ink"
+        >
           <Home className="h-4 w-4" />{t('nav.backToSite')}
         </Link>
       </div>
@@ -96,13 +212,38 @@ function SidebarContent({ nav, role }: { nav: NavItem[]; role: string }) {
   )
 }
 
-const MOBILE_NAV: NavItem[] = [
-  { label: 'home', to: '/', icon: <Home className="h-5 w-5" />, end: true },
-  { label: 'learn', to: '/dashboard', icon: <BookOpen className="h-5 w-5" />, end: true },
-  { label: 'courses', to: '/courses', icon: <Search className="h-5 w-5" /> },
-  { label: 'messages', to: '/messages', icon: <MessageSquare className="h-5 w-5" /> },
-  { label: 'profile', to: '/profile', icon: <Users className="h-5 w-5" /> }
-]
+const getMobileNav = (role: string): NavItem[] => {
+  if (role === 'student') {
+    return [
+      { label: 'dashboard', to: '/dashboard', icon: <LayoutDashboard className="h-5 w-5" />, end: true },
+      { label: 'discover', to: '/courses', icon: <Search className="h-5 w-5" /> },
+      { label: 'messages', to: '/messages', icon: <MessageSquare className="h-5 w-5" /> },
+      { label: 'settings', to: '/settings', icon: <Settings className="h-5 w-5" /> },
+      { label: 'profile', to: '/profile', icon: <Users className="h-5 w-5" /> }
+    ]
+  }
+  if (role === 'instructor') {
+    return [
+      { label: 'dashboard', to: '/instructor', icon: <LayoutDashboard className="h-5 w-5" />, end: true },
+      { label: 'myCourses', to: '/instructor/courses', icon: <BookOpen className="h-5 w-5" /> },
+      { label: 'students', to: '/instructor/students', icon: <Users className="h-5 w-5" /> },
+      { label: 'messages', to: '/messages', icon: <MessageSquare className="h-5 w-5" /> },
+      { label: 'settings', to: '/settings', icon: <Settings className="h-5 w-5" /> }
+    ]
+  }
+  if (role === 'admin') {
+    return [
+      { label: 'dashboard', to: '/admin', icon: <LayoutDashboard className="h-5 w-5" />, end: true },
+      { label: 'users', to: '/admin/users', icon: <Users className="h-5 w-5" /> },
+      { label: 'courses', to: '/admin/courses', icon: <BookOpen className="h-5 w-5" /> },
+      { label: 'analytics', to: '/admin/analytics', icon: <BarChart3 className="h-5 w-5" /> },
+      { label: 'adminSettings', to: '/admin/settings', icon: <Settings className="h-5 w-5" /> }
+    ]
+  }
+  return [
+    { label: 'home', to: '/', icon: <Home className="h-5 w-5" />, end: true }
+  ]
+}
 
 export function PortalLayout({ nav, role }: { nav: NavItem[]; role: string }) {
   const { currentUser, logout, notifications, conversations, messages } = useApp()
@@ -121,7 +262,7 @@ export function PortalLayout({ nav, role }: { nav: NavItem[]; role: string }) {
 
   return (
     <div className="min-h-screen bg-paper">
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 border-r border-line bg-surface px-3 py-5 lg:block">
+      <aside className="fixed inset-y-0 left-0 z-30 hidden h-screen w-60 border-r border-line bg-surface px-3 py-5 lg:block">
         <SidebarContent nav={nav} role={role} />
       </aside>
 
@@ -227,24 +368,28 @@ export function PortalLayout({ nav, role }: { nav: NavItem[]; role: string }) {
               onClick={() => setMobileNav(false)}
             />
             <motion.div
-              className="absolute inset-y-0 left-0 w-64 overflow-y-auto bg-surface p-4"
+              className="absolute inset-y-0 left-0 flex w-64 flex-col bg-surface"
               initial={{ x: '-100%' }}
               animate={{ x: 0 }}
               exit={{ x: '-100%' }}
               transition={{ duration: 0.25, ease: EASE }}
             >
-              <div className="mb-4 flex justify-end">
-                <button onClick={() => setMobileNav(false)} className="rounded p-2 text-muted hover:text-ink" aria-label={t('nav.closeNavigation')}><X className="h-5 w-5" /></button>
+              <div className="flex shrink-0 justify-end p-4">
+                <button onClick={() => setMobileNav(false)} className="rounded p-2 text-muted hover:text-ink" aria-label={t('nav.closeNavigation')}>
+                  <X className="h-5 w-5" />
+                </button>
               </div>
-              <SidebarContent nav={nav} role={role} />
+              <div className="flex-1 overflow-y-auto px-4 pb-4">
+                <SidebarContent nav={nav} role={role} />
+              </div>
             </motion.div>
           </div>
         )}
       </AnimatePresence>
 
       <nav className="fixed inset-x-0 bottom-0 z-30 flex items-center justify-around border-t border-line bg-surface py-1.5 pb-[max(6px,env(safe-area-inset-bottom))] lg:hidden" aria-label="Mobile">
-        {MOBILE_NAV.map((item) => (
-          <NavLink key={item.label} to={item.to} end={item.end} className={({ isActive }) => cn('flex flex-col items-center gap-0.5 rounded px-3 py-1 text-[10px] font-medium', isActive ? 'text-brand-700' : 'text-muted')}>
+        {getMobileNav(role).map((item) => (
+          <NavLink key={item.label} to={item.to!} end={item.end} className={({ isActive }) => cn('flex min-h-[44px] flex-col items-center justify-center gap-0.5 rounded px-3 py-1 text-[10px] font-medium', isActive ? 'text-brand-700' : 'text-muted')}>
             {item.icon}{t(item.label)}
           </NavLink>
         ))}

@@ -10,12 +10,22 @@ export default function Messages() {
   const { t } = useTranslation()
   const [active, setActive] = useState<string | null>(conversations[0]?.id ?? null)
   const [text, setText] = useState('')
+  const [showThread, setShowThread] = useState(false)
 
   const conv = conversations.find((c) => c.id === active)
   const thread = messages.filter((m) => m.conversationId === active)
   const otherId = conv?.participants.find((p) => p !== currentUser!.id)
   const other = users.find((u) => u.id === otherId)
   const allInstructors = users.filter((u) => u.role === 'instructor')
+
+  const handleSelectConversation = (id: string) => {
+    setActive(id)
+    setShowThread(true)
+  }
+
+  const handleBackToList = () => {
+    setShowThread(false)
+  }
 
   return (
     <div className="space-y-6">
@@ -24,7 +34,7 @@ export default function Messages() {
         <p className="mt-1 text-sm text-muted">{t('msg.subtitle')}</p>
       </div>
       <div className="card grid overflow-hidden md:grid-cols-[280px_1fr]">
-        <div className="border-b border-line md:border-b-0 md:border-r">
+        <div className={`border-b border-line md:border-b-0 md:border-r ${showThread ? 'hidden md:block' : 'block'}`}>
           <div className="flex items-center gap-2 border-b border-line p-3">
             <div className="relative flex-1">
               <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
@@ -38,7 +48,7 @@ export default function Messages() {
               const o = users.find((u) => u.id === oId)
               const last = messages.filter((m) => m.conversationId === c.id).slice(-1)[0]
               return (
-                <button key={c.id} onClick={() => setActive(c.id)} className={cn('flex w-full items-center gap-3 border-b border-line px-4 py-3 text-left', active === c.id ? 'bg-brand-50' : 'hover:bg-line/30')}>
+                <button key={c.id} onClick={() => handleSelectConversation(c.id)} className={cn('flex w-full items-center gap-3 border-b border-line px-4 py-3 text-left', active === c.id ? 'bg-brand-50' : 'hover:bg-line/30')}>
                   <Avatar name={o?.name ?? 'Unknown'} size="sm" />
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium text-ink">{o?.name}</p>
@@ -61,10 +71,13 @@ export default function Messages() {
           </div>
         </div>
 
-        <div className="flex flex-col">
+        <div className={`flex flex-col ${showThread ? 'block' : 'hidden md:flex'}`}>
           {conv && other ? (
             <>
               <div className="flex items-center gap-3 border-b border-line px-4 py-3">
+                <button onClick={handleBackToList} className="md:hidden rounded p-1 text-muted hover:text-ink" aria-label="Back to conversations">
+                  <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+                </button>
                 <Avatar name={other.name} size="sm" />
                 <div>
                   <p className="text-sm font-semibold text-ink">{other.name}</p>

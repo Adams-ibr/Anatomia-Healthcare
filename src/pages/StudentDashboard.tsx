@@ -78,7 +78,7 @@ export default function StudentDashboard() {
               <p className="text-sm text-muted">{t('sdash.overallProgressBody', { done: completed.length, total: mine.length })}</p>
             </div>
           </div>
-          <div className="grid flex-1 gap-3 sm:grid-cols-3 lg:pl-6">
+          <div className="grid flex-1 gap-3 grid-cols-1 xs:grid-cols-3 sm:grid-cols-3 lg:pl-6">
             <div className="rounded-card border border-line p-3">
               <p className="text-2xl font-bold text-ink">{inProgress.length}</p>
               <p className="text-xs text-muted">{t('sdash.inProgressCourses')}</p>
@@ -94,7 +94,7 @@ export default function StudentDashboard() {
           </div>
         </div>
         {mine.length > 0 && (
-          <div className="grid gap-4 border-t border-line bg-paper p-5 sm:grid-cols-2 lg:grid-cols-3 sm:p-6">
+          <div className="grid gap-4 border-t border-line bg-paper p-4 sm:p-5 lg:p-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
             {mine.slice(0, 6).map((en) => {
               const course = en.course
               if (!course) return null
@@ -134,7 +134,7 @@ export default function StudentDashboard() {
               <button onClick={() => nav('/courses')} className="btn-primary mt-4">{t('sdash.exploreCourses')}</button>
             </div>
           ) : (
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
               {active.slice(0, 4).map((en) => {
                 const course = en.course
                 if (!course) return null
