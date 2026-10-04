@@ -110,7 +110,8 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Apply to tables that need it
-CREATE TRIGGER IF NOT EXISTS update_contact_messages_updated_at 
+DROP TRIGGER IF EXISTS update_contact_messages_updated_at ON contact_messages;
+CREATE TRIGGER update_contact_messages_updated_at 
   BEFORE UPDATE ON contact_messages
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
