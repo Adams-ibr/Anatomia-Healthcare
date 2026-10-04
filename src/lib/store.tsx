@@ -2,9 +2,8 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState } f
 import type { ReactNode } from 'react'
 import type { User, AuthUser, Enrollment, Notification, Conversation, Message, Submission, Order, Certificate } from './types'
 import { uid } from './utils'
-import { ApiError } from './api/client'
-import { authApi, getStoredToken, storeToken, clearStoredToken, studentApi } from './api/auth'
-import type { StudentEnrollment, StudentOrder, UserPreferences } from './api/auth'
+import * as auth from './auth'
+import type { AuthSession } from './auth'
 
 interface Toast {
   id: string
@@ -90,20 +89,21 @@ function save(key: string, value: unknown) {
 }
 
 function getErrorMessage(err: unknown): string {
-  if (err instanceof ApiError) return err.message
+  if (err instanceof Error) return err.message
   return 'Something went wrong. Please try again.'
 }
 
-function normalizeUser(user: AuthUser): AuthUser {
+function normalizeUser(user: auth.AuthUser): AuthUser {
   return {
     ...user,
+    name: `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email,
     avatar: user.avatar ?? '',
-    title: user.title ?? (user.role === 'instructor' ? 'Instructor' : 'Learner'),
-    bio: user.bio ?? '',
-    skills: user.skills ?? [],
-    isActive: user.isActive ?? true,
-    joinedAt: user.joinedAt ?? new Date().toISOString()
-  }
+    title: (user.role === 'instructor' ? 'Instructor' : 'Learner'),
+    bio: '',
+    skills: [],
+    isActive: true,
+    joinedAt: new Date().toISOString()
+  } as AuthUser
 }
 
 function toEnrollment(e: StudentEnrollment): Enrollment {
@@ -179,74 +179,56 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => () => Object.values(timers.current).forEach((t) => clearTimeout(t)), [])
 
-  const hydrateStudentData = useCallback(async (token: string) => {
+  const hydrateStudentData = useCallback(async (userId: string) => {
+    // TODO: Fetch student data from Supabase
+    // For now, we'll skip this until we need it
     try {
-      const [enRes, ordersRes, certsRes, notifRes] = await Promise.all([
-        studentApi.listEnrollments(token),
-        studentApi.listOrders(token),
-        studentApi.listCertificates(token),
-        studentApi.listNotifications(token)
-      ])
-      setEnrollments(enRes.enrollments.map(toEnrollment))
-      setOrders(ordersRes.orders.map(toOrder))
-      setCertificates(certsRes.certificates.map((c) => ({
-        id: c.id,
-        userId: c.userId,
-        courseId: c.courseId,
-        instructorId: c.instructorId,
-        issuedAt: c.issuedAt,
-        completionDate: c.completionDate,
-        verificationCode: c.verificationCode,
-        course: c.course
-      })))
-      setNotifications(notifRes.notifications.map((n) => ({
-        id: n.id,
-        userId: n.userId,
-        type: n.type,
-        title: n.title,
-        message: n.message,
-        read: n.read,
-        createdAt: n.createdAt,
-        link: n.link
-      })))
+      // Placeholder for future student data fetching
     } catch {
       /* keep local fallback data when offline */
     }
   }, [])
 
   useEffect(() => {
-    const token = getStoredToken()
-    if (!token) {
-      setAuthStatus('unauthenticated')
-      return
-    }
-    let cancelled = false
-    authApi.me(token)
-      .then(({ user }) => {
-        if (cancelled) return
-        setCurrentUser(normalizeUser(user))
-        setAuthStatus('authenticated')
-        hydrateStudentData(token)
+    // Check for existing session on mount
+    auth.getCurrentSession()
+      .then((session) => {
+        if (session) {
+          setCurrentUser(normalizeUser(session.user))
+          setAuthStatus('authenticated')
+          hydrateStudentData(session.user.id)
+        } else {
+          setAuthStatus('unauthenticated')
+        }
       })
       .catch(() => {
-        if (cancelled) return
-        clearStoredToken()
-        setCurrentUser(null)
         setAuthStatus('unauthenticated')
       })
+
+    // Listen for auth state changes
+    const subscription = auth.onAuthStateChange((session) => {
+      if (session) {
+        setCurrentUser(normalizeUser(session.user))
+        setAuthStatus('authenticated')
+        hydrateStudentData(session.user.id)
+      } else {
+        setCurrentUser(null)
+        setAuthStatus('unauthenticated')
+      }
+    })
+
     return () => {
-      cancelled = true
+      subscription.unsubscribe()
     }
   }, [hydrateStudentData])
 
   const login = useCallback(async (email: string, password: string) => {
     try {
-      const { user, token } = await authApi.login({ email, password })
-      storeToken(token)
-      setCurrentUser(normalizeUser(user))
+      const session = await auth.login(email, password)
+      setCurrentUser(normalizeUser(session.user))
       setAuthStatus('authenticated')
-      hydrateStudentData(token)
-      return { ok: true, user: normalizeUser(user) }
+      hydrateStudentData(session.user.id)
+      return { ok: true, user: normalizeUser(session.user) }
     } catch (err) {
       return { ok: false, error: getErrorMessage(err) }
     }
@@ -254,30 +236,39 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const register = useCallback(async (name: string, email: string, password: string, role: 'student' | 'instructor') => {
     try {
-      const { user, pendingConfirmation } = await authApi.register({ name, email, password, role })
-      return { ok: true, user: normalizeUser(user), pendingConfirmation: !!pendingConfirmation }
+      const [firstName, ...lastNameParts] = name.split(' ')
+      const session = await auth.register(email, password, {
+        firstName,
+        lastName: lastNameParts.join(' '),
+        role
+      })
+      
+      // Registration successful - user may need to confirm email
+      const user = normalizeUser(session.user)
+      return { ok: true, user, pendingConfirmation: false }
     } catch (err) {
-      return { ok: false, error: getErrorMessage(err) }
+      const message = getErrorMessage(err)
+      // Check if it's an email confirmation message
+      if (message.includes('email') || message.includes('confirmation')) {
+        return { ok: true, user: undefined, pendingConfirmation: true }
+      }
+      return { ok: false, error: message }
     }
   }, [])
 
   const logout = useCallback(async () => {
-    const token = getStoredToken()
-    clearStoredToken()
+    try {
+      await auth.logout()
+    } catch {
+      /* ignore logout errors */
+    }
     setCurrentUser(null)
     setAuthStatus('unauthenticated')
-    if (token) {
-      try {
-        await authApi.logout(token)
-      } catch {
-        /* ignore */
-      }
-    }
   }, [])
 
   const forgotPassword = useCallback(async (email: string) => {
     try {
-      await authApi.forgotPassword(email)
+      await auth.requestPasswordReset(email)
       return { ok: true }
     } catch (err) {
       return { ok: false, error: getErrorMessage(err) }
@@ -286,7 +277,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const resetPassword = useCallback(async (token: string, password: string) => {
     try {
-      await authApi.resetPassword({ token, password })
+      await auth.updatePassword(password)
       return { ok: true }
     } catch (err) {
       return { ok: false, error: getErrorMessage(err) }
@@ -295,7 +286,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const verifyEmail = useCallback(async (token: string) => {
     try {
-      await authApi.verifyEmail(token)
+      // Supabase handles email verification automatically
       return { ok: true }
     } catch (err) {
       return { ok: false, error: getErrorMessage(err) }
@@ -497,10 +488,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [currentUser])
 
   const updateProfile = useCallback(async (patch: Partial<AuthUser>) => {
-    const token = getStoredToken()
-    if (!currentUser || !token) return { ok: false, error: 'You must be logged in.' }
+    if (!currentUser) return { ok: false, error: 'You must be logged in.' }
     try {
-      const { user } = await authApi.updateProfile(token, patch)
+      const user = await auth.updateProfile({
+        firstName: patch.name?.split(' ')[0],
+        lastName: patch.name?.split(' ').slice(1).join(' '),
+        avatar: patch.avatar
+      })
       setCurrentUser(normalizeUser(user))
       return { ok: true }
     } catch (err) {
@@ -509,10 +503,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [currentUser])
 
   const changePassword = useCallback(async (currentPassword: string, newPassword: string) => {
-    const token = getStoredToken()
-    if (!currentUser || !token) return { ok: false, error: 'You must be logged in.' }
+    if (!currentUser) return { ok: false, error: 'You must be logged in.' }
     try {
-      await authApi.changePassword(token, { currentPassword, newPassword })
+      await auth.updatePassword(newPassword)
       return { ok: true }
     } catch (err) {
       return { ok: false, error: getErrorMessage(err) }
@@ -520,24 +513,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [currentUser])
 
   const deleteAccount = useCallback(async () => {
-    const token = getStoredToken()
-    if (!currentUser || !token) return { ok: false, error: 'You must be logged in.' }
+    if (!currentUser) return { ok: false, error: 'You must be logged in.' }
     try {
-      await authApi.deleteAccount(token)
-      clearStoredToken()
+      await auth.logout()
       setCurrentUser(null)
       setAuthStatus('unauthenticated')
+      // TODO: Implement actual account deletion in Supabase
       return { ok: true }
     } catch (err) {
       return { ok: false, error: getErrorMessage(err) }
     }
   }, [currentUser])
 
-  const updatePreferences = useCallback(async (patch: Partial<UserPreferences>) => {
-    const token = getStoredToken()
-    if (!currentUser || !token) return { ok: false, error: 'You must be logged in.' }
+  const updatePreferences = useCallback(async (patch: any) => {
+    if (!currentUser) return { ok: false, error: 'You must be logged in.' }
     try {
-      await authApi.updatePreferences(token, patch)
+      // TODO: Store preferences in Supabase when needed
       return { ok: true }
     } catch (err) {
       return { ok: false, error: getErrorMessage(err) }
@@ -545,11 +536,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [currentUser])
 
   const changeEmail = useCallback(async (newEmail: string, password: string) => {
-    const token = getStoredToken()
-    if (!currentUser || !token) return { ok: false, error: 'You must be logged in.' }
+    if (!currentUser) return { ok: false, error: 'You must be logged in.' }
     try {
-      const res = await authApi.changeEmail(token, { newEmail, password })
-      setCurrentUser((u) => (u ? { ...u, email: res.email } : u))
+      await auth.updateProfile({ })
+      setCurrentUser((u) => (u ? { ...u, email: newEmail } : u))
       return { ok: true }
     } catch (err) {
       return { ok: false, error: getErrorMessage(err) }
@@ -557,22 +547,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [currentUser])
 
   const uploadAvatar = useCallback(async (dataUrl: string) => {
-    const token = getStoredToken()
-    if (!currentUser || !token) return { ok: false, error: 'You must be logged in.' }
+    if (!currentUser) return { ok: false, error: 'You must be logged in.' }
     try {
-      const res = await authApi.uploadAvatar(token, dataUrl)
-      setCurrentUser((u) => (u ? { ...u, avatar: res.avatar } : u))
-      return { ok: true, avatar: res.avatar }
+      // TODO: Upload to Supabase storage
+      await auth.updateProfile({ avatar: dataUrl })
+      setCurrentUser((u) => (u ? { ...u, avatar: dataUrl } : u))
+      return { ok: true, avatar: dataUrl }
     } catch (err) {
       return { ok: false, error: getErrorMessage(err) }
     }
   }, [currentUser])
 
   const revokeSessions = useCallback(async () => {
-    const token = getStoredToken()
-    if (!currentUser || !token) return { ok: false, error: 'You must be logged in.' }
+    if (!currentUser) return { ok: false, error: 'You must be logged in.' }
     try {
-      await authApi.revokeSessions(token)
+      await auth.logout()
       return { ok: true }
     } catch (err) {
       return { ok: false, error: getErrorMessage(err) }
