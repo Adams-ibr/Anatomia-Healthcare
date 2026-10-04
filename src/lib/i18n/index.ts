@@ -3,9 +3,6 @@ import { initReactI18next } from 'react-i18next'
 import LanguageDetector from 'i18next-browser-languagedetector'
 import { DEFAULT_LANGUAGE } from './languages'
 import en from './resources/en'
-import ha from './resources/ha'
-import yo from './resources/yo'
-import ig from './resources/ig'
 import pcm from './resources/pcm'
 
 void i18n
@@ -14,13 +11,10 @@ void i18n
   .init({
     resources: {
       en: { translation: en },
-      ha: { translation: ha },
-      yo: { translation: yo },
-      ig: { translation: ig },
       pcm: { translation: pcm }
     },
     fallbackLng: DEFAULT_LANGUAGE,
-    supportedLngs: ['en', 'ha', 'yo', 'ig', 'pcm'],
+    supportedLngs: ['en', 'pcm'],
     nonExplicitSupportedLngs: true,
     detection: {
       order: ['localStorage'],

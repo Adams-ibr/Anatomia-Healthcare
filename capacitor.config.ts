@@ -1,8 +1,8 @@
 import type { CapacitorConfig } from '@capacitor/cli'
 
 const config: CapacitorConfig = {
-  appId: 'com.hamaacademy.app',
-  appName: 'Hama Academy',
+  appId: 'com.anatomia.app',
+  appName: 'Anatomia',
   webDir: 'dist',
   server: {
     androidScheme: 'https'

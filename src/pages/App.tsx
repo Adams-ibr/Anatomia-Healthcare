@@ -39,6 +39,23 @@ import AdminInstructors from './AdminInstructors'
 import AdminCourses from './AdminCourses'
 import AdminCategories from './AdminCategories'
 import { AdminCertificates, AdminOrders, AdminPayments, AdminAnnouncements, AdminReports, AdminAnalytics, AdminSettings } from './Admin2'
+import AdminAnatomyModels from './AdminAnatomyModels'
+import AdminFlashcards from './AdminFlashcards'
+import AdminLessons from './AdminLessons'
+import AdminModules from './AdminModules'
+import AdminQuestionBank from './AdminQuestionBank'
+import AdminArticles from './AdminArticles'
+import AdminContacts from './AdminContacts'
+import AdminDepartments from './AdminDepartments'
+import AdminFaq from './AdminFaq'
+import AdminMembers from './AdminMembers'
+import AdminProducts from './AdminProducts'
+import AdminTeam from './AdminTeam'
+import AdminCareers from './AdminCareers'
+import AdminGallery from './AdminGallery'
+import AdminPartners from './AdminPartners'
+import AdminNewsletter from './AdminNewsletter'
+import AdminApplications from './AdminApplications'
 
 function AuthLoader() {
   return (
@@ -244,6 +261,11 @@ export default function App() {
             <Route path="/admin/instructors" element={<AdminInstructors />} />
             <Route path="/admin/courses" element={<AdminCourses />} />
             <Route path="/admin/categories" element={<AdminCategories />} />
+            <Route path="/admin/modules" element={<AdminModules />} />
+            <Route path="/admin/lessons" element={<AdminLessons />} />
+            <Route path="/admin/anatomy-models" element={<AdminAnatomyModels />} />
+            <Route path="/admin/flashcards" element={<AdminFlashcards />} />
+            <Route path="/admin/question-bank" element={<AdminQuestionBank />} />
             <Route path="/admin/enrollments" element={<AdminEnrollments />} />
             <Route path="/admin/certificates" element={<AdminCertificates />} />
             <Route path="/admin/orders" element={<AdminOrders />} />
@@ -252,6 +274,18 @@ export default function App() {
             <Route path="/admin/reports" element={<AdminReports />} />
             <Route path="/admin/analytics" element={<AdminAnalytics />} />
             <Route path="/admin/settings" element={<AdminSettings />} />
+            <Route path="/admin/articles" element={<AdminArticles />} />
+            <Route path="/admin/contacts" element={<AdminContacts />} />
+            <Route path="/admin/departments" element={<AdminDepartments />} />
+            <Route path="/admin/faq" element={<AdminFaq />} />
+            <Route path="/admin/members" element={<AdminMembers />} />
+            <Route path="/admin/products" element={<AdminProducts />} />
+            <Route path="/admin/team" element={<AdminTeam />} />
+            <Route path="/admin/careers" element={<AdminCareers />} />
+            <Route path="/admin/gallery" element={<AdminGallery />} />
+            <Route path="/admin/partners" element={<AdminPartners />} />
+            <Route path="/admin/newsletter" element={<AdminNewsletter />} />
+            <Route path="/admin/applications" element={<AdminApplications />} />
           </Route>
         </Route>
 

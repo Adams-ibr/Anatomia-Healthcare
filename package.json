@@ -1,5 +1,5 @@
 {
-  "name": "hama-academy",
+  "name": "anatomia",
   "private": true,
   "version": "0.1.0",
   "type": "module",
@@ -12,6 +12,7 @@
     "@capacitor/android": "^8.5.0",
     "@capacitor/cli": "^8.5.0",
     "@capacitor/core": "^8.5.0",
+    "@supabase/supabase-js": "^2.117.2",
     "clsx": "^2.1.1",
     "framer-motion": "^13.1.0",
     "i18next": "^26.3.6",

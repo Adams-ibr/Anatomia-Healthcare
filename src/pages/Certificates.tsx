@@ -53,7 +53,7 @@ export function CertificateDetail() {
           <div className="pointer-events-none absolute inset-0 opacity-[0.07]" style={{ backgroundImage: 'repeating-linear-gradient(45deg, #1B4E9B 0 2px, transparent 2px 18px)' }} />
           <div className="relative text-center">
             <div className="mx-auto flex w-fit items-center justify-center">
-              <img src="/logo.png" alt="HamaAcademy" className="h-14 w-auto" />
+              <img src="/logo.png" alt="Anatomia" className="h-14 w-auto" />
             </div>
             <p className="mt-8 text-xs font-semibold uppercase tracking-[0.25em] text-muted">{t('cert.ofCompletion')}</p>
             <p className="mt-8 text-sm text-muted">{t('cert.certify')}</p>

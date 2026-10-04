@@ -22,7 +22,7 @@ export function Footer() {
         <div className="grid gap-10 lg:grid-cols-[1.4fr_2fr]">
           <div>
             <div className="flex items-center">
-              <img src="/logo.png" alt="HamaAcademy" className="h-14 w-auto" />
+              <img src="/logo.png" alt="Anatomia" className="h-14 w-auto" />
             </div>
             <p className="mt-4 max-w-sm text-sm leading-relaxed text-muted">
               {t('footer.tagline')}

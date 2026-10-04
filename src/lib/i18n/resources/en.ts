@@ -1,6 +1,6 @@
 export default {
   brand: {
-    name: 'HamaAcademy',
+    name: 'Anatomia',
     tagline: 'Learn without limits. Build skills that matter.'
   },
 

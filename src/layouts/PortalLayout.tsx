@@ -5,7 +5,8 @@ import {
   AlertTriangle, BarChart3, Bell, BookOpen, Calendar, CheckSquare, ChevronDown,
   ClipboardList, FileText, GraduationCap, Heart, LayoutDashboard, LogOut, Mail,
   Megaphone, MessageSquare, Package, Palette, Settings, ShoppingBag,
-  Tag, Users, Wallet, X, Home, Search, Trophy, UserCog, DollarSign, Receipt, ChartColumn, PanelLeft
+  Tag, Users, Wallet, X, Home, Search, Trophy, UserCog, DollarSign, Receipt, ChartColumn, PanelLeft,
+  Cube, Layers, HelpCircle
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useApp } from '../lib/store'
@@ -43,6 +44,11 @@ const ADMIN_NAV: NavItem[] = [
   { label: 'users', to: '/admin/users', icon: <UserCog className="h-4 w-4" /> },
   { label: 'courses', to: '/admin/courses', icon: <BookOpen className="h-4 w-4" /> },
   { label: 'categories', to: '/admin/categories', icon: <Tag className="h-4 w-4" /> },
+  { label: 'modules', to: '/admin/modules', icon: <Layers className="h-4 w-4" /> },
+  { label: 'lessons', to: '/admin/lessons', icon: <FileText className="h-4 w-4" /> },
+  { label: '3D Models', to: '/admin/anatomy-models', icon: <Cube className="h-4 w-4" /> },
+  { label: 'flashcards', to: '/admin/flashcards', icon: <Layers className="h-4 w-4" /> },
+  { label: 'questionBank', to: '/admin/question-bank', icon: <HelpCircle className="h-4 w-4" /> },
   { label: 'enrollments', to: '/admin/enrollments', icon: <Users className="h-4 w-4" /> },
   { label: 'certificates', to: '/admin/certificates', icon: <GraduationCap className="h-4 w-4" /> },
   { label: 'orders', to: '/admin/orders', icon: <ShoppingBag className="h-4 w-4" /> },
@@ -58,7 +64,7 @@ function SidebarContent({ nav, role }: { nav: NavItem[]; role: string }) {
   return (
     <div className="flex flex-col gap-5">
       <Link to="/" className="flex items-center px-2">
-        <img src="/logo.png" alt="HamaAcademy" className="h-12 w-auto" />
+        <img src="/logo.png" alt="Anatomia" className="h-12 w-auto" />
       </Link>
       <div>
         <p className="px-2 pb-2 text-[11px] font-semibold uppercase tracking-wider text-muted">{t(`nav.${role}Dashboard`)}</p>

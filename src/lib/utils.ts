@@ -122,7 +122,7 @@ export function printCertificate(opts: {
 </head>
 <body>
   <div class="cert">
-    <div><img class="logo" src="${origin}/logo.png" alt="HamaAcademy" /></div>
+    <div><img class="logo" src="${origin}/logo.png" alt="Anatomia" /></div>
     <div class="kicker">Certificate of Completion</div>
     <div class="line"></div>
     <div class="name">${studentName}</div>

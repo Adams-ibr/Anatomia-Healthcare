@@ -5,11 +5,8 @@ export interface Language {
 }
 
 export const LANGUAGES: Language[] = [
-  { code: 'ha', label: 'Hausa', flag: '🇳🇬' },
   { code: 'en', label: 'English', flag: '🇬🇧' },
-  { code: 'pcm', label: 'Pidgin', flag: '🇳🇬' },
-  { code: 'yo', label: 'Yorùbá', flag: '🇳🇬' },
-  { code: 'ig', label: 'Igbo', flag: '🇳🇬' }
+  { code: 'pcm', label: 'Pidgin', flag: '🇳🇬' }
 ]
 
-export const DEFAULT_LANGUAGE = 'ha'
+export const DEFAULT_LANGUAGE = 'en'
