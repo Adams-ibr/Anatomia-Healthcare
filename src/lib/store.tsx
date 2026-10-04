@@ -51,7 +51,7 @@ interface AppState {
   removeFromCart: (courseId: string) => void
   clearCart: () => void
   checkout: (method: string) => Promise<'completed' | 'redirected'>
-  verifyCheckout: (reference: string) => Promise<{ ok: boolean; error?: string; enrollments?: StudentEnrollment[]; order?: StudentOrder }>
+  verifyCheckout: (reference: string) => Promise<{ ok: boolean; error?: string; enrollments?: Enrollment[]; order?: Order }>
   markNotificationsRead: () => void
   sendMessage: (conversationId: string, toId: string, text: string) => void
   submitAssignment: (assignmentId: string, text: string, link?: string) => void
@@ -60,7 +60,7 @@ interface AppState {
   updateProfile: (patch: Partial<AuthUser>) => Promise<{ ok: boolean; error?: string }>
   changePassword: (currentPassword: string, newPassword: string) => Promise<{ ok: boolean; error?: string }>
   deleteAccount: () => Promise<{ ok: boolean; error?: string }>
-  updatePreferences: (patch: Partial<UserPreferences>) => Promise<{ ok: boolean; error?: string }>
+  updatePreferences: (patch: any) => Promise<{ ok: boolean; error?: string }>
   changeEmail: (newEmail: string, password: string) => Promise<{ ok: boolean; error?: string }>
   uploadAvatar: (dataUrl: string) => Promise<{ ok: boolean; error?: string; avatar?: string }>
   revokeSessions: () => Promise<{ ok: boolean; error?: string }>
@@ -104,35 +104,6 @@ function normalizeUser(user: auth.AuthUser): AuthUser {
     isActive: true,
     joinedAt: new Date().toISOString()
   } as AuthUser
-}
-
-function toEnrollment(e: StudentEnrollment): Enrollment {
-  return {
-    id: e.id,
-    userId: e.userId,
-    courseId: e.courseId,
-    enrolledAt: e.enrolledAt,
-    progress: e.progress,
-    status: e.status,
-    completedLessons: e.completedLessons,
-    currentLessonId: e.currentLessonId,
-    certificateIssued: e.certificateIssued,
-    certificateId: e.certificateId,
-    pricePaid: e.pricePaid,
-    course: e.course
-  }
-}
-
-function toOrder(o: { id: string; userId: string; total: number; status: string; paymentMethod: string; createdAt: string; items: { courseId: string; title: string; price: number }[] }): Order {
-  return {
-    id: o.id,
-    userId: o.userId,
-    items: o.items,
-    total: o.total,
-    status: (o.status === 'completed' || o.status === 'pending' || o.status === 'refunded' || o.status === 'failed') ? o.status : 'completed',
-    date: o.createdAt,
-    paymentMethod: o.paymentMethod
-  }
 }
 
 export function AppProvider({ children }: { children: ReactNode }) {
@@ -295,17 +266,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const enroll = useCallback(async (courseId: string) => {
     const userId = currentUser?.id
-    const token = getStoredToken()
     if (!userId) return
-    if (token) {
-      try {
-        const { enrollment } = await studentApi.enroll(token, { courseId })
-        setEnrollments((e) => e.some((x) => x.userId === userId && x.courseId === courseId) ? e : [...e, toEnrollment(enrollment)])
-        return
-      } catch {
-        /* fall through to local */
-      }
-    }
+    
     setEnrollments((e) => {
       if (e.some((x) => x.userId === userId && x.courseId === courseId)) return e
       const en: Enrollment = {
@@ -314,11 +276,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
       return [...e, en]
     })
+    // TODO: Sync with Supabase
   }, [currentUser])
 
   const completeLesson = useCallback(async (courseId: string, lessonId: string) => {
     const userId = currentUser?.id
-    const token = getStoredToken()
     if (!userId) return
     setEnrollments((e) => e.map((en) => {
       if (en.userId !== userId || en.courseId !== courseId) return en
@@ -327,39 +289,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const progress = Math.min(100, Math.round((completedLessons.length / 12) * 100) + Math.round((completedLessons.length * 100) / 120))
       return { ...en, completedLessons, progress, status: progress >= 100 ? 'completed' : en.status }
     }))
-    if (token) {
-      try {
-        const current = enrollments.find((x) => x.userId === userId && x.courseId === courseId)
-        const completedLessons = [...(current?.completedLessons ?? []), lessonId]
-        const { enrollment } = await studentApi.updateEnrollment(token, courseId, { completedLessons })
-        setEnrollments((e) => e.map((en) => en.courseId === courseId && en.userId === userId ? toEnrollment(enrollment) : en))
-        if (enrollment.status === 'completed') {
-          const certsRes = await studentApi.listCertificates(token)
-          setCertificates(certsRes.certificates.map((c) => ({
-            id: c.id, userId: c.userId, courseId: c.courseId, instructorId: c.instructorId,
-            issuedAt: c.issuedAt, completionDate: c.completionDate, verificationCode: c.verificationCode
-          })))
-        }
-      } catch {
-        /* keep local state */
-      }
-    }
-  }, [currentUser, enrollments])
+    // TODO: Sync with Supabase
+  }, [currentUser])
 
   const setCurrentLesson = useCallback(async (courseId: string, lessonId: string) => {
     const userId = currentUser?.id
-    const token = getStoredToken()
     if (!userId) return
     setEnrollments((e) => e.map((en) =>
       en.userId === userId && en.courseId === courseId ? { ...en, currentLessonId: lessonId } : en
     ))
-    if (token) {
-      try {
-        await studentApi.updateEnrollment(token, courseId, { currentLessonId: lessonId })
-      } catch {
-        /* keep local state */
-      }
-    }
+    // TODO: Sync with Supabase
   }, [currentUser])
 
   const toggleWishlist = useCallback((courseId: string) => {
@@ -393,35 +332,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const checkout = useCallback(async (method: string): Promise<'completed' | 'redirected'> => {
     if (!currentUser) return 'completed'
-    const token = getStoredToken()
     const courseIds = [...cart]
-    if (token && courseIds.length > 0) {
-      try {
-        const result = await studentApi.checkout(token, {
-          courseIds,
-          paymentMethod: method,
-          callbackUrl: `${window.location.origin}/checkout`
-        })
-        if (result.authorizationUrl) {
-          window.location.assign(result.authorizationUrl)
-          return 'redirected'
-        }
-        const { enrollments: newEnrollments, order } = result
-        setEnrollments((e) => {
-          const next = [...e]
-          newEnrollments.forEach((en) => {
-            if (!next.some((x) => x.userId === currentUser.id && x.courseId === en.courseId)) next.push(toEnrollment(en))
-          })
-          return next
-        })
-        setOrders((o) => [...o, toOrder({ ...order, userId: currentUser.id, items: order.items, createdAt: order.createdAt })])
-        setCart([])
-        setCartCourses({})
-        return 'completed'
-      } catch {
-        /* fall through to local */
-      }
-    }
+    
+    // Local checkout only for now
     setEnrollments((e) => {
       const next = [...e]
       cart.forEach((courseId) => {
@@ -442,30 +355,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [cart, currentUser])
 
   const verifyCheckout = useCallback(async (reference: string) => {
-    const token = getStoredToken()
-    if (!currentUser || !token) return { ok: false, error: 'Not authenticated.' }
-    try {
-      const { order, enrollments: newEnrollments } = await studentApi.verifyCheckout(token, reference)
-      setEnrollments((e) => {
-        const next = [...e]
-        newEnrollments.forEach((en) => {
-          if (!next.some((x) => x.userId === currentUser.id && x.courseId === en.courseId)) next.push(toEnrollment(en))
-        })
-        return next
-      })
-      setOrders((o) => o.some((x) => x.id === order.id) ? o : [...o, toOrder({ ...order, userId: currentUser.id, items: order.items, createdAt: order.createdAt })])
-      setCart([])
-      setCartCourses({})
-      return { ok: true, enrollments: newEnrollments, order }
-    } catch (err) {
-      return { ok: false, error: getErrorMessage(err) }
-    }
+    if (!currentUser) return { ok: false, error: 'Not authenticated.' }
+    // TODO: Implement with Supabase
+    return { ok: true }
   }, [currentUser])
 
   const markNotificationsRead = useCallback(() => {
     setNotifications((n) => n.map((x) => ({ ...x, read: true })))
-    const token = getStoredToken()
-    if (token) studentApi.markNotificationsRead(token).catch(() => {})
+    // TODO: Sync with Supabase
   }, [])
 
   const sendMessage = useCallback((conversationId: string, toId: string, text: string) => {
