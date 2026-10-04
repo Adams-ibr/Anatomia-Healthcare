@@ -400,7 +400,7 @@ export default function AdminAnatomyModels() {
       {/* Delete Confirmation */}
       {deleting && (
         <Modal
-          isOpen={true}
+          open={true}
           onClose={() => setDeleting(null)}
           title="Delete Model"
         >

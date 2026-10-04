@@ -519,7 +519,7 @@ function LessonEditorModal({ lesson, onClose, onSuccess }: { lesson?: Lesson | n
   }
 
   return (
-    <Modal open={true} onClose={onClose} title={lesson ? 'Edit Lesson' : 'Create Lesson'} size="large">
+    <Modal open={true} onClose={onClose} title={lesson ? 'Edit Lesson' : 'Create Lesson'}>
       <div className="space-y-6">
         {/* Tabs */}
         <Tabs
@@ -863,7 +863,7 @@ function ContentBlockEditor({ block, index, onUpdate, onRemove }: {
 
 function LessonViewModal({ lesson, onClose }: { lesson: Lesson; onClose: () => void }) {
   return (
-    <Modal open={true} onClose={onClose} title="Lesson Preview" size="large">
+    <Modal open={true} onClose={onClose} title="Lesson Preview">
       <div className="space-y-6">
         <div>
           <div className="flex items-center gap-3 mb-2">
@@ -916,7 +916,7 @@ function LessonViewModal({ lesson, onClose }: { lesson: Lesson; onClose: () => v
                 <div key={resource.id} className="flex items-center gap-3 rounded-card border border-line p-3">
                   {resource.type === 'quiz' && <HelpCircle className="h-5 w-5 text-warning" />}
                   {resource.type === 'flashcard' && <Layers className="h-5 w-5 text-brand-700" />}
-                  {resource.type === 'model' && <Cube className="h-5 w-5 text-success" />}
+                  {resource.type === 'model' && <Box className="h-5 w-5 text-success" />}
                   <div>
                     <p className="text-sm font-medium text-ink">{resource.resourceName}</p>
                     <p className="text-xs text-muted capitalize">{resource.type}</p>

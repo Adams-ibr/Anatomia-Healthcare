@@ -653,7 +653,7 @@ function ManageResourcesModal({ module, onClose, onSuccess }: { module: Module; 
   }
 
   return (
-    <Modal open={true} onClose={onClose} title={`Manage Resources - ${module.title}`} size="large">
+    <Modal open={true} onClose={onClose} title={`Manage Resources - ${module.title}`}>
       <div className="space-y-6">
         {/* Current Resources */}
         <div>

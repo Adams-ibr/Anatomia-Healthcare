@@ -752,7 +752,7 @@ function QuestionFormModal({ question, topics, onClose, onSuccess }: {
   }
 
   return (
-    <Modal open={true} onClose={onClose} title={question ? 'Edit Question' : 'Create Question'} size="large">
+    <Modal open={true} onClose={onClose} title={question ? 'Edit Question' : 'Create Question'}>
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* Type */}
         <div>
