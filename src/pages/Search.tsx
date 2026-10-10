@@ -1,8 +1,9 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Clock, Search as SearchIcon, TrendingUp, Users } from 'lucide-react'
-import { CATEGORIES, COURSES, INSTRUCTORS } from '../lib/data'
+import { CATEGORIES as DATA_CATEGORIES, COURSES as DATA_COURSES, INSTRUCTORS as DATA_INSTRUCTORS } from '../lib/data'
+import { coursesApi, categoriesApi, membersApi } from '../lib/supabase'
 import { CourseCard } from '../components/cards'
 import { Avatar, Badge } from '../components/ui'
 
@@ -14,14 +15,30 @@ export default function Search() {
   const [q, setQ] = useState('')
   const [recent, setRecent] = useState<string[]>(['Linux security', 'data analytics'])
 
+  const [coursesData, setCoursesData] = useState<any[]>([])
+  const [instructorsData, setInstructorsData] = useState<any[]>([])
+  const [categoriesData, setCategoriesData] = useState<any[]>([])
+
+  useEffect(() => {
+    Promise.all([
+      coursesApi.list({ status: 'published' }).catch(() => DATA_COURSES),
+      membersApi.list({ role: 'instructor' }).catch(() => DATA_INSTRUCTORS),
+      categoriesApi.list().catch(() => DATA_CATEGORIES)
+    ]).then(([c, i, cats]) => {
+      setCoursesData(c ?? DATA_COURSES)
+      setInstructorsData(i ?? DATA_INSTRUCTORS)
+      setCategoriesData(cats ?? DATA_CATEGORIES)
+    })
+  }, [])
+
   const results = useMemo(() => {
     if (!q.trim()) return { courses: [], instructors: [], categories: [] }
     const s = q.toLowerCase()
-    const courses = COURSES.filter((c) => c.title.toLowerCase().includes(s) || c.subtitle.toLowerCase().includes(s) || c.description.toLowerCase().includes(s))
-    const instructors = INSTRUCTORS.filter((i) => i.name.toLowerCase().includes(s) || (i.skills ?? []).some((k) => k.toLowerCase().includes(s)))
-    const categories = CATEGORIES.filter((c) => c.name.toLowerCase().includes(s))
+    const courses = (coursesData || []).filter((c: any) => (c.title || '').toLowerCase().includes(s) || (c.subtitle || '').toLowerCase().includes(s) || (c.description || '').toLowerCase().includes(s))
+    const instructors = (instructorsData || []).filter((i: any) => (i.name || '').toLowerCase().includes(s) || (i.skills ?? []).some((k: string) => k.toLowerCase().includes(s)))
+    const categories = (categoriesData || []).filter((c: any) => (c.name || '').toLowerCase().includes(s))
     return { courses, instructors, categories }
-  }, [q])
+  }, [q, coursesData, instructorsData, categoriesData])
 
   return (
     <div className="container-page py-10">

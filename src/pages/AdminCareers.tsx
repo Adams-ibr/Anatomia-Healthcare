@@ -7,6 +7,7 @@ import {
 import { useApp } from '../lib/store'
 import { Badge, Button, EmptyState, Modal, Skeleton } from '../components/ui'
 import { cn, formatDate } from '../lib/utils'
+import { careersApi } from '../lib/supabase'
 
 type JobStatus = 'open' | 'closed' | 'draft'
 type JobType = 'full_time' | 'part_time' | 'contract' | 'remote'

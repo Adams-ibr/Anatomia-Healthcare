@@ -1,43 +1,48 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { AlertTriangle, BookOpen, Layers, Loader2, PencilLine, Plus, Sparkles, Trash2 } from 'lucide-react'
-import { courseApi, getStoredToken, type AdminCategory, type AdminCategoryInput } from '../lib/api/auth'
+import { categoriesApi } from '../lib/supabase'
+import type { Category } from '../lib/types/admin'
 import { useApp } from '../lib/store'
 import { Badge, Button, EmptyState, Modal, Skeleton } from '../components/ui'
 import { cn } from '../lib/utils'
+
+// Extended Category type for UI display
+interface DisplayCategory extends Category {
+  courseCount?: number
+}
 
 export default function AdminCategories() {
   const { toast } = useApp()
   const { t } = useTranslation()
 
-  const [categories, setCategories] = useState<AdminCategory[]>([])
+  const [categories, setCategories] = useState<DisplayCategory[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   const [creating, setCreating] = useState(false)
-  const [editing, setEditing] = useState<AdminCategory | null>(null)
-  const [confirming, setConfirming] = useState<AdminCategory | null>(null)
+  const [editing, setEditing] = useState<DisplayCategory | null>(null)
+  const [confirming, setConfirming] = useState<DisplayCategory | null>(null)
   const [mutating, setMutating] = useState(false)
 
   const load = useCallback(async () => {
-    const token = getStoredToken()
-    if (!token) return
     setLoading(true)
     setError(null)
     
-    // Add timeout fallback to prevent infinite loading states
-    const timeoutId = setTimeout(() => {
-      setLoading(false)
-      setError(t('admin.loadTimeout') || 'Request timed out. Please try again.')
-    }, 15000) // 15 second timeout
-    
     try {
-      const res = await courseApi.listCategories(token)
-      clearTimeout(timeoutId)
-      setCategories(res.categories)
+      const data = await categoriesApi.list()
+      const categoriesArray = Array.isArray(data) ? data : []
+      
+      // Map to display format with courseCount
+      const mappedCategories: DisplayCategory[] = categoriesArray.map(c => ({
+        ...c,
+        courseCount: c.course_count || 0
+      }))
+      
+      setCategories(mappedCategories)
     } catch (err) {
-      clearTimeout(timeoutId)
       setError(err instanceof Error ? err.message : t('admin.categoriesLoadFailed'))
+      setCategories([])
     } finally {
       setLoading(false)
     }
@@ -62,7 +67,7 @@ export default function AdminCategories() {
     }
   }, [load, t, toast])
 
-  const totalCourses = categories.reduce((sum, c) => sum + c.courseCount, 0)
+  const totalCourses = categories.reduce((sum, c) => sum + (c.courseCount || 0), 0)
 
   return (
     <div className="space-y-6">
@@ -77,7 +82,7 @@ export default function AdminCategories() {
       <div className="grid gap-3 sm:grid-cols-3">
         <StatCardMini label={t('admin.statCategories')} value={categories.length} icon={<Layers className="h-4 w-4" />} tone="brand" />
         <StatCardMini label={t('admin.statCategoryCourses')} value={totalCourses} icon={<BookOpen className="h-4 w-4" />} tone="success" />
-        <StatCardMini label={t('admin.statFeaturedCategories')} value={categories.filter((c) => c.courseCount > 0).length} icon={<Sparkles className="h-4 w-4" />} tone="warning" />
+        <StatCardMini label={t('admin.statFeaturedCategories')} value={categories.filter((c) => (c.courseCount || 0) > 0).length} icon={<Sparkles className="h-4 w-4" />} tone="warning" />
       </div>
 
       {error && (
@@ -117,7 +122,7 @@ export default function AdminCategories() {
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <p className="truncate font-semibold text-ink">{c.name}</p>
-                    <Badge color={c.courseCount > 0 ? 'success' : 'line'}>{c.courseCount}</Badge>
+                    <Badge color={(c.courseCount || 0) > 0 ? 'success' : 'line'}>{c.courseCount || 0}</Badge>
                   </div>
                   <p className="truncate text-xs text-muted">/{c.slug}</p>
                 </div>
@@ -145,7 +150,7 @@ export default function AdminCategories() {
         busy={mutating}
         onClose={() => setCreating(false)}
         onCreate={(input) => runMutation(
-          async () => { const token = getStoredToken(); if (token) await courseApi.createCategory(token, input) },
+          async () => await categoriesApi.create(input),
           t('admin.categoryCreated'),
           input.name
         ).then((ok) => { if (ok) setCreating(false) })}
@@ -157,7 +162,7 @@ export default function AdminCategories() {
           busy={mutating}
           onClose={() => setEditing(null)}
           onSave={(patch) => runMutation(
-            async () => { const token = getStoredToken(); if (token) await courseApi.updateCategory(token, editing.id, patch) },
+            async () => await categoriesApi.update(editing.id, patch),
             t('admin.categoryUpdated'),
             patch.name ?? editing.name
           ).then((ok) => { if (ok) setEditing(null) })}
@@ -170,7 +175,7 @@ export default function AdminCategories() {
           busy={mutating}
           onClose={() => setConfirming(null)}
           onConfirm={() => runMutation(
-            async () => { const token = getStoredToken(); if (token) await courseApi.deleteCategory(token, confirming.id) },
+            async () => await categoriesApi.delete(confirming.id),
             t('admin.categoryDeleted'),
             confirming.name
           ).then((ok) => { if (ok) setConfirming(null) })}
@@ -198,7 +203,7 @@ function CreateCategoryModal({ open, busy, onClose, onCreate }: {
   open: boolean
   busy: boolean
   onClose: () => void
-  onCreate: (input: AdminCategoryInput) => void
+  onCreate: (input: any) => void
 }) {
   const { t } = useTranslation()
   const [name, setName] = useState('')
@@ -252,15 +257,15 @@ function CreateCategoryModal({ open, busy, onClose, onCreate }: {
 }
 
 function EditCategoryModal({ category, busy, onClose, onSave }: {
-  category: AdminCategory
+  category: DisplayCategory
   busy: boolean
   onClose: () => void
-  onSave: (patch: Partial<AdminCategoryInput>) => void
+  onSave: (patch: any) => void
 }) {
   const { t } = useTranslation()
   const [name, setName] = useState(category.name)
   const [slug, setSlug] = useState(category.slug)
-  const [description, setDescription] = useState(category.description)
+  const [description, setDescription] = useState(category.description || '')
   const [color, setColor] = useState(category.color || '#1B4E9B')
 
   const valid = name.trim().length > 0
@@ -286,7 +291,7 @@ function EditCategoryModal({ category, busy, onClose, onSave }: {
           </div>
           <div className="min-w-0">
             <p className="font-semibold text-ink">{category.name}</p>
-            <p className="text-xs text-muted">/{category.slug} · {category.courseCount} courses</p>
+            <p className="text-xs text-muted">/{category.slug} · {category.courseCount || 0} courses</p>
           </div>
         </div>
         <div>
@@ -314,13 +319,13 @@ function EditCategoryModal({ category, busy, onClose, onSave }: {
 }
 
 function DeleteCategoryModal({ category, busy, onClose, onConfirm }: {
-  category: AdminCategory
+  category: DisplayCategory
   busy: boolean
   onClose: () => void
   onConfirm: () => void
 }) {
   const { t } = useTranslation()
-  const blocked = category.courseCount > 0
+  const blocked = (category.courseCount || 0) > 0
   return (
     <Modal
       open
@@ -340,7 +345,7 @@ function DeleteCategoryModal({ category, busy, onClose, onConfirm }: {
         <div>
           <p className="font-semibold text-ink">{t('admin.deleteCategoryBody', { name: category.name })}</p>
           <p className="mt-1 text-sm text-muted">
-            {blocked ? t('admin.deleteCategoryBlocked', { count: category.courseCount }) : t('admin.deleteCategoryWarning')}
+            {blocked ? t('admin.deleteCategoryBlocked', { count: category.courseCount || 0 }) : t('admin.deleteCategoryWarning')}
           </p>
         </div>
       </div>

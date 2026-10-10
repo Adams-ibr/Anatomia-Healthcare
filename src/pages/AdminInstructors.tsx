@@ -5,18 +5,26 @@ import {
   Loader2, Mail, MoreVertical, PencilLine, Plus, Search, ShieldAlert,
   ShieldCheck, Star, UserCheck, UserPlus, Users, X
 } from 'lucide-react'
-import { adminApi } from '../lib/api/auth'
-import type { AdminInstructor } from '../lib/api/auth'
-import { getStoredToken } from '../lib/api/auth'
+import { teamApi, coursesApi } from '../lib/supabase'
+import type { Instructor } from '../lib/types/admin'
 import { useApp } from '../lib/store'
 import { Avatar, Badge, Button, EmptyState, Input, Modal, StatCard } from '../components/ui'
 import { cn, formatDate } from '../lib/utils'
+
+// Extended Instructor type for UI display
+interface DisplayInstructor extends Instructor {
+  isActive?: boolean
+  joinedAt?: string
+  courseCount?: number
+  studentCount?: number
+  courses?: Array<{ id: string; title: string; studentCount: number; rating: number }>
+}
 
 export default function AdminInstructors() {
   const { toast } = useApp()
   const { t } = useTranslation()
 
-  const [instructors, setInstructors] = useState<AdminInstructor[]>([])
+  const [instructors, setInstructors] = useState<DisplayInstructor[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -26,9 +34,9 @@ export default function AdminInstructors() {
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'suspended'>('all')
 
   const [creating, setCreating] = useState(false)
-  const [editing, setEditing] = useState<AdminInstructor | null>(null)
-  const [viewing, setViewing] = useState<AdminInstructor | null>(null)
-  const [confirming, setConfirming] = useState<{ instructor: AdminInstructor; mode: 'toggle' | 'remove' } | null>(null)
+  const [editing, setEditing] = useState<DisplayInstructor | null>(null)
+  const [viewing, setViewing] = useState<DisplayInstructor | null>(null)
+  const [confirming, setConfirming] = useState<{ instructor: DisplayInstructor; mode: 'toggle' | 'remove' } | null>(null)
   const [mutating, setMutating] = useState(false)
 
   // Form states
@@ -49,28 +57,59 @@ export default function AdminInstructors() {
   }, [search])
 
   const loadInstructors = useCallback(async () => {
-    const token = getStoredToken()
-    if (!token) return
     setLoading(true)
     setError(null)
     
-    // Add timeout fallback to prevent infinite loading states
-    const timeoutId = setTimeout(() => {
-      setLoading(false)
-      setError(t('adminInstructors.loadTimeout', 'Request timed out. Please try again.'))
-    }, 15000) // 15 second timeout
-    
     try {
-      const res = await adminApi.listInstructorsDetailed(token, {
-        search: debouncedSearch,
-        status: statusFilter
-      })
-      clearTimeout(timeoutId)
-      setInstructors(res.instructors)
-      setTotal(res.total)
+      const data = await teamApi.list()
+      const teamArray = Array.isArray(data) ? data : []
+      
+      // Map team members to instructor format
+      let mappedInstructors: DisplayInstructor[] = teamArray.map(member => ({
+        id: member.id,
+        name: member.name || `${member.first_name || ''} ${member.last_name || ''}`.trim() || 'Unknown',
+        email: member.email || '',
+        title: member.title || member.role || '',
+        headline: member.bio || '',
+        bio: member.bio || '',
+        avatar: member.avatar || member.photo_url,
+        skills: [], // TODO: parse from member data if available
+        website: member.linkedin_url || '',
+        is_active: member.is_active ?? true,
+        isActive: member.is_active ?? true,
+        created_at: member.created_at,
+        joinedAt: member.created_at,
+        course_count: 0,
+        student_count: 0,
+        rating: 0,
+        courseCount: 0,
+        studentCount: 0,
+        courses: []
+      }))
+      
+      // Filter by search
+      if (debouncedSearch) {
+        const searchLower = debouncedSearch.toLowerCase()
+        mappedInstructors = mappedInstructors.filter(i => 
+          i.name.toLowerCase().includes(searchLower) ||
+          i.email.toLowerCase().includes(searchLower) ||
+          (i.title && i.title.toLowerCase().includes(searchLower))
+        )
+      }
+      
+      // Filter by status
+      if (statusFilter === 'active') {
+        mappedInstructors = mappedInstructors.filter(i => i.isActive)
+      } else if (statusFilter === 'suspended') {
+        mappedInstructors = mappedInstructors.filter(i => !i.isActive)
+      }
+      
+      setInstructors(mappedInstructors)
+      setTotal(mappedInstructors.length)
     } catch (err) {
-      clearTimeout(timeoutId)
       setError(err instanceof Error ? err.message : t('adminInstructors.loadFailed', 'Failed to load instructors.'))
+      setInstructors([])
+      setTotal(0)
     } finally {
       setLoading(false)
     }
@@ -81,8 +120,8 @@ export default function AdminInstructors() {
   }, [loadInstructors])
 
   const activeCount = useMemo(() => instructors.filter((i) => i.isActive).length, [instructors])
-  const totalCourses = useMemo(() => instructors.reduce((acc, i) => acc + i.courseCount, 0), [instructors])
-  const totalStudents = useMemo(() => instructors.reduce((acc, i) => acc + i.studentCount, 0), [instructors])
+  const totalCourses = useMemo(() => instructors.reduce((acc, i) => acc + (i.courseCount || 0), 0), [instructors])
+  const totalStudents = useMemo(() => instructors.reduce((acc, i) => acc + (i.studentCount || 0), 0), [instructors])
 
   const openCreateModal = () => {
     setFormName('')
@@ -95,31 +134,27 @@ export default function AdminInstructors() {
     setCreating(true)
   }
 
-  const openEditModal = (inst: AdminInstructor) => {
+  const openEditModal = (inst: DisplayInstructor) => {
     setEditing(inst)
     setFormName(inst.name)
     setFormEmail(inst.email)
-    setFormTitle(inst.title)
-    setFormHeadline(inst.headline)
-    setFormBio(inst.bio)
-    setFormSkills(inst.skills.join(', '))
+    setFormTitle(inst.title || '')
+    setFormHeadline(inst.headline || '')
+    setFormBio(inst.bio || '')
+    setFormSkills((inst.skills || []).join(', '))
   }
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!formName.trim() || !formEmail.trim()) return
-    const token = getStoredToken()
-    if (!token) return
     setMutating(true)
     try {
-      await adminApi.createInstructor(token, {
+      await teamApi.create({
         name: formName,
         email: formEmail,
-        password: formPassword || 'Password123!',
         title: formTitle,
-        headline: formHeadline,
         bio: formBio,
-        skills: formSkills.split(',').map((s) => s.trim()).filter(Boolean)
+        is_active: true
       })
       toast(t('adminInstructors.createdTitle', 'Instructor Added'), t('adminInstructors.createdDesc', 'New instructor profile created successfully.'))
       setCreating(false)
@@ -134,16 +169,12 @@ export default function AdminInstructors() {
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!editing || !formName.trim()) return
-    const token = getStoredToken()
-    if (!token) return
     setMutating(true)
     try {
-      await adminApi.updateInstructor(token, editing.id, {
+      await teamApi.update(editing.id, {
         name: formName,
         title: formTitle,
-        headline: formHeadline,
-        bio: formBio,
-        skills: formSkills.split(',').map((s) => s.trim()).filter(Boolean)
+        bio: formBio
       })
       toast(t('adminInstructors.updatedTitle', 'Instructor Updated'), t('adminInstructors.updatedDesc', 'Profile details updated successfully.'))
       setEditing(null)
@@ -155,12 +186,10 @@ export default function AdminInstructors() {
     }
   }
 
-  const handleToggleStatus = async (inst: AdminInstructor) => {
-    const token = getStoredToken()
-    if (!token) return
+  const handleToggleStatus = async (inst: DisplayInstructor) => {
     setMutating(true)
     try {
-      await adminApi.updateInstructor(token, inst.id, { isActive: !inst.isActive })
+      await teamApi.update(inst.id, { is_active: !inst.isActive })
       toast(
         inst.isActive ? t('adminInstructors.suspendedTitle', 'Instructor Suspended') : t('adminInstructors.activatedTitle', 'Instructor Activated'),
         inst.name
@@ -174,12 +203,10 @@ export default function AdminInstructors() {
     }
   }
 
-  const handleRemove = async (inst: AdminInstructor) => {
-    const token = getStoredToken()
-    if (!token) return
+  const handleRemove = async (inst: DisplayInstructor) => {
     setMutating(true)
     try {
-      await adminApi.deleteInstructor(token, inst.id)
+      await teamApi.delete(inst.id)
       toast(t('adminInstructors.removedTitle', 'Instructor Privileges Removed'), inst.name)
       setConfirming(null)
       loadInstructors()
@@ -329,19 +356,19 @@ export default function AdminInstructors() {
 
                     {/* Course Count */}
                     <td className="px-5 py-3.5 font-medium text-ink">
-                      {inst.courseCount} {t('adminInstructors.coursesUnit', 'courses')}
+                      {inst.courseCount || 0} {t('adminInstructors.coursesUnit', 'courses')}
                     </td>
 
                     {/* Student Count */}
                     <td className="px-5 py-3.5 font-medium text-ink">
-                      {inst.studentCount.toLocaleString()}
+                      {(inst.studentCount || 0).toLocaleString()}
                     </td>
 
                     {/* Rating */}
                     <td className="px-5 py-3.5">
                       <div className="flex items-center gap-1 text-ink font-semibold">
                         <Star className="h-3.5 w-3.5 fill-warning text-warning" />
-                        <span>{inst.rating > 0 ? inst.rating : '—'}</span>
+                        <span>{(inst.rating || 0) > 0 ? inst.rating : '—'}</span>
                       </div>
                     </td>
 
@@ -488,15 +515,15 @@ export default function AdminInstructors() {
             <div className="grid grid-cols-3 gap-3 text-center">
               <div className="rounded-card bg-paper p-3">
                 <p className="text-xs text-muted">{t('adminInstructors.publishedCourses', 'Courses')}</p>
-                <p className="mt-1 text-lg font-bold text-ink">{viewing.courseCount}</p>
+                <p className="mt-1 text-lg font-bold text-ink">{viewing.courseCount || 0}</p>
               </div>
               <div className="rounded-card bg-paper p-3">
                 <p className="text-xs text-muted">{t('adminInstructors.totalStudents', 'Students')}</p>
-                <p className="mt-1 text-lg font-bold text-ink">{viewing.studentCount.toLocaleString()}</p>
+                <p className="mt-1 text-lg font-bold text-ink">{(viewing.studentCount || 0).toLocaleString()}</p>
               </div>
               <div className="rounded-card bg-paper p-3">
                 <p className="text-xs text-muted">{t('adminInstructors.rating', 'Rating')}</p>
-                <p className="mt-1 text-lg font-bold text-ink">{viewing.rating > 0 ? `${viewing.rating}★` : '—'}</p>
+                <p className="mt-1 text-lg font-bold text-ink">{(viewing.rating || 0) > 0 ? `${viewing.rating}★` : '—'}</p>
               </div>
             </div>
 
@@ -508,7 +535,7 @@ export default function AdminInstructors() {
               </div>
             )}
 
-            {viewing.skills.length > 0 && (
+            {viewing.skills && viewing.skills.length > 0 && (
               <div>
                 <p className="text-xs font-semibold text-muted uppercase mb-1.5">{t('adminInstructors.skills', 'Specialties')}</p>
                 <div className="flex flex-wrap gap-1.5">

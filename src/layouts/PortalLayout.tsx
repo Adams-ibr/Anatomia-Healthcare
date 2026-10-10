@@ -51,7 +51,7 @@ const STUDENT_NAV: NavItem[] = [
     ]
   },
   { label: 'messages', to: '/messages', icon: <MessageSquare className="h-4 w-4" /> },
-  { label: 'community', to: '/community', icon: <Users className="h-4 w-4" /> }
+  { label: 'nav.community', to: '/community', icon: <Users className="h-4 w-4" /> }
 ]
 
 const INSTRUCTOR_NAV: NavItem[] = [

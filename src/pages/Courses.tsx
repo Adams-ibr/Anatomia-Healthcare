@@ -7,7 +7,7 @@ import { Button, SearchInput, Skeleton } from '../components/ui'
 import { cn } from '../lib/utils'
 import { EASE, Reveal } from '../lib/motion'
 import { motion } from 'framer-motion'
-import { publicApi } from '../lib/api/auth'
+import { coursesApi, categoriesApi } from '../lib/supabase'
 import { CATEGORIES as DATA_CATEGORIES, COURSES as DATA_COURSES } from '../lib/data'
 import type { Course } from '../lib/types'
 
@@ -87,12 +87,12 @@ export default function Courses() {
       setLoading(true)
       try {
         const [cats, courseList] = await Promise.all([
-          publicApi.listCategories(),
-          publicApi.listCourses({ search, category })
+          categoriesApi.list(),
+          coursesApi.list({ search, category })
         ])
-        setCategories((cats?.categories ?? []).map((c: any) => ({ id: c.id, name: c.name, slug: c.slug, description: c.description })))
+        setCategories((cats ?? []).map((c: any) => ({ id: c.id, name: c.name, slug: c.slug, description: c.description })))
         // Map AdminCourse to MappedCourse for CourseCard compatibility
-        const mapped = (courseList?.courses ?? []).map((c: any) => ({
+        const mapped = (courseList ?? []).map((c: any) => ({
           id: c.id,
           slug: c.slug,
           title: c.title,

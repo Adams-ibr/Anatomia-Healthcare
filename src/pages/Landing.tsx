@@ -8,7 +8,7 @@ import {
 import { motion } from 'framer-motion'
 import { useTranslation } from 'react-i18next'
 import { useApp } from '../lib/store'
-import { publicApi } from '../lib/api/auth'
+import { categoriesApi, coursesApi, membersApi } from '../lib/supabase'
 import type { AdminCourse, AdminCategory, PublicInstructor } from '../lib/api/auth'
 import { FAQS, LEARNING_PATHS, PLANS, TESTIMONIALS } from '../lib/data'
 import { CourseCard, InstructorCard } from '../components/cards'
@@ -171,33 +171,22 @@ export default function Landing() {
 
   useEffect(() => {
     // Fetch all four data sources in parallel
-    publicApi.listCategories()
-      .then((res) => setCategories(res.categories))
+    categoriesApi.list()
+      .then((res) => setCategories(res ?? []))
       .catch(() => {/* keep empty */})
       .finally(() => setLoadingCats(false))
 
-    publicApi.listCourses({ featured: true, limit: 4 })
-      .then((res) => setFeatured(res.courses ?? []))
-      .catch(() => {/* keep empty */})
-      .finally(() => setLoadingFeatured(false))
-
-    publicApi.listCourses({ trending: true, limit: 4 })
-      .then((res) => setTrending(res.courses ?? []))
-      .catch(() => {/* keep empty */})
-      .finally(() => setLoadingTrending(false))
-
-    publicApi.listInstructors()
-      .then((res) => setInstructors(res.instructors))
-      .catch(() => {/* keep empty */})
-      .finally(() => setLoadingInstructors(false))
-
-    // Derive stats from all published courses
-    publicApi.listCourses({ limit: 100 })
+    coursesApi.list({ status: 'published' })
       .then((res) => {
-        const courses = res.courses ?? []
-        const totalStudents = courses.reduce((s, c) => s + c.studentCount, 0)
+        const published = res ?? []
+        setFeatured(published.filter((c: any) => c.is_featured).slice(0, 4))
+        setTrending(published.filter((c: any) => c.is_trending).slice(0, 4))
+        
+        // Derive stats from all published courses
+        const courses = published
+        const totalStudents = courses.reduce((s: number, c: any) => s + (c.student_count || c.studentCount || 0), 0)
         const avgRating = courses.length
-          ? Number((courses.reduce((s, c) => s + c.rating, 0) / courses.length).toFixed(0))
+          ? Number((courses.reduce((s: number, c: any) => s + (c.rating || 0), 0) / courses.length).toFixed(0))
           : 0
         setStats([
           { value: Math.max(1, Math.round(totalStudents / 1000)), suffix: 'K+', label: t('landing.statLearners') },
@@ -208,15 +197,22 @@ export default function Landing() {
       })
       .catch(() => {})
 
-    publicApi.listInstructors()
+    membersApi.list({ role: 'instructor' })
       .then((res) => {
+        const instructorsList = res ?? []
+        setInstructors(instructorsList as any)
         setStats((prev) => prev.map((s) =>
           s.label === t('landing.statInstructors')
-            ? { ...s, value: res.instructors.length }
+            ? { ...s, value: instructorsList.length }
             : s
         ))
       })
       .catch(() => {})
+      .finally(() => {
+        setLoadingFeatured(false)
+        setLoadingTrending(false)
+        setLoadingInstructors(false)
+      })
   }, [t])
 
   const why = WHY(t)

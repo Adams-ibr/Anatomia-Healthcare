@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Plus } from 'lucide-react'
-import { COURSES } from '../lib/data'
+import { COURSES as DATA_COURSES } from '../lib/data'
+import { coursesApi } from '../lib/supabase'
 import { useApp } from '../lib/store'
 import { Button, SearchInput } from '../components/ui'
 import { cn } from '../lib/utils'
@@ -12,7 +13,15 @@ export default function Community() {
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState('all')
 
-  const courses = COURSES.filter((c) => c.status === 'published')
+  const [coursesData, setCoursesData] = useState<any[]>([])
+
+  useEffect(() => {
+    coursesApi.list({ status: 'published' })
+      .then((res) => setCoursesData(res ?? DATA_COURSES.filter(c => c.status === 'published')))
+      .catch(() => setCoursesData(DATA_COURSES.filter(c => c.status === 'published')))
+  }, [])
+
+  const courses = coursesData
 
   return (
     <div className="space-y-6">

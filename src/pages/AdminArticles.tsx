@@ -8,6 +8,7 @@ import {
 import { useApp } from '../lib/store'
 import { Badge, Button, EmptyState, Modal, Skeleton } from '../components/ui'
 import { cn, formatDate } from '../lib/utils'
+import { articlesApi } from '../lib/supabase'
 
 type ArticleStatus = 'draft' | 'published' | 'archived'
 

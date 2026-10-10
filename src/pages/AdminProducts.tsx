@@ -7,6 +7,7 @@ import {
 import { useApp } from '../lib/store'
 import { Badge, Button, EmptyState, Modal, Skeleton } from '../components/ui'
 import { cn, formatPrice } from '../lib/utils'
+import { productsApi } from '../lib/supabase'
 
 type ProductStatus = 'available' | 'out_of_stock' | 'discontinued'
 

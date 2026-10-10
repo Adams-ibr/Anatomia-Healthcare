@@ -12,7 +12,7 @@ import { CourseCard } from '../components/cards'
 import { Accordion, Avatar, Badge, Button, Rating } from '../components/ui'
 import { discountPercent, formatDuration, formatPrice, slugify, timeAgo } from '../lib/utils'
 import { cn } from '../lib/utils'
-import { publicApi } from '../lib/api/auth'
+import { coursesApi } from '../lib/supabase'
 
 const TYPE_ICON: Record<string, React.ReactNode> = {
   video: <PlayCircle className="h-4 w-4" />,
@@ -55,8 +55,8 @@ export default function CourseDetails() {
         return
       }
       try {
-        const result = await publicApi.getCourseFull(normalizedSlug)
-        const raw = (result && typeof result === 'object' && 'course' in result ? (result as any).course : result) as any
+        const result = await coursesApi.getBySlug(normalizedSlug)
+        const raw = result as any
         if (raw && (raw.id || raw.title)) {
           setCourse({
             id: raw.id || normalizedSlug,

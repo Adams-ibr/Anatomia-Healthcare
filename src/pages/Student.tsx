@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { ArrowRight, Award, CheckCircle2, Clock, PlayCircle } from 'lucide-react'
 import { useApp } from '../lib/store'
-import { publicApi } from '../lib/api/auth'
+import { coursesApi } from '../lib/supabase'
 import { Badge, ProgressBar, Rating, Tabs } from '../components/ui'
 import { formatPrice, printCertificate } from '../lib/utils'
 import type { AdminCourse } from '../lib/api/auth'
@@ -78,9 +78,9 @@ export function Wishlist() {
   const { currentUser, wishlist, removeFromCart, cart, addToCart, toast, enrollments } = useApp()
   const { t } = useTranslation()
   const nav = useNavigate()
-  const [all, setAll] = useState<AdminCourse[]>([])
+  const [all, setAll] = useState<any[]>([])
   useEffect(() => {
-    publicApi.listCourses().then((r) => setAll(r.courses)).catch(() => {})
+    coursesApi.list({ status: 'published' }).then((r) => setAll(r ?? [])).catch(() => {})
   }, [])
   const courses = all.filter((c) => wishlist.includes(c.id))
 

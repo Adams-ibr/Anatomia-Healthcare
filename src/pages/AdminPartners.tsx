@@ -7,6 +7,7 @@ import {
 import { useApp } from '../lib/store'
 import { Badge, Button, EmptyState, Modal, Skeleton } from '../components/ui'
 import { formatDate } from '../lib/utils'
+import { partnersApi } from '../lib/supabase'
 
 type PartnerType = 'academic' | 'corporate' | 'healthcare' | 'technology' | 'research'
 type PartnerStatus = 'active' | 'inactive' | 'pending'
@@ -52,88 +53,36 @@ export default function AdminPartners() {
   const [deleting, setDeleting] = useState<Partner | null>(null)
 
   useEffect(() => {
-    setLoading(true)
-    setTimeout(() => {
-      const mockPartners: Partner[] = [
-        {
-          id: '1',
-          name: 'Harvard Medical School',
-          logo: 'https://via.placeholder.com/100x100?text=HMS',
-          type: 'academic',
-          status: 'active',
-          description: 'Collaborative research and curriculum development partnership',
-          website: 'https://hms.harvard.edu',
-          contactName: 'Dr. James Wilson',
-          contactEmail: 'jwilson@hms.harvard.edu',
-          startDate: new Date(Date.now() - 730 * 24 * 60 * 60 * 1000).toISOString(),
-          isFeatured: true
-        },
-        {
-          id: '2',
-          name: 'Johnson & Johnson',
-          logo: 'https://via.placeholder.com/100x100?text=J&J',
-          type: 'corporate',
-          status: 'active',
-          description: 'Medical equipment and educational materials sponsorship',
-          website: 'https://jnj.com',
-          contactName: 'Sarah Mitchell',
-          contactEmail: 'smitchell@jnj.com',
-          startDate: new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString(),
-          isFeatured: true
-        },
-        {
-          id: '3',
-          name: 'Mayo Clinic',
-          type: 'healthcare',
-          status: 'active',
-          description: 'Clinical training and internship program partnership',
-          website: 'https://mayoclinic.org',
-          contactName: 'Dr. Robert Chen',
-          contactEmail: 'chen.robert@mayo.edu',
-          startDate: new Date(Date.now() - 500 * 24 * 60 * 60 * 1000).toISOString(),
-          isFeatured: false
-        },
-        {
-          id: '4',
-          name: 'Medical VR Technologies',
-          type: 'technology',
-          status: 'pending',
-          description: 'Virtual reality platform development for anatomical education',
-          website: 'https://medicalvr.com',
-          contactName: 'Alex Thompson',
-          contactEmail: 'alex@medicalvr.com',
-          startDate: new Date().toISOString(),
-          isFeatured: false
-        },
-        {
-          id: '5',
-          name: 'National Institutes of Health',
-          logo: 'https://via.placeholder.com/100x100?text=NIH',
-          type: 'research',
-          status: 'active',
-          description: 'Research grant and collaborative studies partnership',
-          website: 'https://nih.gov',
-          contactName: 'Dr. Patricia Martinez',
-          contactEmail: 'martinez@nih.gov',
-          startDate: new Date(Date.now() - 1095 * 24 * 60 * 60 * 1000).toISOString(),
-          isFeatured: true
+    const loadPartners = async () => {
+      setLoading(true)
+      try {
+        const data = await partnersApi.list({
+          type: typeFilter === 'all' ? undefined : typeFilter,
+          status: statusFilter === 'all' ? undefined : statusFilter
+        })
+        
+        let filtered = Array.isArray(data) ? data : []
+        
+        // Client-side search filter
+        if (search) {
+          filtered = filtered.filter(p =>
+            p.name?.toLowerCase().includes(search.toLowerCase()) ||
+            p.description?.toLowerCase().includes(search.toLowerCase())
+          )
         }
-      ]
 
-      let filtered = mockPartners
-      if (search) {
-        filtered = filtered.filter(p =>
-          p.name.toLowerCase().includes(search.toLowerCase()) ||
-          p.description.toLowerCase().includes(search.toLowerCase())
-        )
+        setPartners(filtered as Partner[])
+        setTotal(filtered.length)
+      } catch (err) {
+        console.error('Failed to load partners:', err)
+        setPartners([])
+        setTotal(0)
+      } finally {
+        setLoading(false)
       }
-      if (typeFilter !== 'all') filtered = filtered.filter(p => p.type === typeFilter)
-      if (statusFilter !== 'all') filtered = filtered.filter(p => p.status === statusFilter)
-
-      setPartners(filtered)
-      setTotal(filtered.length)
-      setLoading(false)
-    }, 500)
+    }
+    
+    loadPartners()
   }, [search, typeFilter, statusFilter])
 
   const totalPages = Math.max(1, Math.ceil(total / perPage))

@@ -7,6 +7,7 @@ import {
 import { useApp } from '../lib/store'
 import { Badge, Button, EmptyState, Modal, Skeleton } from '../components/ui'
 import { formatDate } from '../lib/utils'
+import { galleryApi } from '../lib/supabase'
 
 interface GalleryItem {
   id: string

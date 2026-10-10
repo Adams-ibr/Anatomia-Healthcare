@@ -7,6 +7,7 @@ import {
 import { useApp } from '../lib/store'
 import { Badge, Button, EmptyState, Modal, Skeleton } from '../components/ui'
 import { cn } from '../lib/utils'
+import { faqApi } from '../lib/supabase'
 
 interface FAQ {
   id: string
