@@ -5,26 +5,79 @@ The current verification emails show:
 1. Raw Supabase URL instead of your branded domain
 2. Default Supabase email template instead of branded design
 
-## Solution
+## Solution - All Email Templates Created
 
-### Step 1: Configure Custom Email Templates in Supabase
+I've created **6 branded email templates** for all Supabase authentication flows:
 
-1. **Go to Supabase Dashboard**
-   - Navigate to: https://supabase.com/dashboard
-   - Select your project: `evfdnyxrkrkcigkkrhyr`
+1. ✅ **confirm-signup.html** - Email verification for new signups
+2. ✅ **invite-user.html** - Invitation to join the platform
+3. ✅ **magic-link.html** - Passwordless sign-in link
+4. ✅ **change-email.html** - Confirm new email address
+5. ✅ **reset-password.html** - Password reset request
+6. ✅ **reauthentication.html** - Identity verification for sensitive operations
 
-2. **Access Email Templates**
-   - Click on `Authentication` in the left sidebar
-   - Click on `Email Templates` tab
-   - You'll see templates for: Confirm signup, Magic Link, Change Email, Reset Password
+All templates feature:
+- 🎨 Anatomia Healthcare branding
+- 🔵 Brand colors (#1B4E9B blue gradient)
+- 📱 Mobile responsive design
+- 🔒 Security notices and tips
+- ✨ Professional layout with CTA buttons
+- 📧 Proper formatting for all email clients
 
-3. **Update "Confirm signup" Template**
-   - Click on "Confirm signup" template
-   - Copy the content from `confirm-signup.html` file
-   - Paste it into the HTML template field
-   - Click "Save"
+---
 
-### Step 2: Configure Site URL and Redirect URLs
+## Quick Setup (10 minutes)
+
+### Step 1: Access Supabase Email Templates
+
+1. Go to **Supabase Dashboard**: https://supabase.com/dashboard
+2. Select your project: `evfdnyxrkrkcigkkrhyr`
+3. Click `Authentication` in the left sidebar
+4. Click `Email Templates` tab
+
+### Step 2: Update Each Template
+
+For each template, follow these steps:
+
+#### **1. Confirm Signup**
+- Click "Confirm signup" in the list
+- Copy content from `email-templates/confirm-signup.html`
+- Paste into the HTML field
+- Click **Save**
+
+#### **2. Invite User**
+- Click "Invite user" in the list
+- Copy content from `email-templates/invite-user.html`
+- Paste into the HTML field
+- Click **Save**
+
+#### **3. Magic Link**
+- Click "Magic link or OTP" in the list
+- Copy content from `email-templates/magic-link.html`
+- Paste into the HTML field
+- Click **Save**
+
+#### **4. Change Email Address**
+- Click "Change email address" in the list
+- Copy content from `email-templates/change-email.html`
+- Paste into the HTML field
+- Click **Save**
+
+#### **5. Reset Password**
+- Click "Reset password" in the list
+- Copy content from `email-templates/reset-password.html`
+- Paste into the HTML field
+- Click **Save**
+
+#### **6. Reauthentication**
+- Click "Reauthentication" in the list
+- Copy content from `email-templates/reauthentication.html`
+- Paste into the HTML field
+- Click **Save**
+
+---
+
+### Step 3: Configure Site URL and Redirect URLs
 
 1. **Go to Authentication Settings**
    - In Supabase Dashboard, go to `Authentication` > `URL Configuration`
@@ -47,7 +100,7 @@ The current verification emails show:
    - Ensure "Enable email confirmations" is checked
    - Set "Confirm email" to ON
 
-### Step 3: Update Your Code to Handle Redirects
+### Step 4: Update Your Code to Handle Redirects
 
 The verification link will redirect to your site after confirmation. Make sure your app handles the redirect properly.
 
@@ -64,7 +117,7 @@ const { data, error } = await supabase.auth.signUp({
 })
 ```
 
-### Step 4: Create a Verify Email Page (Optional)
+### Step 5: Create a Verify Email Page (Optional)
 
 Create `/verify-email` page to show a success message after email confirmation:
 
@@ -116,7 +169,7 @@ export default function VerifyEmail() {
 }
 ```
 
-### Step 5: Configure Email Provider (Optional - For Production)
+### Step 6: Configure Email Provider (Optional - For Production)
 
 For better email delivery in production, configure a custom SMTP provider:
 
@@ -136,7 +189,7 @@ For better email delivery in production, configure a custom SMTP provider:
      Sender name: Anatomia Healthcare
      ```
 
-### Step 6: Test the Email Flow
+### Step 7: Test All Email Flows
 
 1. Register a new test account
 2. Check your email inbox
