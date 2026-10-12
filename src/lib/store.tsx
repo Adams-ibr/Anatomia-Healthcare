@@ -124,7 +124,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const timers = useRef<Record<string, number>>({})
 
   useEffect(() => save('users', users), [users])
-  useEffect(() => save('enrollments', enrollments), [enrollments])
+  // Enrollments are now fetched from Supabase, no need to persist locally
+  // useEffect(() => save('enrollments', enrollments), [enrollments])
   useEffect(() => save('wishlist', wishlist), [wishlist])
   useEffect(() => save('cart', cart), [cart])
   useEffect(() => save('cartCourses', cartCourses), [cartCourses])
@@ -151,11 +152,37 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => () => Object.values(timers.current).forEach((t) => clearTimeout(t)), [])
 
   const hydrateStudentData = useCallback(async (userId: string) => {
-    // TODO: Fetch student data from Supabase
-    // For now, we'll skip this until we need it
     try {
-      // Placeholder for future student data fetching
-    } catch {
+      // Import enrollmentsApi
+      const { enrollmentsApi } = await import('./supabase')
+      
+      // Fetch enrollments from Supabase
+      const enrollmentsData = await enrollmentsApi.list({ member_id: userId })
+      
+      // Transform to match the Enrollment type
+      const transformedEnrollments: Enrollment[] = (enrollmentsData || []).map((e: any) => ({
+        id: e.id,
+        userId: e.member_id,
+        courseId: e.course_id,
+        enrolledAt: e.enrolled_at,
+        progress: e.progress || 0,
+        status: e.status || 'active',
+        completedLessons: [],
+        pricePaid: 0,
+        course: e.courses ? {
+          id: e.courses.id,
+          title: e.courses.title,
+          slug: e.courses.slug,
+          thumbnail: e.courses.thumbnail_url || '',
+          price: e.courses.price || 0,
+          description: e.courses.description || '',
+          instructor: e.courses.instructor_id || '',
+        } : undefined
+      }))
+      
+      setEnrollments(transformedEnrollments)
+    } catch (error) {
+      console.error('Failed to fetch enrollments:', error)
       /* keep local fallback data when offline */
     }
   }, [])
@@ -268,29 +295,83 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const userId = currentUser?.id
     if (!userId) return
     
-    setEnrollments((e) => {
-      if (e.some((x) => x.userId === userId && x.courseId === courseId)) return e
-      const en: Enrollment = {
-        id: uid('en'), userId, courseId, enrolledAt: new Date().toISOString(),
-        progress: 0, status: 'active', completedLessons: [], pricePaid: 0
+    try {
+      // Import enrollmentsApi
+      const { enrollmentsApi } = await import('./supabase')
+      
+      // Check if already enrolled
+      const existing = await enrollmentsApi.list({ member_id: userId, course_id: courseId })
+      if (existing && existing.length > 0) {
+        console.log('Already enrolled in this course')
+        return
       }
-      return [...e, en]
-    })
-    // TODO: Sync with Supabase
-  }, [currentUser])
+      
+      // Create enrollment in Supabase
+      const newEnrollment = await enrollmentsApi.create({
+        id: uid('enr'),
+        member_id: userId,
+        course_id: courseId,
+        enrolled_at: new Date().toISOString(),
+        progress: 0,
+        status: 'active'
+      })
+      
+      // Update local state
+      setEnrollments((e) => {
+        const en: Enrollment = {
+          id: newEnrollment.id,
+          userId,
+          courseId,
+          enrolledAt: newEnrollment.enrolled_at,
+          progress: newEnrollment.progress || 0,
+          status: newEnrollment.status || 'active',
+          completedLessons: [],
+          pricePaid: 0
+        }
+        return [...e, en]
+      })
+      
+      // Refresh enrollments from Supabase
+      await hydrateStudentData(userId)
+      
+      toast('Enrolled Successfully', 'You have been enrolled in the course', 'success')
+    } catch (error) {
+      console.error('Failed to enroll:', error)
+      toast('Enrollment Failed', 'Failed to enroll in the course', 'error')
+    }
+  }, [currentUser, hydrateStudentData, toast])
 
   const completeLesson = useCallback(async (courseId: string, lessonId: string) => {
     const userId = currentUser?.id
     if (!userId) return
-    setEnrollments((e) => e.map((en) => {
-      if (en.userId !== userId || en.courseId !== courseId) return en
-      if (en.completedLessons.includes(lessonId)) return en
-      const completedLessons = [...en.completedLessons, lessonId]
-      const progress = Math.min(100, Math.round((completedLessons.length / 12) * 100) + Math.round((completedLessons.length * 100) / 120))
-      return { ...en, completedLessons, progress, status: progress >= 100 ? 'completed' : en.status }
-    }))
-    // TODO: Sync with Supabase
-  }, [currentUser])
+    
+    try {
+      const { enrollmentsApi } = await import('./supabase')
+      
+      // Update local state first for instant feedback
+      setEnrollments((e) => e.map((en) => {
+        if (en.userId !== userId || en.courseId !== courseId) return en
+        if (en.completedLessons.includes(lessonId)) return en
+        const completedLessons = [...en.completedLessons, lessonId]
+        const progress = Math.min(100, Math.round((completedLessons.length / 12) * 100))
+        return { ...en, completedLessons, progress, status: progress >= 100 ? 'completed' : en.status }
+      }))
+      
+      // Get updated enrollment for Supabase sync
+      const enrollment = enrollments.find((e) => e.userId === userId && e.courseId === courseId)
+      if (enrollment) {
+        const completedLessons = enrollment.completedLessons.includes(lessonId) 
+          ? enrollment.completedLessons 
+          : [...enrollment.completedLessons, lessonId]
+        const progress = Math.min(100, Math.round((completedLessons.length / 12) * 100))
+        
+        // Update progress in Supabase
+        await enrollmentsApi.updateProgress(userId, courseId, progress)
+      }
+    } catch (error) {
+      console.error('Failed to update lesson progress:', error)
+    }
+  }, [currentUser, enrollments])
 
   const setCurrentLesson = useCallback(async (courseId: string, lessonId: string) => {
     const userId = currentUser?.id

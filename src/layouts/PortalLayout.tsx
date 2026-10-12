@@ -109,17 +109,20 @@ function SidebarContent({ nav, role }: { nav: NavItem[]; role: string }) {
   }
 
   return (
-    <div className="flex h-full flex-col gap-5">
-      <Link to="/" className="flex shrink-0 items-center px-2">
-        <img src="/logo.png" alt="Anatomia" className="h-12 w-auto" />
+    <div className="flex h-full flex-col">
+      {/* Logo */}
+      <Link to="/" className="mb-6 flex shrink-0 items-center gap-2 px-3">
+        <img src="/logo.png" alt="Anatomia" className="h-10 w-auto" />
       </Link>
       
+      {/* Section Label */}
+      <p className="mb-3 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted">
+        {t(`nav.${role}Dashboard`)}
+      </p>
+      
       {/* Scrollable nav area */}
-      <div className="flex-1 overflow-y-auto overflow-x-hidden pr-2">
-        <p className="px-2 pb-2 text-[11px] font-semibold uppercase tracking-wider text-muted">
-          {t(`nav.${role}Dashboard`)}
-        </p>
-        <nav className="flex flex-col gap-0.5" aria-label="Portal navigation">
+      <div className="flex-1 space-y-1 overflow-y-auto overflow-x-hidden">
+        <nav className="flex flex-col gap-1 px-2" aria-label="Portal navigation">
           {nav.map((item) => {
             const isExpanded = expandedGroups.includes(item.label)
             
@@ -129,14 +132,14 @@ function SidebarContent({ nav, role }: { nav: NavItem[]; role: string }) {
                 <div key={item.label}>
                   <button
                     onClick={() => toggleGroup(item.label)}
-                    className="flex w-full items-center justify-between gap-3 rounded-control px-2.5 py-2 text-sm font-medium text-muted transition-colors hover:bg-line/40 hover:text-ink"
+                    className="flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-muted transition-colors hover:bg-surface-raised hover:text-ink"
                   >
                     <div className="flex items-center gap-3">
-                      {item.icon}
-                      {t(item.label)}
+                      <span className="shrink-0">{item.icon}</span>
+                      <span>{t(item.label)}</span>
                     </div>
                     <ChevronDown className={cn(
-                      "h-4 w-4 transition-transform",
+                      "h-4 w-4 shrink-0 transition-transform",
                       isExpanded && "rotate-180"
                     )} />
                   </button>
@@ -149,19 +152,19 @@ function SidebarContent({ nav, role }: { nav: NavItem[]; role: string }) {
                         transition={{ duration: 0.2 }}
                         className="overflow-hidden"
                       >
-                        <div className="ml-7 mt-1 space-y-0.5 border-l border-line pl-2">
+                        <div className="ml-9 mt-1 space-y-1 border-l-2 border-line pl-3">
                           {item.children.map((child) => (
                             <NavLink
                               key={child.to}
                               to={child.to!}
                               end={child.end}
                               className={({ isActive }) => cn(
-                                'flex items-center gap-2 rounded-control px-2.5 py-1.5 text-sm transition-colors',
-                                isActive ? 'bg-brand-50 text-brand-700 font-medium' : 'text-muted hover:bg-line/40 hover:text-ink'
+                                'flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors',
+                                isActive ? 'bg-brand-50 text-brand-700 font-medium' : 'text-muted hover:bg-surface-raised hover:text-ink'
                               )}
                             >
-                              {child.icon}
-                              {t(child.label)}
+                              <span className="shrink-0">{child.icon}</span>
+                              <span>{t(child.label)}</span>
                             </NavLink>
                           ))}
                         </div>
@@ -179,11 +182,12 @@ function SidebarContent({ nav, role }: { nav: NavItem[]; role: string }) {
                 to={item.to!}
                 end={item.end}
                 className={({ isActive }) => cn(
-                  'flex items-center gap-3 rounded-control px-2.5 py-2 text-sm font-medium transition-colors',
-                  isActive ? 'bg-brand-50 text-brand-700' : 'text-muted hover:bg-line/40 hover:text-ink'
+                  'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
+                  isActive ? 'bg-brand-50 text-brand-700' : 'text-muted hover:bg-surface-raised hover:text-ink'
                 )}
               >
-                {item.icon}{t(item.label)}
+                <span className="shrink-0">{item.icon}</span>
+                <span>{t(item.label)}</span>
               </NavLink>
             )
           })}
@@ -191,21 +195,23 @@ function SidebarContent({ nav, role }: { nav: NavItem[]; role: string }) {
       </div>
       
       {/* Fixed bottom section */}
-      <div className="shrink-0 border-t border-line pt-3">
+      <div className="mt-4 shrink-0 space-y-1 border-t border-line px-2 pt-4">
         <NavLink 
           to="/settings" 
           className={({ isActive }) => cn(
-            'flex items-center gap-3 rounded-control px-2.5 py-2 text-sm font-medium', 
-            isActive ? 'bg-brand-50 text-brand-700' : 'text-muted hover:bg-line/40 hover:text-ink'
+            'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors', 
+            isActive ? 'bg-brand-50 text-brand-700' : 'text-muted hover:bg-surface-raised hover:text-ink'
           )}
         >
-          <Settings className="h-4 w-4" />{t('nav.settings')}
+          <Settings className="h-4 w-4 shrink-0" />
+          <span>{t('nav.settings')}</span>
         </NavLink>
         <Link 
           to="/" 
-          className="flex items-center gap-3 rounded-control px-2.5 py-2 text-sm font-medium text-muted hover:bg-line/40 hover:text-ink"
+          className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-muted transition-colors hover:bg-surface-raised hover:text-ink"
         >
-          <Home className="h-4 w-4" />{t('nav.backToSite')}
+          <Home className="h-4 w-4 shrink-0" />
+          <span>{t('nav.backToSite')}</span>
         </Link>
       </div>
     </div>

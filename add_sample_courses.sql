@@ -1,6 +1,4 @@
 -- Add sample courses for testing
--- Make sure you have categories first
-
 -- Insert sample courses (adjust instructor_id and category as needed)
 INSERT INTO courses (
   title,
@@ -8,76 +6,79 @@ INSERT INTO courses (
   short_description,
   description,
   category,
-  price,
-  is_published,
   level,
-  language,
-  has_certificate,
-  rating,
-  student_count,
-  review_count
+  duration,
+  price,
+  is_free,
+  is_published,
+  is_featured
 ) VALUES
 (
   'Introduction to Human Anatomy',
   'intro-human-anatomy',
   'Learn the fundamental structures and systems of the human body',
   'This comprehensive course covers all major body systems including skeletal, muscular, cardiovascular, and nervous systems. Perfect for medical students and healthcare professionals.',
-  (SELECT slug FROM course_categories WHERE name = 'Anatomy' LIMIT 1),
-  49.99,
-  true,
+  'anatomy',
   'Beginner',
-  'English',
+  '20 hours',
+  4999,
+  false,
   true,
-  4.8,
-  1250,
-  156
+  true
 ),
 (
   'Advanced Cardiovascular System',
   'advanced-cardiovascular',
   'Deep dive into heart anatomy and circulatory system',
   'Explore the intricacies of the cardiovascular system with detailed 3D models and interactive diagrams. Learn about heart chambers, blood vessels, and cardiac function.',
-  (SELECT slug FROM course_categories WHERE name = 'Anatomy' LIMIT 1),
-  79.99,
-  true,
+  'anatomy',
   'Advanced',
-  'English',
+  '15 hours',
+  7999,
+  false,
   true,
-  4.9,
-  850,
-  98
+  false
 ),
 (
   'Musculoskeletal System Basics',
   'musculoskeletal-basics',
   'Understanding bones, joints, and muscles',
   'Master the fundamentals of the musculoskeletal system. Study bone structure, joint mechanics, and muscle anatomy with practical applications.',
-  (SELECT slug FROM course_categories WHERE name = 'Anatomy' LIMIT 1),
-  59.99,
-  true,
+  'anatomy',
   'Intermediate',
-  'English',
+  '18 hours',
+  5999,
+  false,
   true,
-  4.7,
-  920,
-  112
+  false
 ),
 (
   'Clinical Skills for Healthcare Professionals',
   'clinical-skills-professionals',
   'Essential practical skills for medical practice',
   'Develop crucial clinical skills including patient examination, vital signs monitoring, and basic procedures. Designed for nursing and medical students.',
-  (SELECT slug FROM course_categories WHERE name = 'Clinical Skills' LIMIT 1),
-  89.99,
-  true,
+  'clinical-skills',
   'Intermediate',
-  'English',
+  '25 hours',
+  8999,
+  false,
   true,
-  4.8,
-  1100,
-  145
+  true
+),
+(
+  'Human Physiology Fundamentals',
+  'human-physiology',
+  'How the human body systems function',
+  'Comprehensive study of physiological processes in the human body. Learn how organs and systems work together to maintain homeostasis.',
+  'physiology',
+  'Beginner',
+  '22 hours',
+  5499,
+  false,
+  true,
+  false
 )
 ON CONFLICT (slug) DO NOTHING;
 
 -- Verify the insertion
-SELECT id, title, slug, price, is_published, student_count FROM courses ORDER BY created_at DESC LIMIT 5;
+SELECT id, title, slug, price, is_published FROM courses WHERE is_published = true ORDER BY created_at DESC LIMIT 10;

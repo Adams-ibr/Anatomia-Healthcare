@@ -1219,11 +1219,11 @@ export const questionBankApi = {
 // ============================================================================
 
 export const enrollmentsApi = {
-  list: async (filters?: { user_id?: string; course_id?: string; status?: string }) => {
-    let query = supabase.from('enrollments').select('*, profiles(*), courses(*)')
+  list: async (filters?: { member_id?: string; course_id?: string; status?: string }) => {
+    let query = supabase.from('enrollments').select('*, courses(*)')
     
-    if (filters?.user_id) {
-      query = query.eq('user_id', filters.user_id)
+    if (filters?.member_id) {
+      query = query.eq('member_id', filters.member_id)
     }
     if (filters?.course_id) {
       query = query.eq('course_id', filters.course_id)
@@ -1233,14 +1233,17 @@ export const enrollmentsApi = {
     }
     
     const { data, error } = await query.order('enrolled_at', { ascending: false })
-    if (error) throw error
+    if (error) {
+      console.error('Error fetching enrollments:', error)
+      throw error
+    }
     return data
   },
 
   getById: async (id: string) => {
     const { data, error } = await supabase
       .from('enrollments')
-      .select('*, profiles(*), courses(*)')
+      .select('*, courses(*)')
       .eq('id', id)
       .single()
     
@@ -1255,7 +1258,10 @@ export const enrollmentsApi = {
       .select()
       .single()
     
-    if (error) throw error
+    if (error) {
+      console.error('Error creating enrollment:', error)
+      throw error
+    }
     return data
   },
 
@@ -1264,6 +1270,19 @@ export const enrollmentsApi = {
       .from('enrollments')
       .update(updates)
       .eq('id', id)
+      .select()
+      .single()
+    
+    if (error) throw error
+    return data
+  },
+
+  updateProgress: async (memberId: string, courseId: string, progress: number) => {
+    const { data, error } = await supabase
+      .from('enrollments')
+      .update({ progress })
+      .eq('member_id', memberId)
+      .eq('course_id', courseId)
       .select()
       .single()
     
