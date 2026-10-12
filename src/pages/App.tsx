@@ -145,57 +145,57 @@ const NAV_ICONS = {
 }
 
 const STUDENT_NAV: NavItem[] = [
-  { label: 'dashboard', to: '/dashboard', icon: I(NAV_ICONS.dash), end: true },
+  { label: 'Dashboard', to: '/dashboard', icon: I(NAV_ICONS.dash), end: true },
   {
-    label: 'nav.learning',
+    label: 'Learning',
     icon: I(NAV_ICONS.book),
     children: [
-      { label: 'myLearning', to: '/my-learning', icon: I(NAV_ICONS.book) },
-      { label: 'discover', to: '/courses', icon: I(NAV_ICONS.search) },
-      { label: 'wishlist', to: '/wishlist', icon: I(NAV_ICONS.heart) }
+      { label: 'My Learning', to: '/my-learning', icon: I(NAV_ICONS.book) },
+      { label: 'Discover', to: '/courses', icon: I(NAV_ICONS.search) },
+      { label: 'Wishlist', to: '/wishlist', icon: I(NAV_ICONS.heart) }
     ]
   },
   {
-    label: 'nav.academics',
+    label: 'Academics',
     icon: I(NAV_ICONS.assign),
     children: [
-      { label: 'assignments', to: '/assignments', icon: I(NAV_ICONS.assign) },
-      { label: 'assessments', to: '/assessments', icon: I(NAV_ICONS.assess) },
-      { label: 'calendar', to: '/calendar', icon: I(NAV_ICONS.cal) }
+      { label: 'Assignments', to: '/assignments', icon: I(NAV_ICONS.assign) },
+      { label: 'Assessments', to: '/assessments', icon: I(NAV_ICONS.assess) },
+      { label: 'Calendar', to: '/calendar', icon: I(NAV_ICONS.cal) }
     ]
   },
   {
-    label: 'nav.account',
+    label: 'Account',
     icon: I(NAV_ICONS.user),
     children: [
-      { label: 'certificates', to: '/certificates', icon: I(NAV_ICONS.cert) },
+      { label: 'Certificates', to: '/certificates', icon: I(NAV_ICONS.cert) },
       { label: 'My Orders', to: '/orders', icon: I(NAV_ICONS.cart) }
     ]
   },
-  { label: 'messages', to: '/messages', icon: I(NAV_ICONS.msg) },
-  { label: 'community', to: '/community', icon: I(NAV_ICONS.users) }
+  { label: 'Messages', to: '/messages', icon: I(NAV_ICONS.msg) },
+  { label: 'Community', to: '/community', icon: I(NAV_ICONS.users) }
 ]
 
 const INSTRUCTOR_NAV: NavItem[] = [
-  { label: 'dashboard', to: '/instructor', icon: I(NAV_ICONS.dash), end: true },
+  { label: 'Dashboard', to: '/instructor', icon: I(NAV_ICONS.dash), end: true },
   {
-    label: 'nav.courses',
+    label: 'Courses',
     icon: I(NAV_ICONS.book),
     children: [
-      { label: 'myCourses', to: '/instructor/courses', icon: I(NAV_ICONS.book) },
-      { label: 'createCourse', to: '/instructor/courses/new', icon: I(NAV_ICONS.plus) }
+      { label: 'My Courses', to: '/instructor/courses', icon: I(NAV_ICONS.book) },
+      { label: 'Create Course', to: '/instructor/courses/new', icon: I(NAV_ICONS.plus) }
     ]
   },
   {
-    label: 'nav.insights',
+    label: 'Insights',
     icon: I(NAV_ICONS.chart),
     children: [
-      { label: 'students', to: '/instructor/students', icon: I(NAV_ICONS.users) },
-      { label: 'analytics', to: '/instructor/analytics', icon: I(NAV_ICONS.chart) },
-      { label: 'earnings', to: '/instructor/earnings', icon: I(NAV_ICONS.wallet) }
+      { label: 'Students', to: '/instructor/students', icon: I(NAV_ICONS.users) },
+      { label: 'Analytics', to: '/instructor/analytics', icon: I(NAV_ICONS.chart) },
+      { label: 'Earnings', to: '/instructor/earnings', icon: I(NAV_ICONS.wallet) }
     ]
   },
-  { label: 'messages', to: '/messages', icon: I(NAV_ICONS.msg) }
+  { label: 'Messages', to: '/messages', icon: I(NAV_ICONS.msg) }
 ]
 
 const ADMIN_NAV: NavItem[] = [
