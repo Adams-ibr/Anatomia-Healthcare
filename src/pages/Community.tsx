@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Plus } from 'lucide-react'
-import { COURSES as DATA_COURSES } from '../lib/data'
 import { coursesApi } from '../lib/supabase'
 import { useApp } from '../lib/store'
 import { Button, SearchInput } from '../components/ui'
@@ -17,8 +16,8 @@ export default function Community() {
 
   useEffect(() => {
     coursesApi.list({ status: 'published' })
-      .then((res) => setCoursesData(res ?? DATA_COURSES.filter(c => c.status === 'published')))
-      .catch(() => setCoursesData(DATA_COURSES.filter(c => c.status === 'published')))
+      .then((res) => setCoursesData(res ?? []))
+      .catch(() => setCoursesData([]))
   }, [])
 
   const courses = coursesData

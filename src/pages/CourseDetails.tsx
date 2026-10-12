@@ -5,7 +5,6 @@ import {
   Award, BookOpen, CheckCircle2, ChevronDown, Clock, FileText, Globe, Heart,
   Info, ListVideo, MessageSquare, PlayCircle, RotateCcw, ShieldCheck, Users
 } from 'lucide-react'
-import { CATEGORIES, COURSES } from '../lib/data'
 import { Course } from '../lib/types'
 import { useApp } from '../lib/store'
 import { CourseCard } from '../components/cards'
@@ -62,30 +61,30 @@ export default function CourseDetails() {
             id: raw.id || normalizedSlug,
             slug: raw.slug || normalizedSlug,
             title: raw.title,
-            subtitle: raw.subtitle || '',
-            description: raw.description || '',
-            longDescription: raw.longDescription || raw.description || '',
-            categoryId: raw.categoryId || raw.category_id || 'c1',
-            instructorId: raw.instructorId || raw.instructor_id || 'u_in_1',
-            thumbnail: raw.thumbnail || '/placeholder-course.jpg',
-            price: raw.price ?? 0,
+            subtitle: raw.short_description || raw.subtitle || '',
+            description: raw.description || raw.short_description || '',
+            longDescription: raw.description || raw.longDescription || '',
+            categoryId: raw.category || raw.categoryId || raw.category_id || '',
+            instructorId: raw.created_by || raw.instructorId || raw.instructor_id || '',
+            thumbnail: raw.thumbnail_url || raw.thumbnail || '/placeholder-course.jpg',
+            price: typeof raw.price === 'number' ? raw.price : (parseFloat(raw.price) || 0),
             discountPrice: raw.discountPrice ?? raw.discount_price,
-            rating: raw.rating ?? 4.8,
+            rating: typeof raw.rating === 'number' ? raw.rating : 5.0,
             reviewCount: raw.reviewCount ?? raw.review_count ?? 0,
             studentCount: raw.studentCount ?? raw.student_count ?? 0,
-            duration: raw.duration ?? 0,
+            duration: typeof raw.duration === 'string' ? (parseInt(raw.duration) || 0) : (raw.duration ?? 0),
             level: raw.level ?? 'Beginner',
-            language: raw.language ?? 'Hausa',
-            lastUpdated: raw.lastUpdated ?? raw.last_updated ?? new Date().toISOString(),
+            language: raw.language ?? 'English',
+            lastUpdated: raw.updated_at || raw.created_at || raw.lastUpdated || new Date().toISOString(),
             hasCertificate: raw.hasCertificate ?? raw.has_certificate ?? true,
             isFeatured: raw.isFeatured ?? raw.is_featured ?? false,
             isTrending: raw.isTrending ?? raw.is_trending ?? false,
             isNew: raw.isNew ?? raw.is_new ?? false,
-            status: raw.status ?? 'published',
-            instructorName: raw.instructorName ?? raw.instructor_name,
+            status: raw.is_published ? 'published' : (raw.status ?? 'published'),
+            instructorName: raw.instructorName ?? raw.instructor_name ?? 'Anatomia Faculty',
             objectives: (raw.objectives ?? []).map((o: any, idx: number) => typeof o === 'string' ? { id: `obj_${idx}`, text: o } : o),
             requirements: (raw.requirements ?? []).map((r: any, idx: number) => typeof r === 'string' ? { id: `req_${idx}`, text: r } : r),
-            sections: (raw.sections ?? []).map((s: any, idx: number) => ({
+            sections: (raw.course_modules ?? raw.sections ?? []).map((s: any, idx: number) => ({
               id: s.id ?? `sec_${idx}`,
               title: s.title ?? '',
               lessons: (s.lessons ?? []).map((l: any, lidx: number) => ({
@@ -94,32 +93,18 @@ export default function CourseDetails() {
                 type: l.type ?? 'video',
                 duration: l.duration ?? 0,
                 content: l.content ?? '',
-                videoUrl: l.videoUrl,
-                resourceUrl: l.resourceUrl,
+                videoUrl: l.videoUrl || l.video_url,
+                resourceUrl: l.resourceUrl || l.resource_url,
                 completed: l.completed
               }))
             })),
             reviews: raw.reviews ?? [],
             faqs: raw.faqs ?? []
           })
-        } else {
-          const local = COURSES.find((c) =>
-            c.slug === normalizedSlug ||
-            c.slug.toLowerCase() === normalizedSlug.toLowerCase() ||
-            c.id === normalizedSlug ||
-            slugify(c.title) === normalizedSlug.toLowerCase()
-          )
-          if (local) setCourse(local)
         }
       } catch (err) {
-        console.error('Failed to fetch course:', err)
-        const local = COURSES.find((c) =>
-          c.slug === normalizedSlug ||
-          c.slug.toLowerCase() === normalizedSlug.toLowerCase() ||
-          c.id === normalizedSlug ||
-          slugify(c.title) === normalizedSlug.toLowerCase()
-        )
-        if (local) setCourse(local)
+        console.error('Failed to fetch course from Supabase:', err)
+        setCourse(null)
       }
       setLoading(false)
     })()
@@ -145,7 +130,7 @@ export default function CourseDetails() {
     )
   }
 
-  const category = CATEGORIES.find((c) => c.id === course.categoryId)
+  const category = course.categoryId ? { name: course.categoryId, slug: course.categoryId } : null
   const saved = wishlist.includes(course.id)
   const sections = course.sections ?? []
   const totalLessons = sections.reduce((a, s) => a + (s.lessons ?? []).length, 0)
@@ -153,7 +138,7 @@ export default function CourseDetails() {
   const myEnrollment = currentUser ? enrollments.find((e) => e.userId === currentUser.id && e.courseId === course.id) : null
   const disc = discountPercent(course.price, course.discountPrice)
   const displayPrice = course.discountPrice ?? course.price
-  const related = COURSES.filter((c) => c.categoryId === course.categoryId && c.id !== course.id).slice(0, 4)
+  const related: Course[] = []
 
   const handleEnroll = () => {
     const firstLessonId = sections[0]?.lessons?.[0]?.id || 'l1'

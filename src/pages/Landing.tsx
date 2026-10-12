@@ -8,9 +8,8 @@ import {
 import { motion } from 'framer-motion'
 import { useTranslation } from 'react-i18next'
 import { useApp } from '../lib/store'
-import { categoriesApi, coursesApi, membersApi } from '../lib/supabase'
+import { categoriesApi, coursesApi, membersApi, faqApi, partnersApi, articlesApi } from '../lib/supabase'
 import type { AdminCourse, AdminCategory, PublicInstructor } from '../lib/api/auth'
-import { FAQS, LEARNING_PATHS, PLANS, TESTIMONIALS } from '../lib/data'
 import { CourseCard, InstructorCard } from '../components/cards'
 import { Accordion, Avatar, Badge, Button, Rating, Skeleton } from '../components/ui'
 import { formatPrice } from '../lib/utils'
@@ -54,32 +53,32 @@ const FLOW = (t: (key: string) => string) => [
 // ---------------------------------------------------------------------------
 // Helpers: adapt API shapes to component props
 // ---------------------------------------------------------------------------
-function apiCourseToCard(c: AdminCourse): Course {
+function apiCourseToCard(c: any): Course {
   return {
     id: c.id,
     slug: c.slug,
     title: c.title,
-    subtitle: c.subtitle,
-    description: c.description,
-    longDescription: '',
-    categoryId: c.categoryId,
-    instructorId: c.instructorId,
-    instructorName: c.instructorName,
-    thumbnail: c.thumbnail,
-    price: c.price,
-    discountPrice: c.discountPrice,
-    rating: c.rating,
-    reviewCount: c.reviewCount,
-    studentCount: c.studentCount,
-    duration: c.duration,
-    level: c.level,
-    language: c.language,
-    lastUpdated: c.lastUpdated,
-    hasCertificate: c.hasCertificate,
-    isFeatured: c.isFeatured ?? false,
-    isTrending: c.isTrending ?? false,
-    isNew: c.isNew ?? false,
-    status: c.status,
+    subtitle: c.short_description || c.subtitle || '',
+    description: c.description || c.short_description || '',
+    longDescription: c.description || '',
+    categoryId: c.category || c.categoryId || '',
+    instructorId: c.created_by || c.instructorId || '',
+    instructorName: c.instructorName || c.instructor_name || 'Anatomia Faculty',
+    thumbnail: c.thumbnail_url || c.thumbnail || '',
+    price: typeof c.price === 'number' ? c.price : (parseFloat(c.price) || 0),
+    discountPrice: c.discount_price ?? c.discountPrice,
+    rating: typeof c.rating === 'number' ? c.rating : 5.0,
+    reviewCount: c.review_count ?? c.reviewCount ?? 0,
+    studentCount: c.student_count ?? c.studentCount ?? 0,
+    duration: typeof c.duration === 'string' ? (parseInt(c.duration) || 0) : (c.duration ?? 0),
+    level: c.level || 'Beginner',
+    language: c.language || 'English',
+    lastUpdated: c.updated_at || c.created_at || c.lastUpdated || '',
+    hasCertificate: c.has_certificate ?? true,
+    isFeatured: c.is_featured ?? c.isFeatured ?? false,
+    isTrending: c.is_trending ?? c.isTrending ?? false,
+    isNew: c.is_new ?? c.isNew ?? false,
+    status: c.is_published ? 'published' : (c.status || 'draft'),
     objectives: [],
     requirements: [],
     sections: [],
@@ -155,10 +154,10 @@ export default function Landing() {
   const { t } = useTranslation()
 
   // API data
-  const [categories, setCategories] = useState<AdminCategory[]>([])
-  const [featured, setFeatured] = useState<AdminCourse[]>([])
-  const [trending, setTrending] = useState<AdminCourse[]>([])
-  const [instructors, setInstructors] = useState<PublicInstructor[]>([])
+  const [categories, setCategories] = useState<any[]>([])
+  const [featured, setFeatured] = useState<any[]>([])
+  const [trending, setTrending] = useState<any[]>([])
+  const [instructors, setInstructors] = useState<any[]>([])
 
   // Loading states per section
   const [loadingCats, setLoadingCats] = useState(true)
@@ -169,12 +168,29 @@ export default function Landing() {
   // Stats derived from live API data (updated once courses load)
   const [stats, setStats] = useState<{ value: number; suffix: string; label: string }[]>([])
 
+  // Additional Supabase data
+  const [faqs, setFaqs] = useState<any[]>([])
+  const [partnersList, setPartnersList] = useState<any[]>([])
+  const [articlesList, setArticlesList] = useState<any[]>([])
+
   useEffect(() => {
-    // Fetch all four data sources in parallel
+    // Fetch all live data sources in parallel from Supabase
     categoriesApi.list()
       .then((res) => setCategories(res ?? []))
-      .catch(() => {/* keep empty */})
+      .catch(() => {})
       .finally(() => setLoadingCats(false))
+
+    partnersApi.list({ is_active: true })
+      .then((res) => setPartnersList(res ?? []))
+      .catch(() => {})
+
+    articlesApi.list({ is_published: true })
+      .then((res) => setArticlesList(res ?? []))
+      .catch(() => {})
+
+    faqApi.list()
+      .then((res) => setFaqs(res ?? []))
+      .catch(() => {})
 
     coursesApi.list({ status: 'published' })
       .then((res) => {
@@ -252,122 +268,103 @@ export default function Landing() {
             </motion.div>
             <motion.div variants={HERO_ITEM}>
               <div className="mt-8 flex items-center gap-4 text-sm text-muted">
-                <div className="flex -space-x-2">
-                  {instructors.slice(0, 3).map((ins) => (
-                    <Avatar key={ins.id} name={ins.name} size="sm" className="ring-2 ring-paper" />
-                  ))}
-                  {loadingInstructors && [1, 2, 3].map((n) => (
-                    <Skeleton key={n} className="h-8 w-8 rounded-full ring-2 ring-paper" />
-                  ))}
-                </div>
-                <div>
-                  <Rating value={4.8} />
-                  <p className="text-xs text-muted">{t('landing.trustedBy')}</p>
-                </div>
+                {instructors.length > 0 ? (
+                  <div className="flex -space-x-2">
+                    {instructors.slice(0, 3).map((ins) => (
+                      <Avatar key={ins.id} name={ins.name} size="sm" className="ring-2 ring-paper" />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 text-brand-700 font-medium">
+                    <ShieldCheck className="h-5 w-5 text-brand-600" />
+                    <span>Specialized Anatomy & Health Sciences Platform</span>
+                  </div>
+                )}
               </div>
             </motion.div>
           </motion.div>
 
-          {/* Hero mock UI */}
+          {/* Hero real course showcase */}
           <motion.div
             initial={{ opacity: 0, y: 44, scale: 0.96 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             transition={{ duration: 0.75, delay: 0.15, ease: EASE }}
             className="relative mx-auto w-full max-w-xl"
           >
-            <div className="card overflow-hidden shadow-panel">
-              <div className="flex items-center gap-3 border-b border-line bg-surface px-4 py-3">
-                <Avatar name={currentUser?.name || 'Aminu Garba'} size="sm" />
-                <div>
-                  <p className="text-sm font-semibold text-ink">
-                    {currentUser ? `${t('landing.mockGreeting')}, ${currentUser.name}` : t('landing.mockGreeting')}
-                  </p>
-                  <p className="text-xs text-muted">{t('landing.mockStreak')}</p>
-                </div>
-                <div className="ml-auto flex items-center gap-1 text-xs font-medium text-success">
-                  <Trophy className="h-3.5 w-3.5" /> {t('landing.mockDays')}
-                </div>
-              </div>
-              <div className="space-y-4 bg-surface p-4">
-                <div>
-                  <div className="mb-1.5 flex items-center justify-between text-xs">
-                    <span className="font-medium text-ink">
-                      {featured[0]?.title ?? t('landing.mockCourseTitle')}
+            {featured[0] ? (
+              <div className="card overflow-hidden shadow-panel border border-line">
+                {featured[0].thumbnail_url ? (
+                  <div className="relative aspect-video w-full overflow-hidden bg-brand-900">
+                    <img
+                      src={featured[0].thumbnail_url}
+                      alt={featured[0].title}
+                      className="h-full w-full object-cover"
+                    />
+                    <span className="absolute top-3 left-3 rounded-full bg-brand-600/90 px-3 py-1 text-xs font-semibold text-white backdrop-blur">
+                      Featured Course
                     </span>
-                    <span className="text-muted">78%</span>
                   </div>
-                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-line">
-                    <div className="h-full w-[78%] rounded-full bg-brand-500" />
+                ) : null}
+                <div className="p-6">
+                  <div className="flex items-center justify-between text-xs font-medium text-brand-700">
+                    <span className="rounded bg-brand-50 px-2 py-0.5 uppercase tracking-wide">
+                      {featured[0].category || 'Anatomy'}
+                    </span>
+                    <span className="text-muted">{featured[0].duration || 'Comprehensive'}</span>
                   </div>
-                  <p className="mt-2 text-xs text-muted">{t('landing.mockContinue')}</p>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="rounded-card border border-line p-3">
-                    <p className="text-xs text-muted">{t('landing.mockCompleted')}</p>
-                    <p className="text-lg font-bold text-ink">3</p>
-                  </div>
-                  <div className="rounded-card border border-line p-3">
-                    <p className="text-xs text-muted">{t('landing.mockCertificates')}</p>
-                    <p className="text-lg font-bold text-ink">2</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <motion.div
-              initial={{ opacity: 0, x: -34 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.6, delay: 0.55, ease: EASE }}
-            >
-              <div className="card absolute -bottom-6 -left-4 hidden w-56 p-4 shadow-panel sm:block" style={{ animation: 'float 5s ease-in-out infinite' }}>
-                <div className="flex items-center gap-2">
-                  <div className="rounded-full bg-brand-50 p-2 text-brand-700"><ShieldCheck className="h-4 w-4" /></div>
-                  <div>
-                    <p className="text-xs font-semibold text-ink">{t('landing.mockCertEarned')}</p>
-                    <p className="text-[11px] text-muted">{featured[0]?.title ?? t('landing.mockCertCourse')}</p>
+                  <h3 className="mt-2.5 font-display text-xl font-bold text-ink">
+                    {featured[0].title}
+                  </h3>
+                  <p className="mt-1.5 text-sm text-muted line-clamp-2">
+                    {featured[0].short_description || featured[0].description || 'Master clinical anatomy through detailed modular lessons.'}
+                  </p>
+                  <div className="mt-5 flex items-center justify-between border-t border-line pt-4">
+                    <div>
+                      <span className="text-xs text-muted">Access</span>
+                      <p className="text-base font-bold text-ink">
+                        {featured[0].is_free || featured[0].price === 0 ? 'Free' : `₦${featured[0].price?.toLocaleString()}`}
+                      </p>
+                    </div>
+                    <Button onClick={() => nav(`/courses/${featured[0].slug}`)} className="px-4 py-2 text-sm">
+                      Start Learning
+                    </Button>
                   </div>
                 </div>
               </div>
-            </motion.div>
-            <motion.div
-              initial={{ opacity: 0, x: 34 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.6, delay: 0.7, ease: EASE }}
-            >
-              <div className="card absolute -right-4 -top-5 hidden w-48 p-4 shadow-panel sm:block" style={{ animation: 'float-delayed 6s ease-in-out infinite' }}>
-                <div className="flex items-center gap-2">
-                  <div className="rounded-full bg-success/10 p-2 text-success"><TrendingUp className="h-4 w-4" /></div>
-                  <div>
-                    <p className="text-xs font-semibold text-ink">{t('landing.mockScore')}</p>
-                    <p className="text-[11px] text-muted">{t('landing.mockScoreVal')}</p>
-                  </div>
-                </div>
+            ) : (
+              <div className="card p-8 text-center shadow-panel">
+                <BookOpen className="mx-auto h-12 w-12 text-brand-500" />
+                <h3 className="mt-4 font-display text-lg font-bold text-ink">Anatomia Healthcare Portal</h3>
+                <p className="mt-2 text-sm text-muted">Access structured medical courses and clinical modules.</p>
+                <Button className="mt-5" onClick={() => nav('/courses')}>Browse Catalog</Button>
               </div>
-            </motion.div>
+            )}
           </motion.div>
         </div>
       </section>
 
-      {/* ── CATEGORY PILLS ───────────────────────────────────────────────── */}
-      <section className="border-b border-line bg-surface py-10">
-        <div className="container-page">
-          <Reveal y={16}>
-            <p className="mb-6 text-center text-xs font-semibold uppercase tracking-widest text-muted">{t('landing.trustedTeams')}</p>
-            <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-3">
-              {loadingCats
-                ? Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-9 w-32 rounded-full" />)
-                : categories.map((cat) => (
-                    <Link
-                      key={cat.id}
-                      to={`/courses?category=${cat.slug}`}
-                      className="flex items-center gap-2 rounded-full border border-line px-4 py-2 text-sm font-medium text-muted transition-colors hover:border-brand-400 hover:text-brand-700"
-                    >
-                      <ShieldCheck className="h-4 w-4" /> {cat.name}
-                    </Link>
-                  ))}
-            </div>
-          </Reveal>
-        </div>
-      </section>
+      {/* ── PARTNERS / ACCREDITATIONS ────────────────────────────────────── */}
+      {partnersList.length > 0 && (
+        <section className="border-b border-line bg-surface py-10">
+          <div className="container-page">
+            <Reveal y={16}>
+              <p className="mb-6 text-center text-xs font-semibold uppercase tracking-widest text-muted">
+                Collaborating Institutions & Healthcare Partners
+              </p>
+              <div className="flex flex-wrap items-center justify-center gap-8 sm:gap-12">
+                {partnersList.map((p) => (
+                  <div key={p.id} className="flex items-center gap-3 opacity-90 transition hover:opacity-100">
+                    {p.logo_url && (
+                      <img src={p.logo_url} alt={p.name} className="h-10 w-auto max-w-[130px] object-contain" />
+                    )}
+                    <span className="text-sm font-semibold text-ink">{p.name}</span>
+                  </div>
+                ))}
+              </div>
+            </Reveal>
+          </div>
+        </section>
+      )}
 
       {/* ── CATEGORIES GRID ──────────────────────────────────────────────── */}
       <section className="container-page py-16 lg:py-20">
@@ -565,70 +562,42 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* ── LEARNING PATHS ───────────────────────────────────────────────── */}
-      <section className="container-page py-16 lg:py-20">
-        <Reveal>
-          <div className="mb-8 text-center">
-            <p className="text-sm font-semibold text-brand-700">{t('landing.pathsEyebrow')}</p>
-            <h2 className="section-title mt-1">{t('landing.pathsTitle')}</h2>
-            <p className="mx-auto mt-3 max-w-xl text-muted">{t('landing.pathsBody')}</p>
-          </div>
-        </Reveal>
-        <div className="grid gap-5 lg:grid-cols-3">
-          {LEARNING_PATHS.slice(0, 3).map((lp, i) => (
-            <Reveal key={lp.id} delay={Math.min(i * 0.08, 0.24)}>
-              <div className="card group flex h-full flex-col p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-lift">
-                <div className="mb-4 inline-flex w-fit rounded-card bg-brand-50 p-3 text-brand-700 transition-transform duration-300 group-hover:scale-110">
-                  <ShieldCheck className="h-5 w-5" />
-                </div>
-                <h3 className="font-display text-lg font-semibold text-ink">{lp.title}</h3>
-                <p className="mt-1.5 flex-1 text-sm leading-relaxed text-muted">{lp.description}</p>
-                <p className="mt-3 text-xs font-medium text-brand-700">{lp.career}</p>
-                <div className="mt-4 flex items-center justify-between border-t border-line pt-4">
-                  <span className="text-xs text-muted">
-                    {t('landing.pathMeta', { count: lp.courses.length, level: lp.level })}
-                  </span>
-                  <button
-                    onClick={() => { toast(t('landing.pathSaved'), t('landing.pathSavedBody')); nav('/courses') }}
-                    className="flex items-center gap-1 text-sm font-medium text-brand-700 hover:underline"
-                  >
-                    {t('landing.viewPath')} <ChevronRight className="h-3.5 w-3.5 transition-transform duration-300 group-hover:translate-x-0.5" />
-                  </button>
-                </div>
-              </div>
-            </Reveal>
-          ))}
-        </div>
-      </section>
-
-      {/* ── TESTIMONIALS ─────────────────────────────────────────────────── */}
-      <section className="border-y border-line bg-surface py-16 lg:py-20">
-        <div className="container-page">
+      {/* ── CLINICAL ARTICLES & RESEARCH ─────────────────────────────────── */}
+      {articlesList.length > 0 && (
+        <section className="container-page py-16 lg:py-20">
           <Reveal>
-            <div className="mb-8 text-center">
-              <p className="text-sm font-semibold text-brand-700">{t('landing.testimonialsEyebrow')}</p>
-              <h2 className="section-title mt-1">{t('landing.testimonialsTitle')}</h2>
+            <div className="mb-8 flex items-end justify-between">
+              <div>
+                <p className="text-sm font-semibold text-brand-700">Clinical Library</p>
+                <h2 className="section-title mt-1">Anatomical & Clinical Articles</h2>
+              </div>
+              <Link to="/articles" className="hidden items-center gap-1 text-sm font-medium text-brand-700 hover:underline sm:flex">
+                View all <ChevronRight className="h-4 w-4" />
+              </Link>
             </div>
           </Reveal>
-          <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-4">
-            {TESTIMONIALS.map((item, i) => (
-              <Reveal key={item.id} delay={Math.min(i * 0.07, 0.28)}>
-                <figure className="card flex h-full flex-col p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-lift">
-                  <Rating value={item.rating} size="xs" />
-                  <blockquote className="mt-4 flex-1 text-sm leading-relaxed text-ink">"{item.text}"</blockquote>
-                  <figcaption className="mt-5 flex items-center gap-3">
-                    <Avatar name={item.name} size="sm" />
-                    <div>
-                      <p className="text-sm font-semibold text-ink">{item.name}</p>
-                      <p className="text-xs text-muted">{item.role} · {item.company}</p>
-                    </div>
-                  </figcaption>
-                </figure>
-              </Reveal>
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {articlesList.map((article) => (
+              <div key={article.id} className="card group flex flex-col overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-lift border border-line">
+                {article.image_url && (
+                  <div className="aspect-video w-full overflow-hidden bg-brand-50">
+                    <img src={article.image_url} alt={article.title} className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" />
+                  </div>
+                )}
+                <div className="flex flex-1 flex-col p-6">
+                  <span className="text-xs font-semibold uppercase text-brand-700">{article.category || 'Anatomy'}</span>
+                  <h3 className="mt-2 font-display text-lg font-semibold text-ink">{article.title}</h3>
+                  <p className="mt-2 line-clamp-3 text-sm text-muted">{article.excerpt}</p>
+                  <div className="mt-4 flex items-center justify-between border-t border-line pt-4 text-xs text-muted">
+                    <span>By {article.author}</span>
+                    <Link to={`/articles/${article.slug || article.id}`} className="font-medium text-brand-700 hover:underline">Read article →</Link>
+                  </div>
+                </div>
+              </div>
             ))}
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* ── TRENDING COURSES ─────────────────────────────────────────────── */}
       <section className="container-page py-16 lg:py-20">
@@ -659,72 +628,24 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* ── PRICING ──────────────────────────────────────────────────────── */}
-      <section className="border-y border-line bg-surface py-16 lg:py-20">
-        <div className="container-page">
+      {/* ── FAQ ──────────────────────────────────────────────────────────── */}
+      {faqs.length > 0 && (
+        <section className="container-page max-w-3xl py-16 lg:py-20">
           <Reveal>
             <div className="mb-8 text-center">
-              <p className="text-sm font-semibold text-brand-700">{t('landing.pricingEyebrow')}</p>
-              <h2 className="section-title mt-1">{t('landing.pricingTitle')}</h2>
+              <p className="text-sm font-semibold text-brand-700">{t('landing.faqEyebrow')}</p>
+              <h2 className="section-title mt-1">{t('landing.faqTitle')}</h2>
             </div>
           </Reveal>
-          <div className="grid gap-5 lg:grid-cols-3">
-            {PLANS.map((p, i) => (
-              <Reveal key={p.id} delay={Math.min(i * 0.08, 0.24)}>
-                <div className={cn(
-                  'card group relative flex h-full flex-col p-7 transition-all duration-300 hover:-translate-y-1 hover:shadow-lift',
-                  p.highlight && 'border-brand-500 ring-1 ring-brand-500'
-                )}>
-                  {p.highlight && (
-                    <Badge color="brand" className="absolute -top-3 left-1/2 -translate-x-1/2">
-                      {t('landing.mostPopular')}
-                    </Badge>
-                  )}
-                  <h3 className="font-display text-xl font-semibold text-ink">{p.name}</h3>
-                  <p className="mt-1 text-sm text-muted">{p.description}</p>
-                  <div className="mt-5 flex items-baseline gap-1">
-                    <span className="text-4xl font-bold text-ink">
-                      {p.price === 0 ? t('landing.free') : formatPrice(p.price)}
-                    </span>
-                    {p.price > 0 && <span className="text-sm text-muted">/{p.period}</span>}
-                  </div>
-                  <ul className="mt-6 flex-1 space-y-3">
-                    {p.features.map((f) => (
-                      <li key={f} className="flex items-start gap-2.5 text-sm text-ink">
-                        <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-success" /> {f}
-                      </li>
-                    ))}
-                  </ul>
-                  <Button
-                    variant={p.highlight ? 'primary' : 'outline'}
-                    className="mt-7 w-full"
-                    onClick={() => nav('/register')}
-                  >
-                    {p.price === 0 ? t('landing.startFree') : t('landing.getStarted')}
-                  </Button>
-                </div>
-              </Reveal>
+          <div className="card px-6">
+            {faqs.map((f: any, i: number) => (
+              <Accordion key={f.id || i} title={<span>{f.question || f.q}</span>} defaultOpen={i === 0}>
+                <p className="text-sm leading-relaxed text-muted">{f.answer || f.a}</p>
+              </Accordion>
             ))}
           </div>
-        </div>
-      </section>
-
-      {/* ── FAQ ──────────────────────────────────────────────────────────── */}
-      <section className="container-page max-w-3xl py-16 lg:py-20">
-        <Reveal>
-          <div className="mb-8 text-center">
-            <p className="text-sm font-semibold text-brand-700">{t('landing.faqEyebrow')}</p>
-            <h2 className="section-title mt-1">{t('landing.faqTitle')}</h2>
-          </div>
-        </Reveal>
-        <div className="card px-6">
-          {FAQS.map((f, i) => (
-            <Accordion key={i} title={<span>{f.q}</span>} defaultOpen={i === 0}>
-              <p className="text-sm leading-relaxed text-muted">{f.a}</p>
-            </Accordion>
-          ))}
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* ── CTA ──────────────────────────────────────────────────────────── */}
       <section className="border-t border-line bg-brand-900">

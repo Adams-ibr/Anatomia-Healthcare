@@ -8,7 +8,6 @@ import { cn } from '../lib/utils'
 import { EASE, Reveal } from '../lib/motion'
 import { motion } from 'framer-motion'
 import { coursesApi, categoriesApi } from '../lib/supabase'
-import { CATEGORIES as DATA_CATEGORIES, COURSES as DATA_COURSES } from '../lib/data'
 import type { Course } from '../lib/types'
 
 const LEVELS = ['Beginner', 'Intermediate', 'Advanced'] as const
@@ -91,33 +90,33 @@ export default function Courses() {
           coursesApi.list({ search, category })
         ])
         setCategories((cats ?? []).map((c: any) => ({ id: c.id, name: c.name, slug: c.slug, description: c.description })))
-        // Map AdminCourse to MappedCourse for CourseCard compatibility
+        // Map Supabase course to MappedCourse for CourseCard compatibility
         const mapped = (courseList ?? []).map((c: any) => ({
           id: c.id,
           slug: c.slug,
           title: c.title,
-          subtitle: c.subtitle,
-          description: c.description,
-          longDescription: c.longDescription ?? '',
-          categoryId: c.categoryId ?? '',
-          instructorId: c.instructorId ?? '',
-          thumbnail: c.thumbnail || '',
-          price: c.price ?? 0,
-          discountPrice: c.discountPrice,
-          rating: c.rating ?? 0,
-          reviewCount: c.reviewCount ?? 0,
-          studentCount: c.studentCount ?? 0,
-          duration: c.duration ?? 0,
+          subtitle: c.short_description || c.subtitle || '',
+          description: c.description || c.short_description || '',
+          longDescription: c.description || c.longDescription || '',
+          categoryId: c.category || c.categoryId || '',
+          instructorId: c.created_by || c.instructorId || '',
+          thumbnail: c.thumbnail_url || c.thumbnail || '',
+          price: typeof c.price === 'number' ? c.price : (parseFloat(c.price) || 0),
+          discountPrice: c.discount_price ?? c.discountPrice,
+          rating: typeof c.rating === 'number' ? c.rating : 5.0,
+          reviewCount: c.review_count ?? c.reviewCount ?? 0,
+          studentCount: c.student_count ?? c.studentCount ?? 0,
+          duration: typeof c.duration === 'string' ? (parseInt(c.duration) || 0) : (c.duration ?? 0),
           level: c.level ?? 'Beginner',
-          language: c.language ?? 'en',
-          lastUpdated: c.lastUpdated ?? '',
-          hasCertificate: c.hasCertificate ?? false,
-          isFeatured: c.isFeatured,
-          isTrending: c.isTrending,
-          isNew: c.isNew,
-          status: c.status ?? 'published',
-          categoryName: c.categoryName,
-          sections: c.sections ?? [],
+          language: c.language ?? 'English',
+          lastUpdated: c.updated_at || c.created_at || c.lastUpdated || '',
+          hasCertificate: c.has_certificate ?? c.hasCertificate ?? true,
+          isFeatured: c.is_featured ?? c.isFeatured ?? false,
+          isTrending: c.is_trending ?? c.isTrending ?? false,
+          isNew: c.is_new ?? c.isNew ?? false,
+          status: c.is_published ? 'published' : (c.status ?? 'published'),
+          categoryName: c.category || c.categoryName,
+          sections: c.course_modules ?? c.sections ?? [],
           objectives: c.objectives ?? [],
           requirements: c.requirements ?? [],
           reviews: c.reviews ?? [],
@@ -126,40 +125,8 @@ export default function Courses() {
         setCourses(mapped as MappedCourse[])
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load courses')
-        // Fall back to data when API calls fail
-        setCategories((DATA_CATEGORIES || []).map((c: any) => ({ id: c.id, name: c.name, slug: c.slug, description: c.description })))
-        const fallbackMapped = (DATA_COURSES || []).map((c: any) => ({
-          id: c.id,
-          slug: c.slug,
-          title: c.title,
-          subtitle: c.subtitle,
-          description: c.description,
-          longDescription: c.longDescription ?? '',
-          categoryId: c.categoryId ?? '',
-          instructorId: c.instructorId ?? '',
-          thumbnail: c.thumbnail || '',
-          price: c.price ?? 0,
-          discountPrice: c.discountPrice,
-          rating: c.rating ?? 0,
-          reviewCount: c.reviewCount ?? 0,
-          studentCount: c.studentCount ?? 0,
-          duration: c.duration ?? 0,
-          level: c.level ?? 'Beginner',
-          language: c.language ?? 'en',
-          lastUpdated: c.lastUpdated ?? '',
-          hasCertificate: c.hasCertificate ?? false,
-          isFeatured: c.isFeatured,
-          isTrending: c.isTrending,
-          isNew: c.isNew,
-          status: c.status ?? 'published',
-          categoryName: c.categoryName,
-          sections: c.sections ?? [],
-          objectives: c.objectives ?? [],
-          requirements: c.requirements ?? [],
-          reviews: c.reviews ?? [],
-          faqs: c.faqs ?? []
-        }))
-        setCourses(fallbackMapped as MappedCourse[])
+        setCategories([])
+        setCourses([])
       } finally {
         setLoading(false)
       }

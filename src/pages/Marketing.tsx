@@ -1,17 +1,22 @@
-import { useParams } from 'react-router-dom'
-import { useNavigate } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
 import {
-  ArrowRight, BookOpen, CheckCircle2, Clock, Compass, GraduationCap, HelpCircle,
-  LifeBuoy, Mail, MessageSquare, Search, ShieldCheck, Sparkles, Star, Users
+  BookOpen, CheckCircle2, Clock, Compass, HelpCircle,
+  LifeBuoy, Mail, MessageSquare, Search, ShieldCheck, Sparkles, Users
 } from 'lucide-react'
-import { useState } from 'react'
-import { BLOG_POSTS, CATEGORIES, COURSES, FAQS, INSTRUCTORS, LEARNING_PATHS, PLANS } from '../lib/data'
+import { useState, useEffect } from 'react'
 import { useApp } from '../lib/store'
 import { useTranslation } from 'react-i18next'
 import { CourseCard, InstructorCard } from '../components/cards'
-import { Accordion, Avatar, Badge, Button, Rating } from '../components/ui'
+import { Accordion, Avatar, Badge, Button } from '../components/ui'
 import { cn, formatPrice } from '../lib/utils'
 import { Reveal } from '../lib/motion'
+import { coursesApi, articlesApi, membersApi, faqApi } from '../lib/supabase'
+
+const DEFAULT_PLANS = [
+  { id: 'free', name: 'Free Student Access', price: 0, period: 'lifetime', description: 'Open access to introductory anatomical modules.', features: ['Access to Free Modules', 'Community Discussions', 'Mobile & Web Access'] },
+  { id: 'premium', name: 'Standard Professional', price: 15000, period: 'course', description: 'Comprehensive clinical modules with certification.', features: ['Full Module Access', 'Clinical Video Lectures', 'Verified Certificate', 'Direct Tutor Support'], highlight: true },
+  { id: 'institution', name: 'Institutional / University', price: 0, period: 'annual', description: 'Custom licensing for universities & teaching hospitals.', features: ['Multi-student Seats', 'LMS & Curriculum Integration', 'Custom Exam Banks', 'Dedicated Account Manager'] }
+]
 
 export function Pricing() {
   const nav = useNavigate()
@@ -29,7 +34,7 @@ export function Pricing() {
       </section>
       <section className="container-page py-16">
         <div className="grid gap-5 lg:grid-cols-3">
-          {PLANS.map((p, i) => (
+          {DEFAULT_PLANS.map((p, i) => (
             <Reveal key={p.id} delay={Math.min(i * 0.08, 0.24)}>
               <div className={cn('card relative flex h-full flex-col p-7 transition-all duration-300 hover:-translate-y-1 hover:shadow-lift', p.highlight && 'border-brand-500 ring-1 ring-brand-500')}>
               {p.highlight && <Badge color="brand" className="absolute -top-3 left-1/2 -translate-x-1/2">{t('mktg.mostPopular')}</Badge>}
@@ -45,7 +50,7 @@ export function Pricing() {
                 ))}
               </ul>
               <Button variant={p.highlight ? 'primary' : 'outline'} className="mt-7 w-full" onClick={() => nav('/register')}>
-                {p.name === 'Business' ? t('mktg.contactSales') : p.price === 0 ? t('mktg.startFree') : t('mktg.getPremium')}
+                {p.name === 'Institutional / University' ? t('mktg.contactSales') : p.price === 0 ? t('mktg.startFree') : t('mktg.getPremium')}
               </Button>
             </div>
             </Reveal>
@@ -59,6 +64,14 @@ export function Pricing() {
 
 export function About() {
   const { t } = useTranslation()
+  const [team, setTeam] = useState<any[]>([])
+
+  useEffect(() => {
+    membersApi.list({ role: 'instructor' })
+      .then((res) => setTeam(res ?? []))
+      .catch(() => setTeam([]))
+  }, [])
+
   return (
     <div>
       <section className="border-b border-line bg-surface py-16">
@@ -87,27 +100,29 @@ export function About() {
           </Reveal>
         ))}
       </section>
-      <section className="border-y border-line bg-surface py-16">
-        <div className="container-page">
-          <Reveal>
-            <h2 className="mb-10 text-center font-display text-2xl font-semibold text-ink">{t('mktg.teamTitle')}</h2>
-          </Reveal>
-          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-            {INSTRUCTORS.slice(0, 4).map((i, idx) => (
-              <Reveal key={i.id} delay={Math.min(idx * 0.07, 0.28)}>
-                <div className="card flex flex-col items-center p-6 text-center transition-all duration-300 hover:-translate-y-1 hover:shadow-lift">
-                  <Avatar name={i.name} size="lg" />
-                  <p className="mt-3 font-semibold text-ink">{i.name}</p>
-                  <p className="text-sm text-muted">{i.title}</p>
-                </div>
-              </Reveal>
-            ))}
+      {team.length > 0 && (
+        <section className="border-y border-line bg-surface py-16">
+          <div className="container-page">
+            <Reveal>
+              <h2 className="mb-10 text-center font-display text-2xl font-semibold text-ink">{t('mktg.teamTitle')}</h2>
+            </Reveal>
+            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+              {team.slice(0, 4).map((i, idx) => (
+                <Reveal key={i.id} delay={Math.min(idx * 0.07, 0.28)}>
+                  <div className="card flex flex-col items-center p-6 text-center transition-all duration-300 hover:-translate-y-1 hover:shadow-lift">
+                    <Avatar name={i.name} size="lg" />
+                    <p className="mt-3 font-semibold text-ink">{i.name}</p>
+                    <p className="text-sm text-muted">{i.title}</p>
+                  </div>
+                </Reveal>
+              ))}
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
       <section className="container-page py-16">
         <div className="grid gap-5 lg:grid-cols-4">
-          {[['2019', t('mktg.founded')], ['500+', t('mktg.expertInstructors')], ['1,200+', t('mktg.coursesPaths')], ['50K+', t('mktg.learnersWorldwide')]].map(([v, l], i) => (
+          {[['2024', t('mktg.founded')], ['Specialized', t('mktg.expertInstructors')], ['Accredited', t('mktg.coursesPaths')], ['Healthcare', t('mktg.learnersWorldwide')]].map(([v, l], i) => (
             <Reveal key={l as string} delay={Math.min(i * 0.08, 0.24)}>
               <div className="card p-6 text-center transition-all duration-300 hover:-translate-y-1 hover:shadow-lift">
                 <p className="font-display text-3xl font-bold text-brand-700">{v}</p>
@@ -123,6 +138,14 @@ export function About() {
 
 export function Instructors() {
   const { t } = useTranslation()
+  const [instructorsList, setInstructorsList] = useState<any[]>([])
+
+  useEffect(() => {
+    membersApi.list({ role: 'instructor' })
+      .then((res) => setInstructorsList(res ?? []))
+      .catch(() => setInstructorsList([]))
+  }, [])
+
   return (
     <div>
       <section className="border-b border-line bg-surface py-14 text-center">
@@ -135,13 +158,19 @@ export function Instructors() {
         </div>
       </section>
       <section className="container-page py-14">
-        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-          {INSTRUCTORS.map((i, idx) => (
-            <Reveal key={i.id} delay={Math.min(idx * 0.06, 0.3)}>
-              <InstructorCard instructor={i} />
-            </Reveal>
-          ))}
-        </div>
+        {instructorsList.length > 0 ? (
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+            {instructorsList.map((i, idx) => (
+              <Reveal key={i.id} delay={Math.min(idx * 0.06, 0.3)}>
+                <InstructorCard instructor={i} />
+              </Reveal>
+            ))}
+          </div>
+        ) : (
+          <div className="py-12 text-center text-muted">
+            <p>{t('mktg.noInstructorsYet', 'Faculty and instructors will be listed here.')}</p>
+          </div>
+        )}
       </section>
     </div>
   )
@@ -151,7 +180,24 @@ export function InstructorProfile() {
   const { id } = useParams()
   const nav = useNavigate()
   const { t } = useTranslation()
-  const instructor = INSTRUCTORS.find((i) => i.id === id)
+  const [instructor, setInstructor] = useState<any>(null)
+  const [instructorCourses, setInstructorCourses] = useState<any[]>([])
+
+  useEffect(() => {
+    if (!id) return
+    membersApi.getById(id)
+      .then((res) => {
+        setInstructor(res)
+        return coursesApi.list()
+      })
+      .then((allCourses) => {
+        setInstructorCourses((allCourses ?? []).filter((c: any) => c.created_by === id || c.instructor_id === id))
+      })
+      .catch(() => {
+        setInstructor(null)
+      })
+  }, [id])
+
   if (!instructor) {
     return (
       <div className="container-page py-20 text-center">
@@ -160,7 +206,7 @@ export function InstructorProfile() {
       </div>
     )
   }
-  const courses = COURSES.filter((c) => c.instructorId === instructor.id)
+
   return (
     <div>
       <section className="border-b border-line bg-surface">
@@ -171,46 +217,22 @@ export function InstructorProfile() {
               <div className="flex-1 text-center sm:text-left">
                 <h1 className="font-display text-2xl font-bold text-ink">{instructor.name}</h1>
                 <p className="text-muted">{instructor.title}</p>
-                <p className="mt-2 text-sm leading-relaxed text-muted">{instructor.headline}</p>
-                <div className="mt-4 flex flex-wrap items-center justify-center gap-4 text-sm text-muted sm:justify-start">
-                  <Rating value={instructor.rating ?? 4.8} />
-                  <span className="flex items-center gap-1.5"><Users className="h-4 w-4" /> {t('mktg.students', { count: instructor.studentCount ?? 0 })}</span>
-                  <span className="flex items-center gap-1.5"><BookOpen className="h-4 w-4" /> {t('mktg.coursesCount', { count: courses.length })}</span>
-                </div>
-              </div>
-              <div className="flex shrink-0 gap-2">
-                <Button onClick={() => nav('/messages')}><MessageSquare className="h-4 w-4" /> {t('mktg.message')}</Button>
+                <p className="mt-2 text-sm leading-relaxed text-muted">{instructor.bio || instructor.headline}</p>
               </div>
             </div>
           </Reveal>
         </div>
       </section>
-      <section className="container-page py-12">
-        <div className="grid gap-10 lg:grid-cols-[1fr_340px]">
-          <div>
-            <h2 className="mb-5 text-xl font-semibold text-ink">{t('mktg.coursesBy', { name: instructor.name })}</h2>
-            <div className="grid gap-5 sm:grid-cols-2">
-              {courses.map((c, i) => (
-                <Reveal key={c.id} delay={Math.min(i * 0.07, 0.21)}>
-                  <CourseCard course={c} />
-                </Reveal>
-              ))}
-            </div>
+      {instructorCourses.length > 0 && (
+        <section className="container-page py-14">
+          <h2 className="mb-6 font-display text-xl font-semibold text-ink">{t('mktg.coursesBy', { name: instructor.name })}</h2>
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {instructorCourses.map((c) => (
+              <CourseCard key={c.id} course={c} />
+            ))}
           </div>
-          <div className="space-y-6">
-            <div className="card p-6">
-              <h3 className="mb-3 font-semibold text-ink">{t('mktg.about')}</h3>
-              <p className="text-sm leading-relaxed text-muted">{instructor.bio}</p>
-            </div>
-            <div className="card p-6">
-              <h3 className="mb-3 font-semibold text-ink">{t('mktg.expertise')}</h3>
-              <div className="flex flex-wrap gap-2">
-                {(instructor.skills ?? []).map((s) => <Badge key={s} color="brand">{s}</Badge>)}
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
+        </section>
+      )}
     </div>
   )
 }
@@ -218,43 +240,56 @@ export function InstructorProfile() {
 export function Blog() {
   const nav = useNavigate()
   const { t } = useTranslation()
+  const [articles, setArticles] = useState<any[]>([])
   const [cat, setCat] = useState('all')
-  const cats = ['all', ...Array.from(new Set(BLOG_POSTS.map((b) => b.category)))]
-  const list = BLOG_POSTS.filter((b) => cat === 'all' || b.category === cat)
+
+  useEffect(() => {
+    articlesApi.list({ is_published: true })
+      .then((res) => setArticles(res ?? []))
+      .catch(() => setArticles([]))
+  }, [])
+
+  const cats = ['all', ...Array.from(new Set(articles.map((b) => b.category).filter(Boolean)))]
+  const list = articles.filter((b) => cat === 'all' || b.category === cat)
+
   return (
     <div>
       <section className="border-b border-line bg-surface py-14 text-center">
         <div className="container-page max-w-2xl">
           <Reveal>
             <Badge color="brand" className="mb-4"><BookOpen className="h-3.5 w-3.5" /> {t('mktg.resources')}</Badge>
-            <h1 className="font-display text-4xl font-bold text-ink">{t('mktg.blogTitle')}</h1>
-            <p className="mt-4 text-lg text-muted">{t('mktg.blogDesc')}</p>
+            <h1 className="font-display text-4xl font-bold text-ink">Clinical Articles & Research</h1>
+            <p className="mt-4 text-lg text-muted">Evidence-based anatomical reviews and healthcare education resources.</p>
           </Reveal>
         </div>
       </section>
       <section className="container-page py-12">
-        <div className="mb-8 flex gap-2 overflow-x-auto scrollbar-none">
-          {cats.map((c) => (
-            <button key={c} onClick={() => setCat(c)} className={cn('chip shrink-0 capitalize', cat === c && 'border-brand-500 bg-brand-50 text-brand-700')}>{c}</button>
-          ))}
-        </div>
+        {cats.length > 1 && (
+          <div className="mb-8 flex gap-2 overflow-x-auto scrollbar-none">
+            {cats.map((c) => (
+              <button key={c} onClick={() => setCat(c)} className={cn('chip shrink-0 capitalize', cat === c && 'border-brand-500 bg-brand-50 text-brand-700')}>{c}</button>
+            ))}
+          </div>
+        )}
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-2">
           {list.map((p, i) => (
             <Reveal key={p.id} delay={Math.min(i * 0.06, 0.24)}>
-              <button onClick={() => nav(`/blog/${p.slug}`)} className="card group flex h-full w-full flex-col overflow-hidden text-left transition-all duration-300 hover:-translate-y-1 hover:shadow-lift">
-                <div className="relative aspect-[16/7] bg-brand-900">
-                  <img src={p.thumbnail} alt={p.title} className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" />
-                  <Badge color="ink" className="absolute bottom-3 left-3">{p.category}</Badge>
-                </div>
+              <button onClick={() => nav(`/blog/${p.slug || p.id}`)} className="card group flex h-full w-full flex-col overflow-hidden text-left transition-all duration-300 hover:-translate-y-1 hover:shadow-lift">
+                {p.image_url && (
+                  <div className="relative aspect-[16/7] bg-brand-900">
+                    <img src={p.image_url} alt={p.title} className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" />
+                    <Badge color="ink" className="absolute bottom-3 left-3">{p.category || 'Anatomy'}</Badge>
+                  </div>
+                )}
                 <div className="flex flex-1 flex-col gap-2 p-5">
                   <h2 className="line-clamp-2 font-display text-lg font-semibold text-ink group-hover:text-brand-700">{p.title}</h2>
                   <p className="line-clamp-2 text-sm text-muted">{p.excerpt}</p>
                   <div className="mt-auto flex items-center gap-3 border-t border-line pt-4 text-xs text-muted">
-                    <Avatar name={p.author} size="xs" />
+                    <Avatar name={p.author || 'Author'} size="xs" />
                     <span className="font-medium text-ink">{p.author}</span>
                     <span>·</span>
-                    <span>{new Date(p.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
-                    <span className="ml-auto flex items-center gap-1"><Clock className="h-3.5 w-3.5" /> {t('mktg.minRead', { count: p.readTime })}</span>
+                    <span>{new Date(p.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                    <span className="ml-auto flex items-center gap-1"><Clock className="h-3.5 w-3.5" /> {t('mktg.minRead', { count: p.read_time || 5 })}</span>
                   </div>
                 </div>
               </button>
@@ -268,9 +303,27 @@ export function Blog() {
 
 export function BlogPost() {
   const { slug } = useParams()
-  const post = BLOG_POSTS.find((p) => p.slug === slug)
   const nav = useNavigate()
   const { t } = useTranslation()
+  const [post, setPost] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    if (!slug) return
+    articlesApi.getBySlug(slug)
+      .then((res) => {
+        setPost(res)
+      })
+      .catch(() => {
+        return articlesApi.getById(slug).then(setPost).catch(() => setPost(null))
+      })
+      .finally(() => setLoading(false))
+  }, [slug])
+
+  if (loading) {
+    return <div className="container-page py-20 text-center text-muted">Loading article...</div>
+  }
+
   if (!post) {
     return (
       <div className="container-page py-20 text-center">
@@ -279,29 +332,32 @@ export function BlogPost() {
       </div>
     )
   }
+
   return (
     <div>
       <section className="border-b border-line bg-surface py-12">
         <div className="container-page max-w-3xl">
           <Reveal>
             <button onClick={() => nav('/blog')} className="text-sm text-muted hover:text-brand-700">{t('mktg.backToBlogShort')}</button>
-            <Badge color="brand" className="mt-4">{post.category}</Badge>
+            <Badge color="brand" className="mt-4">{post.category || 'Anatomy'}</Badge>
             <h1 className="mt-4 font-display text-3xl font-bold leading-tight text-ink">{post.title}</h1>
             <p className="mt-3 text-lg text-muted">{post.excerpt}</p>
             <div className="mt-6 flex items-center gap-3 border-t border-line pt-5">
-              <Avatar name={post.author} size="md" />
+              <Avatar name={post.author || 'Author'} size="md" />
               <div>
                 <p className="text-sm font-semibold text-ink">{post.author}</p>
-                <p className="text-xs text-muted">{post.authorTitle} · {t('mktg.minRead', { count: post.readTime })} · {new Date(post.date).toLocaleDateString()}</p>
+                <p className="text-xs text-muted">{post.created_at ? new Date(post.created_at).toLocaleDateString() : ''}</p>
               </div>
             </div>
           </Reveal>
         </div>
       </section>
       <article className="container-page max-w-3xl py-10">
-        <img src={post.thumbnail} alt={post.title} className="aspect-[16/7] w-full rounded-card object-cover" />
-        <div className="mt-8 space-y-5 text-base leading-relaxed text-muted">
-          {post.content.map((p, i) => <p key={i}>{p}</p>)}
+        {post.image_url && (
+          <img src={post.image_url} alt={post.title} className="aspect-[16/7] w-full rounded-card object-cover" />
+        )}
+        <div className="mt-8 whitespace-pre-line text-base leading-relaxed text-muted">
+          {post.content}
         </div>
       </article>
     </div>
@@ -311,7 +367,15 @@ export function BlogPost() {
 export function Support() {
   const { toast } = useApp()
   const { t } = useTranslation()
+  const [faqs, setFaqs] = useState<any[]>([])
   const [form, setForm] = useState({ name: '', email: '', topic: t('mktg.courseHelp'), message: '' })
+
+  useEffect(() => {
+    faqApi.list()
+      .then((res) => setFaqs(res ?? []))
+      .catch(() => setFaqs([]))
+  }, [])
+
   return (
     <div>
       <section className="border-b border-line bg-surface py-14 text-center">
@@ -328,16 +392,20 @@ export function Support() {
       </section>
       <section className="container-page grid gap-8 py-14 lg:grid-cols-3">
         <div className="lg:col-span-2">
-          <Reveal>
-            <h2 className="mb-5 text-xl font-semibold text-ink">{t('mktg.faq')}</h2>
-          </Reveal>
-          <div className="card px-6">
-            {FAQS.map((f, i) => (
-              <Accordion key={i} title={f.q} defaultOpen={i === 0}>
-                <p className="text-sm text-muted">{f.a}</p>
-              </Accordion>
-            ))}
-          </div>
+          {faqs.length > 0 && (
+            <>
+              <Reveal>
+                <h2 className="mb-5 text-xl font-semibold text-ink">{t('mktg.faq')}</h2>
+              </Reveal>
+              <div className="card px-6">
+                {faqs.map((f: any, i: number) => (
+                  <Accordion key={f.id || i} title={f.question || f.q} defaultOpen={i === 0}>
+                    <p className="text-sm text-muted">{f.answer || f.a}</p>
+                  </Accordion>
+                ))}
+              </div>
+            </>
+          )}
           <div className="mt-8 grid gap-4 sm:grid-cols-2">
             {[[t('mktg.contactSupport'), <Mail key="m" className="h-5 w-5" />], [t('mktg.communityHelp'), <MessageSquare key="c" className="h-5 w-5" />], [t('mktg.knowledgeBase'), <HelpCircle key="k" className="h-5 w-5" />], [t('mktg.verifyCertificate'), <ShieldCheck key="v" className="h-5 w-5" />]].map(([label, icon], i) => (
               <Reveal key={label as string} delay={Math.min(i * 0.06, 0.18)}>

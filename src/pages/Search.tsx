@@ -2,18 +2,17 @@ import { useMemo, useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Clock, Search as SearchIcon, TrendingUp, Users } from 'lucide-react'
-import { CATEGORIES as DATA_CATEGORIES, COURSES as DATA_COURSES, INSTRUCTORS as DATA_INSTRUCTORS } from '../lib/data'
 import { coursesApi, categoriesApi, membersApi } from '../lib/supabase'
 import { CourseCard } from '../components/cards'
 import { Avatar, Badge } from '../components/ui'
 
-const POPULAR = ['Cybersecurity', 'Python', 'AWS', 'Machine Learning', 'React']
+const POPULAR = ['Anatomy', 'Human Skeleton', 'Histology', 'Embryology', 'Brachial Plexus']
 
 export default function Search() {
   const nav = useNavigate()
   const { t } = useTranslation()
   const [q, setQ] = useState('')
-  const [recent, setRecent] = useState<string[]>(['Linux security', 'data analytics'])
+  const [recent, setRecent] = useState<string[]>(['Upper Extremity', 'Nerve Roots'])
 
   const [coursesData, setCoursesData] = useState<any[]>([])
   const [instructorsData, setInstructorsData] = useState<any[]>([])
@@ -21,20 +20,29 @@ export default function Search() {
 
   useEffect(() => {
     Promise.all([
-      coursesApi.list({ status: 'published' }).catch(() => DATA_COURSES),
-      membersApi.list({ role: 'instructor' }).catch(() => DATA_INSTRUCTORS),
-      categoriesApi.list().catch(() => DATA_CATEGORIES)
+      coursesApi.list({ status: 'published' }).catch(() => []),
+      membersApi.list({ role: 'instructor' }).catch(() => []),
+      categoriesApi.list().catch(() => [])
     ]).then(([c, i, cats]) => {
-      setCoursesData(c ?? DATA_COURSES)
-      setInstructorsData(i ?? DATA_INSTRUCTORS)
-      setCategoriesData(cats ?? DATA_CATEGORIES)
+      setCoursesData(c ?? [])
+      setInstructorsData(i ?? [])
+      setCategoriesData(cats ?? [])
     })
   }, [])
 
   const results = useMemo(() => {
     if (!q.trim()) return { courses: [], instructors: [], categories: [] }
     const s = q.toLowerCase()
-    const courses = (coursesData || []).filter((c: any) => (c.title || '').toLowerCase().includes(s) || (c.subtitle || '').toLowerCase().includes(s) || (c.description || '').toLowerCase().includes(s))
+    const courses = (coursesData || [])
+      .filter((c: any) => (c.title || '').toLowerCase().includes(s) || (c.short_description || c.subtitle || '').toLowerCase().includes(s) || (c.description || '').toLowerCase().includes(s))
+      .map((c: any) => ({
+        ...c,
+        subtitle: c.short_description || c.subtitle || '',
+        thumbnail: c.thumbnail_url || c.thumbnail || '',
+        price: typeof c.price === 'number' ? c.price : (parseFloat(c.price) || 0),
+        duration: typeof c.duration === 'string' ? (parseInt(c.duration) || 0) : (c.duration ?? 0),
+        rating: typeof c.rating === 'number' ? c.rating : 5.0,
+      }))
     const instructors = (instructorsData || []).filter((i: any) => (i.name || '').toLowerCase().includes(s) || (i.skills ?? []).some((k: string) => k.toLowerCase().includes(s)))
     const categories = (categoriesData || []).filter((c: any) => (c.name || '').toLowerCase().includes(s))
     return { courses, instructors, categories }

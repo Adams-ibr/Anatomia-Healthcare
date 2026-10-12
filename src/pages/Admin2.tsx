@@ -4,7 +4,6 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Award, Banknote, BookOpen, Download, FileText, Megaphone, RefreshCcw, ShieldCheck, TrendingUp, Users } from 'lucide-react'
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import { CATEGORIES, COURSES } from '../lib/data'
 import { useApp } from '../lib/store'
 import { adminApi, courseApi, getStoredToken } from '../lib/api/auth'
 import type { PlatformSettings } from '../lib/api/auth'
@@ -36,7 +35,7 @@ export function AdminCertificates() {
   const list = rows ?? certificates.map((c) => ({
     id: c.id,
     studentName: '',
-    courseTitle: c.course?.title ?? COURSES.find((x) => x.id === c.courseId)?.title ?? '',
+    courseTitle: c.course?.title ?? '',
     issuedAt: c.issuedAt,
     verificationCode: c.verificationCode
   }))

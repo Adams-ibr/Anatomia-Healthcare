@@ -137,10 +137,10 @@ export const coursesApi = {
       query = query.ilike('title', `%${filters.search}%`)
     }
     if (filters?.category) {
-      query = query.eq('category_id', filters.category) // use category_id instead of category
+      query = query.eq('category', filters.category)
     }
-    if (filters?.status !== undefined) {
-      query = query.eq('status', filters.status)
+    if (filters?.status === 'published') {
+      query = query.eq('is_published', true)
     }
     
     const { data, error} = await query.order('created_at', { ascending: false })
@@ -151,7 +151,7 @@ export const coursesApi = {
   getById: async (id: string) => {
     const { data, error } = await supabase
       .from('courses')
-      .select('*, course_sections(*)')
+      .select('*, course_modules(*)')
       .eq('id', id)
       .single()
     
@@ -162,7 +162,7 @@ export const coursesApi = {
   getBySlug: async (slug: string) => {
     const { data, error } = await supabase
       .from('courses')
-      .select('*, course_sections(*, lessons(*)), course_objectives(*), course_requirements(*), course_faqs(*), reviews(*)')
+      .select('*, course_modules(*)')
       .eq('slug', slug)
       .single()
     
@@ -218,6 +218,26 @@ export const articlesApi = {
     }
     
     const { data, error } = await query.order('created_at', { ascending: false })
+    if (error) throw error
+    return data
+  },
+
+  getById: async (id: string) => {
+    const { data, error } = await supabase
+      .from('articles')
+      .select('*')
+      .eq('id', id)
+      .single()
+    if (error) throw error
+    return data
+  },
+
+  getBySlug: async (slug: string) => {
+    const { data, error } = await supabase
+      .from('articles')
+      .select('*')
+      .eq('slug', slug)
+      .single()
     if (error) throw error
     return data
   },
@@ -783,7 +803,7 @@ export const newsletterApi = {
 
 export const categoriesApi = {
   list: async (filters?: { is_active?: boolean }) => {
-    let query = supabase.from('categories').select('*')
+    let query = supabase.from('course_categories').select('*')
     
     // There is no is_active column on categories table
     const { data, error } = await query.order('name', { ascending: true })
@@ -793,7 +813,7 @@ export const categoriesApi = {
 
   getById: async (id: string) => {
     const { data, error } = await supabase
-      .from('categories')
+      .from('course_categories')
       .select('*')
       .eq('id', id)
       .single()
@@ -804,7 +824,7 @@ export const categoriesApi = {
 
   create: async (category: any) => {
     const { data, error } = await supabase
-      .from('categories')
+      .from('course_categories')
       .insert(category)
       .select()
       .single()
@@ -815,7 +835,7 @@ export const categoriesApi = {
 
   update: async (id: string, updates: any) => {
     const { data, error } = await supabase
-      .from('categories')
+      .from('course_categories')
       .update(updates)
       .eq('id', id)
       .select()
@@ -826,7 +846,7 @@ export const categoriesApi = {
   },
 
   delete: async (id: string) => {
-    const { error } = await supabase.from('categories').delete().eq('id', id)
+    const { error } = await supabase.from('course_categories').delete().eq('id', id)
     if (error) throw error
   }
 }
@@ -837,20 +857,20 @@ export const categoriesApi = {
 
 export const modulesApi = {
   list: async (courseId?: string) => {
-    let query = supabase.from('course_sections').select('*')
+    let query = supabase.from('course_modules').select('*')
     
     if (courseId) {
       query = query.eq('course_id', courseId)
     }
     
-    const { data, error } = await query.order('position', { ascending: true })
+    const { data, error } = await query.order('order', { ascending: true })
     if (error) throw error
     return data
   },
 
   getById: async (id: string) => {
     const { data, error } = await supabase
-      .from('course_sections')
+      .from('course_modules')
       .select('*, lessons(*)')
       .eq('id', id)
       .single()
@@ -861,7 +881,7 @@ export const modulesApi = {
 
   create: async (module: any) => {
     const { data, error } = await supabase
-      .from('course_sections')
+      .from('course_modules')
       .insert(module)
       .select()
       .single()
@@ -872,7 +892,7 @@ export const modulesApi = {
 
   update: async (id: string, updates: any) => {
     const { data, error } = await supabase
-      .from('course_sections')
+      .from('course_modules')
       .update(updates)
       .eq('id', id)
       .select()
@@ -883,7 +903,7 @@ export const modulesApi = {
   },
 
   delete: async (id: string) => {
-    const { error } = await supabase.from('course_sections').delete().eq('id', id)
+    const { error } = await supabase.from('course_modules').delete().eq('id', id)
     if (error) throw error
   }
 }
