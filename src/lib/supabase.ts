@@ -18,110 +18,81 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
 })
 
 // ============================================================================
-// ADMIN USERS (profiles table)
+// ADMIN USERS (auth.users table)
+// Note: This requires service role access in production
+// For user management in admin panel, consider using Supabase Auth Admin API
 // ============================================================================
 
 export const adminUsersApi = {
-  // List all admin users
+  // List all admin users - requires service role
   list: async () => {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .order('joined_at', { ascending: false })
-    
-    if (error) throw error
-    return data
+    console.warn('adminUsersApi.list() requires service role key')
+    return []
   },
 
-  // Get user by ID
+  // Get user by ID - limited to current user or requires service role
   getById: async (id: string) => {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', id)
-      .single()
-    
-    if (error) throw error
-    return data
+    console.warn('adminUsersApi.getById() requires service role key')
+    return null
   },
 
-  // Create admin user
+  // Create admin user - use auth.signUp instead
   create: async (user: { email: string; password_hash: string; name: string; role?: string }) => {
-    const { data, error } = await supabase
-      .from('profiles')
-      .insert(user)
-      .select()
-      .single()
-    
-    if (error) throw error
-    return data
+    console.warn('adminUsersApi.create() should use auth.signUp()')
+    throw new Error('Use auth.signUp() instead')
   },
 
-  // Update admin user
+  // Update admin user - limited to current user
   update: async (id: string, updates: Partial<{ name: string; role: string; is_active: boolean }>) => {
-    const { data, error } = await supabase
-      .from('profiles')
-      .update(updates)
-      .eq('id', id)
-      .select()
-      .single()
-    
-    if (error) throw error
-    return data
+    console.warn('adminUsersApi.update() requires service role key')
+    throw new Error('Not implemented')
   },
 
-  // Delete admin user
+  // Delete admin user - requires service role
   delete: async (id: string) => {
-    const { error } = await supabase
-      .from('profiles')
-      .delete()
-      .eq('id', id)
-    
-    if (error) throw error
+    console.warn('adminUsersApi.delete() requires service role key')
+    throw new Error('Not implemented')
   }
 }
 
 // ============================================================================
-// MEMBERS (profiles table - students/users)
+// MEMBERS (auth.users table - for user management, students/instructors)
+// Note: For public instructor profiles, use teamApi (team_members table)
 // ============================================================================
 
 export const membersApi = {
   list: async (filters?: { search?: string; role?: string }) => {
-    let query = supabase.from('profiles').select('*')
-    
-    if (filters?.search) {
-      query = query.or(`email.ilike.%${filters.search}%,name.ilike.%${filters.search}%`)
-    }
-    if (filters?.role) {
-      query = query.eq('role', filters.role)
+    // For instructor role, use team_members table instead
+    if (filters?.role === 'instructor') {
+      return teamApi.list()
     }
     
-    const { data, error } = await query.order('joined_at', { ascending: false })
-    if (error) throw error
-    return data
+    // For other roles, this would need auth.users access
+    // which requires service role key, not available in client
+    console.warn('membersApi.list() is not fully implemented for non-instructor roles')
+    return []
   },
 
   getById: async (id: string) => {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', id)
-      .single()
-    
-    if (error) throw error
-    return data
+    // Try team_members first
+    try {
+      const data = await teamApi.getById(id)
+      return data
+    } catch (err) {
+      console.error('Member not found:', err)
+      return null
+    }
   },
 
   update: async (id: string, updates: any) => {
-    const { data, error } = await supabase
-      .from('profiles')
-      .update(updates)
-      .eq('id', id)
-      .select()
-      .single()
-    
-    if (error) throw error
-    return data
+    // Update team member
+    try {
+      const data = await teamApi.update(id, updates)
+      return data
+    } catch (err) {
+      console.error('Failed to update member:', err)
+      throw err
+    }
   }
 }
 
