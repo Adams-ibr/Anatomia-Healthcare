@@ -31,6 +31,7 @@ import Community from './Community'
 import Checkout from './Checkout'
 import Search from './Search'
 import { About, Blog, BlogPost, InstructorProfile, Instructors, Pricing, Support } from './Marketing'
+import Articles from './Articles'
 import ArticleDetail from './ArticleDetail'
 import { InstructorDashboard, InstructorStudents, InstructorAnalytics, InstructorEarnings } from './Instructor'
 import { InstructorCourses } from './InstructorCourses'
@@ -313,6 +314,7 @@ export default function App() {
           <Route path="/about" element={<About />} />
           <Route path="/blog" element={<Blog />} />
           <Route path="/blog/:slug" element={<BlogPost />} />
+          <Route path="/articles" element={<Articles />} />
           <Route path="/articles/:slug" element={<ArticleDetail />} />
           <Route path="/support" element={<Support />} />
           <Route path="/verify-certificate" element={<VerifyCertificate />} />
