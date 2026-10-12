@@ -57,86 +57,8 @@ export default function AdminModules() {
 
   // Mock data
   useEffect(() => {
-    setLoading(true)
-    // TODO: When switching from mock data to real API:
-    // - Wrap the fetch function in useCallback with proper dependencies (search, courseFilter, perPage if pagination is added)
-    // - Ensure dependencies are included in both the callback deps and the useEffect deps
-    // - Add the same timeout fallback as AdminCourses to prevent infinite loading
-    setTimeout(() => {
-      const mockModules: Module[] = [
-        {
-          id: 'm1',
-          courseId: 'c1',
-          courseName: 'Complete Anatomy Course',
-          title: 'Module 1: Cardiovascular System',
-          description: 'Comprehensive study of the heart and blood vessels',
-          order: 1,
-          lessons: [
-            { id: 'l1', title: 'Introduction to the Heart', duration: 15, order: 1, isPublished: true },
-            { id: 'l2', title: 'Blood Circulation Pathways', duration: 20, order: 2, isPublished: true },
-            { id: 'l3', title: 'Heart Valves and Chambers', duration: 18, order: 3, isPublished: false }
-          ],
-          importedResources: [
-            { id: 'r1', type: 'model', resourceId: 'model1', resourceName: 'Human Heart - Complete', order: 1 },
-            { id: 'r2', type: 'flashcard', resourceId: 'deck1', resourceName: 'Cardiovascular System Basics', order: 2 }
-          ],
-          isPublished: true,
-          createdAt: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString(),
-          updatedAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString()
-        },
-        {
-          id: 'm2',
-          courseId: 'c1',
-          courseName: 'Complete Anatomy Course',
-          title: 'Module 2: Skeletal System',
-          description: 'Study of bones, joints, and skeletal structure',
-          order: 2,
-          lessons: [
-            { id: 'l4', title: 'Skeletal System Overview', duration: 18, order: 1, isPublished: true },
-            { id: 'l5', title: 'Major Bones of the Body', duration: 25, order: 2, isPublished: true }
-          ],
-          importedResources: [
-            { id: 'r3', type: 'model', resourceId: 'model2', resourceName: 'Human Skeleton', order: 1 },
-            { id: 'r4', type: 'flashcard', resourceId: 'deck2', resourceName: 'Skeletal System - Bones', order: 2 }
-          ],
-          isPublished: true,
-          createdAt: new Date(Date.now() - 50 * 24 * 60 * 60 * 1000).toISOString(),
-          updatedAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString()
-        },
-        {
-          id: 'm3',
-          courseId: 'c2',
-          courseName: 'Advanced Neurology',
-          title: 'Module 1: Brain Anatomy',
-          description: 'Detailed exploration of brain structures and functions',
-          order: 1,
-          lessons: [
-            { id: 'l6', title: 'Brain Regions Overview', duration: 22, order: 1, isPublished: false }
-          ],
-          importedResources: [
-            { id: 'r5', type: 'model', resourceId: 'model3', resourceName: 'Brain Anatomy', order: 1 }
-          ],
-          isPublished: false,
-          createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
-          updatedAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString()
-        }
-      ]
-
-      let filtered = mockModules
-      if (search) {
-        filtered = filtered.filter(m =>
-          m.title.toLowerCase().includes(search.toLowerCase()) ||
-          m.description.toLowerCase().includes(search.toLowerCase())
-        )
-      }
-      if (courseFilter !== 'all') {
-        filtered = filtered.filter(m => m.courseId === courseFilter)
-      }
-
-      setModules(filtered)
-      setLoading(false)
-    }, 500)
-  }, [search, courseFilter])
+    setLoading(false)
+  }, [])
 
   const toggleModule = (id: string) => {
     const newExpanded = new Set(expandedModules)

@@ -60,81 +60,13 @@ export default function AdminCareers() {
   const [deleting, setDeleting] = useState<JobPosting | null>(null)
   const [mutating, setMutating] = useState(false)
 
-  // Mock data
+  // Fetch from Supabase
   useEffect(() => {
     setLoading(true)
-    setTimeout(() => {
-      const mockJobs: JobPosting[] = [
-        {
-          id: '1',
-          title: 'Senior Anatomy Instructor',
-          department: 'Human Anatomy',
-          location: 'Boston, MA',
-          type: 'full_time',
-          status: 'open',
-          description: 'We are seeking an experienced anatomy instructor to join our teaching faculty.',
-          requirements: ['PhD in Anatomy or related field', '5+ years teaching experience', 'Strong communication skills'],
-          salary: '$80,000 - $120,000',
-          applicationCount: 23,
-          postedAt: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString(),
-          closingDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
-        },
-        {
-          id: '2',
-          title: '3D Content Creator',
-          department: 'Technology',
-          location: 'Remote',
-          type: 'remote',
-          status: 'open',
-          description: 'Create stunning 3D anatomical models and animations for our educational platform.',
-          requirements: ['3D modeling expertise (Blender, Maya, or similar)', 'Medical illustration experience', 'Portfolio required'],
-          salary: '$60,000 - $90,000',
-          applicationCount: 45,
-          postedAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString()
-        },
-        {
-          id: '3',
-          title: 'Student Success Coordinator',
-          department: 'Student Services',
-          location: 'New York, NY',
-          type: 'part_time',
-          status: 'open',
-          description: 'Support students in achieving their learning goals through personalized guidance.',
-          requirements: ['Bachelor\'s degree', 'Customer service experience', 'Excellent interpersonal skills'],
-          applicationCount: 12,
-          postedAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString()
-        },
-        {
-          id: '4',
-          title: 'Medical Education Consultant',
-          department: 'Consulting',
-          location: 'San Francisco, CA',
-          type: 'contract',
-          status: 'closed',
-          description: 'Provide expert consultation on medical education curriculum development.',
-          requirements: ['MD or PhD', 'Curriculum development experience', 'Strong analytical skills'],
-          salary: '$100 - $150/hour',
-          applicationCount: 34,
-          postedAt: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString(),
-          closingDate: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString()
-        }
-      ]
-
-      let filtered = mockJobs
-      if (search) {
-        filtered = filtered.filter(j =>
-          j.title.toLowerCase().includes(search.toLowerCase()) ||
-          j.department.toLowerCase().includes(search.toLowerCase()) ||
-          j.location.toLowerCase().includes(search.toLowerCase())
-        )
-      }
-      if (statusFilter !== 'all') filtered = filtered.filter(j => j.status === statusFilter)
-      if (typeFilter !== 'all') filtered = filtered.filter(j => j.type === typeFilter)
-
-      setJobs(filtered)
-      setTotal(filtered.length)
-      setLoading(false)
-    }, 500)
+    // TODO: Implement real Supabase fetch
+    setJobs([])
+    setTotal(0)
+    setLoading(false)
   }, [search, statusFilter, typeFilter])
 
   const totalPages = Math.max(1, Math.ceil(total / perPage))

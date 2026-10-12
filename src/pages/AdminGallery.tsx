@@ -44,71 +44,10 @@ export default function AdminGallery() {
 
   useEffect(() => {
     setLoading(true)
-    setTimeout(() => {
-      const mockItems: GalleryItem[] = [
-        {
-          id: '1',
-          title: 'Advanced 3D Heart Model',
-          description: 'Interactive 3D model showing cardiovascular anatomy',
-          imageUrl: 'https://images.unsplash.com/photo-1628348068343-c6a848d2b6dd?w=400',
-          category: 'Anatomy Models',
-          tags: ['3D', 'heart', 'cardiovascular'],
-          uploadedBy: 'Dr. Sarah Johnson',
-          uploadedAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
-          viewCount: 543,
-          isPublished: true
-        },
-        {
-          id: '2',
-          title: 'Anatomy Lab Session',
-          imageUrl: 'https://images.unsplash.com/photo-1576091160550-2173dba999ef?w=400',
-          category: 'Classroom',
-          tags: ['lab', 'students', 'learning'],
-          uploadedBy: 'Admin',
-          uploadedAt: new Date(Date.now() - 20 * 24 * 60 * 60 * 1000).toISOString(),
-          viewCount: 234,
-          isPublished: true
-        },
-        {
-          id: '3',
-          title: 'Skeletal System Display',
-          description: 'Full skeleton model in our main exhibition hall',
-          imageUrl: 'https://images.unsplash.com/photo-1559757175-5700dde675bc?w=400',
-          category: 'Facilities',
-          tags: ['skeleton', 'display', 'exhibition'],
-          uploadedBy: 'Prof. Chen',
-          uploadedAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
-          viewCount: 876,
-          isPublished: true
-        },
-        {
-          id: '4',
-          title: 'Student Graduation Ceremony',
-          imageUrl: 'https://images.unsplash.com/photo-1523050854058-8df90110c9f1?w=400',
-          category: 'Events',
-          tags: ['graduation', 'ceremony', 'students'],
-          uploadedBy: 'Admin',
-          uploadedAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
-          viewCount: 1234,
-          isPublished: true
-        }
-      ]
-
-      let filtered = mockItems
-      if (search) {
-        filtered = filtered.filter(item =>
-          item.title.toLowerCase().includes(search.toLowerCase()) ||
-          item.tags.some(tag => tag.toLowerCase().includes(search.toLowerCase()))
-        )
-      }
-      if (categoryFilter !== 'all') {
-        filtered = filtered.filter(item => item.category === categoryFilter)
-      }
-
-      setItems(filtered)
-      setTotal(filtered.length)
-      setLoading(false)
-    }, 500)
+    // TODO: Implement real Supabase fetch
+    setItems([])
+    setTotal(0)
+    setLoading(false)
   }, [search, categoryFilter])
 
   const totalPages = Math.max(1, Math.ceil(total / perPage))

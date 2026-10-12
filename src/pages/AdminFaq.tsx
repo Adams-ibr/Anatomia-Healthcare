@@ -44,105 +44,13 @@ export default function AdminFaq() {
 
   const categories = ['General', 'Courses', 'Account', 'Payment', 'Technical', 'Certificates']
 
-  // Mock data
+  // Fetch from Supabase
   useEffect(() => {
     setLoading(true)
-    setTimeout(() => {
-      const mockFaqs: FAQ[] = [
-        {
-          id: '1',
-          question: 'How do I enroll in a course?',
-          answer: 'To enroll in a course, browse our course catalog, select the course you\'re interested in, and click the "Enroll Now" button. You\'ll be guided through the payment process if applicable.',
-          category: 'Courses',
-          order: 1,
-          isPublished: true,
-          viewCount: 1245,
-          helpfulCount: 892,
-          createdAt: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString(),
-          updatedAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
-        },
-        {
-          id: '2',
-          question: 'Can I get a refund for a course?',
-          answer: 'Yes, we offer a 30-day money-back guarantee for all courses. If you\'re not satisfied with your purchase, you can request a full refund within 30 days of enrollment.',
-          category: 'Payment',
-          order: 2,
-          isPublished: true,
-          viewCount: 876,
-          helpfulCount: 654,
-          createdAt: new Date(Date.now() - 80 * 24 * 60 * 60 * 1000).toISOString(),
-          updatedAt: new Date(Date.now() - 25 * 24 * 60 * 60 * 1000).toISOString()
-        },
-        {
-          id: '3',
-          question: 'How do I reset my password?',
-          answer: 'Click on "Forgot Password" on the login page. Enter your email address, and we\'ll send you a link to reset your password. The link is valid for 24 hours.',
-          category: 'Account',
-          order: 3,
-          isPublished: true,
-          viewCount: 2341,
-          helpfulCount: 1876,
-          createdAt: new Date(Date.now() - 70 * 24 * 60 * 60 * 1000).toISOString(),
-          updatedAt: new Date(Date.now() - 20 * 24 * 60 * 60 * 1000).toISOString()
-        },
-        {
-          id: '4',
-          question: 'Will I receive a certificate after completing a course?',
-          answer: 'Yes, upon successful completion of a course (passing all assessments), you\'ll receive a digital certificate that you can download and share on LinkedIn or other platforms.',
-          category: 'Certificates',
-          order: 4,
-          isPublished: true,
-          viewCount: 1567,
-          helpfulCount: 1234,
-          createdAt: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString(),
-          updatedAt: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString()
-        },
-        {
-          id: '5',
-          question: 'What payment methods do you accept?',
-          answer: 'We accept major credit cards (Visa, MasterCard, American Express), PayPal, and bank transfers. All transactions are secure and encrypted.',
-          category: 'Payment',
-          order: 5,
-          isPublished: false,
-          viewCount: 0,
-          helpfulCount: 0,
-          createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
-          updatedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString()
-        },
-        {
-          id: '6',
-          question: 'Can I access courses on mobile devices?',
-          answer: 'Absolutely! Our platform is fully responsive and works seamlessly on smartphones, tablets, and desktop computers. You can learn anywhere, anytime.',
-          category: 'Technical',
-          order: 6,
-          isPublished: true,
-          viewCount: 987,
-          helpfulCount: 765,
-          createdAt: new Date(Date.now() - 50 * 24 * 60 * 60 * 1000).toISOString(),
-          updatedAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString()
-        }
-      ]
-
-      let filtered = mockFaqs
-      if (search) {
-        filtered = filtered.filter(faq =>
-          faq.question.toLowerCase().includes(search.toLowerCase()) ||
-          faq.answer.toLowerCase().includes(search.toLowerCase())
-        )
-      }
-      if (categoryFilter !== 'all') {
-        filtered = filtered.filter(faq => faq.category === categoryFilter)
-      }
-      if (statusFilter === 'published') {
-        filtered = filtered.filter(faq => faq.isPublished)
-      } else if (statusFilter === 'draft') {
-        filtered = filtered.filter(faq => !faq.isPublished)
-      }
-
-      setFaqs(filtered)
-      setTotal(filtered.length)
-      setLoading(false)
-    }, 500)
+    // TODO: Implement real Supabase fetch
+    setFaqs([])
+    setTotal(0)
+    setLoading(false)
   }, [search, categoryFilter, statusFilter])
 
   const totalPages = Math.max(1, Math.ceil(total / perPage))

@@ -73,84 +73,8 @@ export default function AdminAnatomyModels() {
 
   // Mock data for demonstration
   useEffect(() => {
-    setLoading(true)
-    setTimeout(() => {
-      const mockModels: AnatomyModel[] = [
-        {
-          id: '1',
-          name: 'Human Heart - Complete',
-          description: 'Detailed 3D model of the human heart showing all chambers, valves, and major blood vessels',
-          bodySystem: 'Cardiovascular System',
-          modelType: 'Organ',
-          fileUrl: '/models/heart-complete.glb',
-          thumbnailUrl: '/thumbnails/heart.jpg',
-          fileSize: 45000000,
-          format: 'GLB',
-          tags: ['heart', 'cardiovascular', 'anatomy', 'detailed'],
-          isPublished: true,
-          views: 1523,
-          createdAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
-          updatedAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString()
-        },
-        {
-          id: '2',
-          name: 'Human Skeleton',
-          description: 'Complete skeletal system with all 206 bones',
-          bodySystem: 'Skeletal System',
-          modelType: 'Full Body',
-          fileUrl: '/models/skeleton.glb',
-          thumbnailUrl: '/thumbnails/skeleton.jpg',
-          fileSize: 78000000,
-          format: 'GLB',
-          tags: ['skeleton', 'bones', 'full-body'],
-          isPublished: true,
-          views: 2891,
-          createdAt: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString(),
-          updatedAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString()
-        },
-        {
-          id: '3',
-          name: 'Brain Anatomy',
-          description: 'Detailed brain model showing lobes, ventricles, and major structures',
-          bodySystem: 'Nervous System',
-          modelType: 'Organ',
-          fileUrl: '/models/brain.glb',
-          fileSize: 52000000,
-          format: 'GLB',
-          tags: ['brain', 'nervous', 'neurology'],
-          isPublished: false,
-          views: 0,
-          createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-          updatedAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString()
-        }
-      ]
-
-      // Apply filters
-      let filtered = mockModels
-      if (search) {
-        filtered = filtered.filter(m => 
-          m.name.toLowerCase().includes(search.toLowerCase()) ||
-          m.description.toLowerCase().includes(search.toLowerCase()) ||
-          m.tags.some(tag => tag.toLowerCase().includes(search.toLowerCase()))
-        )
-      }
-      if (systemFilter !== 'all') {
-        filtered = filtered.filter(m => m.bodySystem === systemFilter)
-      }
-      if (typeFilter !== 'all') {
-        filtered = filtered.filter(m => m.modelType === typeFilter)
-      }
-      if (statusFilter !== 'all') {
-        filtered = filtered.filter(m => 
-          statusFilter === 'published' ? m.isPublished : !m.isPublished
-        )
-      }
-
-      setModels(filtered)
-      setTotal(filtered.length)
-      setLoading(false)
-    }, 500)
-  }, [search, systemFilter, typeFilter, statusFilter, page])
+    setLoading(false)
+  }, [])
 
   const totalPages = Math.max(1, Math.ceil(total / perPage))
 

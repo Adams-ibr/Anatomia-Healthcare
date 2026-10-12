@@ -58,98 +58,10 @@ export default function AdminArticles() {
   const [mutating, setMutating] = useState(false)
 
   // Mock data for demonstration
+  // No mock data - articles should come from database only
   useEffect(() => {
-    setLoading(true)
-    setTimeout(() => {
-      const mockArticles: Article[] = [
-        {
-          id: '1',
-          title: 'Understanding Human Anatomy: A Beginner\'s Guide',
-          slug: 'understanding-human-anatomy-beginners-guide',
-          excerpt: 'Explore the fundamentals of human anatomy and learn how to study effectively.',
-          content: 'Full article content here...',
-          coverImage: 'https://images.unsplash.com/photo-1559757175-5700dde675bc?w=800',
-          authorId: '1',
-          authorName: 'Dr. Sarah Johnson',
-          categoryId: '1',
-          categoryName: 'Educational',
-          status: 'published',
-          viewCount: 1245,
-          publishedAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
-          createdAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
-          updatedAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
-          tags: ['anatomy', 'education', 'beginner']
-        },
-        {
-          id: '2',
-          title: '3D Learning: The Future of Medical Education',
-          slug: '3d-learning-future-medical-education',
-          excerpt: 'Discover how 3D models are revolutionizing the way students learn anatomy.',
-          content: 'Full article content here...',
-          coverImage: 'https://images.unsplash.com/photo-1576091160550-2173dba999ef?w=800',
-          authorId: '2',
-          authorName: 'Prof. Michael Chen',
-          categoryId: '2',
-          categoryName: 'Technology',
-          status: 'published',
-          viewCount: 892,
-          publishedAt: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString(),
-          createdAt: new Date(Date.now() - 20 * 24 * 60 * 60 * 1000).toISOString(),
-          updatedAt: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString(),
-          tags: ['3D', 'technology', 'innovation']
-        },
-        {
-          id: '3',
-          title: 'Study Tips for Medical Students',
-          slug: 'study-tips-medical-students',
-          excerpt: 'Practical tips and strategies to help you excel in your medical studies.',
-          content: 'Full article content here...',
-          authorId: '1',
-          authorName: 'Dr. Sarah Johnson',
-          categoryId: '1',
-          categoryName: 'Educational',
-          status: 'draft',
-          viewCount: 0,
-          createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-          updatedAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
-          tags: ['study', 'tips', 'medical']
-        },
-        {
-          id: '4',
-          title: 'The Importance of Clinical Practice',
-          slug: 'importance-clinical-practice',
-          excerpt: 'Why hands-on experience is crucial for medical education.',
-          content: 'Full article content here...',
-          authorId: '3',
-          authorName: 'Dr. Emily Rodriguez',
-          categoryId: '3',
-          categoryName: 'Clinical',
-          status: 'archived',
-          viewCount: 543,
-          publishedAt: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString(),
-          createdAt: new Date(Date.now() - 100 * 24 * 60 * 60 * 1000).toISOString(),
-          updatedAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
-          tags: ['clinical', 'practice', 'education']
-        }
-      ]
-
-      let filtered = mockArticles
-      if (search) {
-        filtered = filtered.filter(a =>
-          a.title.toLowerCase().includes(search.toLowerCase()) ||
-          a.excerpt.toLowerCase().includes(search.toLowerCase()) ||
-          a.authorName.toLowerCase().includes(search.toLowerCase())
-        )
-      }
-      if (statusFilter !== 'all') {
-        filtered = filtered.filter(a => a.status === statusFilter)
-      }
-
-      setArticles(filtered)
-      setTotal(filtered.length)
-      setLoading(false)
-    }, 500)
-  }, [search, statusFilter])
+    setLoading(false)
+  }, [])
 
   const totalPages = Math.max(1, Math.ceil(total / perPage))
 
