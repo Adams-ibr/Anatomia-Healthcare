@@ -5,10 +5,13 @@ import { Badge, Button, EmptyState } from '../components/ui'
 
 export default function AdminApplications() {
   const { toast } = useApp()
-  const [applications, setApplications] = useState([
-    { id: '1', name: 'John Doe', position: 'Instructor', status: 'pending', date: '2024-01-15' },
-    { id: '2', name: 'Jane Smith', position: 'Researcher', status: 'approved', date: '2024-01-10' }
-  ])
+  const [applications, setApplications] = useState<Array<{
+    id: string
+    name: string
+    position: string
+    status: string
+    date: string
+  }>>([])
 
   return (
     <div className="space-y-6">
