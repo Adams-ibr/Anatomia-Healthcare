@@ -228,7 +228,42 @@ export default function ArticleDetail() {
               prose-pre:bg-gray-900 prose-pre:text-gray-100
               prose-img:rounded-xl prose-img:shadow-md
             ">
-              <div dangerouslySetInnerHTML={{ __html: article.content }} />
+              {(() => {
+                // Check if content has HTML tags
+                const hasHtml = article.content && /<[a-z][\s\S]*>/i.test(article.content)
+                
+                if (hasHtml) {
+                  return <div dangerouslySetInnerHTML={{ __html: article.content }} />
+                } else {
+                  // Split plain text into paragraphs and format
+                  const paragraphs = article.content
+                    ? article.content.split(/\n\n+/).filter(p => p.trim())
+                    : []
+                  
+                  return (
+                    <div className="space-y-6">
+                      {paragraphs.map((paragraph, index) => {
+                        // Check if it's a heading (starts with common patterns)
+                        const isHeading = /^(What|How|Why|The|Understanding|Introduction|Conclusion|Summary)[\w\s]+[:?]?$/i.test(paragraph.trim())
+                        
+                        if (isHeading && paragraph.length < 100) {
+                          return (
+                            <h2 key={index} className="font-display text-2xl font-bold text-ink mt-10 mb-4">
+                              {paragraph.trim()}
+                            </h2>
+                          )
+                        }
+                        
+                        return (
+                          <p key={index} className="text-gray-700 leading-relaxed text-lg">
+                            {paragraph.trim()}
+                          </p>
+                        )
+                      })}
+                    </div>
+                  )
+                }
+              })()}
             </article>
 
             {/* Tags Section */}
