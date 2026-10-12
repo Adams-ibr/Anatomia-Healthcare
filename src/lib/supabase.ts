@@ -136,15 +136,20 @@ export const coursesApi = {
     if (filters?.search) {
       query = query.ilike('title', `%${filters.search}%`)
     }
-    if (filters?.category) {
+    // Only filter by category if it's not 'all' and has a value
+    if (filters?.category && filters.category !== 'all') {
       query = query.eq('category', filters.category)
     }
-    if (filters?.status === 'published') {
+    // For public courses page, only show published courses
+    if (filters?.status === 'published' || !filters?.status) {
       query = query.eq('is_published', true)
     }
     
     const { data, error} = await query.order('created_at', { ascending: false })
-    if (error) throw error
+    if (error) {
+      console.error('Error fetching courses:', error)
+      throw error
+    }
     return data
   },
 
