@@ -176,7 +176,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
           thumbnail: e.courses.thumbnail_url || '',
           price: e.courses.price || 0,
           description: e.courses.description || '',
-          instructor: e.courses.instructor_id || '',
+          rating: 0,
+          reviewCount: 0,
+          studentCount: 0,
+          duration: e.courses.duration || 0,
+          level: e.courses.level || 'Beginner',
+          language: 'English',
+          instructorName: '',
+          categoryName: e.courses.category || '',
+          hasCertificate: false,
+          status: e.courses.is_published ? 'published' : 'draft'
         } : undefined
       }))
       
