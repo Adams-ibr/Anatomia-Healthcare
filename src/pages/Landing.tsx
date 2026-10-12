@@ -293,42 +293,56 @@ export default function Landing() {
             className="relative mx-auto w-full max-w-xl"
           >
             {featured[0] ? (
-              <div className="card overflow-hidden shadow-panel border border-line">
-                {featured[0].thumbnail_url ? (
-                  <div className="relative aspect-video w-full overflow-hidden bg-brand-900">
-                    <img
-                      src={featured[0].thumbnail_url}
-                      alt={featured[0].title}
-                      className="h-full w-full object-cover"
-                    />
-                    <span className="absolute top-3 left-3 rounded-full bg-brand-600/90 px-3 py-1 text-xs font-semibold text-white backdrop-blur">
-                      Featured Course
-                    </span>
-                  </div>
-                ) : null}
-                <div className="p-6">
-                  <div className="flex items-center justify-between text-xs font-medium text-brand-700">
-                    <span className="rounded bg-brand-50 px-2 py-0.5 uppercase tracking-wide">
-                      {featured[0].category || 'Anatomy'}
-                    </span>
-                    <span className="text-muted">{featured[0].duration || 'Comprehensive'}</span>
-                  </div>
-                  <h3 className="mt-2.5 font-display text-xl font-bold text-ink">
-                    {featured[0].title}
-                  </h3>
-                  <p className="mt-1.5 text-sm text-muted line-clamp-2">
-                    {featured[0].short_description || featured[0].description || 'Master clinical anatomy through detailed modular lessons.'}
-                  </p>
-                  <div className="mt-5 flex items-center justify-between border-t border-line pt-4">
-                    <div>
-                      <span className="text-xs text-muted">Access</span>
-                      <p className="text-base font-bold text-ink">
-                        {featured[0].is_free || featured[0].price === 0 ? 'Free' : `₦${featured[0].price?.toLocaleString()}`}
-                      </p>
+              <div className="relative">
+                <div className="card overflow-hidden shadow-panel border border-line">
+                  {featured[0].thumbnail_url ? (
+                    <div className="relative aspect-video w-full overflow-hidden bg-brand-900">
+                      <img
+                        src={featured[0].thumbnail_url}
+                        alt={featured[0].title}
+                        className="h-full w-full object-cover"
+                      />
+                      <span className="absolute top-3 left-3 rounded-full bg-brand-600/90 px-3 py-1 text-xs font-semibold text-white backdrop-blur">
+                        Featured Course
+                      </span>
                     </div>
-                    <Button onClick={() => nav(`/courses/${featured[0].slug}`)} className="px-4 py-2 text-sm">
-                      Start Learning
-                    </Button>
+                  ) : null}
+                  <div className="p-6">
+                    <div className="flex items-center justify-between text-xs font-medium text-brand-700">
+                      <span className="rounded bg-brand-50 px-2 py-0.5 uppercase tracking-wide">
+                        {featured[0].category || 'Anatomy'}
+                      </span>
+                      <span className="text-muted">{featured[0].duration || 'Comprehensive'}</span>
+                    </div>
+                    <h3 className="mt-2.5 font-display text-xl font-bold text-ink">
+                      {featured[0].title}
+                    </h3>
+                    <p className="mt-1.5 text-sm text-muted line-clamp-2">
+                      {featured[0].short_description || featured[0].description || 'Master clinical anatomy through detailed modular lessons.'}
+                    </p>
+                    <div className="mt-5 flex items-center justify-between border-t border-line pt-4">
+                      <div>
+                        <span className="text-xs text-muted">Access</span>
+                        <p className="text-base font-bold text-ink">
+                          {featured[0].is_free || featured[0].price === 0 ? 'Free' : `₦${featured[0].price?.toLocaleString()}`}
+                        </p>
+                      </div>
+                      <Button onClick={() => nav(`/courses/${featured[0].slug}`)} className="px-4 py-2 text-sm">
+                        Start Learning
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Floating Live Anatomia Vital Pulse Lottie Badge */}
+                <div className="absolute -bottom-6 -left-4 hidden sm:flex items-center gap-3 rounded-2xl border border-line bg-surface/95 p-3 shadow-panel backdrop-blur z-20">
+                  <LottieAnimation size={54} />
+                  <div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="h-2 w-2 rounded-full bg-success animate-ping" />
+                      <p className="text-xs font-bold text-ink">Live Clinical Engine</p>
+                    </div>
+                    <p className="text-[11px] text-muted">Vital Signs & Simulations Active</p>
                   </div>
                 </div>
               </div>
@@ -357,6 +371,41 @@ export default function Landing() {
           </div>
         </section>
       )}
+
+      {/* ── INTERACTIVE CLINICAL SIMULATION SHOWCASE ──────────────────────── */}
+      <section className="border-b border-line bg-surface/50 py-16">
+        <div className="container-page">
+          <Reveal>
+            <div className="mx-auto max-w-3xl card p-8 sm:p-10 border border-line shadow-panel flex flex-col items-center text-center">
+              <Badge color="brand" className="mb-4">
+                <Sparkles className="h-3.5 w-3.5" /> Interactive Clinical Engine
+              </Badge>
+              <h2 className="section-title">Visual Anatomy & Vital Cardiac Simulations</h2>
+              <p className="mt-3 text-muted text-sm sm:text-base max-w-xl">
+                Experience real-time physiological waveforms, synchronized sinus rhythms, and accredited modular anatomy training.
+              </p>
+              
+              <div className="my-6">
+                <LottieAnimation size={180} />
+              </div>
+
+              <div className="flex items-center gap-2 rounded-full border border-line bg-surface px-4 py-1.5 text-xs font-medium text-ink shadow-sm">
+                <span className="h-2 w-2 rounded-full bg-success animate-pulse" />
+                <span>60 FPS Vector Simulation · Sinus Rhythm Active</span>
+              </div>
+
+              <div className="mt-8 flex flex-wrap justify-center gap-3">
+                <Button onClick={() => nav('/courses')} className="px-6 py-2.5">
+                  Explore Anatomical Courses
+                </Button>
+                <Button variant="outline" onClick={() => nav('/register')} className="px-6 py-2.5">
+                  Start Free Training
+                </Button>
+              </div>
+            </div>
+          </Reveal>
+        </div>
+      </section>
 
       {/* ── CATEGORIES GRID ──────────────────────────────────────────────── */}
       <section className="container-page py-16 lg:py-20">
