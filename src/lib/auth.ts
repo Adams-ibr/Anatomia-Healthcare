@@ -52,11 +52,18 @@ export async function login(email: string, password: string): Promise<AuthSessio
   })
   
   if (error) {
+    // Provide more helpful error messages
+    if (error.message.includes('Email not confirmed')) {
+      throw new Error('Please confirm your email address before signing in. Check your inbox for a verification link.')
+    }
+    if (error.message.includes('Invalid login credentials')) {
+      throw new Error('Invalid email or password. Please try again.')
+    }
     throw new Error(error.message || 'Login failed')
   }
   
   if (!data.session || !data.user) {
-    throw new Error('No session returned')
+    throw new Error('No session returned. Please try again.')
   }
   
   return {
