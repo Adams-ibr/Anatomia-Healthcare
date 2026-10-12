@@ -1,8 +1,9 @@
 import 'dotenv/config'
-import express, { NextFunction, Request, Response } from 'express'
+import express, { Request, Response } from 'express'
 import cors from 'cors'
-import type { User } from '@supabase/supabase-js'
 import { supabase } from './supabase'
+import { authUser, bearerToken, handle, err, isEmail } from './utils'
+import adminUsersRouter from './routes/admin-users'
 
 const app = express()
 const PORT = Number(process.env.PORT ?? 8787)
@@ -14,6 +15,12 @@ const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS ?? FRONTEND_URL)
 
 app.use(cors({ origin: ALLOWED_ORIGINS }))
 app.use(express.json())
+
+// ---------------------------------------------------------------------------
+// Admin Routes
+// ---------------------------------------------------------------------------
+
+app.use('/api/auth/admin', adminUsersRouter)
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -62,35 +69,6 @@ function mapProfile(p: ProfileRow) {
 async function getProfile(id: string): Promise<ProfileRow | null> {
   const { data } = await supabase.from('profiles').select('*').eq('id', id).single()
   return (data as ProfileRow | null) ?? null
-}
-
-function bearerToken(req: Request): string | null {
-  const header = req.headers.authorization ?? ''
-  const match = /^Bearer\s+(.+)$/i.exec(header)
-  return match ? match[1] : null
-}
-
-async function authUser(req: Request): Promise<User | null> {
-  const token = bearerToken(req)
-  if (!token) return null
-  const { data, error } = await supabase.auth.getUser(token)
-  if (error || !data.user) return null
-  return data.user
-}
-
-function handle(
-  fn: (req: Request, res: Response) => Promise<unknown>
-): (req: Request, res: Response, next: NextFunction) => void {
-  return (req, res, next) => {
-    fn(req, res).catch(next)
-  }
-}
-
-const err = (res: Response, status: number, message: string) =>
-  res.status(status).json({ error: message })
-
-function isEmail(v: unknown): v is string {
-  return typeof v === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)
 }
 
 // ---------------------------------------------------------------------------
