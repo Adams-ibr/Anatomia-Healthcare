@@ -8,6 +8,7 @@ import { Footer } from '../components/Footer'
 import { ToastHost } from '../components/toast'
 import { PortalLayout } from '../layouts/PortalLayout'
 import type { NavItem } from '../layouts/PortalLayout'
+import LoadingScreen from '../components/LoadingScreen'
 import Landing from './Landing'
 import Courses from './Courses'
 import CourseDetails from './CourseDetails'
@@ -58,11 +59,7 @@ import AdminNewsletter from './AdminNewsletter'
 import AdminApplications from './AdminApplications'
 
 function AuthLoader() {
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-paper">
-      <div className="h-8 w-8 animate-spin rounded-full border-2 border-line border-t-brand-500" />
-    </div>
-  )
+  return <LoadingScreen />
 }
 
 function RequireAuth() {

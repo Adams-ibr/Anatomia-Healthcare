@@ -16,6 +16,7 @@ import { formatPrice } from '../lib/utils'
 import { cn } from '../lib/utils'
 import { Counter, EASE, Reveal } from '../lib/motion'
 import type { Course, User } from '../lib/types'
+import PartnersSlider from '../components/PartnersSlider'
 
 // ---------------------------------------------------------------------------
 // Motion variants
@@ -351,16 +352,7 @@ export default function Landing() {
               <p className="mb-6 text-center text-xs font-semibold uppercase tracking-widest text-muted">
                 Collaborating Institutions & Healthcare Partners
               </p>
-              <div className="flex flex-wrap items-center justify-center gap-8 sm:gap-12">
-                {partnersList.map((p) => (
-                  <div key={p.id} className="flex items-center gap-3 opacity-90 transition hover:opacity-100">
-                    {p.logo_url && (
-                      <img src={p.logo_url} alt={p.name} className="h-10 w-auto max-w-[130px] object-contain" />
-                    )}
-                    <span className="text-sm font-semibold text-ink">{p.name}</span>
-                  </div>
-                ))}
-              </div>
+              <PartnersSlider partners={partnersList} />
             </Reveal>
           </div>
         </section>
