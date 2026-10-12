@@ -79,7 +79,7 @@ const lessonTypeKey = (t: LessonType) => `instrCourses.lessonType${t[0].toUpperC
 const questionTypeKey = (t: AssessmentQuestion['type']) => `instrCourses.qtype${t[0].toUpperCase()}${t.slice(1)}`
 
 const placeholderThumb = () => {
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#1e3a8a"/><stop offset="100%" stop-color="#7c3aed"/></linearGradient></defs><rect width="640" height="360" fill="url(#g)"/><text x="320" y="190" font-family="system-ui" font-size="28" fill="#ffffff" text-anchor="middle" opacity="0.85">HamaAcademy</text></svg>`
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#1e3a8a"/><stop offset="100%" stop-color="#7c3aed"/></linearGradient></defs><rect width="640" height="360" fill="url(#g)"/><text x="320" y="190" font-family="system-ui" font-size="28" fill="#ffffff" text-anchor="middle" opacity="0.85">Anatomia</text></svg>`
   return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`
 }
 

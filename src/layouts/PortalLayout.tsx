@@ -272,7 +272,7 @@ export function PortalLayout({ nav, role }: { nav: NavItem[]; role: string }) {
             <PanelLeft className="h-5 w-5" />
           </button>
           <div className="hidden text-sm text-muted lg:block">
-            <Link to="/" className="hover:text-brand-700">HamaAcademy</Link>
+            <Link to="/" className="hover:text-brand-700">Anatomia</Link>
             <span className="mx-2 text-line">/</span>
             <span className="font-medium text-ink capitalize">{role}</span>
           </div>

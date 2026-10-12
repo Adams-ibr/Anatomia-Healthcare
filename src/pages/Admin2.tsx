@@ -423,35 +423,35 @@ export function AdminReports() {
 
   const exportUsers = () => run('users', async () => {
     const users = await fetchAllUsers(token!)
-    downloadCsv('hamaacademy-users.csv',
+    downloadCsv('anatomia-users.csv',
       [t('admin2.name'), t('admin2.email'), t('admin2.role'), t('admin2.status'), t('admin2.joined')],
       users.map((u) => [u.name, u.email, u.role, u.isActive ? t('admin2.active') : t('admin2.suspended'), new Date(u.joinedAt).toLocaleDateString()]))
   })
 
   const exportCourses = () => run('courses', async () => {
     const res = await courseApi.listCourses(token!, { page: 1, perPage: 500, status: 'all' })
-    downloadCsv('hamaacademy-courses.csv',
+    downloadCsv('anatomia-courses.csv',
       [t('admin2.title'), t('admin2.category'), t('admin2.instructor'), t('admin2.price'), t('admin2.status'), t('admin2.avgRatingShort'), t('admin2.students'), t('admin2.reviews')],
       res.courses.map((c) => [c.title, c.categoryName ?? '', c.instructorName ?? '', c.price, c.status, c.rating, c.studentCount, c.reviewCount]))
   })
 
   const exportRevenue = () => run('revenue', async () => {
     const res = await adminApi.listOrders(token!)
-    downloadCsv('hamaacademy-revenue.csv',
+    downloadCsv('anatomia-revenue.csv',
       [t('admin2.order'), t('admin2.customer'), t('admin2.total'), t('admin2.payment'), t('admin2.status'), t('admin2.issued')],
       res.orders.map((o) => [o.id, o.customerName, o.total, o.paymentMethod, o.status, new Date(o.createdAt).toLocaleDateString()]))
   })
 
   const exportCerts = () => run('certs', async () => {
     const res = await adminApi.listCertificates(token!)
-    downloadCsv('hamaacademy-certificates.csv',
+    downloadCsv('anatomia-certificates.csv',
       [t('admin2.certificateId'), t('admin2.student'), t('admin2.course'), t('admin2.issued'), t('admin2.code')],
       res.certificates.map((c) => [c.id, c.studentName, c.courseTitle, new Date(c.issuedAt).toLocaleDateString(), c.verificationCode]))
   })
 
   const exportAssessments = () => run('assessments', async () => {
     const res = await adminApi.listAssessmentAttempts(token!)
-    downloadCsv('hamaacademy-assessments.csv',
+    downloadCsv('anatomia-assessments.csv',
       [t('admin2.student'), t('admin2.assessment'), t('admin2.course'), t('admin2.score'), t('admin2.passed'), t('admin2.attemptedAt')],
       res.attempts.map((a) => [a.studentName, a.assessmentTitle, a.courseTitle ?? '', a.score, a.passed ? t('admin2.yes') : t('admin2.no'), new Date(a.attemptedAt).toLocaleString()]))
   })

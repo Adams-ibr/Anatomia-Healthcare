@@ -2,16 +2,16 @@ import { createClient } from 'jsr:@supabase/supabase-js@2'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
-const FRONTEND_URL = (Deno.env.get('FRONTEND_URL') ?? 'https://www.hamaacademy.com').replace(/\/+$/, '')
+const FRONTEND_URL = (Deno.env.get('FRONTEND_URL') ?? 'https://www.anatomia.co').replace(/\/+$/, '')
 const PAYSTACK_SECRET_KEY = Deno.env.get('PAYSTACK_SECRET_KEY') ?? ''
 const PAYSTACK_PUBLIC_KEY = Deno.env.get('PAYSTACK_PUBLIC_KEY') ?? ''
 const PAYSTACK_API = 'https://api.paystack.co'
 
 const SMTP_HOST = Deno.env.get('SMTP_HOST') ?? 'smtp.zoho.com'
 const SMTP_PORT = Number(Deno.env.get('SMTP_PORT') ?? 465)
-const SMTP_USER = Deno.env.get('SMTP_USER') ?? 'info@hamaacademy.com'
+const SMTP_USER = Deno.env.get('SMTP_USER') ?? 'info@anatomia.co'
 const SMTP_PASS = Deno.env.get('SMTP_PASS') ?? ''
-const SMTP_SENDER_NAME = Deno.env.get('SMTP_SENDER_NAME') ?? 'Hama Academy'
+const SMTP_SENDER_NAME = Deno.env.get('SMTP_SENDER_NAME') ?? 'Anatomia'
 
 if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
   throw new Error('SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set')
@@ -191,7 +191,7 @@ async function smtpSend(to: string, subject: string, html: string): Promise<void
   const greet = await readReply()
   if (greet.code >= 400) throw new Error('SMTP greeting failed: ' + greet.text)
 
-  const ehlo = await cmd('EHLO hamaacademy.com')
+  const ehlo = await cmd('EHLO anatomia.co')
   if (ehlo.code >= 400) throw new Error('EHLO failed: ' + ehlo.text)
 
   const auth = await cmd(`AUTH LOGIN ${btoa(SMTP_USER)}`)
@@ -241,7 +241,7 @@ function emailShell(
 <tr><td align="center">
 <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;font-family:Arial,Helvetica,sans-serif;border:1px solid #e4e8ef">
 <tr><td style="background:#1B4E9B;padding:24px 32px">
-<span style="color:#ffffff;font-size:22px;font-weight:bold">HamaAcademy</span>
+<span style="color:#ffffff;font-size:22px;font-weight:bold">Anatomia</span>
 </td></tr>
 <tr><td style="padding:32px">
 <h1 style="margin:0 0 16px;font-size:20px;color:#111827">${heading}</h1>
@@ -252,8 +252,8 @@ function emailShell(
 <p style="margin:0;color:#6b7280;font-size:12px;line-height:1.6">${noteHtml}</p>
 </td></tr>
 <tr><td style="background:#f8fafc;padding:20px 32px;text-align:center;color:#7a8699;font-size:12px;line-height:1.6">
-&copy; 2026 HamaAcademy &middot; Learn skills that take you further<br/>
-<a href="https://www.hamaacademy.com" style="color:#1B4E9B;text-decoration:none">Visit our website</a>
+&copy; 2026 Anatomia &middot; Learn skills that take you further<br/>
+<a href="https://www.anatomia.co" style="color:#1B4E9B;text-decoration:none">Visit our website</a>
 </td></tr>
 </table>
 </td></tr></table></body></html>`
@@ -2888,7 +2888,7 @@ async function handleMyAnnouncements(req: Request): Promise<Response> {
 
   const announcements = (data ?? []).map((a) => ({
     id: a.id,
-    authorName: a.profiles?.name ?? 'HamaAcademy',
+    authorName: a.profiles?.name ?? 'Anatomia',
     title: a.title,
     body: a.body,
     createdAt: a.created_at

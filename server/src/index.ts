@@ -314,6 +314,6 @@ app.use((error: unknown, _req: Request, res: Response) => {
 })
 
 app.listen(PORT, () => {
-  console.log(`HamaAcademy API listening on http://localhost:${PORT}`)
+  console.log(`Anatomia API listening on http://localhost:${PORT}`)
   console.log(`Frontend origin: ${FRONTEND_URL}`)
 })

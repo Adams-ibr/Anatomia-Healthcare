@@ -1,8 +1,8 @@
 # Supabase Edge Function: `auth`
 
-Implements the HamaAcademy auth API contract (`AUTH_API.md`) as a Supabase Edge
+Implements the Anatomia auth API contract (`AUTH_API.md`) as a Supabase Edge
 Function (Deno). The Vercel frontend proxies `/api/auth/*` to it via `vercel.json`
-rewrites, so `VITE_API_URL` stays `https://www.hamaacademy.com`.
+rewrites, so `VITE_API_URL` stays `https://www.anatomia.co`.
 
 ## Why not the Express server?
 
@@ -20,7 +20,7 @@ supabase init
 supabase link --project-ref jfnhvzwksemvorxlzwwv
 
 # 2. Set the frontend origin (used in reset-password email links)
-supabase secrets set FRONTEND_URL=https://www.hamaacademy.com
+supabase secrets set FRONTEND_URL=https://www.anatomia.co
 
 # 3. Deploy the function
 supabase functions deploy auth

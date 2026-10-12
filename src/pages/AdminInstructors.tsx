@@ -433,7 +433,7 @@ export default function AdminInstructors() {
               type="email"
               value={formEmail}
               onChange={(e) => setFormEmail(e.target.value)}
-              placeholder="e.g. aminu@hamaacademy.com"
+              placeholder="e.g. aminu@anatomia.co"
               disabled={!!editing}
               required
             />
