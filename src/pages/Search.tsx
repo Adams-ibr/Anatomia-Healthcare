@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { Clock, Search as SearchIcon, TrendingUp, Users } from 'lucide-react'
 import { coursesApi, categoriesApi, membersApi } from '../lib/supabase'
 import { CourseCard } from '../components/cards'
-import { Avatar, Badge } from '../components/ui'
+import { Avatar, Badge, MedicalEmptyState } from '../components/ui'
 
 const POPULAR = ['Anatomy', 'Human Skeleton', 'Histology', 'Embryology', 'Brachial Plexus']
 
@@ -124,10 +124,10 @@ export default function Search() {
             </div>
           )}
           {results.courses.length === 0 && results.instructors.length === 0 && results.categories.length === 0 && (
-            <div className="card p-12 text-center">
-              <p className="font-display text-lg font-semibold text-ink">{t('search.noResults', { query: q })}</p>
-              <p className="mt-1 text-sm text-muted">{t('search.noResultsBody')}</p>
-            </div>
+            <MedicalEmptyState
+              title={t('search.noResults', { query: q })}
+              message={t('search.noResultsBody')}
+            />
           )}
         </div>
       )}

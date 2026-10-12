@@ -8,7 +8,7 @@ import {
 import { Course } from '../lib/types'
 import { useApp } from '../lib/store'
 import { CourseCard } from '../components/cards'
-import { Accordion, Avatar, Badge, Button, Rating } from '../components/ui'
+import { Accordion, Avatar, Badge, Button, Rating, MedicalLoader, MedicalEmptyState } from '../components/ui'
 import { discountPercent, formatDuration, formatPrice, slugify, timeAgo } from '../lib/utils'
 import { cn } from '../lib/utils'
 import { coursesApi } from '../lib/supabase'
@@ -115,17 +115,20 @@ export default function CourseDetails() {
 
   if (loading) {
     return (
-      <div className="container-page py-20">
-        <h1 className="font-display text-2xl font-bold text-ink">{t('course.loading')}</h1>
+      <div className="container-page py-24 flex items-center justify-center">
+        <MedicalLoader message={t('course.loading')} subtext="Retrieving clinical modules and accredited anatomical resources" />
       </div>
     )
   }
 
   if (!course) {
     return (
-      <div className="container-page py-20 text-center">
-        <h1 className="font-display text-2xl font-bold text-ink">{t('course.notFound')}</h1>
-        <Button className="mt-4" onClick={() => nav('/courses')}>{t('course.browseAll')}</Button>
+      <div className="container-page py-20 max-w-xl mx-auto">
+        <MedicalEmptyState
+          title={t('course.notFound')}
+          message="The requested anatomical course or curriculum could not be found."
+          action={<Button onClick={() => nav('/courses')}>{t('course.browseAll')}</Button>}
+        />
       </div>
     )
   }

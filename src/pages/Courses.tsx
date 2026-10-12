@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { ChevronDown, Filter, SlidersHorizontal } from 'lucide-react'
 import { CourseCard } from '../components/cards'
-import { Button, SearchInput, Skeleton } from '../components/ui'
+import { Button, SearchInput, Skeleton, MedicalEmptyState } from '../components/ui'
 import { cn } from '../lib/utils'
 import { EASE, Reveal } from '../lib/motion'
 import { motion } from 'framer-motion'
@@ -264,11 +264,11 @@ export default function Courses() {
               {Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="h-80" />)}
             </div>
           ) : courses.length === 0 ? (
-            <div className="card p-10 text-center">
-              <p className="font-display text-lg font-semibold text-ink">{t('catalog.noResults')}</p>
-              <p className="mt-1 text-sm text-muted">{t('catalog.noResultsBody')}</p>
-              <Button variant="outline" className="mt-4" onClick={() => { setSearch(''); setLevel('all'); setPrice('all'); setCertOnly(false) }}>{t('catalog.clearFilters')}</Button>
-            </div>
+            <MedicalEmptyState
+              title={t('catalog.noResults')}
+              message={t('catalog.noResultsBody')}
+              action={<Button variant="outline" onClick={() => { setSearch(''); setLevel('all'); setPrice('all'); setCertOnly(false) }}>{t('catalog.clearFilters')}</Button>}
+            />
           ) : (
             <motion.div layout className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {renderCourses().map((c) => (

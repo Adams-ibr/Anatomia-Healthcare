@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import lottie, { type AnimationItem } from 'lottie-web'
+import lottie, { type AnimationItem } from 'lottie-web/build/player/lottie_light'
 import defaultAnimationData from '../assets/animations/anatomia-loader.json'
 import { cn } from '../lib/utils'
 

@@ -11,7 +11,7 @@ import { useApp } from '../lib/store'
 import { categoriesApi, coursesApi, membersApi, faqApi, partnersApi, articlesApi } from '../lib/supabase'
 import type { AdminCourse, AdminCategory, PublicInstructor } from '../lib/api/auth'
 import { CourseCard, InstructorCard } from '../components/cards'
-import { Accordion, Avatar, Badge, Button, Rating, Skeleton } from '../components/ui'
+import { Accordion, Avatar, Badge, Button, Rating, Skeleton, LottieAnimation } from '../components/ui'
 import { formatPrice } from '../lib/utils'
 import { cn } from '../lib/utils'
 import { Counter, EASE, Reveal } from '../lib/motion'
@@ -333,11 +333,11 @@ export default function Landing() {
                 </div>
               </div>
             ) : (
-              <div className="card p-8 text-center shadow-panel">
-                <BookOpen className="mx-auto h-12 w-12 text-brand-500" />
-                <h3 className="mt-4 font-display text-lg font-bold text-ink">Anatomia Healthcare Portal</h3>
-                <p className="mt-2 text-sm text-muted">Access structured medical courses and clinical modules.</p>
-                <Button className="mt-5" onClick={() => nav('/courses')}>Browse Catalog</Button>
+              <div className="card p-8 text-center shadow-panel border border-line">
+                <LottieAnimation size={140} className="mx-auto" />
+                <h3 className="mt-2 font-display text-lg font-bold text-ink">Anatomia Healthcare Portal</h3>
+                <p className="mt-1 text-sm text-muted">Access structured medical courses and clinical modules.</p>
+                <Button className="mt-4" onClick={() => nav('/courses')}>Browse Catalog</Button>
               </div>
             )}
           </motion.div>

@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { ArrowRight, Award, CheckCircle2, Clock, PlayCircle } from 'lucide-react'
 import { useApp } from '../lib/store'
 import { coursesApi } from '../lib/supabase'
-import { Badge, ProgressBar, Rating, Tabs } from '../components/ui'
+import { Badge, ProgressBar, Rating, Tabs, MedicalEmptyState } from '../components/ui'
 import { formatPrice, printCertificate } from '../lib/utils'
 import type { AdminCourse } from '../lib/api/auth'
 
@@ -32,11 +32,11 @@ export default function MyLearning() {
       </div>
       <Tabs tabs={tabs} active={tab} onChange={setTab} />
       {list.length === 0 ? (
-        <div className="card p-12 text-center">
-          <p className="font-display text-lg font-semibold text-ink">{t('learn.emptyTitle')}</p>
-          <p className="mt-1 text-sm text-muted">{t('learn.emptyMessage')}</p>
-          <Link to="/courses" className="btn-primary mt-4">{t('learn.browseCourses')}</Link>
-        </div>
+        <MedicalEmptyState
+          title={t('learn.emptyTitle')}
+          message={t('learn.emptyMessage')}
+          action={<Link to="/courses" className="btn-primary mt-2">{t('learn.browseCourses')}</Link>}
+        />
       ) : (
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {list.map((en) => {
@@ -146,11 +146,11 @@ export function Certificates() {
         <p className="mt-1 text-sm text-muted">{t('mycert.subtitle')}</p>
       </div>
       {mine.length === 0 ? (
-        <div className="card p-12 text-center">
-          <p className="font-display text-lg font-semibold text-ink">{t('mycert.emptyTitle')}</p>
-          <p className="mt-1 text-sm text-muted">{t('mycert.emptyMessage')}</p>
-          <Link to="/courses" className="btn-primary mt-4">{t('mycert.findCourse')}</Link>
-        </div>
+        <MedicalEmptyState
+          title={t('mycert.emptyTitle')}
+          message={t('mycert.emptyMessage')}
+          action={<Link to="/courses" className="btn-primary mt-2">{t('mycert.findCourse')}</Link>}
+        />
       ) : (
         <div className="grid gap-5 sm:grid-cols-2">
 {mine.map((cert) => {
@@ -218,11 +218,11 @@ export function Orders() {
         <p className="mt-1 text-sm text-muted">{t('orders.subtitle')}</p>
       </div>
       {mine.length === 0 ? (
-        <div className="card p-12 text-center">
-          <p className="font-display text-lg font-semibold text-ink">{t('orders.emptyTitle')}</p>
-          <p className="mt-1 text-sm text-muted">{t('orders.emptyMessage')}</p>
-          <Link to="/courses" className="btn-primary mt-4">{t('orders.browseCourses')}</Link>
-        </div>
+        <MedicalEmptyState
+          title={t('orders.emptyTitle')}
+          message={t('orders.emptyMessage')}
+          action={<Link to="/courses" className="btn-primary mt-2">{t('orders.browseCourses')}</Link>}
+        />
       ) : (
         <div className="space-y-4">
           {mine.map((o) => (
