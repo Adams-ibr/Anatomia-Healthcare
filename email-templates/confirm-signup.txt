@@ -1,0 +1,23 @@
+Welcome to Anatomia Healthcare!
+
+Thank you for creating an account with us. We're excited to have you join our community of medical students, healthcare professionals, and anatomy enthusiasts.
+
+To get started and access all features, please confirm your email address by clicking the link below:
+
+{{ .ConfirmationURL }}
+
+What's next?
+- Browse our extensive course catalog
+- Access 3D anatomy models and interactive content
+- Track your learning progress
+- Earn certificates upon course completion
+
+If you didn't create an account with Anatomia Healthcare, you can safely ignore this email.
+
+---
+© 2026 Anatomia Healthcare. All rights reserved.
+
+Need help? Contact us at support@anatomia.co
+Visit us: https://www.anatomia.co
+
+This email was sent to {{ .Email }}
