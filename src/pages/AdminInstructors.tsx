@@ -158,6 +158,7 @@ export default function AdminInstructors() {
         email: formEmail,
         title: formTitle,
         role: formTitle || 'Instructor',
+        description: formBio || 'Instructor at Anatomia Healthcare',
         bio: formBio,
         is_active: true
       })
