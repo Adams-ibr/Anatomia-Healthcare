@@ -149,10 +149,15 @@ export default function AdminInstructors() {
     if (!formName.trim() || !formEmail.trim()) return
     setMutating(true)
     try {
+      // Generate slug from name
+      const slug = formName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') + '-' + Date.now()
+      
       await teamApi.create({
         name: formName,
+        slug: slug,
         email: formEmail,
         title: formTitle,
+        role: formTitle || 'Instructor',
         bio: formBio,
         is_active: true
       })
