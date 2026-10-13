@@ -97,11 +97,11 @@ router.get('/certificates', handle(async (req, res) => {
     .from('certificates')
     .select(`
       id,
-      student_id,
+      member_id,
       course_id,
       issued_at,
       certificate_number,
-      profiles!student_id (name, email),
+      members!member_id (first_name, last_name, email),
       courses (title)
     `)
     .order('issued_at', { ascending: false })
@@ -112,9 +112,9 @@ router.get('/certificates', handle(async (req, res) => {
 
   const formattedCertificates = (certificates || []).map((cert: any) => ({
     id: cert.id,
-    studentId: cert.student_id,
-    studentName: cert.profiles?.name || 'Unknown',
-    studentEmail: cert.profiles?.email || '',
+    studentId: cert.member_id,
+    studentName: cert.members ? `${cert.members.first_name || ''} ${cert.members.last_name || ''}`.trim() : 'Unknown',
+    studentEmail: cert.members?.email || '',
     courseId: cert.course_id,
     courseTitle: cert.courses?.title || 'Unknown Course',
     issuedAt: cert.issued_at,
@@ -138,14 +138,13 @@ router.get('/enrollments', handle(async (req, res) => {
     .from('enrollments')
     .select(`
       id,
-      user_id,
+      member_id,
       course_id,
       enrolled_at,
       status,
-      price_paid,
       progress,
-      profiles!user_id (name),
-      courses (title, thumbnail)
+      members!member_id (first_name, last_name),
+      courses (title)
     `)
     .order('enrolled_at', { ascending: false })
 
@@ -155,15 +154,15 @@ router.get('/enrollments', handle(async (req, res) => {
 
   const formattedEnrollments = (enrollments || []).map((enr: any) => ({
     id: enr.id,
-    userId: enr.user_id,
-    studentName: enr.profiles?.name || 'Unknown',
+    userId: enr.member_id,
+    studentName: enr.members ? `${enr.members.first_name || ''} ${enr.members.last_name || ''}`.trim() : 'Unknown',
     courseId: enr.course_id,
     courseTitle: enr.courses?.title || 'Unknown Course',
-    courseThumbnail: enr.courses?.thumbnail || undefined,
+    courseThumbnail: undefined,
     enrolledAt: enr.enrolled_at,
     progress: enr.progress || 0,
     status: enr.status || 'active',
-    pricePaid: enr.price_paid || 0
+    pricePaid: 0
   }))
 
   res.json({
