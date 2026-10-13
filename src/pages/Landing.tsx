@@ -11,7 +11,7 @@ import { useApp } from '../lib/store'
 import { categoriesApi, coursesApi, membersApi, faqApi, partnersApi, articlesApi } from '../lib/supabase'
 import type { AdminCourse, AdminCategory, PublicInstructor } from '../lib/api/auth'
 import { CourseCard, InstructorCard } from '../components/cards'
-import { Accordion, Avatar, Badge, Button, Rating, Skeleton, LottieAnimation } from '../components/ui'
+import { Accordion, Avatar, Badge, Button, Rating, Skeleton, PresetAnimation } from '../components/ui'
 import { formatPrice } from '../lib/utils'
 import { cn } from '../lib/utils'
 import { Counter, EASE, Reveal } from '../lib/motion'
@@ -336,7 +336,7 @@ export default function Landing() {
 
                 {/* Floating Live Anatomia Vital Pulse Lottie Badge */}
                 <div className="absolute -bottom-6 -left-4 hidden sm:flex items-center gap-3 rounded-2xl border border-line bg-surface/95 p-3 shadow-panel backdrop-blur z-20">
-                  <LottieAnimation size={54} />
+                  <PresetAnimation preset="heartbeat" size={54} />
                   <div>
                     <div className="flex items-center gap-1.5">
                       <span className="h-2 w-2 rounded-full bg-success animate-ping" />
@@ -348,7 +348,7 @@ export default function Landing() {
               </div>
             ) : (
               <div className="card p-8 text-center shadow-panel border border-line">
-                <LottieAnimation size={140} className="mx-auto" />
+                <PresetAnimation preset="loading" size={140} className="mx-auto" />
                 <h3 className="mt-2 font-display text-lg font-bold text-ink">Anatomia Healthcare Portal</h3>
                 <p className="mt-1 text-sm text-muted">Access structured medical courses and clinical modules.</p>
                 <Button className="mt-4" onClick={() => nav('/courses')}>Browse Catalog</Button>
@@ -386,7 +386,7 @@ export default function Landing() {
               </p>
               
               <div className="my-6">
-                <LottieAnimation size={180} />
+                <PresetAnimation preset="loading" size={180} />
               </div>
 
               <div className="flex items-center gap-2 rounded-full border border-line bg-surface px-4 py-1.5 text-xs font-medium text-ink shadow-sm">
