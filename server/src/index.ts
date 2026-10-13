@@ -4,6 +4,8 @@ import cors from 'cors'
 import { supabase } from './supabase'
 import { authUser, bearerToken, handle, err, isEmail } from './utils'
 import adminUsersRouter from './routes/admin-users'
+import adminStatsRouter from './routes/admin-stats'
+import coursesRouter from './routes/courses'
 
 const app = express()
 const PORT = Number(process.env.PORT ?? 8787)
@@ -21,6 +23,13 @@ app.use(express.json())
 // ---------------------------------------------------------------------------
 
 app.use('/api/auth/admin', adminUsersRouter)
+app.use('/api/auth/admin', adminStatsRouter)
+
+// ---------------------------------------------------------------------------
+// Course Routes
+// ---------------------------------------------------------------------------
+
+app.use('/api/courses', coursesRouter)
 
 // ---------------------------------------------------------------------------
 // Helpers
