@@ -50,7 +50,7 @@ CREATE POLICY "Admins can view all enrollments" ON enrollments
   FOR SELECT USING (
     EXISTS (
       SELECT 1 FROM profiles 
-      WHERE profiles.id = auth.uid() AND profiles.role = 'admin'
+      WHERE id = auth.uid() AND role = 'admin'
     )
   );
 
@@ -100,7 +100,7 @@ CREATE POLICY "Admins can view all orders" ON orders
   FOR SELECT USING (
     EXISTS (
       SELECT 1 FROM profiles 
-      WHERE profiles.id = auth.uid() AND profiles.role = 'admin'
+      WHERE id = auth.uid() AND role = 'admin'
     )
   );
 
@@ -114,7 +114,7 @@ CREATE POLICY "System can update orders" ON orders
     auth.uid() = user_id OR 
     EXISTS (
       SELECT 1 FROM profiles 
-      WHERE profiles.id = auth.uid() AND profiles.role = 'admin'
+      WHERE id = auth.uid() AND role = 'admin'
     )
   );
 
@@ -165,7 +165,7 @@ CREATE POLICY "Admins can manage all certificates" ON certificates
   FOR ALL USING (
     EXISTS (
       SELECT 1 FROM profiles 
-      WHERE profiles.id = auth.uid() AND profiles.role = 'admin'
+      WHERE id = auth.uid() AND role = 'admin'
     )
   );
 
