@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
-  BookOpen, ChevronLeft, ChevronRight, Download, FileText, HelpCircle,
+  AlertTriangle, BookOpen, ChevronLeft, ChevronRight, Download, FileText, HelpCircle,
   Lightbulb, Loader2, MoreVertical, PencilLine, Plus, Search, Sparkles,
   Trash2, Upload, X, Eye, Layers, Copy
 } from 'lucide-react'
 import { useApp } from '../lib/store'
+import { flashcardDecksApi, flashcardsApi } from '../lib/supabase'
 import { Badge, Button, EmptyState, Modal, Tabs } from '../components/ui'
 import { cn, formatDate } from '../lib/utils'
 
@@ -51,6 +52,8 @@ export default function AdminFlashcards() {
   const [decks, setDecks] = useState<FlashcardDeck[]>([])
   const [cards, setCards] = useState<Flashcard[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [mutating, setMutating] = useState(false)
 
   const [search, setSearch] = useState('')
   const [categoryFilter, setCategoryFilter] = useState<string>('all')
@@ -66,10 +69,81 @@ export default function AdminFlashcards() {
 
   const [bulkImportOpen, setBulkImportOpen] = useState(false)
 
-  // Mock data
-  useEffect(() => {
-    setLoading(false)
+  const loadDecks = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const data = await flashcardDecksApi.list()
+      const mapped: FlashcardDeck[] = (data ?? []).map((d: any) => ({
+        id: d.id,
+        name: d.name ?? d.title ?? '',
+        description: d.description ?? '',
+        category: d.category ?? 'General',
+        cardCount: 0,
+        isPublished: d.is_published ?? false,
+        createdAt: d.created_at ?? '',
+        updatedAt: d.updated_at ?? d.created_at ?? ''
+      }))
+      setDecks(mapped)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load decks')
+    } finally {
+      setLoading(false)
+    }
   }, [])
+
+  const loadCards = useCallback(async (deckId: string) => {
+    try {
+      const data = await flashcardsApi.list(deckId)
+      const mapped: Flashcard[] = (data ?? []).map((c: any) => ({
+        id: c.id,
+        deckId: c.deck_id,
+        type: (c.card_type as CardType) || 'learning',
+        front: c.front,
+        back: c.back,
+        imageUrl: c.image_url ?? undefined,
+        order: c.order ?? 0,
+        createdAt: c.created_at ?? '',
+        updatedAt: c.created_at ?? ''
+      }))
+      setCards(mapped)
+    } catch {
+      setCards([])
+    }
+  }, [])
+
+  useEffect(() => { loadDecks() }, [loadDecks])
+
+  const handleDeleteDeck = async () => {
+    if (!deletingDeck) return
+    setMutating(true)
+    try {
+      await flashcardDecksApi.delete(deletingDeck.id)
+      toast('Success', `Deck "${deletingDeck.name}" deleted`)
+      setDeletingDeck(null)
+      if (selectedDeck?.id === deletingDeck.id) { setSelectedDeck(null); setView('decks') }
+      loadDecks()
+    } catch (err) {
+      toast('Error', err instanceof Error ? err.message : 'Delete failed', 'error')
+    } finally {
+      setMutating(false)
+    }
+  }
+
+  const handleDeleteCard = async () => {
+    if (!deletingCard) return
+    setMutating(true)
+    try {
+      await flashcardsApi.delete(deletingCard.id)
+      toast('Success', 'Card deleted')
+      setDeletingCard(null)
+      if (selectedDeck) loadCards(selectedDeck.id)
+    } catch (err) {
+      toast('Error', err instanceof Error ? err.message : 'Delete failed', 'error')
+    } finally {
+      setMutating(false)
+    }
+  }
 
   const filteredDecks = decks.filter(deck => {
     if (search && !deck.name.toLowerCase().includes(search.toLowerCase())) return false
@@ -80,6 +154,7 @@ export default function AdminFlashcards() {
   const deckCards = selectedDeck ? cards.filter(c => c.deckId === selectedDeck.id) : []
 
   const categories = Array.from(new Set(decks.map(d => d.category)))
+
 
   return (
     <div className="space-y-6">
@@ -466,15 +541,34 @@ function DeckFormModal({ deck, onClose, onSuccess }: { deck?: FlashcardDeck; onC
     category: deck?.category || 'Cardiovascular System',
     isPublished: deck?.isPublished || false
   })
-  const [saving, setSaving] = useState(false)
+  const [saving, setSaving] = useState(false);
+  const { toast } = useApp();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setSaving(true)
-    setTimeout(() => {
-      setSaving(false)
-      onSuccess()
-    }, 1000)
+setSaving(true)
+try {
+  if (deck) {
+    await flashcardDecksApi.update(deck.id, {
+      name: formData.name,
+      description: formData.description,
+      category: formData.category,
+      is_published: formData.isPublished
+    })
+  } else {
+    await flashcardDecksApi.create({
+      name: formData.name,
+      description: formData.description,
+      category: formData.category,
+      is_published: formData.isPublished
+    })
+  }
+  onSuccess()
+} catch (err) {
+  toast('Error', err instanceof Error ? err.message : 'Failed to save deck', 'error')
+} finally {
+  setSaving(false)
+}
   }
 
   return (

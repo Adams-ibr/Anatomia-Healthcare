@@ -77,10 +77,12 @@ export default function AdminCourses() {
     setError(null)
     
     try {
-      // Fetch courses from Supabase
+      // Fetch courses from Supabase with admin view (sees all statuses)
       const data = await coursesApi.list({
         search: debouncedSearch || undefined,
-        category: categoryFilter === 'all' ? undefined : categoryFilter
+        category: categoryFilter === 'all' ? undefined : categoryFilter,
+        status: statusFilter === 'all' ? undefined : statusFilter,
+        adminView: true
       })
       
       // Ensure data is an array
@@ -100,17 +102,8 @@ export default function AdminCourses() {
         isFeatured: false
       }))
       
-      // Filter by status if needed
-      const filteredCourses = statusFilter === 'all' 
-        ? mappedCourses 
-        : mappedCourses.filter(c => c.status === statusFilter)
-      
-      // Simple client-side pagination
-      const startIdx = (p - 1) * perPage
-      const paginatedCourses = filteredCourses.slice(startIdx, startIdx + perPage)
-      
-      setCourses(paginatedCourses)
-      setTotal(filteredCourses.length)
+      setCourses(mappedCourses)
+      setTotal(mappedCourses.length)
       setPage(p)
     } catch (err) {
       setError(err instanceof Error ? err.message : t('admin.coursesLoadFailed'))

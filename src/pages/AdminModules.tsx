@@ -1,64 +1,94 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
-  BookOpen, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Box,
-  Eye, Layers, Loader2, MoreVertical, Move, PencilLine, Plus,
+  AlertTriangle, BookOpen, ChevronDown, ChevronUp, Box,
+  Eye, Layers, Loader2, Move, PencilLine, Plus,
   PlusCircle, Search, Trash2, X
 } from 'lucide-react'
 import { useApp } from '../lib/store'
+import { modulesApi, lessonsApi, coursesApi, flashcardDecksApi, anatomyModelsApi } from '../lib/supabase'
 import { Badge, Button, EmptyState, Modal } from '../components/ui'
-import { cn, formatDate } from '../lib/utils'
+import { cn } from '../lib/utils'
 
-interface ModuleLesson {
+interface DbModule {
   id: string
+  course_id: string
   title: string
-  duration: number
-  order: number
-  isPublished: boolean
+  description: string | null
+  order: number | null
+  is_published: boolean | null
+  created_at: string | null
 }
 
-interface ImportedResource {
+interface DbLesson {
   id: string
-  type: 'flashcard' | 'model'
-  resourceId: string
-  resourceName: string
-  order: number
+  module_id: string
+  title: string
+  duration: number | null
+  order: number | null
+  is_published: boolean | null
+  content_type: string
 }
 
-interface Module {
+interface DbCourse {
   id: string
-  courseId: string
-  courseName: string
   title: string
-  description: string
-  order: number
-  lessons: ModuleLesson[]
-  importedResources: ImportedResource[]
-  isPublished: boolean
-  createdAt: string
-  updatedAt: string
 }
 
 export default function AdminModules() {
   const { toast } = useApp()
   const { t } = useTranslation()
 
-  const [modules, setModules] = useState<Module[]>([])
+  const [modules, setModules] = useState<DbModule[]>([])
+  const [lessonsByModule, setLessonsByModule] = useState<Record<string, DbLesson[]>>({})
+  const [courses, setCourses] = useState<DbCourse[]>([])
   const [expandedModules, setExpandedModules] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [mutating, setMutating] = useState(false)
 
   const [search, setSearch] = useState('')
   const [courseFilter, setCourseFilter] = useState<string>('all')
 
   const [creating, setCreating] = useState(false)
-  const [editing, setEditing] = useState<Module | null>(null)
-  const [deleting, setDeleting] = useState<Module | null>(null)
-  const [managingResources, setManagingResources] = useState<Module | null>(null)
+  const [editing, setEditing] = useState<DbModule | null>(null)
+  const [deleting, setDeleting] = useState<DbModule | null>(null)
 
-  // Mock data
-  useEffect(() => {
-    setLoading(false)
+  const loadCourses = useCallback(async () => {
+    try {
+      const data = await coursesApi.list({ adminView: true })
+      setCourses((data ?? []).map((c: any) => ({ id: c.id, title: c.title })))
+    } catch {
+      // optional — filter still works without course list
+    }
   }, [])
+
+  const loadModules = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const data = await modulesApi.list(courseFilter === 'all' ? undefined : courseFilter)
+      const mods = (data ?? []) as DbModule[]
+      setModules(mods)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load modules')
+    } finally {
+      setLoading(false)
+    }
+  }, [courseFilter])
+
+  useEffect(() => { loadCourses() }, [loadCourses])
+  useEffect(() => { loadModules() }, [loadModules])
+
+  const loadLessonsForModule = useCallback(async (moduleId: string) => {
+    if (lessonsByModule[moduleId]) return
+    try {
+      const data = await lessonsApi.list({ module_id: moduleId })
+      setLessonsByModule(prev => ({ ...prev, [moduleId]: (data ?? []) as DbLesson[] }))
+    } catch {
+      setLessonsByModule(prev => ({ ...prev, [moduleId]: [] }))
+    }
+  }, [lessonsByModule])
 
   const toggleModule = (id: string) => {
     const newExpanded = new Set(expandedModules)
@@ -66,14 +96,33 @@ export default function AdminModules() {
       newExpanded.delete(id)
     } else {
       newExpanded.add(id)
+      loadLessonsForModule(id)
     }
     setExpandedModules(newExpanded)
   }
 
-  const totalLessons = modules.reduce((sum, m) => sum + m.lessons.length, 0)
-  const publishedModules = modules.filter(m => m.isPublished).length
+  const handleDelete = async () => {
+    if (!deleting) return
+    setMutating(true)
+    try {
+      await modulesApi.delete(deleting.id)
+      toast('Success', `Module "${deleting.title}" deleted`)
+      setDeleting(null)
+      loadModules()
+    } catch (err) {
+      toast('Error', err instanceof Error ? err.message : 'Delete failed', 'error')
+    } finally {
+      setMutating(false)
+    }
+  }
 
-  const courses = Array.from(new Set(modules.map(m => ({ id: m.courseId, name: m.courseName }))))
+  const filtered = modules.filter(m => {
+    if (search && !m.title.toLowerCase().includes(search.toLowerCase())) return false
+    return true
+  })
+
+  const publishedCount = modules.filter(m => m.is_published).length
+  const totalLessons = Object.values(lessonsByModule).reduce((sum, ls) => sum + ls.length, 0)
 
   return (
     <div className="space-y-6">
@@ -93,9 +142,7 @@ export default function AdminModules() {
       <div className="grid gap-4 sm:grid-cols-3">
         <div className="card p-4">
           <div className="flex items-center gap-3">
-            <div className="rounded-card bg-brand-50 p-2 text-brand-700">
-              <Layers className="h-5 w-5" />
-            </div>
+            <div className="rounded-card bg-brand-50 p-2 text-brand-700"><Layers className="h-5 w-5" /></div>
             <div>
               <p className="text-2xl font-bold text-ink">{modules.length}</p>
               <p className="text-xs text-muted">Total Modules</p>
@@ -104,23 +151,19 @@ export default function AdminModules() {
         </div>
         <div className="card p-4">
           <div className="flex items-center gap-3">
-            <div className="rounded-card bg-success/10 p-2 text-success">
-              <Eye className="h-5 w-5" />
-            </div>
+            <div className="rounded-card bg-success/10 p-2 text-success"><Eye className="h-5 w-5" /></div>
             <div>
-              <p className="text-2xl font-bold text-ink">{publishedModules}</p>
+              <p className="text-2xl font-bold text-ink">{publishedCount}</p>
               <p className="text-xs text-muted">Published</p>
             </div>
           </div>
         </div>
         <div className="card p-4">
           <div className="flex items-center gap-3">
-            <div className="rounded-card bg-warning/10 p-2 text-warning">
-              <BookOpen className="h-5 w-5" />
-            </div>
+            <div className="rounded-card bg-warning/10 p-2 text-warning"><BookOpen className="h-5 w-5" /></div>
             <div>
               <p className="text-2xl font-bold text-ink">{totalLessons}</p>
-              <p className="text-xs text-muted">Total Lessons</p>
+              <p className="text-xs text-muted">Loaded Lessons</p>
             </div>
           </div>
         </div>
@@ -139,18 +182,21 @@ export default function AdminModules() {
               className="input-base pl-9"
             />
           </div>
-          <select
-            value={courseFilter}
-            onChange={(e) => setCourseFilter(e.target.value)}
-            className="input-base"
-          >
+          <select value={courseFilter} onChange={(e) => setCourseFilter(e.target.value)} className="input-base">
             <option value="all">All Courses</option>
-            {courses.map(course => (
-              <option key={course.id} value={course.id}>{course.name}</option>
-            ))}
+            {courses.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
           </select>
         </div>
       </div>
+
+      {/* Error */}
+      {error && (
+        <div className="flex items-center gap-3 rounded-card border border-danger/30 bg-danger/5 px-4 py-3 text-sm text-danger">
+          <AlertTriangle className="h-4 w-4 shrink-0" />
+          <span className="flex-1">{error}</span>
+          <Button variant="outline" onClick={loadModules}><Loader2 className="h-3.5 w-3.5" /> Retry</Button>
+        </div>
+      )}
 
       {/* Modules List */}
       {loading ? (
@@ -162,202 +208,93 @@ export default function AdminModules() {
             </div>
           ))}
         </div>
-      ) : modules.length === 0 ? (
+      ) : filtered.length === 0 ? (
         <EmptyState
           icon={<Layers className="h-12 w-12" />}
-          title="No modules found"
-          message="Create your first module to organize course content"
+          title={search ? 'No modules match your search' : 'No modules found'}
+          message={search ? 'Try a different search term' : 'Create your first module to organize course content'}
           action={
-            <Button onClick={() => setCreating(true)}>
-              <PlusCircle className="h-4 w-4" />
-              Create Module
-            </Button>
+            !search ? (
+              <Button onClick={() => setCreating(true)}>
+                <PlusCircle className="h-4 w-4" /> Create Module
+              </Button>
+            ) : undefined
           }
         />
       ) : (
         <div className="space-y-3">
-          {modules.map((module) => {
-            const isExpanded = expandedModules.has(module.id)
+          {filtered.map((mod) => {
+            const isExpanded = expandedModules.has(mod.id)
+            const lessons = lessonsByModule[mod.id] ?? []
+            const course = courses.find(c => c.id === mod.course_id)
             return (
-              <div key={module.id} className="card overflow-hidden">
+              <div key={mod.id} className="card overflow-hidden">
                 {/* Module Header */}
                 <div className="p-6">
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-3 mb-2">
-                        <button
-                          onClick={() => toggleModule(module.id)}
-                          className="rounded p-1 hover:bg-line/40"
-                        >
-                          {isExpanded ? (
-                            <ChevronUp className="h-5 w-5 text-muted" />
-                          ) : (
-                            <ChevronDown className="h-5 w-5 text-muted" />
-                          )}
+                        <button onClick={() => toggleModule(mod.id)} className="rounded p-1 hover:bg-line/40">
+                          {isExpanded ? <ChevronUp className="h-5 w-5 text-muted" /> : <ChevronDown className="h-5 w-5 text-muted" />}
                         </button>
-                        <h3 className="font-semibold text-ink">{module.title}</h3>
-                        <Badge color={module.isPublished ? 'success' : 'warning'}>
-                          {module.isPublished ? 'Published' : 'Draft'}
+                        <h3 className="font-semibold text-ink">{mod.title}</h3>
+                        <Badge color={mod.is_published ? 'success' : 'warning'}>
+                          {mod.is_published ? 'Published' : 'Draft'}
                         </Badge>
+                        {mod.order != null && (
+                          <span className="text-xs text-muted">Order: {mod.order}</span>
+                        )}
                       </div>
-                      <p className="ml-11 text-sm text-muted">{module.description}</p>
-                      <div className="ml-11 mt-3 flex flex-wrap items-center gap-4 text-sm">
-                        <span className="text-muted">
-                          <Badge color="line">{module.courseName}</Badge>
-                        </span>
-                        <span className="text-muted">
-                          <BookOpen className="mb-0.5 inline h-4 w-4" /> {module.lessons.length} lessons
-                        </span>
-                        <span className="text-muted">
-                          <Layers className="mb-0.5 inline h-4 w-4" /> {module.importedResources.length} resources
-                        </span>
-                        <span className="text-xs text-muted">
-                          Updated {formatDate(module.updatedAt)}
-                        </span>
-                      </div>
-
-                      {/* Quick Resource Actions */}
-                      {!isExpanded && module.importedResources.length > 0 && (
-                        <div className="ml-11 mt-3 flex flex-wrap gap-1">
-                          {module.importedResources.slice(0, 3).map((res) => (
-                            <Badge
-                              key={res.id}
-                              color={res.type === 'flashcard' ? 'brand' : 'success'}
-                            >
-                              {res.type === 'flashcard' ? (
-                                <Layers className="h-3 w-3" />
-                              ) : (
-                                <Box className="h-3 w-3" />
-                              )}
-                              {res.resourceName}
-                            </Badge>
-                          ))}
-                          {module.importedResources.length > 3 && (
-                            <Badge>+{module.importedResources.length - 3} more</Badge>
-                          )}
-                        </div>
+                      {mod.description && (
+                        <p className="ml-11 text-sm text-muted">{mod.description}</p>
                       )}
+                      <div className="ml-11 mt-3 flex flex-wrap items-center gap-4 text-sm">
+                        {course && <Badge color="line">{course.title}</Badge>}
+                        <span className="text-muted text-xs">
+                          Created {mod.created_at ? new Date(mod.created_at).toLocaleDateString() : '—'}
+                        </span>
+                      </div>
                     </div>
 
                     <div className="flex gap-1">
-                      <button
-                        onClick={() => setManagingResources(module)}
-                        className="rounded-card p-2 text-ink hover:bg-line/40"
-                        title="Manage Resources"
-                      >
-                        <Layers className="h-4 w-4" />
-                      </button>
-                      <button
-                        onClick={() => setEditing(module)}
-                        className="rounded-card p-2 text-ink hover:bg-line/40"
-                      >
+                      <button onClick={() => setEditing(mod)} className="rounded-card p-2 text-ink hover:bg-line/40" title="Edit">
                         <PencilLine className="h-4 w-4" />
                       </button>
-                      <button
-                        onClick={() => setDeleting(module)}
-                        className="rounded-card p-2 text-danger hover:bg-danger/5"
-                      >
+                      <button onClick={() => setDeleting(mod)} className="rounded-card p-2 text-danger hover:bg-danger/5" title="Delete">
                         <Trash2 className="h-4 w-4" />
                       </button>
                     </div>
                   </div>
                 </div>
 
-                {/* Expanded Content */}
+                {/* Expanded Lessons */}
                 {isExpanded && (
                   <div className="border-t border-line bg-surface p-6">
-                    {/* Lessons */}
-                    <div className="mb-6">
-                      <div className="mb-3 flex items-center justify-between">
-                        <h4 className="text-sm font-semibold text-ink">Lessons ({module.lessons.length})</h4>
-                        <button
-                          className="text-xs text-brand-700 hover:text-brand-800"
-                          onClick={() => toast('Info', 'Lesson management coming soon')}
-                        >
-                          + Add Lesson
-                        </button>
-                      </div>
-                      {module.lessons.length === 0 ? (
-                        <p className="py-4 text-center text-sm text-muted">No lessons yet</p>
-                      ) : (
-                        <div className="space-y-2">
-                          {module.lessons.map((lesson) => (
-                            <div
-                              key={lesson.id}
-                              className="flex items-center justify-between rounded-card border border-line bg-paper p-3"
-                            >
-                              <div className="flex items-center gap-3">
-                                <Move className="h-4 w-4 text-muted" />
-                                <div>
-                                  <p className="text-sm font-medium text-ink">{lesson.title}</p>
-                                  <p className="text-xs text-muted">{lesson.duration} minutes</p>
-                                </div>
-                              </div>
-                              <Badge color={lesson.isPublished ? 'success' : 'warning'}>
-                                {lesson.isPublished ? 'Published' : 'Draft'}
-                              </Badge>
-                            </div>
-                          ))}
-                        </div>
-                      )}
+                    <div className="mb-3 flex items-center justify-between">
+                      <h4 className="text-sm font-semibold text-ink">
+                        Lessons ({lessons.length})
+                      </h4>
                     </div>
-
-                    {/* Imported Resources */}
-                    <div>
-                      <div className="mb-3 flex items-center justify-between">
-                        <h4 className="text-sm font-semibold text-ink">
-                          Imported Resources ({module.importedResources.length})
-                        </h4>
-                        <button
-                          className="text-xs text-brand-700 hover:text-brand-800"
-                          onClick={() => setManagingResources(module)}
-                        >
-                          Manage Resources
-                        </button>
-                      </div>
-                      {module.importedResources.length === 0 ? (
-                        <div className="rounded-card border border-dashed border-line bg-paper p-6 text-center">
-                          <p className="text-sm text-muted">No resources imported yet</p>
-                          <div className="mt-4 flex justify-center gap-2">
-                            <Button
-                              variant="outline"
-                              onClick={() => setManagingResources(module)}
-                            >
-                              <Layers className="h-4 w-4" />
-                              Import Flashcards
-                            </Button>
-                            <Button
-                              variant="outline"
-                              onClick={() => setManagingResources(module)}
-                            >
-                              <Box className="h-4 w-4" />
-                              Import 3D Model
-                            </Button>
+                    {lessons.length === 0 ? (
+                      <p className="py-4 text-center text-sm text-muted">No lessons in this module yet. Use Lessons → Create Lesson to add one.</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {lessons.map((lesson) => (
+                          <div key={lesson.id} className="flex items-center justify-between rounded-card border border-line bg-paper p-3">
+                            <div className="flex items-center gap-3">
+                              <Move className="h-4 w-4 text-muted" />
+                              <div>
+                                <p className="text-sm font-medium text-ink">{lesson.title}</p>
+                                <p className="text-xs text-muted">{lesson.content_type} · {lesson.duration ?? 0} min</p>
+                              </div>
+                            </div>
+                            <Badge color={lesson.is_published ? 'success' : 'warning'}>
+                              {lesson.is_published ? 'Published' : 'Draft'}
+                            </Badge>
                           </div>
-                        </div>
-                      ) : (
-                        <div className="space-y-2">
-                          {module.importedResources.map((resource) => (
-                            <div
-                              key={resource.id}
-                              className="flex items-center justify-between rounded-card border border-line bg-paper p-3"
-                            >
-                              <div className="flex items-center gap-3">
-                                {resource.type === 'flashcard' ? (
-                                  <Layers className="h-5 w-5 text-brand-700" />
-                                ) : (
-                                  <Box className="h-5 w-5 text-success" />
-                                )}
-                                <div>
-                                  <p className="text-sm font-medium text-ink">{resource.resourceName}</p>
-                                  <p className="text-xs text-muted capitalize">{resource.type}</p>
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -370,26 +307,12 @@ export default function AdminModules() {
       {(creating || editing) && (
         <ModuleFormModal
           module={editing}
-          onClose={() => {
-            setCreating(false)
-            setEditing(null)
-          }}
+          courses={courses}
+          onClose={() => { setCreating(false); setEditing(null) }}
           onSuccess={() => {
             setCreating(false)
             setEditing(null)
-            toast('Success', editing ? 'Module updated' : 'Module created')
-          }}
-        />
-      )}
-
-      {/* Manage Resources Modal */}
-      {managingResources && (
-        <ManageResourcesModal
-          module={managingResources}
-          onClose={() => setManagingResources(null)}
-          onSuccess={() => {
-            setManagingResources(null)
-            toast('Success', 'Resources updated')
+            loadModules()
           }}
         />
       )}
@@ -398,20 +321,14 @@ export default function AdminModules() {
       {deleting && (
         <Modal open={true} onClose={() => setDeleting(null)} title="Delete Module">
           <p className="text-sm text-muted">
-            Are you sure you want to delete "{deleting.title}"? This will also remove all lessons in this module. This action cannot be undone.
+            Are you sure you want to delete "<strong>{deleting.title}</strong>"? This will also remove all lessons in this module. This action cannot be undone.
           </p>
           <div className="mt-6 flex gap-2">
-            <Button variant="outline" onClick={() => setDeleting(null)} className="flex-1">
+            <Button variant="outline" onClick={() => setDeleting(null)} disabled={mutating} className="flex-1">
               Cancel
             </Button>
-            <Button
-              onClick={() => {
-                toast('Success', 'Module deleted successfully')
-                setDeleting(null)
-              }}
-              className="flex-1 bg-danger hover:bg-danger/90"
-            >
-              Delete
+            <Button onClick={handleDelete} disabled={mutating} className="flex-1 bg-danger hover:bg-danger/90">
+              {mutating ? <Loader2 className="h-4 w-4 animate-spin" /> : null} Delete
             </Button>
           </div>
         </Modal>
@@ -420,51 +337,80 @@ export default function AdminModules() {
   )
 }
 
-function ModuleFormModal({ module, onClose, onSuccess }: { module?: Module | null; onClose: () => void; onSuccess: () => void }) {
+function ModuleFormModal({
+  module, courses, onClose, onSuccess
+}: {
+  module?: DbModule | null
+  courses: DbCourse[]
+  onClose: () => void
+  onSuccess: () => void
+}) {
+  const { toast } = useApp()
   const [formData, setFormData] = useState({
-    courseId: module?.courseId || 'c1',
+    course_id: module?.course_id || (courses[0]?.id ?? ''),
     title: module?.title || '',
     description: module?.description || '',
-    order: module?.order || 1,
-    isPublished: module?.isPublished || false
+    order: module?.order ?? 1,
+    is_published: module?.is_published ?? false
   })
   const [saving, setSaving] = useState(false)
 
-  // Mock courses
-  const courses = [
-    { id: 'c1', name: 'Complete Anatomy Course' },
-    { id: 'c2', name: 'Advanced Neurology' },
-    { id: 'c3', name: 'Physiology Fundamentals' }
-  ]
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!formData.title.trim()) {
+      toast('Error', 'Module title is required', 'error')
+      return
+    }
+    if (!formData.course_id) {
+      toast('Error', 'Please select a course', 'error')
+      return
+    }
     setSaving(true)
-    setTimeout(() => {
-      setSaving(false)
+    try {
+      if (module) {
+        await modulesApi.update(module.id, {
+          title: formData.title.trim(),
+          description: formData.description.trim() || null,
+          order: formData.order,
+          is_published: formData.is_published
+        })
+        toast('Success', 'Module updated successfully')
+      } else {
+        await modulesApi.create({
+          course_id: formData.course_id,
+          title: formData.title.trim(),
+          description: formData.description.trim() || null,
+          order: formData.order,
+          is_published: formData.is_published
+        })
+        toast('Success', 'Module created successfully')
+      }
       onSuccess()
-    }, 1000)
+    } catch (err) {
+      toast('Error', err instanceof Error ? err.message : 'Save failed', 'error')
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
     <Modal open={true} onClose={onClose} title={module ? 'Edit Module' : 'Create Module'}>
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="label-base">Course</label>
+          <label className="label-base">Course *</label>
           <select
-            value={formData.courseId}
-            onChange={(e) => setFormData({ ...formData, courseId: e.target.value })}
+            value={formData.course_id}
+            onChange={(e) => setFormData({ ...formData, course_id: e.target.value })}
             className="input-base"
             required
           >
-            {courses.map(course => (
-              <option key={course.id} value={course.id}>{course.name}</option>
-            ))}
+            <option value="">Select a course…</option>
+            {courses.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
           </select>
         </div>
 
         <div>
-          <label className="label-base">Module Title</label>
+          <label className="label-base">Module Title *</label>
           <input
             type="text"
             value={formData.title}
@@ -472,6 +418,7 @@ function ModuleFormModal({ module, onClose, onSuccess }: { module?: Module | nul
             className="input-base"
             placeholder="e.g., Module 1: Cardiovascular System"
             required
+            autoFocus
           />
         </div>
 
@@ -483,7 +430,6 @@ function ModuleFormModal({ module, onClose, onSuccess }: { module?: Module | nul
             className="input-base"
             rows={3}
             placeholder="Brief description of what this module covers..."
-            required
           />
         </div>
 
@@ -495,201 +441,27 @@ function ModuleFormModal({ module, onClose, onSuccess }: { module?: Module | nul
             onChange={(e) => setFormData({ ...formData, order: parseInt(e.target.value) || 1 })}
             className="input-base"
             min="1"
-            required
           />
           <p className="mt-1 text-xs text-muted">Position of this module in the course</p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <label className="flex items-center gap-2 text-sm text-ink">
           <input
             type="checkbox"
-            id="module-published"
-            checked={formData.isPublished}
-            onChange={(e) => setFormData({ ...formData, isPublished: e.target.checked })}
+            checked={formData.is_published}
+            onChange={(e) => setFormData({ ...formData, is_published: e.target.checked })}
             className="rounded border-line"
           />
-          <label htmlFor="module-published" className="text-sm text-ink">
-            Published
-          </label>
-        </div>
+          Published (visible to students)
+        </label>
 
-        <div className="flex gap-2">
-          <Button type="button" variant="outline" onClick={onClose} disabled={saving} className="flex-1">
-            Cancel
-          </Button>
+        <div className="flex gap-2 pt-2">
+          <Button type="button" variant="outline" onClick={onClose} disabled={saving} className="flex-1">Cancel</Button>
           <Button type="submit" disabled={saving} className="flex-1">
-            {saving ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Saving...
-              </>
-            ) : (
-              module ? 'Save Changes' : 'Create Module'
-            )}
+            {saving ? <><Loader2 className="h-4 w-4 animate-spin" /> Saving…</> : module ? 'Save Changes' : 'Create Module'}
           </Button>
         </div>
       </form>
-    </Modal>
-  )
-}
-
-function ManageResourcesModal({ module, onClose, onSuccess }: { module: Module; onClose: () => void; onSuccess: () => void }) {
-  const { toast } = useApp()
-  const [resources, setResources] = useState<ImportedResource[]>(module.importedResources)
-
-  // Mock available resources
-  const availableFlashcards = [
-    { id: 'deck1', name: 'Cardiovascular System Basics' },
-    { id: 'deck2', name: 'Skeletal System - Bones' },
-    { id: 'deck3', name: 'Brain Anatomy' }
-  ]
-
-  const availableModels = [
-    { id: 'model1', name: 'Human Heart - Complete' },
-    { id: 'model2', name: 'Human Skeleton' },
-    { id: 'model3', name: 'Brain Anatomy' }
-  ]
-
-  const addResource = (type: 'flashcard' | 'model', resourceId: string, resourceName: string) => {
-    // Check if already added
-    if (resources.some(r => r.resourceId === resourceId)) {
-      toast('Info', 'Resource already added')
-      return
-    }
-
-    const newResource: ImportedResource = {
-      id: `r${Date.now()}`,
-      type,
-      resourceId,
-      resourceName,
-      order: resources.length + 1
-    }
-    setResources([...resources, newResource])
-    toast('Success', 'Resource added')
-  }
-
-  const removeResource = (id: string) => {
-    setResources(resources.filter(r => r.id !== id))
-  }
-
-  const handleSave = () => {
-    setTimeout(() => {
-      onSuccess()
-    }, 500)
-  }
-
-  return (
-    <Modal open={true} onClose={onClose} title={`Manage Resources - ${module.title}`}>
-      <div className="space-y-6">
-        {/* Current Resources */}
-        <div>
-          <h3 className="mb-3 text-sm font-semibold text-ink">Current Resources ({resources.length})</h3>
-          {resources.length === 0 ? (
-            <div className="rounded-card border border-dashed border-line p-6 text-center text-sm text-muted">
-              No resources added yet. Import flashcard decks or 3D models below.
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {resources.map((resource) => (
-                <div
-                  key={resource.id}
-                  className="flex items-center justify-between rounded-card border border-line p-3"
-                >
-                  <div className="flex items-center gap-3">
-                    {resource.type === 'flashcard' ? (
-                      <Layers className="h-5 w-5 text-brand-700" />
-                    ) : (
-                      <Box className="h-5 w-5 text-success" />
-                    )}
-                    <div>
-                      <p className="text-sm font-medium text-ink">{resource.resourceName}</p>
-                      <p className="text-xs text-muted capitalize">{resource.type}</p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => removeResource(resource.id)}
-                    className="rounded-card p-1 text-danger hover:bg-danger/5"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Import Flashcard Decks */}
-        <div>
-          <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-ink">
-            <Layers className="h-5 w-5 text-brand-700" />
-            Import Flashcard Decks
-          </h3>
-          <div className="space-y-2">
-            {availableFlashcards.map((deck) => {
-              const isAdded = resources.some(r => r.resourceId === deck.id)
-              return (
-                <div
-                  key={deck.id}
-                  className="flex items-center justify-between rounded-card border border-line p-3"
-                >
-                  <div className="flex items-center gap-3">
-                    <Layers className="h-4 w-4 text-brand-700" />
-                    <p className="text-sm text-ink">{deck.name}</p>
-                  </div>
-                  <Button
-                    variant="outline"
-                    onClick={() => addResource('flashcard', deck.id, deck.name)}
-                    disabled={isAdded}
-                  >
-                    {isAdded ? 'Added' : 'Import'}
-                  </Button>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-
-        {/* Import 3D Models */}
-        <div>
-          <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-ink">
-            <Box className="h-5 w-5 text-success" />
-            Import 3D Models
-          </h3>
-          <div className="space-y-2">
-            {availableModels.map((model) => {
-              const isAdded = resources.some(r => r.resourceId === model.id)
-              return (
-                <div
-                  key={model.id}
-                  className="flex items-center justify-between rounded-card border border-line p-3"
-                >
-                  <div className="flex items-center gap-3">
-                    <Box className="h-4 w-4 text-success" />
-                    <p className="text-sm text-ink">{model.name}</p>
-                  </div>
-                  <Button
-                    variant="outline"
-                    onClick={() => addResource('model', model.id, model.name)}
-                    disabled={isAdded}
-                  >
-                    {isAdded ? 'Added' : 'Import'}
-                  </Button>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-
-        {/* Actions */}
-        <div className="flex gap-2 border-t border-line pt-4">
-          <Button type="button" variant="outline" onClick={onClose} className="flex-1">
-            Cancel
-          </Button>
-          <Button onClick={handleSave} className="flex-1">
-            Save Changes
-          </Button>
-        </div>
-      </div>
     </Modal>
   )
 }

@@ -1,77 +1,111 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
-  BookOpen, ChevronLeft, ChevronRight, Clock, Box, Eye, FileText,
-  HelpCircle, Layers, Loader2, Play, PlusCircle, Save, Search,
-  Trash2, Type, Video, X, Image as ImageIcon, Link as LinkIcon
+  AlertTriangle, BookOpen, ChevronLeft, ChevronRight, Clock, Eye,
+  Layers, Loader2, PencilLine, Plus, PlusCircle, Search, Trash2, Video
 } from 'lucide-react'
 import { useApp } from '../lib/store'
-import { Badge, Button, EmptyState, Modal, Tabs } from '../components/ui'
-import { cn, formatDate } from '../lib/utils'
+import { lessonsApi, modulesApi } from '../lib/supabase'
+import { Badge, Button, EmptyState, Modal } from '../components/ui'
+import { cn } from '../lib/utils'
 
-type ContentType = 'text' | 'video' | 'interactive' | 'image' | 'embed'
-
-interface LessonContent {
+interface DbLesson {
   id: string
-  type: ContentType
-  order: number
-  data: {
-    text?: string
-    videoUrl?: string
-    imageUrl?: string
-    embedUrl?: string
-    caption?: string
-  }
-}
-
-interface ImportedResource {
-  id: string
-  type: 'quiz' | 'flashcard' | 'model'
-  resourceId: string
-  resourceName: string
-  order: number
-}
-
-interface Lesson {
-  id: string
-  moduleId: string
+  module_id: string
   title: string
-  description: string
-  duration: number // in minutes
-  order: number
-  isPublished: boolean
-  isFree: boolean
-  content: LessonContent[]
-  importedResources: ImportedResource[]
-  createdAt: string
-  updatedAt: string
+  description: string | null
+  content_type: string
+  duration: number | null
+  order: number | null
+  is_free: boolean | null
+  is_published: boolean | null
+  video_url: string | null
+  content: string | null
+  created_at: string | null
+  updated_at: string | null
 }
+
+interface DbModule {
+  id: string
+  title: string
+  course_id: string
+}
+
+const CONTENT_TYPES = ['video', 'article', 'pdf', 'audio', 'quiz', 'interactive']
 
 export default function AdminLessons() {
   const { toast } = useApp()
   const { t } = useTranslation()
 
-  const [lessons, setLessons] = useState<Lesson[]>([])
+  const [lessons, setLessons] = useState<DbLesson[]>([])
+  const [modules, setModules] = useState<DbModule[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
-  const perPage = 10
+  const perPage = 15
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [mutating, setMutating] = useState(false)
 
   const [search, setSearch] = useState('')
   const [moduleFilter, setModuleFilter] = useState<string>('all')
   const [statusFilter, setStatusFilter] = useState<'all' | 'published' | 'draft'>('all')
 
   const [creating, setCreating] = useState(false)
-  const [editing, setEditing] = useState<Lesson | null>(null)
-  const [deleting, setDeleting] = useState<Lesson | null>(null)
-  const [viewing, setViewing] = useState<Lesson | null>(null)
+  const [editing, setEditing] = useState<DbLesson | null>(null)
+  const [deleting, setDeleting] = useState<DbLesson | null>(null)
 
-  // Mock data
-  useEffect(() => {
-    setLoading(false)
+  const loadModules = useCallback(async () => {
+    try {
+      const data = await modulesApi.list()
+      setModules((data ?? []).map((m: any) => ({ id: m.id, title: m.title, course_id: m.course_id })))
+    } catch { /* optional */ }
   }, [])
 
+  const loadLessons = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const data = await lessonsApi.list(moduleFilter !== 'all' ? { module_id: moduleFilter } : undefined)
+      let all = (data ?? []) as DbLesson[]
+
+      // Client-side filter for search and status (small datasets)
+      if (search) all = all.filter(l => l.title.toLowerCase().includes(search.toLowerCase()))
+      if (statusFilter === 'published') all = all.filter(l => l.is_published)
+      if (statusFilter === 'draft') all = all.filter(l => !l.is_published)
+
+      setTotal(all.length)
+      const start = (page - 1) * perPage
+      setLessons(all.slice(start, start + perPage))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load lessons')
+    } finally {
+      setLoading(false)
+    }
+  }, [moduleFilter, search, statusFilter, page, perPage])
+
+  useEffect(() => { loadModules() }, [loadModules])
+  useEffect(() => { loadLessons() }, [loadLessons])
+  useEffect(() => { setPage(1) }, [search, moduleFilter, statusFilter])
+
+  const handleDelete = async () => {
+    if (!deleting) return
+    setMutating(true)
+    try {
+      await lessonsApi.delete(deleting.id)
+      toast('Success', `Lesson "${deleting.title}" deleted`)
+      setDeleting(null)
+      loadLessons()
+    } catch (err) {
+      toast('Error', err instanceof Error ? err.message : 'Delete failed', 'error')
+    } finally {
+      setMutating(false)
+    }
+  }
+
   const totalPages = Math.max(1, Math.ceil(total / perPage))
+  const publishedCount = lessons.filter(l => l.is_published).length
+
+  const getModuleName = (moduleId: string) => modules.find(m => m.id === moduleId)?.title ?? 'Unknown Module'
 
   return (
     <div className="space-y-6">
@@ -82,8 +116,7 @@ export default function AdminLessons() {
           <p className="mt-1 text-sm text-muted">Create and manage course lessons with rich content</p>
         </div>
         <Button onClick={() => setCreating(true)}>
-          <PlusCircle className="h-4 w-4" />
-          Create Lesson
+          <PlusCircle className="h-4 w-4" /> Create Lesson
         </Button>
       </div>
 
@@ -91,37 +124,20 @@ export default function AdminLessons() {
       <div className="grid gap-4 sm:grid-cols-3">
         <div className="card p-4">
           <div className="flex items-center gap-3">
-            <div className="rounded-card bg-brand-50 p-2 text-brand-700">
-              <BookOpen className="h-5 w-5" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-ink">{lessons.length}</p>
-              <p className="text-xs text-muted">Total Lessons</p>
-            </div>
+            <div className="rounded-card bg-brand-50 p-2 text-brand-700"><BookOpen className="h-5 w-5" /></div>
+            <div><p className="text-2xl font-bold text-ink">{total}</p><p className="text-xs text-muted">Total Lessons</p></div>
           </div>
         </div>
         <div className="card p-4">
           <div className="flex items-center gap-3">
-            <div className="rounded-card bg-success/10 p-2 text-success">
-              <Eye className="h-5 w-5" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-ink">{lessons.filter(l => l.isPublished).length}</p>
-              <p className="text-xs text-muted">Published</p>
-            </div>
+            <div className="rounded-card bg-success/10 p-2 text-success"><Eye className="h-5 w-5" /></div>
+            <div><p className="text-2xl font-bold text-ink">{publishedCount}</p><p className="text-xs text-muted">Published (this page)</p></div>
           </div>
         </div>
         <div className="card p-4">
           <div className="flex items-center gap-3">
-            <div className="rounded-card bg-warning/10 p-2 text-warning">
-              <Clock className="h-5 w-5" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-ink">
-                {lessons.reduce((sum, l) => sum + l.duration, 0)}
-              </p>
-              <p className="text-xs text-muted">Total Minutes</p>
-            </div>
+            <div className="rounded-card bg-warning/10 p-2 text-warning"><Layers className="h-5 w-5" /></div>
+            <div><p className="text-2xl font-bold text-ink">{modules.length}</p><p className="text-xs text-muted">Modules</p></div>
           </div>
         </div>
       </div>
@@ -129,7 +145,7 @@ export default function AdminLessons() {
       {/* Filters */}
       <div className="card p-4">
         <div className="grid gap-4 sm:grid-cols-3">
-          <div className="relative sm:col-span-2">
+          <div className="relative">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
             <input
               type="text"
@@ -139,23 +155,32 @@ export default function AdminLessons() {
               className="input-base pl-9"
             />
           </div>
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value as any)}
-            className="input-base"
-          >
-            <option value="all">All Status</option>
+          <select value={moduleFilter} onChange={(e) => setModuleFilter(e.target.value)} className="input-base">
+            <option value="all">All Modules</option>
+            {modules.map(m => <option key={m.id} value={m.id}>{m.title}</option>)}
+          </select>
+          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as any)} className="input-base">
+            <option value="all">All Statuses</option>
             <option value="published">Published</option>
             <option value="draft">Draft</option>
           </select>
         </div>
       </div>
 
+      {/* Error */}
+      {error && (
+        <div className="flex items-center gap-3 rounded-card border border-danger/30 bg-danger/5 px-4 py-3 text-sm text-danger">
+          <AlertTriangle className="h-4 w-4 shrink-0" />
+          <span className="flex-1">{error}</span>
+          <Button variant="outline" onClick={loadLessons}><Loader2 className="h-3.5 w-3.5" /> Retry</Button>
+        </div>
+      )}
+
       {/* Lessons List */}
       {loading ? (
         <div className="space-y-3">
           {[...Array(5)].map((_, i) => (
-            <div key={i} className="card animate-pulse p-6">
+            <div key={i} className="card animate-pulse p-5">
               <div className="h-4 w-1/3 rounded bg-line" />
               <div className="mt-2 h-3 w-2/3 rounded bg-line" />
             </div>
@@ -165,146 +190,76 @@ export default function AdminLessons() {
         <EmptyState
           icon={<BookOpen className="h-12 w-12" />}
           title="No lessons found"
-          message="Create your first lesson to start building course content"
-          action={
-            <Button onClick={() => setCreating(true)}>
-              <PlusCircle className="h-4 w-4" />
-              Create Lesson
-            </Button>
-          }
+          message={search ? 'Try a different search term or filter' : 'Create your first lesson to start building course content'}
+          action={!search ? <Button onClick={() => setCreating(true)}><PlusCircle className="h-4 w-4" /> Create Lesson</Button> : undefined}
         />
       ) : (
-        <>
-          <div className="space-y-3">
-            {lessons.map((lesson) => (
-              <div
-                key={lesson.id}
-                className="card group p-6 transition-all hover:border-brand-200"
-              >
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-3 mb-2">
-                      <h3 className="font-semibold text-ink">{lesson.title}</h3>
-                      <Badge color={lesson.isPublished ? 'success' : 'warning'}>
-                        {lesson.isPublished ? 'Published' : 'Draft'}
-                      </Badge>
-                      {lesson.isFree && <Badge color="brand">Free</Badge>}
-                    </div>
-                    <p className="text-sm text-muted mb-3">{lesson.description}</p>
-                    <div className="flex flex-wrap items-center gap-4 text-sm">
-                      <span className="flex items-center gap-1 text-muted">
-                        <Clock className="h-4 w-4" />
-                        {lesson.duration} min
-                      </span>
-                      <span className="flex items-center gap-1 text-muted">
-                        <FileText className="h-4 w-4" />
-                        {lesson.content.length} content blocks
-                      </span>
-                      <span className="flex items-center gap-1 text-muted">
-                        <Layers className="h-4 w-4" />
-                        {lesson.importedResources.length} resources
-                      </span>
-                      <span className="text-xs text-muted">
-                        Updated {formatDate(lesson.updatedAt)}
-                      </span>
-                    </div>
-
-                    {/* Imported Resources Preview */}
-                    {lesson.importedResources.length > 0 && (
-                      <div className="mt-3 flex flex-wrap gap-1">
-                        {lesson.importedResources.map((res) => (
-                          <Badge
-                            key={res.id}
-                            color={
-                              res.type === 'quiz' ? 'warning' :
-                              res.type === 'flashcard' ? 'brand' : 'success'
-                            }
-                          >
-                            {res.type === 'quiz' && <HelpCircle className="h-3 w-3" />}
-                            {res.type === 'flashcard' && <Layers className="h-3 w-3" />}
-                            {res.type === 'model' && <Box className="h-3 w-3" />}
-                            {res.resourceName}
-                          </Badge>
-                        ))}
-                      </div>
-                    )}
+        <div className="space-y-3">
+          {lessons.map((lesson) => (
+            <div key={lesson.id} className="card group p-5 transition-all hover:border-brand-200">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-3 mb-1">
+                    <h3 className="font-semibold text-ink">{lesson.title}</h3>
+                    <Badge color={lesson.is_published ? 'success' : 'warning'}>
+                      {lesson.is_published ? 'Published' : 'Draft'}
+                    </Badge>
+                    {lesson.is_free && <Badge color="brand">Free</Badge>}
                   </div>
-
-                  <div className="flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-                    <button
-                      onClick={() => setViewing(lesson)}
-                      className="rounded-card p-2 text-ink hover:bg-line/40"
-                    >
-                      <Eye className="h-4 w-4" />
-                    </button>
-                    <button
-                      onClick={() => setEditing(lesson)}
-                      className="rounded-card p-2 text-ink hover:bg-line/40"
-                    >
-                      <Save className="h-4 w-4" />
-                    </button>
-                    <button
-                      onClick={() => setDeleting(lesson)}
-                      className="rounded-card p-2 text-danger hover:bg-danger/5"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
+                  {lesson.description && (
+                    <p className="text-sm text-muted mb-2 line-clamp-2">{lesson.description}</p>
+                  )}
+                  <div className="flex flex-wrap items-center gap-4 text-xs text-muted">
+                    <span className="flex items-center gap-1">
+                      <Video className="h-3.5 w-3.5" /> {lesson.content_type}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Clock className="h-3.5 w-3.5" /> {lesson.duration ?? 0} min
+                    </span>
+                    <Badge color="line">{getModuleName(lesson.module_id)}</Badge>
+                    {lesson.order != null && <span>Order: {lesson.order}</span>}
+                    {lesson.updated_at && <span>Updated {new Date(lesson.updated_at).toLocaleDateString()}</span>}
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
 
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-muted">
-                Showing {(page - 1) * perPage + 1} to {Math.min(page * perPage, total)} of {total} lessons
-              </p>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => setPage(p => Math.max(1, p - 1))}
-                  disabled={page === 1}
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                  Previous
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                  disabled={page === totalPages}
-                >
-                  Next
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
+                <div className="flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                  <button onClick={() => setEditing(lesson)} className="rounded-card p-2 text-ink hover:bg-line/40">
+                    <PencilLine className="h-4 w-4" />
+                  </button>
+                  <button onClick={() => setDeleting(lesson)} className="rounded-card p-2 text-danger hover:bg-danger/5">
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
               </div>
             </div>
-          )}
-        </>
+          ))}
+        </div>
       )}
 
-      {/* Create/Edit Modal */}
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-muted">
+            Showing {(page - 1) * perPage + 1}–{Math.min(page * perPage, total)} of {total} lessons
+          </p>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}>
+              <ChevronLeft className="h-4 w-4" /> Previous
+            </Button>
+            <Button variant="outline" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}>
+              Next <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Create / Edit Modal */}
       {(creating || editing) && (
-        <LessonEditorModal
+        <LessonFormModal
           lesson={editing}
-          onClose={() => {
-            setCreating(false)
-            setEditing(null)
-          }}
-          onSuccess={() => {
-            setCreating(false)
-            setEditing(null)
-            toast('Success', editing ? 'Lesson updated' : 'Lesson created')
-          }}
-        />
-      )}
-
-      {/* View Modal */}
-      {viewing && (
-        <LessonViewModal
-          lesson={viewing}
-          onClose={() => setViewing(null)}
+          modules={modules}
+          onClose={() => { setCreating(false); setEditing(null) }}
+          onSuccess={() => { setCreating(false); setEditing(null); loadLessons() }}
         />
       )}
 
@@ -312,20 +267,12 @@ export default function AdminLessons() {
       {deleting && (
         <Modal open={true} onClose={() => setDeleting(null)} title="Delete Lesson">
           <p className="text-sm text-muted">
-            Are you sure you want to delete "{deleting.title}"? This action cannot be undone.
+            Are you sure you want to delete "<strong>{deleting.title}</strong>"? This action cannot be undone.
           </p>
           <div className="mt-6 flex gap-2">
-            <Button variant="outline" onClick={() => setDeleting(null)} className="flex-1">
-              Cancel
-            </Button>
-            <Button
-              onClick={() => {
-                toast('Success', 'Lesson deleted successfully')
-                setDeleting(null)
-              }}
-              className="flex-1 bg-danger hover:bg-danger/90"
-            >
-              Delete
+            <Button variant="outline" onClick={() => setDeleting(null)} disabled={mutating} className="flex-1">Cancel</Button>
+            <Button onClick={handleDelete} disabled={mutating} className="flex-1 bg-danger hover:bg-danger/90">
+              {mutating ? <Loader2 className="h-4 w-4 animate-spin" /> : null} Delete
             </Button>
           </div>
         </Modal>
@@ -334,485 +281,193 @@ export default function AdminLessons() {
   )
 }
 
-function LessonEditorModal({ lesson, onClose, onSuccess }: { lesson?: Lesson | null; onClose: () => void; onSuccess: () => void }) {
+function LessonFormModal({
+  lesson, modules, onClose, onSuccess
+}: {
+  lesson?: DbLesson | null
+  modules: DbModule[]
+  onClose: () => void
+  onSuccess: () => void
+}) {
   const { toast } = useApp()
-  const [activeTab, setActiveTab] = useState<'details' | 'content' | 'resources'>('details')
-
   const [formData, setFormData] = useState({
+    module_id: lesson?.module_id || (modules[0]?.id ?? ''),
     title: lesson?.title || '',
     description: lesson?.description || '',
-    duration: lesson?.duration || 10,
-    isPublished: lesson?.isPublished || false,
-    isFree: lesson?.isFree || false
+    content_type: lesson?.content_type || 'video',
+    duration: lesson?.duration ?? 10,
+    order: lesson?.order ?? 1,
+    is_free: lesson?.is_free ?? false,
+    is_published: lesson?.is_published ?? false,
+    video_url: lesson?.video_url || '',
+    content: lesson?.content || ''
   })
-
-  const [content, setContent] = useState<LessonContent[]>(lesson?.content || [])
-  const [resources, setResources] = useState<ImportedResource[]>(lesson?.importedResources || [])
   const [saving, setSaving] = useState(false)
 
-  const [addingContent, setAddingContent] = useState<ContentType | null>(null)
-  const [addingResource, setAddingResource] = useState<'quiz' | 'flashcard' | 'model' | null>(null)
-
-  const handleSubmit = async () => {
-    if (!formData.title) {
-      toast('Error', 'Please enter a lesson title', 'error')
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!formData.title.trim()) {
+      toast('Error', 'Lesson title is required', 'error')
       return
     }
-
+    if (!formData.module_id) {
+      toast('Error', 'Please select a module', 'error')
+      return
+    }
     setSaving(true)
-    setTimeout(() => {
-      setSaving(false)
+    try {
+      if (lesson) {
+        await lessonsApi.update(lesson.id, {
+          title: formData.title.trim(),
+          description: formData.description.trim() || null,
+          content_type: formData.content_type,
+          duration: formData.duration,
+          order: formData.order,
+          is_free: formData.is_free,
+          is_published: formData.is_published,
+          video_url: formData.video_url.trim() || null,
+          content: formData.content.trim() || null,
+          updated_at: new Date().toISOString()
+        })
+        toast('Success', 'Lesson updated successfully')
+      } else {
+        await lessonsApi.create({
+          module_id: formData.module_id,
+          title: formData.title.trim(),
+          description: formData.description.trim() || null,
+          content_type: formData.content_type,
+          duration: formData.duration,
+          order: formData.order,
+          is_free: formData.is_free,
+          is_published: formData.is_published,
+          video_url: formData.video_url.trim() || null,
+          content: formData.content.trim() || null
+        })
+        toast('Success', 'Lesson created successfully')
+      }
       onSuccess()
-    }, 1500)
-  }
-
-  const addContentBlock = (type: ContentType) => {
-    const newBlock: LessonContent = {
-      id: `c${Date.now()}`,
-      type,
-      order: content.length + 1,
-      data: {}
+    } catch (err) {
+      toast('Error', err instanceof Error ? err.message : 'Save failed', 'error')
+    } finally {
+      setSaving(false)
     }
-    setContent([...content, newBlock])
-    setAddingContent(null)
-  }
-
-  const updateContentBlock = (id: string, data: any) => {
-    setContent(content.map(c => c.id === id ? { ...c, data: { ...c.data, ...data } } : c))
-  }
-
-  const removeContentBlock = (id: string) => {
-    setContent(content.filter(c => c.id !== id))
-  }
-
-  const addResource = (type: 'quiz' | 'flashcard' | 'model', resourceId: string, resourceName: string) => {
-    const newResource: ImportedResource = {
-      id: `r${Date.now()}`,
-      type,
-      resourceId,
-      resourceName,
-      order: resources.length + 1
-    }
-    setResources([...resources, newResource])
-    setAddingResource(null)
-    toast('Success', 'Resource imported')
-  }
-
-  const removeResource = (id: string) => {
-    setResources(resources.filter(r => r.id !== id))
   }
 
   return (
     <Modal open={true} onClose={onClose} title={lesson ? 'Edit Lesson' : 'Create Lesson'}>
-      <div className="space-y-6">
-        {/* Tabs */}
-        <Tabs
-          tabs={[
-            { id: 'details', label: 'Details' },
-            { id: 'content', label: `Content (${content.length})` },
-            { id: 'resources', label: `Resources (${resources.length})` }
-          ]}
-          active={activeTab}
-          onChange={(id) => setActiveTab(id as any)}
-        />
-
-        {/* Details Tab */}
-        {activeTab === 'details' && (
-          <div className="space-y-4">
-            <div>
-              <label className="label-base">Lesson Title</label>
-              <input
-                type="text"
-                value={formData.title}
-                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                className="input-base"
-                placeholder="e.g., Introduction to the Heart"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="label-base">Description</label>
-              <textarea
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                className="input-base"
-                rows={3}
-                placeholder="Brief description of what students will learn..."
-              />
-            </div>
-
-            <div>
-              <label className="label-base">Duration (minutes)</label>
-              <input
-                type="number"
-                value={formData.duration}
-                onChange={(e) => setFormData({ ...formData, duration: parseInt(e.target.value) || 0 })}
-                className="input-base"
-                min="1"
-                max="180"
-              />
-            </div>
-
-            <div className="flex gap-4">
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  id="published"
-                  checked={formData.isPublished}
-                  onChange={(e) => setFormData({ ...formData, isPublished: e.target.checked })}
-                  className="rounded border-line"
-                />
-                <label htmlFor="published" className="text-sm text-ink">
-                  Published
-                </label>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  id="free"
-                  checked={formData.isFree}
-                  onChange={(e) => setFormData({ ...formData, isFree: e.target.checked })}
-                  className="rounded border-line"
-                />
-                <label htmlFor="free" className="text-sm text-ink">
-                  Free Preview
-                </label>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Content Tab */}
-        {activeTab === 'content' && (
-          <div className="space-y-4">
-            {content.length === 0 ? (
-              <div className="py-8 text-center">
-                <FileText className="mx-auto h-12 w-12 text-muted" />
-                <p className="mt-2 text-sm text-muted">No content blocks yet</p>
-                <p className="mt-1 text-xs text-muted">Add text, videos, or interactive elements</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {content.map((block, index) => (
-                  <ContentBlockEditor
-                    key={block.id}
-                    block={block}
-                    index={index}
-                    onUpdate={(data) => updateContentBlock(block.id, data)}
-                    onRemove={() => removeContentBlock(block.id)}
-                  />
-                ))}
-              </div>
-            )}
-
-            {/* Add Content Menu */}
-            {addingContent ? (
-              <div className="card p-4">
-                <p className="mb-3 text-sm font-medium text-ink">Select Content Type:</p>
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
-                  {[
-                    { type: 'text' as const, icon: Type, label: 'Text' },
-                    { type: 'video' as const, icon: Video, label: 'Video' },
-                    { type: 'image' as const, icon: ImageIcon, label: 'Image' },
-                    { type: 'embed' as const, icon: LinkIcon, label: 'Embed' },
-                    { type: 'interactive' as const, icon: Box, label: 'Interactive' }
-                  ].map(({ type, icon: Icon, label }) => (
-                    <button
-                      key={type}
-                      onClick={() => addContentBlock(type)}
-                      className="flex flex-col items-center gap-2 rounded-card border border-line p-3 hover:border-brand-500 hover:bg-brand-50"
-                    >
-                      <Icon className="h-6 w-6" />
-                      <span className="text-xs font-medium">{label}</span>
-                    </button>
-                  ))}
-                </div>
-                <Button
-                  variant="outline"
-                  onClick={() => setAddingContent(null)}
-                  className="mt-3 w-full"
-                >
-                  Cancel
-                </Button>
-              </div>
-            ) : (
-              <Button
-                variant="outline"
-                onClick={() => setAddingContent('text')}
-                className="w-full"
-              >
-                <PlusCircle className="h-4 w-4" />
-                Add Content Block
-              </Button>
-            )}
-          </div>
-        )}
-
-        {/* Resources Tab */}
-        {activeTab === 'resources' && (
-          <div className="space-y-4">
-            <div className="rounded-card border border-line bg-surface p-4 text-sm">
-              <p className="font-medium text-ink">Import Resources</p>
-              <p className="mt-1 text-muted">Add quizzes, flashcard decks, or 3D models to this lesson</p>
-            </div>
-
-            {resources.length > 0 && (
-              <div className="space-y-2">
-                {resources.map((resource) => (
-                  <div
-                    key={resource.id}
-                    className="flex items-center justify-between rounded-card border border-line p-3"
-                  >
-                    <div className="flex items-center gap-3">
-                      {resource.type === 'quiz' && <HelpCircle className="h-5 w-5 text-warning" />}
-                      {resource.type === 'flashcard' && <Layers className="h-5 w-5 text-brand-700" />}
-                      {resource.type === 'model' && <Box className="h-5 w-5 text-success" />}
-                      <div>
-                        <p className="text-sm font-medium text-ink">{resource.resourceName}</p>
-                        <p className="text-xs text-muted capitalize">{resource.type}</p>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => removeResource(resource.id)}
-                      className="rounded-card p-1 text-danger hover:bg-danger/5"
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Import Buttons */}
-            <div className="grid grid-cols-3 gap-2">
-              <button
-                onClick={() => {
-                  // Mock import - in real app, this would open a selection modal
-                  addResource('quiz', 'q1', 'Sample Quiz')
-                }}
-                className="flex flex-col items-center gap-2 rounded-card border-2 border-dashed border-line p-4 hover:border-warning hover:bg-warning/5"
-              >
-                <HelpCircle className="h-6 w-6 text-warning" />
-                <span className="text-xs font-medium">Import Quiz</span>
-              </button>
-
-              <button
-                onClick={() => {
-                  addResource('flashcard', 'deck1', 'Sample Flashcard Deck')
-                }}
-                className="flex flex-col items-center gap-2 rounded-card border-2 border-dashed border-line p-4 hover:border-brand-500 hover:bg-brand-50"
-              >
-                <Layers className="h-6 w-6 text-brand-700" />
-                <span className="text-xs font-medium">Import Flashcards</span>
-              </button>
-
-              <button
-                onClick={() => {
-                  addResource('model', 'm1', 'Sample 3D Model')
-                }}
-                className="flex flex-col items-center gap-2 rounded-card border-2 border-dashed border-line p-4 hover:border-success hover:bg-success/5"
-              >
-                <Box className="h-6 w-6 text-success" />
-                <span className="text-xs font-medium">Import 3D Model</span>
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Actions */}
-        <div className="flex gap-2 border-t border-line pt-4">
-          <Button type="button" variant="outline" onClick={onClose} disabled={saving} className="flex-1">
-            Cancel
-          </Button>
-          <Button onClick={handleSubmit} disabled={saving} className="flex-1">
-            {saving ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Saving...
-              </>
-            ) : (
-              <>
-                <Save className="h-4 w-4" />
-                {lesson ? 'Update Lesson' : 'Create Lesson'}
-              </>
-            )}
-          </Button>
-        </div>
-      </div>
-    </Modal>
-  )
-}
-
-function ContentBlockEditor({ block, index, onUpdate, onRemove }: {
-  block: LessonContent
-  index: number
-  onUpdate: (data: any) => void
-  onRemove: () => void
-}) {
-  const getIcon = () => {
-    switch (block.type) {
-      case 'text': return <Type className="h-5 w-5" />
-      case 'video': return <Video className="h-5 w-5" />
-      case 'image': return <ImageIcon className="h-5 w-5" />
-      case 'embed': return <LinkIcon className="h-5 w-5" />
-      case 'interactive': return <Box className="h-5 w-5" />
-    }
-  }
-
-  return (
-    <div className="rounded-card border border-line p-4">
-      <div className="mb-3 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div className="rounded bg-brand-50 p-1.5 text-brand-700">
-            {getIcon()}
-          </div>
-          <span className="text-sm font-medium capitalize text-ink">{block.type} Block #{index + 1}</span>
-        </div>
-        <button
-          onClick={onRemove}
-          className="rounded-card p-1 text-danger hover:bg-danger/5"
-        >
-          <Trash2 className="h-4 w-4" />
-        </button>
-      </div>
-
-      {block.type === 'text' && (
-        <textarea
-          value={block.data.text || ''}
-          onChange={(e) => onUpdate({ text: e.target.value })}
-          className="input-base"
-          rows={4}
-          placeholder="Enter your text content..."
-        />
-      )}
-
-      {block.type === 'video' && (
-        <div className="space-y-2">
-          <input
-            type="url"
-            value={block.data.videoUrl || ''}
-            onChange={(e) => onUpdate({ videoUrl: e.target.value })}
-            className="input-base"
-            placeholder="Video URL (YouTube, Vimeo, or direct link)"
-          />
-          <input
-            type="text"
-            value={block.data.caption || ''}
-            onChange={(e) => onUpdate({ caption: e.target.value })}
-            className="input-base"
-            placeholder="Caption (optional)"
-          />
-        </div>
-      )}
-
-      {block.type === 'image' && (
-        <div className="space-y-2">
-          <input
-            type="url"
-            value={block.data.imageUrl || ''}
-            onChange={(e) => onUpdate({ imageUrl: e.target.value })}
-            className="input-base"
-            placeholder="Image URL"
-          />
-          <input
-            type="text"
-            value={block.data.caption || ''}
-            onChange={(e) => onUpdate({ caption: e.target.value })}
-            className="input-base"
-            placeholder="Caption (optional)"
-          />
-        </div>
-      )}
-
-      {block.type === 'embed' && (
-        <input
-          type="url"
-          value={block.data.embedUrl || ''}
-          onChange={(e) => onUpdate({ embedUrl: e.target.value })}
-          className="input-base"
-          placeholder="Embed URL or iframe code"
-        />
-      )}
-
-      {block.type === 'interactive' && (
-        <div className="rounded-card bg-surface p-4 text-center text-sm text-muted">
-          Interactive content placeholder
-        </div>
-      )}
-    </div>
-  )
-}
-
-function LessonViewModal({ lesson, onClose }: { lesson: Lesson; onClose: () => void }) {
-  return (
-    <Modal open={true} onClose={onClose} title="Lesson Preview">
-      <div className="space-y-6">
+      <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <div className="flex items-center gap-3 mb-2">
-            <h2 className="text-xl font-bold text-ink">{lesson.title}</h2>
-            <Badge color={lesson.isPublished ? 'success' : 'warning'}>
-              {lesson.isPublished ? 'Published' : 'Draft'}
-            </Badge>
-            {lesson.isFree && <Badge color="brand">Free</Badge>}
+          <label className="label-base">Module *</label>
+          <select
+            value={formData.module_id}
+            onChange={(e) => setFormData({ ...formData, module_id: e.target.value })}
+            className="input-base"
+            required
+          >
+            <option value="">Select a module…</option>
+            {modules.map(m => <option key={m.id} value={m.id}>{m.title}</option>)}
+          </select>
+        </div>
+
+        <div>
+          <label className="label-base">Lesson Title *</label>
+          <input
+            type="text"
+            value={formData.title}
+            onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+            className="input-base"
+            placeholder="e.g., Introduction to the Heart"
+            required
+            autoFocus
+          />
+        </div>
+
+        <div>
+          <label className="label-base">Description</label>
+          <textarea
+            value={formData.description}
+            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+            className="input-base"
+            rows={2}
+            placeholder="Brief description of what students will learn..."
+          />
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <label className="label-base">Content Type *</label>
+            <select
+              value={formData.content_type}
+              onChange={(e) => setFormData({ ...formData, content_type: e.target.value })}
+              className="input-base"
+            >
+              {CONTENT_TYPES.map(t => <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>)}
+            </select>
           </div>
-          <p className="text-muted">{lesson.description}</p>
-          <div className="mt-2 flex items-center gap-4 text-sm text-muted">
-            <span className="flex items-center gap-1">
-              <Clock className="h-4 w-4" />
-              {lesson.duration} minutes
-            </span>
-            <span>{lesson.content.length} content blocks</span>
-            <span>{lesson.importedResources.length} resources</span>
+          <div>
+            <label className="label-base">Duration (minutes)</label>
+            <input
+              type="number"
+              value={formData.duration}
+              onChange={(e) => setFormData({ ...formData, duration: parseInt(e.target.value) || 0 })}
+              className="input-base"
+              min="0"
+            />
           </div>
         </div>
 
-        {/* Content Preview */}
-        {lesson.content.length > 0 && (
+        <div className="grid gap-4 sm:grid-cols-2">
           <div>
-            <h3 className="mb-3 text-sm font-semibold text-ink">Content</h3>
-            <div className="space-y-3">
-              {lesson.content.map((block, index) => (
-                <div key={block.id} className="rounded-card border border-line p-4">
-                  <p className="mb-2 text-xs font-medium uppercase text-muted">
-                    {block.type} Block #{index + 1}
-                  </p>
-                  {block.type === 'text' && <p className="text-sm text-ink">{block.data.text}</p>}
-                  {block.type === 'video' && (
-                    <div className="text-sm">
-                      <p className="text-brand-700">{block.data.videoUrl}</p>
-                      {block.data.caption && <p className="mt-1 text-muted">{block.data.caption}</p>}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
+            <label className="label-base">Order</label>
+            <input
+              type="number"
+              value={formData.order}
+              onChange={(e) => setFormData({ ...formData, order: parseInt(e.target.value) || 1 })}
+              className="input-base"
+              min="1"
+            />
           </div>
-        )}
-
-        {/* Resources Preview */}
-        {lesson.importedResources.length > 0 && (
           <div>
-            <h3 className="mb-3 text-sm font-semibold text-ink">Imported Resources</h3>
-            <div className="space-y-2">
-              {lesson.importedResources.map((resource) => (
-                <div key={resource.id} className="flex items-center gap-3 rounded-card border border-line p-3">
-                  {resource.type === 'quiz' && <HelpCircle className="h-5 w-5 text-warning" />}
-                  {resource.type === 'flashcard' && <Layers className="h-5 w-5 text-brand-700" />}
-                  {resource.type === 'model' && <Box className="h-5 w-5 text-success" />}
-                  <div>
-                    <p className="text-sm font-medium text-ink">{resource.resourceName}</p>
-                    <p className="text-xs text-muted capitalize">{resource.type}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
+            <label className="label-base">Video URL</label>
+            <input
+              type="url"
+              value={formData.video_url}
+              onChange={(e) => setFormData({ ...formData, video_url: e.target.value })}
+              className="input-base"
+              placeholder="https://..."
+            />
           </div>
-        )}
+        </div>
 
-        <Button onClick={onClose} className="w-full">Close</Button>
-      </div>
+        <div>
+          <label className="label-base">Content / Notes</label>
+          <textarea
+            value={formData.content}
+            onChange={(e) => setFormData({ ...formData, content: e.target.value })}
+            className="input-base font-mono text-sm"
+            rows={4}
+            placeholder="Lesson content, transcript, or notes..."
+          />
+        </div>
+
+        <div className="flex flex-wrap gap-4">
+          <label className="flex items-center gap-2 text-sm text-ink">
+            <input type="checkbox" checked={formData.is_free} onChange={(e) => setFormData({ ...formData, is_free: e.target.checked })} className="rounded border-line" />
+            Free preview lesson
+          </label>
+          <label className="flex items-center gap-2 text-sm text-ink">
+            <input type="checkbox" checked={formData.is_published} onChange={(e) => setFormData({ ...formData, is_published: e.target.checked })} className="rounded border-line" />
+            Published
+          </label>
+        </div>
+
+        <div className="flex gap-2 pt-2">
+          <Button type="button" variant="outline" onClick={onClose} disabled={saving} className="flex-1">Cancel</Button>
+          <Button type="submit" disabled={saving} className="flex-1">
+            {saving ? <><Loader2 className="h-4 w-4 animate-spin" /> Saving…</> : lesson ? 'Save Changes' : 'Create Lesson'}
+          </Button>
+        </div>
+      </form>
     </Modal>
   )
 }

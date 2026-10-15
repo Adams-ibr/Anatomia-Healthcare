@@ -101,22 +101,31 @@ export const membersApi = {
 // ============================================================================
 
 export const coursesApi = {
-  list: async (filters?: { search?: string; category?: string; status?: string }) => {
+  list: async (filters?: { search?: string; category?: string; status?: string; adminView?: boolean }) => {
     let query = supabase.from('courses').select('*')
     
     if (filters?.search) {
-      query = query.ilike('title', `%${filters.search}%`)
+      query = query.or(`title.ilike.%${filters.search}%,description.ilike.%${filters.search}%`)
     }
     // Only filter by category if it's not 'all' and has a value
     if (filters?.category && filters.category !== 'all') {
       query = query.eq('category', filters.category)
     }
-    // For public courses page, only show published courses
-    if (filters?.status === 'published' || !filters?.status) {
+    // Admin view: support explicit status filter (all, draft, published, etc.)
+    if (filters?.adminView) {
+      if (filters.status && filters.status !== 'all') {
+        query = query.eq('status', filters.status)
+      }
+      // No is_published filter for admin — they see everything
+    } else if (filters?.status === 'published') {
+      // Explicit published filter for public pages
+      query = query.eq('is_published', true)
+    } else if (!filters?.status) {
+      // Default: public listing shows only published
       query = query.eq('is_published', true)
     }
     
-    const { data, error} = await query.order('created_at', { ascending: false })
+    const { data, error } = await query.order('created_at', { ascending: false })
     if (error) {
       console.error('Error fetching courses:', error)
       throw error
@@ -889,14 +898,14 @@ export const modulesApi = {
 // ============================================================================
 
 export const lessonsApi = {
-  list: async (filters?: { section_id?: string }) => {
+  list: async (filters?: { module_id?: string }) => {
     let query = supabase.from('lessons').select('*')
     
-    if (filters?.section_id) {
-      query = query.eq('section_id', filters.section_id)
+    if (filters?.module_id) {
+      query = query.eq('module_id', filters.module_id)
     }
     
-    const { data, error } = await query.order('position', { ascending: true })
+    const { data, error } = await query.order('order', { ascending: true })
     if (error) throw error
     return data
   },
@@ -1186,8 +1195,47 @@ export const questionBankApi = {
 }
 
 // ============================================================================
-// ENROLLMENTS
+// QUESTION TOPICS
 // ============================================================================
+
+export const questionTopicsApi = {
+  list: async () => {
+    const { data, error } = await supabase
+      .from('question_topics')
+      .select('*')
+      .order('order', { ascending: true })
+    if (error) throw error
+    return data
+  },
+
+  create: async (topic: { name: string; slug: string; description?: string }) => {
+    const { data, error } = await supabase
+      .from('question_topics')
+      .insert(topic)
+      .select()
+      .single()
+    if (error) throw error
+    return data
+  },
+
+  update: async (id: string, updates: { name?: string; slug?: string; description?: string }) => {
+    const { data, error } = await supabase
+      .from('question_topics')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single()
+    if (error) throw error
+    return data
+  },
+
+  delete: async (id: string) => {
+    const { error } = await supabase.from('question_topics').delete().eq('id', id)
+    if (error) throw error
+  }
+}
+
+
 
 export const enrollmentsApi = {
   list: async (filters?: { member_id?: string; course_id?: string; status?: string }) => {
