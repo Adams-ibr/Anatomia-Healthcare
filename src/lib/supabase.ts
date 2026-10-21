@@ -1362,6 +1362,124 @@ export const notificationsApi = {
   }
 }
 
+// ============================================================================
+// PLATFORM SETTINGS
+// ============================================================================
+
+export interface PlatformSettingsData {
+  platformName: string
+  supportEmail: string
+  defaultCurrency: string
+  instructorShare: number
+  primaryColor: string
+  tagline: string
+  refundWindowDays: number
+  passingScore: number
+  welcomeEmail: boolean
+  completionEmail: boolean
+  assignmentReminders: boolean
+  weeklyDigest: boolean
+  paymentProvider: string
+  paystackPublicKey?: string
+  updatedAt?: string
+}
+
+export const DEFAULT_PLATFORM_SETTINGS: PlatformSettingsData = {
+  platformName: 'Anatomia Healthcare',
+  supportEmail: 'support@anatomia.co',
+  defaultCurrency: 'USD',
+  instructorShare: 70,
+  primaryColor: '#0D9488',
+  tagline: 'Advancing Healthcare Education',
+  refundWindowDays: 14,
+  passingScore: 75,
+  welcomeEmail: true,
+  completionEmail: true,
+  assignmentReminders: true,
+  weeklyDigest: true,
+  paymentProvider: 'paystack',
+  paystackPublicKey: (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_PAYSTACK_PUBLIC_KEY) || ''
+}
+
+export const settingsApi = {
+  get: async (): Promise<PlatformSettingsData> => {
+    try {
+      const { data, error } = await supabase
+        .from('platform_settings')
+        .select('*')
+        .limit(1)
+        .maybeSingle()
+
+      const cached = typeof localStorage !== 'undefined' ? localStorage.getItem('anatomia:settings') : null
+      let localData: Partial<PlatformSettingsData> = {}
+      if (cached) {
+        try { localData = JSON.parse(cached) } catch {}
+      }
+
+      if (error || !data) {
+        return { ...DEFAULT_PLATFORM_SETTINGS, ...localData }
+      }
+
+      return {
+        platformName: data.platform_name || localData.platformName || DEFAULT_PLATFORM_SETTINGS.platformName,
+        supportEmail: data.support_email || localData.supportEmail || DEFAULT_PLATFORM_SETTINGS.supportEmail,
+        defaultCurrency: data.default_currency || localData.defaultCurrency || DEFAULT_PLATFORM_SETTINGS.defaultCurrency,
+        instructorShare: data.instructor_share ?? localData.instructorShare ?? DEFAULT_PLATFORM_SETTINGS.instructorShare,
+        primaryColor: data.primary_color || localData.primaryColor || DEFAULT_PLATFORM_SETTINGS.primaryColor,
+        tagline: data.tagline ?? localData.tagline ?? DEFAULT_PLATFORM_SETTINGS.tagline,
+        refundWindowDays: data.refund_window_days ?? localData.refundWindowDays ?? DEFAULT_PLATFORM_SETTINGS.refundWindowDays,
+        passingScore: data.passing_score ?? localData.passingScore ?? DEFAULT_PLATFORM_SETTINGS.passingScore,
+        welcomeEmail: data.welcome_email ?? localData.welcomeEmail ?? DEFAULT_PLATFORM_SETTINGS.welcomeEmail,
+        completionEmail: data.completion_email ?? localData.completionEmail ?? DEFAULT_PLATFORM_SETTINGS.completionEmail,
+        assignmentReminders: data.assignment_reminders ?? localData.assignmentReminders ?? DEFAULT_PLATFORM_SETTINGS.assignmentReminders,
+        weeklyDigest: data.weekly_digest ?? localData.weeklyDigest ?? DEFAULT_PLATFORM_SETTINGS.weeklyDigest,
+        paymentProvider: 'paystack',
+        paystackPublicKey: localData.paystackPublicKey || DEFAULT_PLATFORM_SETTINGS.paystackPublicKey,
+        updatedAt: data.updated_at
+      }
+    } catch {
+      const cached = typeof localStorage !== 'undefined' ? localStorage.getItem('anatomia:settings') : null
+      let localData: Partial<PlatformSettingsData> = {}
+      if (cached) {
+        try { localData = JSON.parse(cached) } catch {}
+      }
+      return { ...DEFAULT_PLATFORM_SETTINGS, ...localData }
+    }
+  },
+
+  update: async (updates: Partial<PlatformSettingsData>): Promise<PlatformSettingsData> => {
+    const dbPayload: Record<string, any> = {
+      updated_at: new Date().toISOString()
+    }
+    if (updates.platformName !== undefined) dbPayload.platform_name = updates.platformName
+    if (updates.supportEmail !== undefined) dbPayload.support_email = updates.supportEmail
+    if (updates.defaultCurrency !== undefined) dbPayload.default_currency = updates.defaultCurrency
+    if (updates.instructorShare !== undefined) dbPayload.instructor_share = Number(updates.instructorShare)
+    if (updates.primaryColor !== undefined) dbPayload.primary_color = updates.primaryColor
+    if (updates.tagline !== undefined) dbPayload.tagline = updates.tagline
+    if (updates.refundWindowDays !== undefined) dbPayload.refund_window_days = Number(updates.refundWindowDays)
+    if (updates.passingScore !== undefined) dbPayload.passing_score = Number(updates.passingScore)
+    if (updates.welcomeEmail !== undefined) dbPayload.welcome_email = Boolean(updates.welcomeEmail)
+    if (updates.completionEmail !== undefined) dbPayload.completion_email = Boolean(updates.completionEmail)
+    if (updates.assignmentReminders !== undefined) dbPayload.assignment_reminders = Boolean(updates.assignmentReminders)
+    if (updates.weeklyDigest !== undefined) dbPayload.weekly_digest = Boolean(updates.weeklyDigest)
+
+    try {
+      await supabase
+        .from('platform_settings')
+        .upsert({ id: true, ...dbPayload })
+    } catch (err) {
+      console.warn('Could not persist settings to Supabase, saving locally:', err)
+    }
+
+    const current = await settingsApi.get()
+    const merged = { ...current, ...updates, updatedAt: new Date().toISOString() }
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('anatomia:settings', JSON.stringify(merged))
+    }
+    return merged
+  }
+}
 
 // Export all APIs as a single object for convenience
 export const api = {
@@ -1387,5 +1505,6 @@ export const api = {
   flashcards: flashcardsApi,
   questionBank: questionBankApi,
   enrollments: enrollmentsApi,
-  notifications: notificationsApi
+  notifications: notificationsApi,
+  settings: settingsApi
 }

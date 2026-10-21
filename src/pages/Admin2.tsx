@@ -7,6 +7,7 @@ import { Area, AreaChart, Bar, BarChart, CartesianGrid, Line, LineChart, Respons
 import { useApp } from '../lib/store'
 import { adminApi, courseApi, getStoredToken } from '../lib/api/auth'
 import type { PlatformSettings } from '../lib/api/auth'
+import { settingsApi, DEFAULT_PLATFORM_SETTINGS } from '../lib/supabase'
 import type { AuthUser } from '../lib/types'
 import { Badge, Button, Input, StatCard, Tabs } from '../components/ui'
 import { formatPrice, timeAgo } from '../lib/utils'
@@ -93,7 +94,10 @@ export function AdminOrders() {
 
   const load = () => {
     const token = getStoredToken()
-    if (!token) return
+    if (!token) {
+      setRows([])
+      return
+    }
     adminApi.listOrders(token)
       .then((res) => setRows(res.orders))
       .catch(() => setRows([]))
@@ -180,7 +184,21 @@ export function AdminPayments() {
 
   useEffect(() => {
     const token = getStoredToken()
-    if (!token) return
+    if (!token) {
+      setData({
+        grossRevenue: 0,
+        netRevenue: 0,
+        refunds: 0,
+        instructorPayouts: 0,
+        orderCount: 0,
+        completedCount: 0,
+        refundedCount: 0,
+        monthly: [],
+        byMethod: {},
+        recent: []
+      })
+      return
+    }
     adminApi.getPayments(token).then(setData).catch(() => {})
   }, [])
 
@@ -295,7 +313,10 @@ export function AdminAnnouncements() {
 
   const load = () => {
     const token = getStoredToken()
-    if (!token) return
+    if (!token) {
+      setRows([])
+      return
+    }
     adminApi.listAnnouncements(token)
       .then((res) => setRows(res.announcements))
       .catch(() => {})
@@ -401,7 +422,16 @@ export function AdminReports() {
 
   const load = () => {
     const token = getStoredToken()
-    if (!token) return
+    if (!token) {
+      setReport({
+        users: { total: 0, students: 0, instructors: 0, admins: 0, newThisMonth: 0, monthly: [] },
+        courses: { total: 0, published: 0, pending: 0, drafts: 0, archived: 0, avgRating: 0, totalReviews: 0, top: [] },
+        revenue: { gross: 0, net: 0, refunds: 0, payouts: 0, orderCount: 0, completed: 0, refunded: 0, avgOrderValue: 0 },
+        certificates: { total: 0, thisMonth: 0, monthly: [] },
+        assessments: { totalAssessments: 0, attempts: 0, passed: 0, passRate: 0 }
+      })
+      return
+    }
     setFailed(false)
     adminApi.getReports(token).then(setReport).catch(() => setFailed(true))
   }
@@ -626,7 +656,16 @@ export function AdminAnalytics() {
 
   const load = () => {
     const token = getStoredToken()
-    if (!token) return
+    if (!token) {
+      setData({
+        users: { total: 0, monthly: [] },
+        enrollments: { total: 0, active: 0, completed: 0, monthly: [] },
+        revenue: { gross: 0, net: 0, refunds: 0, monthly: [] },
+        courses: { total: 0, published: 0, byCategory: [] },
+        certificates: { total: 0, monthly: [] }
+      })
+      return
+    }
     setFailed(false)
     adminApi.getAnalytics(token).then(setData).catch(() => setFailed(true))
   }
@@ -778,7 +817,8 @@ export function AdminSettings() {
   const { toast } = useApp()
   const { t } = useTranslation()
   const [tab, setTab] = useState('general')
-  const [settings, setSettings] = useState<PlatformSettings | null>(null)
+  const [settings, setSettings] = useState<PlatformSettings | null>(DEFAULT_PLATFORM_SETTINGS as PlatformSettings)
+  const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [failed, setFailed] = useState(false)
 
@@ -790,39 +830,33 @@ export function AdminSettings() {
     { id: 'notifications', label: t('admin2.notifications') }
   ]
 
-  const load = () => {
-    const token = getStoredToken()
-    if (!token) return
+  const load = async () => {
+    setLoading(true)
     setFailed(false)
-    adminApi.getSettings(token).then((res) => setSettings(res.settings)).catch(() => setFailed(true))
+    try {
+      const data = await settingsApi.get()
+      setSettings(data as PlatformSettings)
+    } catch {
+      setSettings((s) => s ?? (DEFAULT_PLATFORM_SETTINGS as PlatformSettings))
+    } finally {
+      setLoading(false)
+    }
   }
-  useEffect(load, [])
+  useEffect(() => {
+    load()
+  }, [])
 
   const patch = (p: Partial<PlatformSettings>) => setSettings((s) => (s ? { ...s, ...p } : s))
 
   const save = async () => {
-    const token = getStoredToken()
-    if (!token || !settings) return
+    if (!settings) return
     setSaving(true)
     try {
-      const res = await adminApi.updateSettings(token, {
-        platformName: settings.platformName,
-        supportEmail: settings.supportEmail,
-        defaultCurrency: settings.defaultCurrency,
-        instructorShare: Number(settings.instructorShare),
-        primaryColor: settings.primaryColor,
-        tagline: settings.tagline,
-        refundWindowDays: Number(settings.refundWindowDays),
-        passingScore: Number(settings.passingScore),
-        welcomeEmail: settings.welcomeEmail,
-        completionEmail: settings.completionEmail,
-        assignmentReminders: settings.assignmentReminders,
-        weeklyDigest: settings.weeklyDigest
-      })
-      setSettings(res.settings)
-      toast(t('admin2.changesSaved'))
+      const updated = await settingsApi.update(settings)
+      setSettings(updated as PlatformSettings)
+      toast(t('admin2.changesSaved', 'Settings saved successfully!'))
     } catch {
-      toast(t('admin2.saveFailed'))
+      toast(t('admin2.saveFailed', 'Failed to save settings'), '', 'error')
     } finally {
       setSaving(false)
     }
@@ -839,7 +873,10 @@ export function AdminSettings() {
             <Button variant="outline" className="mt-4" onClick={load}>{t('admin2.retry')}</Button>
           </div>
         ) : !settings ? (
-          <p className="py-12 text-center text-sm text-muted">{t('admin2.reportsLoading')}</p>
+          <div className="flex flex-col items-center justify-center py-12 gap-3 text-sm text-muted">
+            <RefreshCcw className="h-6 w-6 animate-spin text-brand" />
+            <p>{t('admin2.loading', 'Loading settings...')}</p>
+          </div>
         ) : (
           <>
             {tab === 'general' && (
