@@ -109,7 +109,7 @@ export const coursesApi = {
     }
     // Only filter by category if it's not 'all' and has a value
     if (filters?.category && filters.category !== 'all') {
-      query = query.eq('category', filters.category)
+      query = query.eq('category_id', filters.category)
     }
     // Admin view: support explicit status filter (all, draft, published, etc.)
     if (filters?.adminView) {
@@ -156,9 +156,27 @@ export const coursesApi = {
   },
 
   create: async (course: any) => {
+    const slug = course.slug || (course.title ? course.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') + '-' + Date.now().toString(36) : 'course-' + Date.now().toString(36))
+
+    const payload: Record<string, any> = {
+      title: course.title,
+      slug,
+      category_id: course.category_id || course.category || course.categoryId,
+      instructor_id: course.instructor_id || course.instructorId,
+      level: course.level || 'Beginner',
+      price: typeof course.price === 'number' ? course.price : (Number(course.price) || 0),
+      duration: typeof course.duration === 'number' ? course.duration : (parseInt(course.duration, 10) || 0),
+      has_certificate: course.has_certificate ?? course.hasCertificate ?? false,
+      status: course.status || 'draft',
+      description: course.description || ''
+    }
+
+    if (course.thumbnail) payload.thumbnail = course.thumbnail
+    if (course.is_published !== undefined) payload.is_published = course.is_published
+
     const { data, error } = await supabase
       .from('courses')
-      .insert(course)
+      .insert(payload)
       .select()
       .single()
     
@@ -167,9 +185,29 @@ export const coursesApi = {
   },
 
   update: async (id: string, updates: any) => {
+    const payload: Record<string, any> = {}
+    if (updates.title !== undefined) payload.title = updates.title
+    if (updates.slug !== undefined) payload.slug = updates.slug
+    if (updates.category_id !== undefined || updates.category !== undefined || updates.categoryId !== undefined) {
+      payload.category_id = updates.category_id ?? updates.category ?? updates.categoryId
+    }
+    if (updates.instructor_id !== undefined || updates.instructorId !== undefined) {
+      payload.instructor_id = updates.instructor_id ?? updates.instructorId
+    }
+    if (updates.level !== undefined) payload.level = updates.level
+    if (updates.price !== undefined) payload.price = typeof updates.price === 'number' ? updates.price : (Number(updates.price) || 0)
+    if (updates.duration !== undefined) payload.duration = typeof updates.duration === 'number' ? updates.duration : (parseInt(updates.duration, 10) || 0)
+    if (updates.has_certificate !== undefined || updates.hasCertificate !== undefined) {
+      payload.has_certificate = updates.has_certificate ?? updates.hasCertificate
+    }
+    if (updates.status !== undefined) payload.status = updates.status
+    if (updates.description !== undefined) payload.description = updates.description
+    if (updates.thumbnail !== undefined) payload.thumbnail = updates.thumbnail
+    if (updates.is_published !== undefined) payload.is_published = updates.is_published
+
     const { data, error } = await supabase
       .from('courses')
-      .update(updates) // remove updated_at if not in schema (courses table has last_updated)
+      .update(payload)
       .eq('id', id)
       .select()
       .single()

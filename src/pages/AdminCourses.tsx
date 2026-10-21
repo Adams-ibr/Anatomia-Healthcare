@@ -92,8 +92,8 @@ export default function AdminCourses() {
       const mappedCourses: DisplayCourse[] = coursesArray.map(c => ({
         ...c,
         instructorId: c.instructor_id,
-        categoryId: c.category,
-        thumbnail: c.thumbnail_url,
+        categoryId: c.category_id || c.category,
+        thumbnail: c.thumbnail || c.thumbnail_url,
         hasCertificate: c.has_certificate ?? false,
         studentCount: 0, // TODO: fetch from enrollments
         rating: c.level === 'Beginner' ? 4.5 : c.level === 'Advanced' ? 4.8 : 4.6,
@@ -351,7 +351,7 @@ export default function AdminCourses() {
         onCreate={(input) => runMutation(
           async () => await coursesApi.create({
             title: input.title,
-            category: input.categoryId,
+            category_id: input.categoryId,
             instructor_id: input.instructorId,
             level: input.level,
             price: input.price,
@@ -378,7 +378,7 @@ export default function AdminCourses() {
           onSave={(patch) => runMutation(
             async () => await coursesApi.update(editing.id, {
               title: patch.title,
-              category: patch.categoryId,
+              category_id: patch.categoryId,
               level: patch.level,
               price: patch.price,
               duration: patch.duration,
