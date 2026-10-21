@@ -54,7 +54,10 @@ export default function AdminUsers() {
 
   const loadUsers = useCallback(async (p: number) => {
     const token = getStoredToken()
-    if (!token) return
+    if (!token) {
+      setLoading(false)
+      return
+    }
     setLoading(true)
     setError(null)
     

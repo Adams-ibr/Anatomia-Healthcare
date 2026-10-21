@@ -149,17 +149,12 @@ export default function AdminInstructors() {
     if (!formName.trim() || !formEmail.trim()) return
     setMutating(true)
     try {
-      // Generate slug from name
-      const slug = formName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') + '-' + Date.now()
-      
       await teamApi.create({
-        name: formName,
-        slug: slug,
-        email: formEmail,
-        title: formTitle,
-        role: formTitle || 'Instructor',
-        description: formBio || 'Instructor at Anatomia Healthcare',
-        bio: formBio,
+        name: formName.trim(),
+        email: formEmail.trim(),
+        title: formTitle.trim() || undefined,
+        role: formTitle.trim() || 'Instructor',
+        bio: (formBio.trim() || formHeadline.trim()) || undefined,
         is_active: true
       })
       toast(t('adminInstructors.createdTitle', 'Instructor Added'), t('adminInstructors.createdDesc', 'New instructor profile created successfully.'))

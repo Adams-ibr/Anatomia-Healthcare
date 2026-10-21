@@ -1987,9 +1987,10 @@ export type Database = {
       }
       team_members: {
         Row: {
+          avatar: string | null
           bio: string | null
           created_at: string | null
-          description: string
+          description: string | null
           email: string | null
           facebook_url: string | null
           id: string
@@ -1999,14 +2000,18 @@ export type Database = {
           linkedin_url: string | null
           name: string
           order: number | null
-          role: string
-          slug: string
+          photo_url: string | null
+          role: string | null
+          slug: string | null
+          title: string | null
           twitter_url: string | null
+          updated_at: string | null
         }
         Insert: {
+          avatar?: string | null
           bio?: string | null
           created_at?: string | null
-          description: string
+          description?: string | null
           email?: string | null
           facebook_url?: string | null
           id?: string
@@ -2016,14 +2021,18 @@ export type Database = {
           linkedin_url?: string | null
           name: string
           order?: number | null
-          role: string
-          slug: string
+          photo_url?: string | null
+          role?: string | null
+          slug?: string | null
+          title?: string | null
           twitter_url?: string | null
+          updated_at?: string | null
         }
         Update: {
+          avatar?: string | null
           bio?: string | null
           created_at?: string | null
-          description?: string
+          description?: string | null
           email?: string | null
           facebook_url?: string | null
           id?: string
@@ -2033,9 +2042,12 @@ export type Database = {
           linkedin_url?: string | null
           name?: string
           order?: number | null
-          role?: string
-          slug?: string
+          photo_url?: string | null
+          role?: string | null
+          slug?: string | null
+          title?: string | null
           twitter_url?: string | null
+          updated_at?: string | null
         }
         Relationships: []
       }
