@@ -17,7 +17,7 @@ export default function Checkout() {
   const [failed, setFailed] = useState(false)
   const [verifying, setVerifying] = useState(false)
 
-  const reference = searchParams.get('reference')
+  const reference = searchParams.get('reference') ?? searchParams.get('trxref')
 
   useEffect(() => {
     if (!reference || !currentUser) return
@@ -88,6 +88,7 @@ export default function Checkout() {
 
   const handlePurchase = async () => {
     if (processing) return
+    setFailed(false)
     setProcessing(true)
     try {
       const result = await checkout('paystack')
@@ -95,6 +96,9 @@ export default function Checkout() {
         setDone(true)
         toast(t('checkout.paymentSuccessful'), t('checkout.welcomeAboard'))
       }
+    } catch (error) {
+      setFailed(true)
+      toast(t('checkout.paymentFailed'), error instanceof Error ? error.message : t('checkout.paymentFailedDesc'), 'error')
     } finally {
       setProcessing(false)
     }

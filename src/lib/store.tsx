@@ -4,6 +4,7 @@ import type { User, AuthUser, Enrollment, Notification, Conversation, Message, S
 import { uid } from './utils'
 import * as auth from './auth'
 import type { AuthSession } from './auth'
+import { supabase } from './supabase'
 
 interface Toast {
   id: string
@@ -91,6 +92,18 @@ function save(key: string, value: unknown) {
 function getErrorMessage(err: unknown): string {
   if (err instanceof Error) return err.message
   return 'Something went wrong. Please try again.'
+}
+
+async function getFunctionErrorMessage(error: unknown, fallback: string): Promise<string> {
+  const functionError = error as { message?: string; context?: Response } | null
+  const context = functionError?.context
+  if (context && typeof context.clone === 'function') {
+    try {
+      const body = await context.clone().json() as { error?: string; message?: string }
+      if (body.error || body.message) return body.error ?? body.message!
+    } catch { /* use the SDK error below */ }
+  }
+  return functionError?.message || fallback
 }
 
 function normalizeUser(user: auth.AuthUser): AuthUser {
@@ -421,33 +434,92 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const checkout = useCallback(async (method: string): Promise<'completed' | 'redirected'> => {
-    if (!currentUser) return 'completed'
-    const courseIds = [...cart]
-    
-    // Local checkout only for now
-    setEnrollments((e) => {
-      const next = [...e]
-      cart.forEach((courseId) => {
-        if (!next.some((x) => x.userId === currentUser.id && x.courseId === courseId)) {
-          next.push({ id: uid('en'), userId: currentUser.id, courseId, enrolledAt: new Date().toISOString(), progress: 0, status: 'active', completedLessons: [], pricePaid: 0 })
-        }
-      })
-      return next
+    if (!currentUser) throw new Error('Please sign in before checking out.')
+    if (cart.length === 0) throw new Error('Your cart is empty.')
+    const { data, error } = await supabase.functions.invoke('auth/checkout', {
+      body: {
+        courseIds: [...new Set(cart)],
+        paymentMethod: method,
+        callbackUrl: `${window.location.origin}/checkout`
+      }
     })
-    setOrders((o) => [...o, {
-      id: `ORD-${Math.floor(10000 + Math.random() * 89999)}`, userId: currentUser.id,
-      items: cart.map((id) => ({ courseId: id, title: id, price: 0 })), total: 0, status: 'completed',
-      date: new Date().toISOString(), paymentMethod: method
+    if (error) throw new Error(await getFunctionErrorMessage(error, 'Could not start your Paystack checkout.'))
+    if (data?.authorizationUrl) {
+      window.location.assign(data.authorizationUrl)
+      return 'redirected'
+    }
+    if (data?.order?.status !== 'completed') throw new Error('The checkout service did not confirm your order.')
+
+    const now = new Date().toISOString()
+    const newEnrollments = (data.enrollments ?? []).map((enrollment: any) => ({
+      id: enrollment.id,
+      userId: enrollment.userId,
+      courseId: enrollment.courseId,
+      enrolledAt: enrollment.enrolledAt ?? now,
+      progress: enrollment.progress ?? 0,
+      status: enrollment.status === 'completed' ? 'completed' as const : 'active' as const,
+      completedLessons: enrollment.completedLessons ?? [],
+      currentLessonId: enrollment.currentLessonId,
+      certificateIssued: enrollment.certificateIssued,
+      certificateId: enrollment.certificateId,
+      pricePaid: Number(enrollment.pricePaid ?? 0),
+      course: enrollment.course
+    }))
+    setEnrollments((existing) => [...existing.filter((row) => !newEnrollments.some((next: Enrollment) => next.courseId === row.courseId && next.userId === row.userId)), ...newEnrollments])
+    setOrders((existing) => [...existing, {
+      id: data.order.id,
+      userId: currentUser.id,
+      items: cart.map((id) => ({ courseId: id, title: cartCourses[id]?.title ?? id, price: cartCourses[id]?.discountPrice ?? cartCourses[id]?.price ?? 0 })),
+      total: Number(data.order.total ?? 0),
+      status: 'completed',
+      date: data.order.createdAt ?? now,
+      paymentMethod: data.order.paymentMethod ?? method
     }])
     setCart([])
     setCartCourses({})
     return 'completed'
-  }, [cart, currentUser])
+  }, [cart, cartCourses, currentUser])
 
   const verifyCheckout = useCallback(async (reference: string) => {
     if (!currentUser) return { ok: false, error: 'Not authenticated.' }
-    // TODO: Implement with Supabase
-    return { ok: true }
+    try {
+      const { data, error } = await supabase.functions.invoke('auth/checkout/verify', { body: { reference } })
+      if (error) throw new Error(await getFunctionErrorMessage(error, 'Could not verify this payment.'))
+      if (data?.order?.status !== 'completed') return { ok: false, error: 'Payment is not complete yet.' }
+      const now = new Date().toISOString()
+      const verifiedEnrollments = (data.enrollments ?? []).map((enrollment: any) => ({
+        id: enrollment.id,
+        userId: enrollment.userId,
+        courseId: enrollment.courseId,
+        enrolledAt: enrollment.enrolledAt ?? now,
+        progress: enrollment.progress ?? 0,
+        status: enrollment.status === 'completed' ? 'completed' as const : 'active' as const,
+        completedLessons: enrollment.completedLessons ?? [],
+        currentLessonId: enrollment.currentLessonId,
+        certificateIssued: enrollment.certificateIssued,
+        certificateId: enrollment.certificateId,
+        pricePaid: Number(enrollment.pricePaid ?? 0),
+        course: enrollment.course
+      }))
+      setEnrollments((existing) => [...existing.filter((row) => !verifiedEnrollments.some((next: Enrollment) => next.courseId === row.courseId && next.userId === row.userId)), ...verifiedEnrollments])
+      setOrders((existing) => {
+        if (existing.some((order) => order.id === data.order.id)) return existing
+        return [...existing, {
+          id: data.order.id,
+          userId: currentUser.id,
+          items: verifiedEnrollments.map((enrollment: Enrollment) => ({ courseId: enrollment.courseId, title: enrollment.course?.title ?? enrollment.courseId, price: enrollment.pricePaid })),
+          total: Number(data.order.total ?? 0),
+          status: 'completed',
+          date: data.order.createdAt ?? now,
+          paymentMethod: data.order.paymentMethod ?? 'paystack'
+        }]
+      })
+      setCart([])
+      setCartCourses({})
+      return { ok: true, enrollments: verifiedEnrollments, order: data.order }
+    } catch (err) {
+      return { ok: false, error: err instanceof Error ? err.message : 'Payment verification failed.' }
+    }
   }, [currentUser])
 
   const markNotificationsRead = useCallback(() => {

@@ -378,10 +378,20 @@ async function authUser(req: Request): Promise<{ id: string; email?: string } | 
     .eq('token_hash', tokenHash)
     .eq('is_revoked', false)
     .maybeSingle()
-  if (error || !data) return null
-  if (data.expires_at && new Date(data.expires_at).getTime() < Date.now()) return null
-  const profile = await getProfile(data.user_id)
+  if (!error && data) {
+    if (data.expires_at && new Date(data.expires_at).getTime() < Date.now()) return null
+    const profile = await getProfile(data.user_id)
+    if (!profile || !profile.is_active) return null
+    return { id: profile.id, email: profile.email }
+  }
+
+  // The current web client uses Supabase Auth JWTs. Keep accepting older
+  // custom sessions while validating modern access tokens with Supabase Auth.
+  const { data: authData, error: authError } = await supabase.auth.getUser(token)
+  if (authError || !authData.user) return null
+  const profile = await getProfile(authData.user.id)
   if (!profile) return null
+  if (!profile.is_active) return null
   return { id: profile.id, email: profile.email }
 }
 
@@ -413,6 +423,7 @@ async function paystackInitialize(email: string, amountKobo: number, reference: 
       body: JSON.stringify({
         email,
         amount: Math.round(amountKobo),
+        currency: 'NGN',
         reference,
         callback_url: callbackUrl,
         metadata
@@ -437,7 +448,7 @@ async function paystackVerify(reference: string) {
     if (!res.ok || !data?.status) {
       return { error: data?.message ?? 'Paystack could not verify this payment.' }
     }
-    return { data: data.data as { status: string; reference: string; amount: number; paid_at?: string } }
+    return { data: data.data as { status: string; reference: string; amount: number; currency: string; paid_at?: string } }
   } catch {
     return { error: 'Could not reach Paystack. Please try again.' }
   }
@@ -2268,9 +2279,10 @@ async function handleCheckout(req: Request): Promise<Response> {
   const guard = await requireUser(req)
   if (guard instanceof Response) return guard
 
-  const { courseIds, paymentMethod, callbackUrl } = await readBody(req)
+  const { courseIds, paymentMethod } = await readBody(req)
   if (!Array.isArray(courseIds) || courseIds.length === 0) return errorResponse(422, 'At least one course is required.')
-  const ids = courseIds.filter((x): x is string => typeof x === 'string')
+  const ids = [...new Set(courseIds.filter((x): x is string => typeof x === 'string'))]
+  if (ids.length === 0) return errorResponse(422, 'At least one valid course is required.')
 
   const { data: courses } = await supabase
     .from('courses')
@@ -2278,6 +2290,15 @@ async function handleCheckout(req: Request): Promise<Response> {
     .in('id', ids)
   const courseMap = new Map((courses ?? []).map((c) => [c.id, c]))
   if ((courses ?? []).length !== ids.length) return errorResponse(404, 'One or more courses were not found.')
+  if (courses?.some((course) => course.status !== 'published')) return errorResponse(409, 'One or more courses are not available for purchase.')
+
+  const { data: existingEnrollments, error: enrollmentLookupError } = await supabase
+    .from('enrollments')
+    .select('course_id')
+    .eq('user_id', guard.profile.id)
+    .in('course_id', ids)
+  if (enrollmentLookupError) return errorResponse(500, 'Could not verify existing enrollments.')
+  if ((existingEnrollments ?? []).length > 0) return errorResponse(409, 'Remove courses you are already enrolled in before checking out.')
 
   const unpaid = ids.filter((id) => {
     const c = courseMap.get(id)!
@@ -2286,7 +2307,7 @@ async function handleCheckout(req: Request): Promise<Response> {
   if (unpaid.length > 0 && !paymentMethod) return errorResponse(422, 'A payment method is required for paid courses.')
 
   const total = ids.reduce((sum, id) => sum + (Number(courseMap.get(id)!.discount_price ?? courseMap.get(id)!.price) || 0), 0)
-  const method = typeof paymentMethod === 'string' && paymentMethod ? paymentMethod : 'card'
+  const method = typeof paymentMethod === 'string' && paymentMethod ? paymentMethod : 'paystack'
 
   if (total === 0) {
     const { data: order, error: orderError } = await supabase.from('orders').insert({
@@ -2361,7 +2382,7 @@ async function handleCheckout(req: Request): Promise<Response> {
     guard.profile.email,
     total * 100,
     reference,
-    typeof callbackUrl === 'string' && callbackUrl ? callbackUrl : `${FRONTEND_URL}/checkout`,
+    `${FRONTEND_URL}/checkout`,
     { user_id: guard.profile.id, course_ids: ids }
   )
   if ('error' in init) {
@@ -2412,6 +2433,9 @@ async function handleCheckoutVerify(req: Request): Promise<Response> {
   if (verified.data.status !== 'success') {
     return errorResponse(400, 'Payment was not completed. Your order is still pending — you can try again.')
   }
+  if (verified.data.reference !== reference || verified.data.amount !== Math.round(Number(order.total) * 100) || verified.data.currency !== 'NGN') {
+    return errorResponse(400, 'The verified payment does not match this order amount and currency.')
+  }
 
   const courseIds = (order.order_items ?? []).map((it: { course_id: string }) => it.course_id)
   try {
@@ -2438,9 +2462,9 @@ async function handlePaystackWebhook(req: Request): Promise<Response> {
   const valid = await paystackSignatureValid(req, rawBody)
   if (!valid) return errorResponse(401, 'Invalid signature.')
 
-  let payload: { event?: string; data?: { reference?: string } }
+  let payload: { event?: string; data?: { reference?: string; amount?: number; currency?: string } }
   try {
-    payload = JSON.parse(rawBody) as { event?: string; data?: { reference?: string } }
+    payload = JSON.parse(rawBody) as { event?: string; data?: { reference?: string; amount?: number; currency?: string } }
   } catch {
     return errorResponse(400, 'Invalid payload.')
   }
@@ -2455,6 +2479,10 @@ async function handlePaystackWebhook(req: Request): Promise<Response> {
     .eq('payment_reference', payload.data.reference)
     .maybeSingle()
   if (!order) return json({ received: true })
+
+  if (payload.data.amount !== Math.round(Number(order.total) * 100) || payload.data.currency !== 'NGN') {
+    return errorResponse(400, 'Webhook amount or currency does not match the order.')
+  }
 
   if (order.status !== 'completed') {
     const courseIds = (order.order_items ?? []).map((it: { course_id: string }) => it.course_id)
