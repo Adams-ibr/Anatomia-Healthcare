@@ -709,6 +709,13 @@ create policy "Sections read" on public.course_sections for select using (exists
 create policy "Admins manage sections" on public.course_sections for all to authenticated
   using (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin'))
   with check (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin'));
+create policy "Course owners manage sections" on public.course_sections for all to authenticated
+  using (exists (select 1 from public.courses c where c.id = course_sections.course_id and (
+    c.instructor_id = auth.uid() or exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin')
+  )))
+  with check (exists (select 1 from public.courses c where c.id = course_sections.course_id and (
+    c.instructor_id = auth.uid() or exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin')
+  )));
 create policy "Lessons read" on public.lessons for select using (exists (
   select 1 from public.course_sections s
   join public.courses c on c.id = s.course_id
@@ -716,6 +723,30 @@ create policy "Lessons read" on public.lessons for select using (exists (
 create policy "Admins manage lessons" on public.lessons for all to authenticated
   using (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin'))
   with check (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin'));
+create policy "Course owners manage assessments" on public.assessments for all to authenticated
+  using (exists (select 1 from public.courses c where c.id = assessments.course_id and (
+    c.instructor_id = auth.uid() or exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin')
+  ))) with check (exists (select 1 from public.courses c where c.id = assessments.course_id and (
+    c.instructor_id = auth.uid() or exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin')
+  )));
+create policy "Course owners manage assessment questions" on public.assessment_questions for all to authenticated
+  using (exists (select 1 from public.assessments a join public.courses c on c.id = a.course_id
+    where a.id = assessment_questions.assessment_id and (c.instructor_id = auth.uid() or exists (
+      select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin'
+    ))))
+  with check (exists (select 1 from public.assessments a join public.courses c on c.id = a.course_id
+    where a.id = assessment_questions.assessment_id and (c.instructor_id = auth.uid() or exists (
+      select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin'
+    ))));
+create policy "Course owners manage lessons" on public.lessons for all to authenticated
+  using (exists (select 1 from public.course_sections s join public.courses c on c.id = s.course_id
+    where s.id = lessons.section_id and (c.instructor_id = auth.uid() or exists (
+      select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin'
+    ))))
+  with check (exists (select 1 from public.course_sections s join public.courses c on c.id = s.course_id
+    where s.id = lessons.section_id and (c.instructor_id = auth.uid() or exists (
+      select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin'
+    ))));
 create policy "Published anatomy models read" on public.anatomy_models for select using (is_published = true);
 create policy "Admins manage anatomy models" on public.anatomy_models for all to authenticated
   using (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin'))
@@ -790,6 +821,24 @@ create policy "Admins manage gallery images" on storage.objects for all to authe
 create policy "Objectives read" on public.course_objectives for select using (true);
 create policy "Requirements read" on public.course_requirements for select using (true);
 create policy "FAQs read" on public.course_faqs for select using (true);
+create policy "Course owners manage objectives" on public.course_objectives for all to authenticated
+  using (exists (select 1 from public.courses c where c.id = course_objectives.course_id and (
+    c.instructor_id = auth.uid() or exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin')
+  ))) with check (exists (select 1 from public.courses c where c.id = course_objectives.course_id and (
+    c.instructor_id = auth.uid() or exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin')
+  )));
+create policy "Course owners manage requirements" on public.course_requirements for all to authenticated
+  using (exists (select 1 from public.courses c where c.id = course_requirements.course_id and (
+    c.instructor_id = auth.uid() or exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin')
+  ))) with check (exists (select 1 from public.courses c where c.id = course_requirements.course_id and (
+    c.instructor_id = auth.uid() or exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin')
+  )));
+create policy "Course owners manage FAQs" on public.course_faqs for all to authenticated
+  using (exists (select 1 from public.courses c where c.id = course_faqs.course_id and (
+    c.instructor_id = auth.uid() or exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin')
+  ))) with check (exists (select 1 from public.courses c where c.id = course_faqs.course_id and (
+    c.instructor_id = auth.uid() or exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin')
+  )));
 create policy "Reviews read" on public.reviews for select using (true);
 create policy "Public content read" on public.learning_paths for select using (true);
 create policy "Public content read" on public.blog_posts for select using (true);

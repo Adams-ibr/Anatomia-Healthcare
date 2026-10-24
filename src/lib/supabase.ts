@@ -1187,6 +1187,220 @@ export const lessonsApi = {
   }
 }
 
+// ============================================================================
+// COURSE EDITOR
+// ============================================================================
+
+export const courseStudioApi = {
+  getFull: async (id: string) => {
+    const db = supabase as any
+    const [courseResult, sectionsResult, objectivesResult, requirementsResult, faqsResult, assessmentsResult] = await Promise.all([
+      db.from('courses').select('*').eq('id', id).single(),
+      db.from('course_sections').select('*, lessons(*)').eq('course_id', id).order('position', { ascending: true }),
+      db.from('course_objectives').select('*').eq('course_id', id).order('position', { ascending: true }),
+      db.from('course_requirements').select('*').eq('course_id', id).order('position', { ascending: true }),
+      db.from('course_faqs').select('*').eq('course_id', id),
+      db.from('assessments').select('*, assessment_questions(*)').eq('course_id', id)
+    ])
+    for (const result of [courseResult, sectionsResult, objectivesResult, requirementsResult, faqsResult, assessmentsResult]) {
+      if (result.error) throw result.error
+    }
+    const course = courseResult.data
+    return {
+      id: course.id,
+      slug: course.slug,
+      title: course.title,
+      subtitle: course.subtitle ?? '',
+      description: course.description ?? '',
+      longDescription: course.long_description ?? '',
+      categoryId: course.category_id,
+      instructorId: course.instructor_id,
+      thumbnail: course.thumbnail ?? '',
+      price: Number(course.price ?? 0),
+      discountPrice: course.discount_price == null ? undefined : Number(course.discount_price),
+      rating: Number(course.rating ?? 0),
+      reviewCount: course.review_count ?? 0,
+      studentCount: course.student_count ?? 0,
+      duration: course.duration ?? 0,
+      level: course.level,
+      language: course.language ?? 'English',
+      lastUpdated: course.last_updated,
+      hasCertificate: course.has_certificate ?? false,
+      isFeatured: course.is_featured ?? false,
+      isTrending: course.is_trending ?? false,
+      isNew: course.is_new ?? false,
+      status: course.status,
+      createdAt: course.created_at,
+      objectives: (objectivesResult.data ?? []).map((row: any) => row.text),
+      requirements: (requirementsResult.data ?? []).map((row: any) => row.text),
+      sections: (sectionsResult.data ?? []).map((section: any) => ({
+        id: section.id,
+        title: section.title,
+        lessons: (section.lessons ?? []).sort((a: any, b: any) => a.position - b.position).map((lesson: any) => ({
+          id: lesson.id,
+          title: lesson.title,
+          type: lesson.type,
+          duration: lesson.duration ?? 0,
+          content: lesson.content ?? '',
+          videoUrl: lesson.video_url ?? undefined,
+          resourceUrl: lesson.resource_url ?? undefined
+        }))
+      })),
+      assessments: (assessmentsResult.data ?? []).map((assessment: any) => ({
+        id: assessment.id,
+        title: assessment.title,
+        description: assessment.description ?? '',
+        timeLimit: assessment.time_limit,
+        passingScore: assessment.passing_score,
+        retakeLimit: assessment.retake_limit,
+        questions: (assessment.assessment_questions ?? []).sort((a: any, b: any) => a.position - b.position).map((question: any) => ({
+          id: question.id,
+          type: question.type,
+          question: question.question,
+          options: question.options ?? [],
+          answer: question.answer ?? '',
+          explanation: question.explanation ?? ''
+        }))
+      })),
+      faqs: (faqsResult.data ?? []).map((faq: any) => ({ q: faq.question, a: faq.answer }))
+    }
+  },
+
+  create: async (input: any) => {
+    const { data: { user }, error: userError } = await supabase.auth.getUser()
+    if (userError) throw userError
+    if (!user) throw new Error('Please sign in again before creating a course')
+    const title = input.title?.trim() || 'Untitled course'
+    const slug = `${title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'course'}-${crypto.randomUUID()}`
+    const { data, error } = await (supabase as any).from('courses').insert({
+      slug,
+      title,
+      subtitle: input.subtitle ?? '',
+      description: input.description ?? '',
+      long_description: input.longDescription ?? '',
+      category_id: input.categoryId,
+      instructor_id: input.instructorId ?? user.id,
+      thumbnail: input.thumbnail || null,
+      price: input.price ?? 0,
+      discount_price: input.discountPrice ?? null,
+      level: input.level ?? 'Beginner',
+      language: input.language ?? 'English',
+      duration: input.duration ?? 0,
+      has_certificate: input.hasCertificate ?? false,
+      status: input.status ?? 'draft',
+      is_published: input.status === 'published'
+    }).select('id').single()
+    if (error) throw error
+    return data.id as string
+  },
+
+  saveContent: async (id: string, content: any) => {
+    const db = supabase as any
+    const { data: { user }, error: userError } = await supabase.auth.getUser()
+    if (userError) throw userError
+    if (!user) throw new Error('Please sign in again before saving this course')
+
+    const { error: courseError } = await db.from('courses').update({
+      title: content.title,
+      subtitle: content.subtitle ?? '',
+      description: content.description ?? '',
+      long_description: content.longDescription ?? '',
+      category_id: content.categoryId,
+      level: content.level,
+      language: content.language ?? 'English',
+      thumbnail: content.thumbnail || null,
+      price: content.price ?? 0,
+      discount_price: content.discountPrice ?? null,
+      duration: content.sections?.reduce((total: number, section: any) => total + (section.lessons ?? []).reduce((sum: number, lesson: any) => sum + (lesson.duration ?? 0), 0), 0) ?? 0,
+      has_certificate: content.hasCertificate ?? false,
+      status: content.status ?? 'draft',
+      is_published: content.status === 'published',
+      last_updated: new Date().toISOString()
+    }).eq('id', id)
+    if (courseError) throw courseError
+
+    const { data: oldSections, error: oldSectionsError } = await db.from('course_sections').select('id').eq('course_id', id)
+    if (oldSectionsError) throw oldSectionsError
+    const sectionIds = (oldSections ?? []).map((row: any) => row.id)
+    if (sectionIds.length) {
+      const { error } = await db.from('lessons').delete().in('section_id', sectionIds)
+      if (error) throw error
+    }
+    const { error: deleteSectionsError } = await db.from('course_sections').delete().eq('course_id', id)
+    if (deleteSectionsError) throw deleteSectionsError
+
+    const { data: oldAssessments, error: oldAssessmentsError } = await db.from('assessments').select('id').eq('course_id', id)
+    if (oldAssessmentsError) throw oldAssessmentsError
+    const assessmentIds = (oldAssessments ?? []).map((row: any) => row.id)
+    if (assessmentIds.length) {
+      const { error } = await db.from('assessment_questions').delete().in('assessment_id', assessmentIds)
+      if (error) throw error
+    }
+    const { error: deleteAssessmentsError } = await db.from('assessments').delete().eq('course_id', id)
+    if (deleteAssessmentsError) throw deleteAssessmentsError
+
+    for (const table of ['course_objectives', 'course_requirements', 'course_faqs']) {
+      const { error } = await db.from(table).delete().eq('course_id', id)
+      if (error) throw error
+    }
+
+    for (const [position, text] of (content.objectives ?? []).entries()) {
+      const { error } = await db.from('course_objectives').insert({ course_id: id, text, position })
+      if (error) throw error
+    }
+    for (const [position, text] of (content.requirements ?? []).entries()) {
+      const { error } = await db.from('course_requirements').insert({ course_id: id, text, position })
+      if (error) throw error
+    }
+    for (const [position, section] of (content.sections ?? []).entries()) {
+      const { data: savedSection, error } = await db.from('course_sections').insert({ course_id: id, title: section.title, position }).select('id').single()
+      if (error) throw error
+      const lessons = (section.lessons ?? []).map((lesson: any, lessonPosition: number) => ({
+        section_id: savedSection.id,
+        title: lesson.title,
+        type: lesson.type ?? 'video',
+        duration: lesson.duration ?? 0,
+        content: lesson.content ?? '',
+        video_url: lesson.videoUrl || null,
+        resource_url: lesson.resourceUrl || null,
+        position: lessonPosition
+      }))
+      if (lessons.length) {
+        const { error: lessonsError } = await db.from('lessons').insert(lessons)
+        if (lessonsError) throw lessonsError
+      }
+    }
+    for (const faq of (content.faqs ?? []).filter((row: any) => row.q || row.a)) {
+      const { error } = await db.from('course_faqs').insert({ course_id: id, question: faq.q || '', answer: faq.a || '' })
+      if (error) throw error
+    }
+    for (const assessment of content.assessments ?? []) {
+      const { data: savedAssessment, error } = await db.from('assessments').insert({
+        course_id: id,
+        title: assessment.title || 'Assessment',
+        description: assessment.description ?? '',
+        time_limit: assessment.timeLimit ?? 30,
+        passing_score: assessment.passingScore ?? 60,
+        retake_limit: assessment.retakeLimit ?? 3
+      }).select('id').single()
+      if (error) throw error
+      const questions = (assessment.questions ?? []).map((question: any, position: number) => ({
+        assessment_id: savedAssessment.id,
+        type: question.type ?? 'mc',
+        question: question.question || 'Question',
+        options: question.options ?? [],
+        answer: question.answer ?? '',
+        explanation: question.explanation ?? '',
+        position
+      }))
+      if (questions.length) {
+        const { error: questionsError } = await db.from('assessment_questions').insert(questions)
+        if (questionsError) throw questionsError
+      }
+    }
+  }
+}
+
 
 // ============================================================================
 // ANATOMY MODELS
