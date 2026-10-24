@@ -6,8 +6,7 @@ import {
   Clock3, CloudDownload, FileText, Flag, Layers, Loader2, PencilLine, Plus, Search, Star,
   Trash2
 } from 'lucide-react'
-import { coursesApi, categoriesApi } from '../lib/supabase'
-import { courseApi, getStoredToken } from '../lib/api/auth'
+import { coursesApi, categoriesApi, supabase } from '../lib/supabase'
 import type { Course, Category, CourseLevel, CourseStatus } from '../lib/types/admin'
 import { useApp } from '../lib/store'
 import { Badge, Button, EmptyState, Modal, Skeleton } from '../components/ui'
@@ -127,10 +126,14 @@ export default function AdminCourses() {
   const loadInstructors = useCallback(async () => {
     setInstructorsLoadError(null)
     try {
-      const token = getStoredToken()
-      if (!token) throw new Error('Your admin session is unavailable. Please sign in again.')
-      const { instructors: data } = await courseApi.listInstructors(token)
-      setInstructors(data)
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, name')
+        .eq('role', 'instructor')
+        .eq('is_active', true)
+        .order('name')
+      if (error) throw error
+      setInstructors((data ?? []).map(({ id, name }) => ({ id, name })))
     } catch (error) {
       setInstructorsLoadError(error instanceof Error ? error.message : 'Could not load instructors from the database.')
       setInstructors([])
