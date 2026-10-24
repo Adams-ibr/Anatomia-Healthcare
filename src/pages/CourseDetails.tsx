@@ -84,7 +84,7 @@ export default function CourseDetails() {
             instructorName: raw.instructorName ?? raw.instructor_name ?? 'Anatomia Faculty',
             objectives: (raw.objectives ?? []).map((o: any, idx: number) => typeof o === 'string' ? { id: `obj_${idx}`, text: o } : o),
             requirements: (raw.requirements ?? []).map((r: any, idx: number) => typeof r === 'string' ? { id: `req_${idx}`, text: r } : r),
-            sections: (raw.course_modules ?? raw.sections ?? []).map((s: any, idx: number) => ({
+            sections: (raw.course_sections ?? raw.course_modules ?? raw.sections ?? []).map((s: any, idx: number) => ({
               id: s.id ?? `sec_${idx}`,
               title: s.title ?? '',
               lessons: (s.lessons ?? []).map((l: any, lidx: number) => ({

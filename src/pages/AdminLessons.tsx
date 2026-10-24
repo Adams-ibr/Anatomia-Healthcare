@@ -31,7 +31,7 @@ interface DbModule {
   course_id: string
 }
 
-const CONTENT_TYPES = ['video', 'article', 'pdf', 'audio', 'quiz', 'interactive']
+const CONTENT_TYPES = ['video', 'article', 'pdf', 'audio', 'quiz', 'assignment', 'exam', 'project']
 
 export default function AdminLessons() {
   const { toast } = useApp()

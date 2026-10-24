@@ -136,7 +136,7 @@ export const coursesApi = {
   getById: async (id: string) => {
     const { data, error } = await supabase
       .from('courses')
-      .select('*, course_modules(*)')
+      .select('*, course_sections(*, lessons(*))')
       .eq('id', id)
       .single()
     
@@ -147,7 +147,7 @@ export const coursesApi = {
   getBySlug: async (slug: string) => {
     const { data, error } = await supabase
       .from('courses')
-      .select('*, course_modules(*)')
+      .select('*, course_sections(*, lessons(*))')
       .eq('slug', slug)
       .single()
     
@@ -899,53 +899,62 @@ export const categoriesApi = {
 
 export const modulesApi = {
   list: async (courseId?: string) => {
-    let query = supabase.from('course_modules').select('*')
+    let query = (supabase as any).from('course_sections').select('*')
     
     if (courseId) {
       query = query.eq('course_id', courseId)
     }
     
-    const { data, error } = await query.order('order', { ascending: true })
+    const { data, error } = await query.order('position', { ascending: true })
     if (error) throw error
-    return data
+    return (data ?? []).map((section: any) => ({
+      ...section,
+      order: section.position,
+      description: null,
+      is_published: true,
+      created_at: null
+    }))
   },
 
   getById: async (id: string) => {
-    const { data, error } = await supabase
-      .from('course_modules')
+    const { data, error } = await (supabase as any)
+      .from('course_sections')
       .select('*, lessons(*)')
       .eq('id', id)
       .single()
     
     if (error) throw error
-    return data
+    return { ...data, order: data.position, description: null, is_published: true, created_at: null }
   },
 
   create: async (module: any) => {
-    const { data, error } = await supabase
-      .from('course_modules')
-      .insert(module)
+    const { data, error } = await (supabase as any)
+      .from('course_sections')
+      .insert({ course_id: module.course_id, title: module.title, position: module.order ?? module.position ?? 0 })
       .select()
       .single()
     
     if (error) throw error
-    return data
+    return { ...data, order: data.position, description: null, is_published: true, created_at: null }
   },
 
   update: async (id: string, updates: any) => {
-    const { data, error } = await supabase
-      .from('course_modules')
-      .update(updates)
+    const { data, error } = await (supabase as any)
+      .from('course_sections')
+      .update({
+        ...(updates.title !== undefined ? { title: updates.title } : {}),
+        ...(updates.order !== undefined || updates.position !== undefined ? { position: updates.order ?? updates.position } : {})
+      })
       .eq('id', id)
       .select()
       .single()
     
     if (error) throw error
-    return data
+    return { ...data, order: data.position, description: null, is_published: true, created_at: null }
   },
 
   delete: async (id: string) => {
-    const { error } = await supabase.from('course_modules').delete().eq('id', id)
+    const { error } = await (supabase as any).from('course_sections').delete().eq('id', id)
     if (error) throw error
   }
 }
@@ -956,53 +965,89 @@ export const modulesApi = {
 
 export const lessonsApi = {
   list: async (filters?: { module_id?: string }) => {
-    let query = supabase.from('lessons').select('*')
+    let query = (supabase as any).from('lessons').select('*')
     
     if (filters?.module_id) {
-      query = query.eq('module_id', filters.module_id)
+      query = query.eq('section_id', filters.module_id)
     }
     
-    const { data, error } = await query.order('order', { ascending: true })
+    const { data, error } = await query.order('position', { ascending: true })
     if (error) throw error
-    return data
+    return (data ?? []).map((lesson: any) => ({
+      ...lesson,
+      module_id: lesson.section_id,
+      content_type: lesson.type,
+      order: lesson.position,
+      description: null,
+      is_free: false,
+      is_published: true,
+      created_at: null,
+      updated_at: null
+    }))
   },
 
   getById: async (id: string) => {
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from('lessons')
       .select('*')
       .eq('id', id)
       .single()
     
     if (error) throw error
-    return data
+    return {
+      ...data,
+      module_id: data.section_id,
+      content_type: data.type,
+      order: data.position,
+      description: null,
+      is_free: false,
+      is_published: true,
+      created_at: null,
+      updated_at: null
+    }
   },
 
   create: async (lesson: any) => {
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from('lessons')
-      .insert(lesson)
+      .insert({
+        section_id: lesson.module_id ?? lesson.section_id,
+        title: lesson.title,
+        type: lesson.content_type ?? lesson.type ?? 'video',
+        duration: lesson.duration ?? 0,
+        content: lesson.content ?? '',
+        video_url: lesson.video_url || null,
+        position: lesson.order ?? lesson.position ?? 0
+      })
       .select()
       .single()
     
     if (error) throw error
-    return data
+    return { ...data, module_id: data.section_id, content_type: data.type, order: data.position, description: null, is_free: false, is_published: true, created_at: null, updated_at: null }
   },
 
   update: async (id: string, updates: any) => {
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from('lessons')
-      .update(updates)
+      .update({
+        ...(updates.title !== undefined ? { title: updates.title } : {}),
+        ...(updates.content_type !== undefined || updates.type !== undefined ? { type: updates.content_type ?? updates.type } : {}),
+        ...(updates.duration !== undefined ? { duration: updates.duration } : {}),
+        ...(updates.content !== undefined ? { content: updates.content ?? '' } : {}),
+        ...(updates.video_url !== undefined ? { video_url: updates.video_url || null } : {}),
+        ...(updates.order !== undefined || updates.position !== undefined ? { position: updates.order ?? updates.position } : {}),
+        ...(updates.module_id !== undefined || updates.section_id !== undefined ? { section_id: updates.module_id ?? updates.section_id } : {})
+      })
       .eq('id', id)
       .select()
       .single()
     
     if (error) throw error
-    return data
+    return { ...data, module_id: data.section_id, content_type: data.type, order: data.position, description: null, is_free: false, is_published: true, created_at: null, updated_at: null }
   },
 
   delete: async (id: string) => {
-    const { error } = await supabase.from('lessons').delete().eq('id', id)
+    const { error } = await (supabase as any).from('lessons').delete().eq('id', id)
     if (error) throw error
   }
 }
