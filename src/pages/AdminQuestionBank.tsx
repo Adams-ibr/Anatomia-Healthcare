@@ -6,6 +6,7 @@ import {
   Tag, Trash2, Upload, X, Eye, Copy
 } from 'lucide-react'
 import { useApp } from '../lib/store'
+import { questionBankApi, questionTopicsApi } from '../lib/supabase'
 import { Badge, Button, EmptyState, Modal, Tabs } from '../components/ui'
 import { cn, formatDate } from '../lib/utils'
 
@@ -53,17 +54,16 @@ export default function AdminQuestionBank() {
 
   // Questions state
   const [questions, setQuestions] = useState<Question[]>([])
-  const [questionsTotal, setQuestionsTotal] = useState(0)
   const [questionsPage, setQuestionsPage] = useState(1)
   const questionsPerPage = 10
 
   // Topics state
   const [topics, setTopics] = useState<Topic[]>([])
-  const [topicsTotal, setTopicsTotal] = useState(0)
   const [topicsPage, setTopicsPage] = useState(1)
   const topicsPerPage = 15
 
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
   // Filters
   const [search, setSearch] = useState('')
@@ -84,12 +84,86 @@ export default function AdminQuestionBank() {
 
   const [bulkImportOpen, setBulkImportOpen] = useState(false)
 
-  // Mock data
-  useEffect(() => {
-    setLoading(false)
+  const loadQuestions = useCallback(async () => {
+    try {
+      const data = await questionBankApi.list()
+      const topicRows = await questionTopicsApi.list().catch(() => [])
+      const topicNames = new Map((topicRows ?? []).map((topic: any) => [topic.id, topic.name]))
+      const mapped: Question[] = (data ?? []).map((row: any) => {
+        const topicIds: string[] = row.question_topic_links?.map((link: any) => link.topic_id) ?? (row.topic_id ? [row.topic_id] : [])
+        const options: QuestionOption[] = (row.question_bank_options ?? [])
+          .sort((a: any, b: any) => (a.order ?? 0) - (b.order ?? 0))
+          .map((option: any) => ({ id: option.id, text: option.option_text, isCorrect: Boolean(option.is_correct) }))
+        const isTrueFalse = ['truefalse', 'true-false', 'true_false'].includes(row.question_type)
+        return {
+          id: row.id,
+          type: isTrueFalse ? 'true-false' : 'multiple-choice',
+          question: row.question ?? row.question_text ?? '',
+          explanation: row.explanation ?? '',
+          difficulty: row.difficulty ?? 'medium',
+          topicIds,
+          topics: topicIds.map(id => topicNames.get(id)).filter(Boolean) as string[],
+          options,
+          correctAnswer: isTrueFalse ? options.find(option => option.isCorrect)?.text.toLowerCase() !== 'false' : undefined,
+          points: row.points ?? 1,
+          isActive: row.is_active ?? true,
+          timesUsed: row.times_used ?? 0,
+          createdAt: row.created_at ?? '',
+          updatedAt: row.updated_at ?? row.created_at ?? ''
+        }
+      })
+      setQuestions(mapped)
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load questions')
+    }
   }, [])
 
+  const loadTopics = useCallback(async () => {
+    try {
+      const data = await questionTopicsApi.list()
+      const mapped: Topic[] = (data ?? []).map((topic: any) => ({
+        id: topic.id,
+        name: topic.name,
+        description: topic.description ?? '',
+        category: topic.category ?? 'General',
+        questionCount: 0,
+        createdAt: topic.created_at ?? '',
+        updatedAt: topic.created_at ?? ''
+      }))
+      setTopics(mapped)
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load topics')
+    }
+  }, [])
+
+  const reloadData = useCallback(async () => {
+    setLoading(true)
+    setLoadError(null)
+    await Promise.all([loadQuestions(), loadTopics()])
+    setLoading(false)
+  }, [loadQuestions, loadTopics])
+
+  useEffect(() => { reloadData() }, [reloadData])
+
+  useEffect(() => { setQuestionsPage(1); setTopicsPage(1) }, [search, typeFilter, difficultyFilter, topicFilter, categoryFilter])
+
+  const filteredQuestions = questions.filter(question => {
+    if (search && !question.question.toLowerCase().includes(search.toLowerCase())) return false
+    if (typeFilter !== 'all' && question.type !== typeFilter) return false
+    if (difficultyFilter !== 'all' && question.difficulty !== difficultyFilter) return false
+    if (topicFilter !== 'all' && !question.topicIds.includes(topicFilter)) return false
+    return true
+  })
+  const questionsTotal = filteredQuestions.length
+  const pageQuestions = filteredQuestions.slice((questionsPage - 1) * questionsPerPage, questionsPage * questionsPerPage)
   const questionsTotalPages = Math.max(1, Math.ceil(questionsTotal / questionsPerPage))
+  const filteredTopics = topics.filter(topic => {
+    if (search && !topic.name.toLowerCase().includes(search.toLowerCase())) return false
+    if (categoryFilter !== 'all' && topic.category !== categoryFilter) return false
+    return true
+  })
+  const topicsTotal = filteredTopics.length
+  const pageTopics = filteredTopics.slice((topicsPage - 1) * topicsPerPage, topicsPage * topicsPerPage)
   const topicsTotalPages = Math.max(1, Math.ceil(topicsTotal / topicsPerPage))
 
   const categories = Array.from(new Set(topics.map(t => t.category)))
@@ -165,6 +239,13 @@ export default function AdminQuestionBank() {
       </div>
 
       {/* Tabs */}
+      {loadError && (
+        <div className="flex items-center justify-between rounded-card border border-danger/30 bg-danger/5 px-4 py-3 text-sm text-danger">
+          <span>{loadError}</span>
+          <Button variant="outline" onClick={reloadData}>Retry</Button>
+        </div>
+      )}
+
       <Tabs
         tabs={[
           { id: 'questions', label: `Questions (${questions.length})` },
@@ -255,7 +336,7 @@ export default function AdminQuestionBank() {
           ) : (
             <>
               <div className="space-y-3">
-                {questions.map((question) => (
+                {pageQuestions.map((question) => (
                   <div
                     key={question.id}
                     className="card group p-5 transition-all hover:border-brand-200"
@@ -413,7 +494,7 @@ export default function AdminQuestionBank() {
           ) : (
             <>
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {topics.map((topic) => (
+                {pageTopics.map((topic) => (
                   <div
                     key={topic.id}
                     className="card group p-5 transition-all hover:border-brand-200"
@@ -438,7 +519,7 @@ export default function AdminQuestionBank() {
                     <p className="text-sm text-muted mb-3">{topic.description}</p>
                     <div className="flex items-center justify-between">
                       <Badge color="brand">{topic.category}</Badge>
-                      <span className="text-sm text-muted">{topic.questionCount} questions</span>
+                      <span className="text-sm text-muted">{questions.filter(question => question.topicIds.includes(topic.id)).length} questions</span>
                     </div>
                   </div>
                 ))}
@@ -488,6 +569,7 @@ export default function AdminQuestionBank() {
             setCreatingQuestion(false)
             setEditingQuestion(null)
             toast('Success', editingQuestion ? 'Question updated' : 'Question created')
+            reloadData()
           }}
         />
       )}
@@ -509,9 +591,15 @@ export default function AdminQuestionBank() {
               Cancel
             </Button>
             <Button
-              onClick={() => {
-                toast('Success', 'Question deleted successfully')
-                setDeletingQuestion(null)
+              onClick={async () => {
+                try {
+                  await questionBankApi.delete(deletingQuestion.id)
+                  toast('Success', 'Question deleted successfully')
+                  setDeletingQuestion(null)
+                  reloadData()
+                } catch (err) {
+                  toast('Error', err instanceof Error ? err.message : 'Delete failed', 'error')
+                }
               }}
               className="flex-1 bg-danger hover:bg-danger/90"
             >
@@ -533,6 +621,7 @@ export default function AdminQuestionBank() {
             setCreatingTopic(false)
             setEditingTopic(null)
             toast('Success', editingTopic ? 'Topic updated' : 'Topic created')
+            reloadData()
           }}
         />
       )}
@@ -547,9 +636,15 @@ export default function AdminQuestionBank() {
               Cancel
             </Button>
             <Button
-              onClick={() => {
-                toast('Success', 'Topic deleted successfully')
-                setDeletingTopic(null)
+              onClick={async () => {
+                try {
+                  await questionTopicsApi.delete(deletingTopic.id)
+                  toast('Success', 'Topic deleted successfully')
+                  setDeletingTopic(null)
+                  reloadData()
+                } catch (err) {
+                  toast('Error', err instanceof Error ? err.message : 'Delete failed', 'error')
+                }
               }}
               className="flex-1 bg-danger hover:bg-danger/90"
             >
@@ -562,10 +657,12 @@ export default function AdminQuestionBank() {
       {/* Bulk Import Modal */}
       {bulkImportOpen && (
         <BulkImportModal
+          topics={topics}
           onClose={() => setBulkImportOpen(false)}
           onSuccess={(count) => {
             setBulkImportOpen(false)
             toast('Success', `Imported ${count} questions successfully`)
+            reloadData()
           }}
         />
       )}
@@ -579,6 +676,7 @@ function QuestionFormModal({ question, topics, onClose, onSuccess }: {
   onClose: () => void
   onSuccess: () => void
 }) {
+  const { toast } = useApp()
   const [formData, setFormData] = useState({
     type: question?.type || 'multiple-choice' as QuestionType,
     question: question?.question || '',
@@ -604,10 +702,34 @@ function QuestionFormModal({ question, topics, onClose, onSuccess }: {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setSaving(true)
-    setTimeout(() => {
-      setSaving(false)
+    try {
+      const savedOptions = formData.type === 'true-false'
+        ? [
+            { text: 'True', isCorrect: formData.correctAnswer },
+            { text: 'False', isCorrect: !formData.correctAnswer }
+          ]
+        : options.filter(option => option.text.trim()).map(option => ({ text: option.text.trim(), isCorrect: option.isCorrect }))
+      if (formData.type === 'multiple-choice' && (savedOptions.length < 2 || !savedOptions.some(option => option.isCorrect))) {
+        throw new Error('Add at least two answer options and mark one correct answer')
+      }
+      const payload = {
+        type: formData.type,
+        question: formData.question.trim(),
+        explanation: formData.explanation.trim(),
+        difficulty: formData.difficulty,
+        topicIds: formData.topicIds,
+        points: formData.points,
+        isActive: formData.isActive,
+        options: savedOptions
+      }
+      if (question) await questionBankApi.update(question.id, payload)
+      else await questionBankApi.create(payload)
       onSuccess()
-    }, 1000)
+    } catch (err) {
+      toast('Error', err instanceof Error ? err.message : 'Failed to save question', 'error')
+    } finally {
+      setSaving(false)
+    }
   }
 
   const updateOption = (id: string, field: 'text' | 'isCorrect', value: string | boolean) => {
@@ -930,6 +1052,7 @@ function QuestionViewModal({ question, onClose }: { question: Question; onClose:
 }
 
 function TopicFormModal({ topic, onClose, onSuccess }: { topic?: Topic | null; onClose: () => void; onSuccess: () => void }) {
+  const { toast } = useApp()
   const [formData, setFormData] = useState({
     name: topic?.name || '',
     description: topic?.description || '',
@@ -940,10 +1063,17 @@ function TopicFormModal({ topic, onClose, onSuccess }: { topic?: Topic | null; o
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setSaving(true)
-    setTimeout(() => {
-      setSaving(false)
+    const slug = formData.name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+    try {
+      const payload = { name: formData.name.trim(), slug, description: formData.description.trim(), category: formData.category.trim() }
+      if (topic) await questionTopicsApi.update(topic.id, payload)
+      else await questionTopicsApi.create(payload)
       onSuccess()
-    }, 1000)
+    } catch (err) {
+      toast('Error', err instanceof Error ? err.message : 'Failed to save topic', 'error')
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -1005,7 +1135,8 @@ function TopicFormModal({ topic, onClose, onSuccess }: { topic?: Topic | null; o
   )
 }
 
-function BulkImportModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: (count: number) => void }) {
+function BulkImportModal({ topics, onClose, onSuccess }: { topics: Topic[]; onClose: () => void; onSuccess: (count: number) => void }) {
+  const { toast } = useApp()
   const [importType, setImportType] = useState<'csv' | 'json'>('csv')
   const [file, setFile] = useState<File | null>(null)
   const [importing, setImporting] = useState(false)
@@ -1036,10 +1167,70 @@ true-false,The left ventricle pumps blood to the lungs.,medium,1,Blood Circulati
     if (!file) return
 
     setImporting(true)
-    setTimeout(() => {
+    let importedCount = 0
+    try {
+      const text = await file.text()
+      const rows: any[] = importType === 'json' ? JSON.parse(text) : parseQuestionCsv(text)
+      if (!Array.isArray(rows) || rows.length === 0) throw new Error('The selected file contains no questions')
+
+      const knownTopics = [...topics]
+      for (const row of rows) {
+        const type: QuestionType = ['true-false', 'truefalse', 'true_false'].includes(String(row.type ?? row.question_type).toLowerCase())
+          ? 'true-false'
+          : 'multiple-choice'
+        const topicNames: string[] = Array.isArray(row.topics)
+          ? row.topics
+          : String(row.topic ?? '').split(/[|;]/).map((name: string) => name.trim()).filter(Boolean)
+        const topicIds: string[] = []
+        for (const name of topicNames) {
+          let topic = knownTopics.find(item => item.name.toLowerCase() === name.toLowerCase())
+          if (!topic) {
+            const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+            const created = await questionTopicsApi.create({ name, slug, category: String(row.category ?? 'General') })
+            topic = { id: created.id, name: created.name, category: created.category ?? 'General', description: created.description ?? '', questionCount: 0, createdAt: '', updatedAt: '' }
+            knownTopics.push(topic)
+          }
+          topicIds.push(topic.id)
+        }
+
+        let options: QuestionOption[]
+        if (type === 'true-false') {
+          const isTrue = String(row.correctOption ?? row.correctAnswer ?? row.correct_answer ?? 'true').toLowerCase() !== 'false'
+          options = [{ id: 'true', text: 'True', isCorrect: isTrue }, { id: 'false', text: 'False', isCorrect: !isTrue }]
+        } else if (Array.isArray(row.options)) {
+          options = row.options.map((option: any, index: number) => ({
+            id: String(index),
+            text: String(option.text ?? option.option_text ?? ''),
+            isCorrect: Boolean(option.isCorrect ?? option.is_correct)
+          }))
+        } else {
+          const correct = String(row.correctOption ?? row.correct_option ?? '')
+          options = [1, 2, 3, 4, 5, 6]
+            .map(index => String(row[`option${index}`] ?? '').trim())
+            .filter(Boolean)
+            .map((option, index) => ({ id: String(index), text: option, isCorrect: correct === String(index + 1) || correct.toLowerCase() === option.toLowerCase() }))
+        }
+        if (!String(row.question ?? row.question_text ?? '').trim()) throw new Error('Every imported row needs a question')
+        await questionBankApi.create({
+          type,
+          question: String(row.question ?? row.question_text).trim(),
+          difficulty: ['easy', 'medium', 'hard'].includes(String(row.difficulty).toLowerCase()) ? String(row.difficulty).toLowerCase() : 'medium',
+          points: Math.min(10, Math.max(1, Number(row.points) || 1)),
+          explanation: String(row.explanation ?? ''),
+          isActive: row.isActive ?? row.is_active ?? true,
+          topicIds,
+          options
+        })
+        importedCount++
+      }
+      onSuccess(importedCount)
+    } catch (err) {
+      if (importedCount > 0) onSuccess(importedCount)
+      const reason = err instanceof Error ? err.message : 'Question import failed'
+      toast('Error', importedCount > 0 ? `Imported ${importedCount} questions before stopping: ${reason}` : reason, 'error')
+    } finally {
       setImporting(false)
-      onSuccess(25) // Mock import count
-    }, 2000)
+    }
   }
 
   const downloadTemplate = () => {
@@ -1142,4 +1333,28 @@ true-false,The left ventricle pumps blood to the lungs.,medium,1,Blood Circulati
       </form>
     </Modal>
   )
+}
+
+function parseQuestionCsv(input: string): Record<string, string>[] {
+  const records: string[][] = []
+  let row: string[] = []
+  let cell = ''
+  let quoted = false
+  for (let i = 0; i < input.length; i++) {
+    const char = input[i]
+    if (char === '"' && quoted && input[i + 1] === '"') { cell += '"'; i++ }
+    else if (char === '"') quoted = !quoted
+    else if (char === ',' && !quoted) { row.push(cell); cell = '' }
+    else if ((char === '\n' || char === '\r') && !quoted) {
+      if (char === '\r' && input[i + 1] === '\n') i++
+      row.push(cell)
+      if (row.some(value => value.trim())) records.push(row)
+      row = []
+      cell = ''
+    } else cell += char
+  }
+  if (cell || row.length) { row.push(cell); records.push(row) }
+  const [headers, ...data] = records
+  if (!headers) return []
+  return data.map(values => Object.fromEntries(headers.map((header, index) => [header.trim(), values[index]?.trim() ?? ''])))
 }

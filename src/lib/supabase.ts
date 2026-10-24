@@ -1285,7 +1285,7 @@ export const flashcardsApi = {
 
 export const questionBankApi = {
   list: async (filters?: { topic_id?: string; difficulty?: string; is_active?: boolean }) => {
-    let query = supabase.from('question_bank').select('*, question_bank_options(*)')
+    let query = supabase.from('question_bank').select('*, question_bank_options(*), question_topic_links(topic_id)')
     
     if (filters?.topic_id) {
       query = query.eq('topic_id', filters.topic_id)
@@ -1305,7 +1305,7 @@ export const questionBankApi = {
   getById: async (id: string) => {
     const { data, error } = await supabase
       .from('question_bank')
-      .select('*, question_bank_options(*)')
+      .select('*, question_bank_options(*), question_topic_links(topic_id)')
       .eq('id', id)
       .single()
     
@@ -1314,31 +1314,87 @@ export const questionBankApi = {
   },
 
   create: async (question: any) => {
+    const topicIds: string[] = question.topicIds ?? question.topic_ids ?? []
     const { data, error } = await supabase
       .from('question_bank')
-      .insert(question)
+      .insert({
+        question: question.question,
+        question_type: question.type === 'true-false' ? 'truefalse' : 'mc',
+        difficulty: question.difficulty ?? 'medium',
+        explanation: question.explanation ?? '',
+        points: question.points ?? 1,
+        is_active: question.isActive ?? question.is_active ?? true,
+        topic_id: topicIds[0] ?? null,
+        tags: topicIds
+      })
       .select()
       .single()
     
     if (error) throw error
+    try {
+      await replaceQuestionChildren(data.id, question.options ?? [], topicIds)
+    } catch (childError) {
+      await supabase.from('question_bank').delete().eq('id', data.id)
+      throw childError
+    }
     return data
   },
 
   update: async (id: string, updates: any) => {
+    const topicIds: string[] | undefined = updates.topicIds ?? updates.topic_ids
     const { data, error } = await supabase
       .from('question_bank')
-      .update({ ...updates, updated_at: new Date().toISOString() })
+      .update({
+        ...(updates.question !== undefined ? { question: updates.question } : {}),
+        ...(updates.type !== undefined ? { question_type: updates.type === 'true-false' ? 'truefalse' : 'mc' } : {}),
+        ...(updates.difficulty !== undefined ? { difficulty: updates.difficulty } : {}),
+        ...(updates.explanation !== undefined ? { explanation: updates.explanation } : {}),
+        ...(updates.points !== undefined ? { points: updates.points } : {}),
+        ...(updates.isActive !== undefined ? { is_active: updates.isActive } : {}),
+        ...(topicIds !== undefined ? { topic_id: topicIds[0] ?? null, tags: topicIds } : {}),
+        updated_at: new Date().toISOString()
+      })
       .eq('id', id)
       .select()
       .single()
     
     if (error) throw error
+    if (updates.options !== undefined || topicIds !== undefined) {
+      const { error: optionsDeleteError } = await supabase.from('question_bank_options').delete().eq('question_id', id)
+      if (optionsDeleteError) throw optionsDeleteError
+      const { error: topicsDeleteError } = await supabase.from('question_topic_links').delete().eq('question_id', id)
+      if (topicsDeleteError) throw topicsDeleteError
+      await replaceQuestionChildren(id, updates.options ?? [], topicIds ?? [])
+    }
     return data
   },
 
   delete: async (id: string) => {
     const { error } = await supabase.from('question_bank').delete().eq('id', id)
     if (error) throw error
+  }
+}
+
+async function replaceQuestionChildren(questionId: string, options: any[], topicIds: string[]) {
+  const normalizedOptions = options.map((option, index) => ({
+    option_text: option.text,
+    is_correct: Boolean(option.isCorrect),
+    order: index
+  }))
+  if (normalizedOptions.length) {
+    const { error } = await supabase.from('question_bank_options').insert(
+      normalizedOptions.map(option => ({ ...option, question_id: questionId }))
+    )
+    if (error) throw error
+  }
+  if (topicIds.length) {
+    const { error } = await supabase.from('question_topic_links').insert(
+      [...new Set(topicIds)].map(topic_id => ({ question_id: questionId, topic_id }))
+    )
+    if (error) {
+      await supabase.from('question_bank_options').delete().eq('question_id', questionId)
+      throw error
+    }
   }
 }
 
@@ -1356,7 +1412,7 @@ export const questionTopicsApi = {
     return data
   },
 
-  create: async (topic: { name: string; slug: string; description?: string }) => {
+  create: async (topic: { name: string; slug: string; description?: string; category?: string }) => {
     const { data, error } = await supabase
       .from('question_topics')
       .insert(topic)
@@ -1366,7 +1422,7 @@ export const questionTopicsApi = {
     return data
   },
 
-  update: async (id: string, updates: { name?: string; slug?: string; description?: string }) => {
+  update: async (id: string, updates: { name?: string; slug?: string; description?: string; category?: string }) => {
     const { data, error } = await supabase
       .from('question_topics')
       .update(updates)

@@ -325,10 +325,50 @@ create table public.flashcards (
   created_at timestamptz not null default now()
 );
 
+create table public.question_topics (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  slug text not null unique,
+  description text not null default '',
+  category text not null default 'General',
+  "order" integer not null default 0,
+  created_at timestamptz not null default now()
+);
+
+create table public.question_bank (
+  id uuid primary key default gen_random_uuid(),
+  question text not null,
+  question_type text not null default 'mc',
+  difficulty text not null default 'medium',
+  explanation text not null default '',
+  points integer not null default 1,
+  is_active boolean not null default true,
+  topic_id uuid references public.question_topics (id) on delete set null,
+  tags text[] not null default '{}',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table public.question_bank_options (
+  id uuid primary key default gen_random_uuid(),
+  question_id uuid not null references public.question_bank (id) on delete cascade,
+  option_text text not null,
+  is_correct boolean not null default false,
+  "order" integer not null default 0
+);
+
+create table public.question_topic_links (
+  question_id uuid not null references public.question_bank (id) on delete cascade,
+  topic_id uuid not null references public.question_topics (id) on delete cascade,
+  primary key (question_id, topic_id)
+);
+
 grant select on public.anatomy_models to anon;
 grant select, insert, update, delete on public.anatomy_models to authenticated;
 grant select on public.flashcard_decks, public.flashcards to anon;
 grant select, insert, update, delete on public.flashcard_decks, public.flashcards to authenticated;
+grant select on public.question_topics, public.question_bank, public.question_bank_options, public.question_topic_links to anon;
+grant select, insert, update, delete on public.question_topics, public.question_bank, public.question_bank_options, public.question_topic_links to authenticated;
 
 -- -----------------------------------------------------------------------------
 -- Communication
@@ -575,6 +615,10 @@ alter table public.lessons enable row level security;
 alter table public.anatomy_models enable row level security;
 alter table public.flashcard_decks enable row level security;
 alter table public.flashcards enable row level security;
+alter table public.question_topics enable row level security;
+alter table public.question_bank enable row level security;
+alter table public.question_bank_options enable row level security;
+alter table public.question_topic_links enable row level security;
 alter table public.course_objectives enable row level security;
 alter table public.course_requirements enable row level security;
 alter table public.course_faqs enable row level security;
@@ -631,6 +675,24 @@ create policy "Admins manage flashcard decks" on public.flashcard_decks for all 
 create policy "Published flashcards read" on public.flashcards for select using (exists (
   select 1 from public.flashcard_decks d where d.id = flashcards.deck_id and d.is_published = true));
 create policy "Admins manage flashcards" on public.flashcards for all to authenticated
+  using (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin'))
+  with check (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin'));
+create policy "Question topics are public" on public.question_topics for select using (true);
+create policy "Admins manage question topics" on public.question_topics for all to authenticated
+  using (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin'))
+  with check (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin'));
+create policy "Active questions are public" on public.question_bank for select using (is_active = true);
+create policy "Admins manage questions" on public.question_bank for all to authenticated
+  using (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin'))
+  with check (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin'));
+create policy "Active question options are public" on public.question_bank_options for select using (exists (
+  select 1 from public.question_bank q where q.id = question_bank_options.question_id and q.is_active = true));
+create policy "Admins manage question options" on public.question_bank_options for all to authenticated
+  using (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin'))
+  with check (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin'));
+create policy "Active question topics are public" on public.question_topic_links for select using (exists (
+  select 1 from public.question_bank q where q.id = question_topic_links.question_id and q.is_active = true));
+create policy "Admins manage question topic links" on public.question_topic_links for all to authenticated
   using (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin'))
   with check (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin'));
 
