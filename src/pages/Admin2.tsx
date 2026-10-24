@@ -91,28 +91,33 @@ export function AdminOrders() {
     createdAt: string
     items: { courseId: string; title: string; price: number }[]
   }[] | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
 
-  const load = () => {
-    const token = getStoredToken()
-    if (!token) {
-      setRows([])
-      return
+  const load = useCallback(async () => {
+    setLoading(true)
+    setLoadError('')
+    try {
+      const { data, error } = await supabase.functions.invoke('auth/admin/orders', { method: 'GET' })
+      if (error) throw error
+      setRows(data?.orders ?? [])
+    } catch (error) {
+      setLoadError(error instanceof Error ? error.message : String(error))
+      setRows(null)
+    } finally {
+      setLoading(false)
     }
-    adminApi.listOrders(token)
-      .then((res) => setRows(res.orders))
-      .catch(() => setRows([]))
-  }
+  }, [])
 
-  useEffect(() => { load() }, [])
+  useEffect(() => { void load() }, [load])
 
   const refund = async (id: string) => {
     if (!window.confirm(t('admin2.refundConfirm'))) return
-    const token = getStoredToken()
-    if (!token) return
     try {
-      await adminApi.refundOrder(token, id)
+      const { error } = await supabase.functions.invoke(`auth/admin/orders/${id}/refund`, { method: 'POST' })
+      if (error) throw error
       toast(t('admin2.refundIssued'), id, 'info')
-      load()
+      await load()
     } catch (err) {
       toast(t('admin2.refundFailed'), err instanceof Error ? err.message : '', 'error')
     }
@@ -124,6 +129,11 @@ export function AdminOrders() {
   return (
     <div className="space-y-6">
       <h1 className="font-display text-2xl font-bold text-ink">{t('admin2.orders')}</h1>
+      {loadError && (
+        <div role="alert" className="flex items-center justify-between gap-4 rounded-card border border-danger/30 bg-danger/5 px-4 py-3 text-sm text-danger">
+          <span>{loadError}</span><Button variant="outline" onClick={() => void load()}>{t('admin2.retry')}</Button>
+        </div>
+      )}
       <div className="card overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
@@ -156,7 +166,10 @@ export function AdminOrders() {
                   </td>
                 </tr>
               ))}
-              {(rows ?? []).length === 0 && (
+              {loading && (
+                <tr><td colSpan={7} className="px-5 py-10 text-center text-sm text-muted">{t('admin2.reportsLoading')}</td></tr>
+              )}
+              {!loading && !loadError && rows?.length === 0 && (
                 <tr><td colSpan={7} className="px-5 py-10 text-center text-sm text-muted">{t('admin2.empty')}</td></tr>
               )}
             </tbody>
@@ -181,50 +194,49 @@ export function AdminPayments() {
     byMethod: Record<string, { count: number; revenue: number }>
     recent: { id: string; total: number; status: string; paymentMethod: string; createdAt: string }[]
   } | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
 
-  useEffect(() => {
-    const token = getStoredToken()
-    if (!token) {
-      setData({
-        grossRevenue: 0,
-        netRevenue: 0,
-        refunds: 0,
-        instructorPayouts: 0,
-        orderCount: 0,
-        completedCount: 0,
-        refundedCount: 0,
-        monthly: [],
-        byMethod: {},
-        recent: []
-      })
-      return
+  const load = useCallback(async () => {
+    setLoading(true)
+    setLoadError('')
+    try {
+      const { data, error } = await supabase.functions.invoke('auth/admin/payments', { method: 'GET' })
+      if (error) throw error
+      setData(data)
+    } catch (error) {
+      setLoadError(error instanceof Error ? error.message : String(error))
+      setData(null)
+    } finally {
+      setLoading(false)
     }
-    adminApi.getPayments(token).then(setData).catch(() => {})
   }, [])
+  useEffect(() => { void load() }, [load])
 
   const statusColor = (s: string) => s === 'completed' ? 'success' : s === 'pending' ? 'warning' : s === 'refunded' ? 'brand' : 'danger'
   const statusLabel = (s: string) => s === 'completed' ? t('orders.completed') : s === 'pending' ? t('orders.pending') : s === 'refunded' ? t('orders.refunded') : t('orders.failed')
-  const monthly = data?.monthly ?? [
-    { m: '—', revenue: 0 }, { m: '—', revenue: 0 }, { m: '—', revenue: 0 },
-    { m: '—', revenue: 0 }, { m: '—', revenue: 0 }, { m: '—', revenue: 0 }
-  ]
+  const monthly = data?.monthly ?? []
   const methods = Object.entries(data?.byMethod ?? {})
-  const hasOrders = data != null
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="font-display text-2xl font-bold text-ink">{t('admin2.payments')}</h1>
-          <p className="mt-1 text-sm text-muted">{t('admin2.paymentsLoading')}</p>
+          <p className="mt-1 text-sm text-muted">Payments and revenue summary</p>
         </div>
-        <Badge color="line">{t('admin2.ordersCount', { count: data?.orderCount ?? 0 })}</Badge>
+        <Badge color="line">{data ? t('admin2.ordersCount', { count: data.orderCount }) : '—'}</Badge>
       </div>
+      {loadError && (
+        <div role="alert" className="flex items-center justify-between gap-4 rounded-card border border-danger/30 bg-danger/5 px-4 py-3 text-sm text-danger">
+          <span>{loadError}</span><Button variant="outline" onClick={() => void load()}>{t('admin2.retry')}</Button>
+        </div>
+      )}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label={t('admin2.grossRevenue')} value={formatPrice(data?.grossRevenue ?? 0)} sub={t('admin2.completedOrders', { count: data?.completedCount ?? 0 })} icon={<Banknote className="h-5 w-5" />} />
-        <StatCard label={t('admin2.netRevenue')} value={formatPrice(data?.netRevenue ?? 0)} sub={t('admin2.afterRefunds')} icon={<TrendingUp className="h-5 w-5" />} />
-        <StatCard label={t('admin2.instructorPayouts')} value={formatPrice(data?.instructorPayouts ?? 0)} sub={t('admin2.revenueShare')} icon={<Users className="h-5 w-5" />} />
-        <StatCard label={t('admin2.refunds')} value={formatPrice(data?.refunds ?? 0)} sub={t('admin2.refundedOrders', { count: data?.refundedCount ?? 0 })} icon={<RefreshCcw className="h-5 w-5" />} />
+        <StatCard label={t('admin2.grossRevenue')} value={data ? formatPrice(data.grossRevenue) : '—'} sub={data ? t('admin2.completedOrders', { count: data.completedCount }) : ' '} icon={<Banknote className="h-5 w-5" />} />
+        <StatCard label={t('admin2.netRevenue')} value={data ? formatPrice(data.netRevenue) : '—'} sub={t('admin2.afterRefunds')} icon={<TrendingUp className="h-5 w-5" />} />
+        <StatCard label={t('admin2.instructorPayouts')} value={data ? formatPrice(data.instructorPayouts) : '—'} sub={t('admin2.revenueShare')} icon={<Users className="h-5 w-5" />} />
+        <StatCard label={t('admin2.refunds')} value={data ? formatPrice(data.refunds) : '—'} sub={data ? t('admin2.refundedOrders', { count: data.refundedCount }) : ' '} icon={<RefreshCcw className="h-5 w-5" />} />
       </div>
       <div className="grid gap-4 lg:grid-cols-5">
         <div className="card p-5 lg:col-span-3">
@@ -242,7 +254,7 @@ export function AdminPayments() {
         <div className="card p-5 lg:col-span-2">
           <h2 className="mb-4 font-semibold text-ink">{t('admin2.byMethod')}</h2>
           {methods.length === 0 ? (
-            <p className="py-6 text-center text-sm text-muted">{hasOrders ? t('admin2.empty') : t('admin2.paymentsLoading')}</p>
+            <p className="py-6 text-center text-sm text-muted">{loading ? t('admin2.reportsLoading') : loadError ? ' ' : t('admin2.empty')}</p>
           ) : (
             <div className="space-y-3">
               {methods.map(([m, s]) => (
@@ -283,7 +295,8 @@ export function AdminPayments() {
                   <td className="px-5 py-3 text-muted">{timeAgo(o.createdAt)}</td>
                 </tr>
               ))}
-              {(data?.recent ?? []).length === 0 && (
+              {loading && <tr><td colSpan={5} className="px-5 py-10 text-center text-sm text-muted">{t('admin2.reportsLoading')}</td></tr>}
+              {!loading && !loadError && (data?.recent ?? []).length === 0 && (
                 <tr><td colSpan={5} className="px-5 py-10 text-center text-sm text-muted">{t('admin2.noOrders')}</td></tr>
               )}
             </tbody>
