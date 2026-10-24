@@ -1868,7 +1868,8 @@ async function handleAdminListInstructors(req: Request): Promise<Response> {
   const { data, error } = await supabase
     .from('profiles')
     .select('id, name')
-    .in('role', ['instructor', 'admin', 'support'])
+    .eq('role', 'instructor')
+    .eq('is_active', true)
     .order('name')
   if (error) return errorResponse(500, 'Failed to load instructors: ' + error.message)
 

@@ -7,7 +7,7 @@ import {
   Trash2
 } from 'lucide-react'
 import { coursesApi, categoriesApi } from '../lib/supabase'
-import { publicApi } from '../lib/api/auth'
+import { courseApi, getStoredToken } from '../lib/api/auth'
 import type { Course, Category, CourseLevel, CourseStatus } from '../lib/types/admin'
 import { useApp } from '../lib/store'
 import { Badge, Button, EmptyState, Modal, Skeleton } from '../components/ui'
@@ -57,6 +57,7 @@ export default function AdminCourses() {
   const [categoryFilter, setCategoryFilter] = useState('all')
   const [categories, setCategories] = useState<Category[]>([])
   const [instructors, setInstructors] = useState<{ id: string; name: string }[]>([])
+  const [instructorsLoadError, setInstructorsLoadError] = useState<string | null>(null)
 
   const [creating, setCreating] = useState(false)
   const [editing, setEditing] = useState<DisplayCourse | null>(null)
@@ -124,11 +125,14 @@ export default function AdminCourses() {
   }, [])
 
   const loadInstructors = useCallback(async () => {
+    setInstructorsLoadError(null)
     try {
-      const { instructors: data } = await publicApi.listInstructors()
-      setInstructors(data.map(({ id, name }) => ({ id, name })))
-    } catch {
-      /* instructors optional for create form */
+      const token = getStoredToken()
+      if (!token) throw new Error('Your admin session is unavailable. Please sign in again.')
+      const { instructors: data } = await courseApi.listInstructors(token)
+      setInstructors(data)
+    } catch (error) {
+      setInstructorsLoadError(error instanceof Error ? error.message : 'Could not load instructors from the database.')
       setInstructors([])
     }
   }, [])
@@ -342,6 +346,8 @@ export default function AdminCourses() {
         busy={mutating}
         categories={categories}
         instructors={instructors}
+        instructorsLoadError={instructorsLoadError}
+        onRetryInstructors={loadInstructors}
         onCreate={(input) => runMutation(
           async () => await coursesApi.create({
             title: input.title,
@@ -441,12 +447,14 @@ function Tabs({ tabs, active, onChange }: { tabs: { id: string; label: string }[
   )
 }
 
-function CreateCourseModal({ open, onClose, busy, categories, instructors, onCreate }: {
+function CreateCourseModal({ open, onClose, busy, categories, instructors, instructorsLoadError, onRetryInstructors, onCreate }: {
   open: boolean
   onClose: () => void
   busy: boolean
   categories: Category[]
   instructors: { id: string; name: string }[]
+  instructorsLoadError: string | null
+  onRetryInstructors: () => void
   onCreate: (input: any) => void
 }) {
   const { t } = useTranslation()
@@ -509,6 +517,7 @@ function CreateCourseModal({ open, onClose, busy, categories, instructors, onCre
               <option value="">{t('admin.selectInstructor')}</option>
               {instructors.map((i) => <option key={i.id} value={i.id}>{i.name}</option>)}
             </select>
+            {instructorsLoadError ? <p role="alert" className="mt-1 text-xs text-danger">{instructorsLoadError} <button type="button" className="underline" onClick={onRetryInstructors}>Retry</button></p> : instructors.length === 0 ? <p className="mt-1 text-xs text-warning">No instructor accounts are available in the database yet.</p> : null}
           </div>
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
