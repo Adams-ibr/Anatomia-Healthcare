@@ -1,5 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
-import { useTranslation } from 'react-i18next'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   AlertTriangle, Award, ChevronLeft, ChevronRight, Linkedin, Loader2,
   Mail, PencilLine, Plus, Search, Trash2, Twitter, Users
@@ -7,6 +6,7 @@ import {
 import { useApp } from '../lib/store'
 import { Avatar, Badge, Button, EmptyState, Modal, Skeleton } from '../components/ui'
 import { cn, formatDate } from '../lib/utils'
+import { departmentsApi, teamApi } from '../lib/supabase'
 
 interface TeamMember {
   id: string
@@ -27,10 +27,7 @@ interface TeamMember {
 
 export default function AdminMembers() {
   const { toast } = useApp()
-  const { t } = useTranslation()
-
   const [members, setMembers] = useState<TeamMember[]>([])
-  const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
   const perPage = 20
   const [loading, setLoading] = useState(true)
@@ -46,31 +43,91 @@ export default function AdminMembers() {
   const [deleting, setDeleting] = useState<TeamMember | null>(null)
   const [mutating, setMutating] = useState(false)
 
-  const departments = ['Human Anatomy', 'Physiology', 'Pathology', 'Neuroscience', 'Cardiology']
   const roles = ['Instructor', 'Researcher', 'Administrator', 'Support Staff', 'Content Creator']
+  const [departments, setDepartments] = useState<string[]>(['General'])
+  const [loadError, setLoadError] = useState('')
 
-  // Mock data
-  useEffect(() => {
-    setLoading(false)
+  const loadMembers = useCallback(async () => {
+    setLoading(true)
+    setLoadError('')
+    try {
+      const [memberRows, departmentRows] = await Promise.all([teamApi.list(), departmentsApi.list()])
+      const mapped = (memberRows ?? []).map((row: any): TeamMember => ({
+        id: row.id, name: row.name, email: row.email ?? '', role: row.role ?? 'Team Member',
+        title: row.title ?? row.headline ?? '', department: row.department ?? 'General',
+        bio: row.description ?? row.bio ?? undefined, avatar: row.avatar ?? row.photo_url ?? undefined,
+        phone: row.phone ?? undefined, linkedIn: row.linkedin_url ?? undefined,
+        twitter: row.twitter_url ?? undefined,
+        specialties: row.specialties ?? row.skills ?? [], isActive: Boolean(row.is_active),
+        joinedAt: row.created_at ?? new Date().toISOString()
+      }))
+      setMembers(mapped)
+      const departmentNames = (departmentRows ?? []).map((row: any) => row.name).filter(Boolean)
+      const availableDepartments = [...new Set([...departmentNames, ...mapped.map((member) => member.department).filter(Boolean)])]
+      setDepartments(availableDepartments.length ? availableDepartments : ['General'])
+    } catch (error) {
+      setLoadError(error instanceof Error ? error.message : 'Unable to load team members.')
+    } finally {
+      setLoading(false)
+    }
   }, [])
 
+  useEffect(() => { void loadMembers() }, [loadMembers])
+
+  const filteredMembers = useMemo(() => members.filter((member) => {
+    const q = search.trim().toLowerCase()
+    return (!q || `${member.name} ${member.email} ${member.title}`.toLowerCase().includes(q)) &&
+      (departmentFilter === 'all' || member.department === departmentFilter) &&
+      (roleFilter === 'all' || member.role === roleFilter) &&
+      (statusFilter === 'all' || (statusFilter === 'active' ? member.isActive : !member.isActive))
+  }), [members, search, departmentFilter, roleFilter, statusFilter])
+  const total = filteredMembers.length
+  const visibleMembers = filteredMembers.slice((page - 1) * perPage, page * perPage)
   const totalPages = Math.max(1, Math.ceil(total / perPage))
 
-  const handleDelete = (member: TeamMember) => {
+  useEffect(() => { setPage(1) }, [search, departmentFilter, roleFilter, statusFilter])
+
+  const handleDelete = async (member: TeamMember) => {
     setMutating(true)
-    setTimeout(() => {
-      setMembers(members.filter(m => m.id !== member.id))
+    try {
+      await teamApi.delete(member.id)
       setDeleting(null)
-      setMutating(false)
       toast('Success', `Team member "${member.name}" removed`)
-    }, 500)
+      await loadMembers()
+    } catch (error) {
+      toast('Unable to remove team member', error instanceof Error ? error.message : 'Please try again.', 'error')
+    } finally { setMutating(false) }
   }
 
-  const toggleStatus = (id: string) => {
-    setMembers(members.map(m =>
-      m.id === id ? { ...m, isActive: !m.isActive } : m
-    ))
-    toast('Success', 'Member status updated')
+  const toggleStatus = async (member: TeamMember) => {
+    try {
+      await teamApi.update(member.id, { is_active: !member.isActive })
+      toast('Success', 'Member status updated')
+      await loadMembers()
+    } catch (error) {
+      toast('Unable to update member', error instanceof Error ? error.message : 'Please try again.', 'error')
+    }
+  }
+
+  const saveMember = async (data: any) => {
+    setMutating(true)
+    try {
+      const payload = {
+        name: data.name.trim(), email: data.email.trim(), role: data.role,
+        title: data.title.trim(), headline: data.title.trim(), department: data.department,
+        description: data.bio.trim(), phone: data.phone.trim(), is_active: data.isActive,
+        linkedin_url: data.linkedIn?.trim() || null, twitter_url: data.twitter?.trim() || null,
+        specialties: data.specialties ?? [], skills: data.specialties ?? []
+      }
+      if (editing) await teamApi.update(editing.id, payload)
+      else await teamApi.create(payload)
+      toast('Success', `Team member ${editing ? 'updated' : 'added'} successfully`)
+      setCreating(false)
+      setEditing(null)
+      await loadMembers()
+    } catch (error) {
+      toast('Unable to save team member', error instanceof Error ? error.message : 'Please check the details and try again.', 'error')
+    } finally { setMutating(false) }
   }
 
   return (
@@ -85,6 +142,8 @@ export default function AdminMembers() {
           <Plus className="h-4 w-4" /> Add Member
         </Button>
       </div>
+
+      {loadError && <div role="alert" className="flex items-center justify-between gap-4 rounded-card border border-danger/30 bg-danger/5 px-4 py-3 text-sm text-danger"><span>{loadError}</span><Button variant="outline" onClick={() => void loadMembers()}>Retry</Button></div>}
 
       {/* Stats */}
       <div className="grid gap-4 sm:grid-cols-4">
@@ -190,7 +249,7 @@ export default function AdminMembers() {
               </div>
             ))}
           </div>
-        ) : members.length === 0 ? (
+        ) : visibleMembers.length === 0 ? (
           <EmptyState
             icon={<Users className="h-6 w-6" />}
             title="No team members found"
@@ -211,7 +270,7 @@ export default function AdminMembers() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-line">
-                {members.map((member) => (
+                {visibleMembers.map((member) => (
                   <tr key={member.id} className="group hover:bg-paper/60">
                     <td className="px-5 py-4">
                       <div className="flex items-center gap-3">
@@ -272,7 +331,7 @@ export default function AdminMembers() {
                           <PencilLine className="h-3.5 w-3.5" />
                         </button>
                         <button
-                          onClick={() => toggleStatus(member.id)}
+                          onClick={() => void toggleStatus(member)}
                           className="rounded px-2 py-1 text-xs font-medium text-ink hover:bg-line/50"
                           title={member.isActive ? 'Deactivate' : 'Activate'}
                         >
@@ -329,11 +388,7 @@ export default function AdminMembers() {
             setCreating(false)
             setEditing(null)
           }}
-          onSubmit={(data) => {
-            toast('Success', `Team member ${editing ? 'updated' : 'added'} successfully`)
-            setCreating(false)
-            setEditing(null)
-          }}
+          onSubmit={saveMember}
         />
       )}
 
@@ -482,6 +537,9 @@ function MemberFormModal({ title, member, departments, roles, onClose, onSubmit 
   const [department, setDepartment] = useState(member?.department || departments[0])
   const [bio, setBio] = useState(member?.bio || '')
   const [phone, setPhone] = useState(member?.phone || '')
+  const [linkedIn, setLinkedIn] = useState(member?.linkedIn || '')
+  const [twitter, setTwitter] = useState(member?.twitter || '')
+  const [specialties, setSpecialties] = useState(member?.specialties.join(', ') || '')
   const [isActive, setIsActive] = useState(member?.isActive ?? true)
 
   const valid = name.trim().length > 0 && email.trim().length > 0 && jobTitle.trim().length > 0
@@ -494,7 +552,7 @@ function MemberFormModal({ title, member, departments, roles, onClose, onSubmit 
       footer={
         <>
           <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button onClick={() => onSubmit({ name, email, role, title: jobTitle, department, bio, phone, isActive })} disabled={!valid}>
+          <Button onClick={() => onSubmit({ name, email, role, title: jobTitle, department, bio, phone, linkedIn, twitter, specialties: specialties.split(',').map((item) => item.trim()).filter(Boolean), isActive })} disabled={!valid}>
             {member ? 'Save Changes' : <><Plus className="h-4 w-4" /> Add Member</>}
           </Button>
         </>
@@ -572,6 +630,11 @@ function MemberFormModal({ title, member, departments, roles, onClose, onSubmit 
             rows={3}
           />
         </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div><label className="label-base">LinkedIn URL</label><input value={linkedIn} onChange={(e) => setLinkedIn(e.target.value)} className="input-base" placeholder="https://linkedin.com/in/..." /></div>
+          <div><label className="label-base">Twitter URL</label><input value={twitter} onChange={(e) => setTwitter(e.target.value)} className="input-base" placeholder="https://x.com/..." /></div>
+        </div>
+        <div><label className="label-base">Specialties</label><input value={specialties} onChange={(e) => setSpecialties(e.target.value)} className="input-base" placeholder="Anatomy, Education" /></div>
         <label className="flex items-center gap-2 text-sm text-ink">
           <input
             type="checkbox"

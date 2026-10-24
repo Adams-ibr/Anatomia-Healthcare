@@ -1,12 +1,10 @@
-import { useCallback, useEffect, useState } from 'react'
-import { useTranslation } from 'react-i18next'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
-  AlertTriangle, Building2, ChevronLeft, ChevronRight, Loader2,
+  Building2, ChevronLeft, ChevronRight, Loader2,
   PencilLine, Plus, Search, Trash2, Users
 } from 'lucide-react'
 import { useApp } from '../lib/store'
 import { Badge, Button, EmptyState, Modal, Skeleton } from '../components/ui'
-import { cn } from '../lib/utils'
 import { departmentsApi } from '../lib/supabase'
 
 interface Department {
@@ -25,10 +23,7 @@ interface Department {
 
 export default function AdminDepartments() {
   const { toast } = useApp()
-  const { t } = useTranslation()
-
   const [departments, setDepartments] = useState<Department[]>([])
-  const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
   const perPage = 20
   const [loading, setLoading] = useState(true)
@@ -40,29 +35,72 @@ export default function AdminDepartments() {
   const [editing, setEditing] = useState<Department | null>(null)
   const [deleting, setDeleting] = useState<Department | null>(null)
   const [mutating, setMutating] = useState(false)
+  const [loadError, setLoadError] = useState('')
 
-  // Mock data
-  useEffect(() => {
-    setLoading(false)
+  const loadDepartments = useCallback(async () => {
+    setLoading(true)
+    setLoadError('')
+    try {
+      const rows = await departmentsApi.list()
+      setDepartments((rows ?? []).map((row: any) => ({
+        id: row.id, name: row.name, code: row.code ?? '', description: row.description ?? '',
+        headId: row.head_id ?? undefined, headName: row.head_name ?? undefined,
+        memberCount: Number(row.member_count) || 0, courseCount: Number(row.course_count) || 0,
+        color: row.color ?? undefined, isActive: Boolean(row.is_active), createdAt: row.created_at
+      })))
+    } catch (error) {
+      setLoadError(error instanceof Error ? error.message : 'Unable to load departments.')
+    } finally { setLoading(false) }
   }, [])
+
+  useEffect(() => { void loadDepartments() }, [loadDepartments])
+
+  const filteredDepartments = useMemo(() => departments.filter((department) => {
+    const q = search.trim().toLowerCase()
+    return (!q || `${department.name} ${department.code} ${department.description}`.toLowerCase().includes(q)) &&
+      (statusFilter === 'all' || (statusFilter === 'active' ? department.isActive : !department.isActive))
+  }), [departments, search, statusFilter])
+  const total = filteredDepartments.length
+  const visibleDepartments = filteredDepartments.slice((page - 1) * perPage, page * perPage)
+  useEffect(() => { setPage(1) }, [search, statusFilter])
 
   const totalPages = Math.max(1, Math.ceil(total / perPage))
 
-  const handleDelete = (department: Department) => {
+  const handleDelete = async (department: Department) => {
     setMutating(true)
-    setTimeout(() => {
-      setDepartments(departments.filter(d => d.id !== department.id))
+    try {
+      await departmentsApi.delete(department.id)
       setDeleting(null)
-      setMutating(false)
       toast('Success', `Department "${department.name}" deleted`)
-    }, 500)
+      await loadDepartments()
+    } catch (error) {
+      toast('Unable to delete department', error instanceof Error ? error.message : 'Please try again.', 'error')
+    } finally { setMutating(false) }
   }
 
-  const toggleStatus = (id: string) => {
-    setDepartments(departments.map(d =>
-      d.id === id ? { ...d, isActive: !d.isActive } : d
-    ))
-    toast('Success', 'Department status updated')
+  const toggleStatus = async (department: Department) => {
+    try {
+      await departmentsApi.update(department.id, { is_active: !department.isActive })
+      toast('Success', 'Department status updated')
+      await loadDepartments()
+    } catch (error) {
+      toast('Unable to update department', error instanceof Error ? error.message : 'Please try again.', 'error')
+    }
+  }
+
+  const saveDepartment = async (data: any, department?: Department) => {
+    setMutating(true)
+    try {
+      const payload = { name: data.name.trim(), code: data.code.trim().toUpperCase(), description: data.description.trim(), color: data.color, is_active: data.isActive }
+      if (department) await departmentsApi.update(department.id, payload)
+      else await departmentsApi.create(payload)
+      toast('Success', `Department ${department ? 'updated' : 'created'} successfully`)
+      setCreating(false)
+      setEditing(null)
+      await loadDepartments()
+    } catch (error) {
+      toast('Unable to save department', error instanceof Error ? error.message : 'Please check the details and try again.', 'error')
+    } finally { setMutating(false) }
   }
 
   return (
@@ -77,6 +115,8 @@ export default function AdminDepartments() {
           <Plus className="h-4 w-4" /> New Department
         </Button>
       </div>
+
+      {loadError && <div role="alert" className="flex items-center justify-between gap-4 rounded-card border border-danger/30 bg-danger/5 px-4 py-3 text-sm text-danger"><span>{loadError}</span><Button variant="outline" onClick={() => void loadDepartments()}>Retry</Button></div>}
 
       {/* Stats */}
       <div className="grid gap-4 sm:grid-cols-4">
@@ -158,7 +198,7 @@ export default function AdminDepartments() {
               <Skeleton className="mt-3 h-3 w-full" />
             </div>
           ))
-        ) : departments.length === 0 ? (
+        ) : visibleDepartments.length === 0 ? (
           <div className="col-span-full">
             <EmptyState
               icon={<Building2 className="h-6 w-6" />}
@@ -168,7 +208,7 @@ export default function AdminDepartments() {
             />
           </div>
         ) : (
-          departments.map((dept) => (
+          visibleDepartments.map((dept) => (
             <div
               key={dept.id}
               className="card group relative overflow-hidden p-5 transition-all hover:border-brand-200"
@@ -213,7 +253,7 @@ export default function AdminDepartments() {
                   <PencilLine className="mx-auto h-4 w-4" />
                 </button>
                 <button
-                  onClick={() => toggleStatus(dept.id)}
+                  onClick={() => void toggleStatus(dept)}
                   className="flex-1 rounded-card py-2 text-xs font-medium text-ink hover:bg-line/40"
                   title={dept.isActive ? 'Deactivate' : 'Activate'}
                 >
@@ -254,10 +294,7 @@ export default function AdminDepartments() {
         <DepartmentFormModal
           title="Create Department"
           onClose={() => setCreating(false)}
-          onSubmit={(data) => {
-            toast('Success', 'Department created successfully')
-            setCreating(false)
-          }}
+          onSubmit={(data) => void saveDepartment(data)}
         />
       )}
 
@@ -267,10 +304,7 @@ export default function AdminDepartments() {
           title="Edit Department"
           department={editing}
           onClose={() => setEditing(null)}
-          onSubmit={(data) => {
-            toast('Success', 'Department updated successfully')
-            setEditing(null)
-          }}
+          onSubmit={(data) => void saveDepartment(data, editing)}
         />
       )}
 

@@ -1,5 +1,4 @@
-import { useEffect, useState } from 'react'
-import { useTranslation } from 'react-i18next'
+import { useCallback, useEffect, useState } from 'react'
 import {
   ChevronLeft, ChevronRight, ExternalLink, Globe, Handshake, Loader2,
   PencilLine, Plus, Search, Trash2
@@ -36,8 +35,6 @@ const TYPE_BADGE: Record<PartnerType, 'brand' | 'success' | 'warning' | 'ink' | 
 
 export default function AdminPartners() {
   const { toast } = useApp()
-  const { t } = useTranslation()
-
   const [partners, setPartners] = useState<Partner[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
@@ -51,39 +48,70 @@ export default function AdminPartners() {
   const [creating, setCreating] = useState(false)
   const [editing, setEditing] = useState<Partner | null>(null)
   const [deleting, setDeleting] = useState<Partner | null>(null)
+  const [mutating, setMutating] = useState(false)
+  const [loadError, setLoadError] = useState('')
 
-  useEffect(() => {
-    const loadPartners = async () => {
-      setLoading(true)
-      try {
-        const data = await partnersApi.list({
-          type: typeFilter === 'all' ? undefined : typeFilter,
-          status: statusFilter === 'all' ? undefined : statusFilter
-        })
-        
-        let filtered = Array.isArray(data) ? data : []
-        
-        // Client-side search filter
-        if (search) {
-          filtered = filtered.filter(p =>
-            p.name?.toLowerCase().includes(search.toLowerCase()) ||
-            p.description?.toLowerCase().includes(search.toLowerCase())
-          )
-        }
-
-        setPartners(filtered as Partner[])
-        setTotal(filtered.length)
-      } catch (err) {
-        console.error('Failed to load partners:', err)
-        setPartners([])
-        setTotal(0)
-      } finally {
-        setLoading(false)
+  const loadPartners = useCallback(async () => {
+    setLoading(true)
+    setLoadError('')
+    try {
+      const rows = await partnersApi.list({
+        type: typeFilter === 'all' ? undefined : typeFilter,
+        status: statusFilter === 'all' ? undefined : statusFilter
+      })
+      let filtered = (rows ?? []).map((row: any): Partner => ({
+        id: row.id, name: row.name, logo: row.logo ?? undefined, type: row.type,
+        status: row.status ?? (row.is_active ? 'active' : 'inactive'), description: row.description ?? '',
+        website: row.website ?? undefined, contactName: row.contact_name ?? undefined,
+        contactEmail: row.contact_email ?? undefined, startDate: row.start_date ?? row.created_at,
+        isFeatured: Boolean(row.is_featured)
+      }))
+      if (search.trim()) {
+        const q = search.trim().toLowerCase()
+        filtered = filtered.filter((partner) => `${partner.name} ${partner.description}`.toLowerCase().includes(q))
       }
-    }
-    
-    loadPartners()
+      setPartners(filtered)
+      setTotal(filtered.length)
+    } catch (error) {
+      setLoadError(error instanceof Error ? error.message : 'Unable to load partners.')
+    } finally { setLoading(false) }
   }, [search, typeFilter, statusFilter])
+
+  useEffect(() => { void loadPartners() }, [loadPartners])
+
+  const savePartner = async (data: any) => {
+    setMutating(true)
+    try {
+      const payload = {
+        name: data.name.trim(), type: data.type, status: data.status,
+        description: data.description.trim(), website: data.website.trim() || null,
+        contact_name: data.contactName.trim() || null, contact_email: data.contactEmail.trim() || null,
+        is_featured: data.isFeatured, is_active: data.status === 'active',
+        start_date: data.startDate || new Date().toISOString().slice(0, 10)
+      }
+      if (editing) await partnersApi.update(editing.id, payload)
+      else await partnersApi.create(payload)
+      toast('Success', editing ? 'Partner updated' : 'Partner added')
+      setCreating(false)
+      setEditing(null)
+      await loadPartners()
+    } catch (error) {
+      toast('Unable to save partner', error instanceof Error ? error.message : 'Please check the details and try again.', 'error')
+    } finally { setMutating(false) }
+  }
+
+  const deletePartner = async () => {
+    if (!deleting) return
+    setMutating(true)
+    try {
+      await partnersApi.delete(deleting.id)
+      toast('Success', 'Partner removed')
+      setDeleting(null)
+      await loadPartners()
+    } catch (error) {
+      toast('Unable to remove partner', error instanceof Error ? error.message : 'Please try again.', 'error')
+    } finally { setMutating(false) }
+  }
 
   const totalPages = Math.max(1, Math.ceil(total / perPage))
 
@@ -98,6 +126,8 @@ export default function AdminPartners() {
           <Plus className="h-4 w-4" /> Add Partner
         </Button>
       </div>
+
+      {loadError && <div role="alert" className="flex items-center justify-between gap-4 rounded-card border border-danger/30 bg-danger/5 px-4 py-3 text-sm text-danger"><span>{loadError}</span><Button variant="outline" onClick={() => void loadPartners()}>Retry</Button></div>}
 
       <div className="grid gap-4 sm:grid-cols-4">
         <div className="card p-4">
@@ -255,11 +285,8 @@ export default function AdminPartners() {
           title={editing ? 'Edit Partner' : 'Add Partner'}
           partner={editing || undefined}
           onClose={() => { setCreating(false); setEditing(null) }}
-          onSubmit={() => {
-            toast('Success', editing ? 'Partner updated' : 'Partner added')
-            setCreating(false)
-            setEditing(null)
-          }}
+          mutating={mutating}
+          onSubmit={savePartner}
         />
       )}
 
@@ -270,9 +297,9 @@ export default function AdminPartners() {
           title="Remove Partner"
           footer={
             <>
-              <Button variant="outline" onClick={() => setDeleting(null)}>Cancel</Button>
-              <Button onClick={() => { toast('Success', 'Partner removed'); setDeleting(null) }} className="text-danger">
-                Remove
+              <Button variant="outline" onClick={() => setDeleting(null)} disabled={mutating}>Cancel</Button>
+              <Button onClick={() => void deletePartner()} className="text-danger" disabled={mutating}>
+                {mutating ? <Loader2 className="h-4 w-4 animate-spin" /> : null} Remove
               </Button>
             </>
           }
@@ -284,11 +311,12 @@ export default function AdminPartners() {
   )
 }
 
-function PartnerFormModal({ title, partner, onClose, onSubmit }: {
+function PartnerFormModal({ title, partner, mutating, onClose, onSubmit }: {
   title: string
   partner?: Partner
+  mutating: boolean
   onClose: () => void
-  onSubmit: () => void
+  onSubmit: (data: any) => void
 }) {
   const [name, setName] = useState(partner?.name || '')
   const [type, setType] = useState<PartnerType>(partner?.type || 'academic')
@@ -298,6 +326,7 @@ function PartnerFormModal({ title, partner, onClose, onSubmit }: {
   const [contactName, setContactName] = useState(partner?.contactName || '')
   const [contactEmail, setContactEmail] = useState(partner?.contactEmail || '')
   const [isFeatured, setIsFeatured] = useState(partner?.isFeatured ?? false)
+  const [startDate, setStartDate] = useState(partner?.startDate?.slice(0, 10) || new Date().toISOString().slice(0, 10))
 
   return (
     <Modal
@@ -306,9 +335,9 @@ function PartnerFormModal({ title, partner, onClose, onSubmit }: {
       title={title}
       footer={
         <>
-          <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button onClick={onSubmit}>
-            {partner ? 'Save' : <><Plus className="h-4 w-4" /> Add</>}
+          <Button variant="outline" onClick={onClose} disabled={mutating}>Cancel</Button>
+          <Button onClick={() => onSubmit({ name, type, status, description, website, contactName, contactEmail, isFeatured, startDate })} disabled={!name.trim() || mutating}>
+            {mutating ? <Loader2 className="h-4 w-4 animate-spin" /> : partner ? 'Save' : <><Plus className="h-4 w-4" /> Add</>}
           </Button>
         </>
       }
@@ -346,6 +375,7 @@ function PartnerFormModal({ title, partner, onClose, onSubmit }: {
           <label className="label-base">Website</label>
           <input type="url" value={website} onChange={(e) => setWebsite(e.target.value)} className="input-base" placeholder="https://" />
         </div>
+        <div><label className="label-base">Partnership Start Date</label><input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="input-base" /></div>
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
             <label className="label-base">Contact Name</label>

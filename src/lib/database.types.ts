@@ -645,40 +645,46 @@ export type Database = {
         Row: {
           color: string | null
           created_at: string | null
+          course_count: number
           description: string | null
           head_id: string | null
+          head_name: string | null
           id: string
-          image_url: string | null
           is_active: boolean | null
+          member_count: number
           name: string
           order: number | null
-          slug: string
+          code: string
           updated_at: string | null
         }
         Insert: {
           color?: string | null
           created_at?: string | null
+          course_count?: number
           description?: string | null
           head_id?: string | null
+          head_name?: string | null
           id?: string
-          image_url?: string | null
           is_active?: boolean | null
+          member_count?: number
           name: string
           order?: number | null
-          slug: string
+          code: string
           updated_at?: string | null
         }
         Update: {
           color?: string | null
           created_at?: string | null
+          course_count?: number
           description?: string | null
           head_id?: string | null
+          head_name?: string | null
           id?: string
-          image_url?: string | null
           is_active?: boolean | null
+          member_count?: number
           name?: string
           order?: number | null
-          slug?: string
+          code?: string
           updated_at?: string | null
         }
         Relationships: []
@@ -1556,34 +1562,55 @@ export type Database = {
       }
       partners: {
         Row: {
+          contact_email: string | null
+          contact_name: string | null
           created_at: string | null
+          description: string | null
           id: string
           is_active: boolean | null
-          logo_url: string
+          is_featured: boolean
+          logo: string | null
           name: string
           order: number | null
+          start_date: string | null
+          status: string
+          type: string
           updated_at: string | null
-          website_url: string | null
+          website: string | null
         }
         Insert: {
+          contact_email?: string | null
+          contact_name?: string | null
           created_at?: string | null
+          description?: string | null
           id?: string
           is_active?: boolean | null
-          logo_url: string
+          is_featured?: boolean
+          logo?: string | null
           name: string
           order?: number | null
+          start_date?: string | null
+          status?: string
+          type?: string
           updated_at?: string | null
-          website_url?: string | null
+          website?: string | null
         }
         Update: {
+          contact_email?: string | null
+          contact_name?: string | null
           created_at?: string | null
+          description?: string | null
           id?: string
           is_active?: boolean | null
-          logo_url?: string
+          is_featured?: boolean
+          logo?: string | null
           name?: string
           order?: number | null
+          start_date?: string | null
+          status?: string
+          type?: string
           updated_at?: string | null
-          website_url?: string | null
+          website?: string | null
         }
         Relationships: []
       }
@@ -2070,6 +2097,7 @@ export type Database = {
           avatar: string | null
           bio: string | null
           created_at: string | null
+          department: string
           description: string | null
           email: string | null
           facebook_url: string | null
@@ -2081,16 +2109,21 @@ export type Database = {
           name: string
           order: number | null
           photo_url: string | null
+          phone: string | null
           role: string | null
           slug: string | null
+          specialties: string[]
           title: string | null
           twitter_url: string | null
           updated_at: string | null
+          headline: string | null
+          skills: string[]
         }
         Insert: {
           avatar?: string | null
           bio?: string | null
           created_at?: string | null
+          department?: string
           description?: string | null
           email?: string | null
           facebook_url?: string | null
@@ -2102,16 +2135,21 @@ export type Database = {
           name: string
           order?: number | null
           photo_url?: string | null
+          phone?: string | null
           role?: string | null
           slug?: string | null
+          specialties?: string[]
           title?: string | null
           twitter_url?: string | null
           updated_at?: string | null
+          headline?: string | null
+          skills?: string[]
         }
         Update: {
           avatar?: string | null
           bio?: string | null
           created_at?: string | null
+          department?: string
           description?: string | null
           email?: string | null
           facebook_url?: string | null
@@ -2123,11 +2161,15 @@ export type Database = {
           name?: string
           order?: number | null
           photo_url?: string | null
+          phone?: string | null
           role?: string | null
           slug?: string | null
+          specialties?: string[]
           title?: string | null
           twitter_url?: string | null
           updated_at?: string | null
+          headline?: string | null
+          skills?: string[]
         }
         Relationships: []
       }
