@@ -1648,12 +1648,19 @@ export type Database = {
           badge_color: string | null
           category: string
           created_at: string | null
+          cost_price: number | null
           description: string
           id: string
           image_url: string | null
           is_active: boolean | null
+          is_digital: boolean
+          low_stock_threshold: number
           order: number | null
           price: string
+          sales_count: number
+          sku: string | null
+          status: string
+          stock: number
           title: string
         }
         Insert: {
@@ -1661,12 +1668,19 @@ export type Database = {
           badge_color?: string | null
           category: string
           created_at?: string | null
+          cost_price?: number | null
           description: string
           id?: string
           image_url?: string | null
           is_active?: boolean | null
+          is_digital?: boolean
+          low_stock_threshold?: number
           order?: number | null
           price: string
+          sales_count?: number
+          sku?: string | null
+          status?: string
+          stock?: number
           title: string
         }
         Update: {
@@ -1674,12 +1688,19 @@ export type Database = {
           badge_color?: string | null
           category?: string
           created_at?: string | null
+          cost_price?: number | null
           description?: string
           id?: string
           image_url?: string | null
           is_active?: boolean | null
+          is_digital?: boolean
+          low_stock_threshold?: number
           order?: number | null
           price?: string
+          sales_count?: number
+          sku?: string | null
+          status?: string
+          stock?: number
           title?: string
         }
         Relationships: []

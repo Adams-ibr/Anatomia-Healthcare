@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   AlertTriangle, ChevronLeft, ChevronRight, DollarSign, Loader2,
@@ -25,8 +25,42 @@ interface Product {
   status: ProductStatus
   salesCount: number
   isDigital: boolean
-  createdAt: string
-  updatedAt: string
+  createdAt?: string
+  updatedAt?: string
+}
+
+interface ProductFormData {
+  name: string
+  sku: string
+  description: string
+  category: string
+  price: number
+  costPrice?: number
+  stock: number
+  lowStockThreshold: number
+  isDigital: boolean
+  status: ProductStatus
+}
+
+function mapProduct(row: Record<string, unknown>): Product {
+  const status = row.status === 'out_of_stock' || row.status === 'discontinued' ? row.status : 'available'
+  return {
+    id: String(row.id),
+    name: String(row.title ?? row.name ?? ''),
+    sku: String(row.sku ?? ''),
+    description: String(row.description ?? ''),
+    category: String(row.category ?? ''),
+    price: Number(row.price) || 0,
+    costPrice: row.cost_price == null ? undefined : Number(row.cost_price),
+    stock: Number(row.stock) || 0,
+    lowStockThreshold: Number(row.low_stock_threshold) || 0,
+    imageUrl: row.image_url ? String(row.image_url) : undefined,
+    status,
+    salesCount: Number(row.sales_count) || 0,
+    isDigital: Boolean(row.is_digital),
+    createdAt: row.created_at ? String(row.created_at) : undefined,
+    updatedAt: row.updated_at ? String(row.updated_at) : undefined
+  }
 }
 
 const STATUS_BADGE: Record<ProductStatus, 'success' | 'warning' | 'line'> = {
@@ -40,7 +74,6 @@ export default function AdminProducts() {
   const { t } = useTranslation()
 
   const [products, setProducts] = useState<Product[]>([])
-  const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
   const perPage = 20
   const [loading, setLoading] = useState(true)
@@ -53,24 +86,78 @@ export default function AdminProducts() {
   const [editing, setEditing] = useState<Product | null>(null)
   const [deleting, setDeleting] = useState<Product | null>(null)
   const [mutating, setMutating] = useState(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
   const categories = ['Books', 'Models', 'Charts', 'Software', 'Merchandise', 'Digital Content']
 
-  // No mock data - products should come from database only
-  useEffect(() => {
-    setLoading(false)
+  const loadProducts = useCallback(async () => {
+    setLoading(true)
+    setLoadError(null)
+    try {
+      const rows = await productsApi.list()
+      setProducts((rows ?? []).map((row) => mapProduct(row as unknown as Record<string, unknown>)))
+    } catch (error) {
+      setLoadError(error instanceof Error ? error.message : 'Unable to load products.')
+    } finally {
+      setLoading(false)
+    }
   }, [])
+
+  useEffect(() => { void loadProducts() }, [loadProducts])
+  useEffect(() => { setPage(1) }, [search, categoryFilter, statusFilter])
+
+  const filteredProducts = useMemo(() => products.filter((product) => {
+    const matchesSearch = `${product.name} ${product.sku} ${product.description}`.toLowerCase().includes(search.trim().toLowerCase())
+    const matchesCategory = categoryFilter === 'all' || product.category === categoryFilter
+    const matchesStatus = statusFilter === 'all' || product.status === statusFilter
+    return matchesSearch && matchesCategory && matchesStatus
+  }), [products, search, categoryFilter, statusFilter])
+  const total = filteredProducts.length
+  const visibleProducts = filteredProducts.slice((page - 1) * perPage, page * perPage)
 
   const totalPages = Math.max(1, Math.ceil(total / perPage))
 
-  const handleDelete = (product: Product) => {
+  const handleDelete = async (product: Product) => {
     setMutating(true)
-    setTimeout(() => {
-      setProducts(products.filter(p => p.id !== product.id))
+    try {
+      await productsApi.delete(product.id)
       setDeleting(null)
-      setMutating(false)
       toast('Success', `Product "${product.name}" deleted`)
-    }, 500)
+      await loadProducts()
+    } catch (error) {
+      toast('Unable to delete product', error instanceof Error ? error.message : 'Please try again.', 'error')
+    } finally {
+      setMutating(false)
+    }
+  }
+
+  const handleSubmit = async (data: ProductFormData) => {
+    setMutating(true)
+    try {
+      const payload = {
+        title: data.name.trim(),
+        sku: data.sku.trim(),
+        description: data.description.trim(),
+        category: data.category,
+        price: String(data.price),
+        cost_price: data.costPrice ?? null,
+        stock: data.isDigital ? 0 : data.stock,
+        low_stock_threshold: data.lowStockThreshold,
+        is_digital: data.isDigital,
+        status: data.status,
+        is_active: data.status === 'available'
+      }
+      if (editing) await productsApi.update(editing.id, payload)
+      else await productsApi.create(payload)
+      toast('Success', `Product ${editing ? 'updated' : 'added'} successfully`)
+      setCreating(false)
+      setEditing(null)
+      await loadProducts()
+    } catch (error) {
+      toast('Unable to save product', error instanceof Error ? error.message : 'Please check the product details and try again.', 'error')
+    } finally {
+      setMutating(false)
+    }
   }
 
   const totalRevenue = products.reduce((sum, p) => sum + (p.price * p.salesCount), 0)
@@ -171,6 +258,13 @@ export default function AdminProducts() {
         </select>
       </div>
 
+      {loadError && (
+        <div role="alert" className="flex items-center justify-between gap-4 rounded-card border border-danger/30 bg-danger/5 px-4 py-3 text-sm text-danger">
+          <span>{loadError}</span>
+          <Button variant="outline" onClick={() => void loadProducts()}>Retry</Button>
+        </div>
+      )}
+
       {/* Products List */}
       <div className="card overflow-hidden">
         {loading ? (
@@ -185,7 +279,7 @@ export default function AdminProducts() {
               </div>
             ))}
           </div>
-        ) : products.length === 0 ? (
+        ) : visibleProducts.length === 0 ? (
           <EmptyState
             icon={<Package className="h-6 w-6" />}
             title="No products found"
@@ -208,7 +302,7 @@ export default function AdminProducts() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-line">
-                {products.map((product) => {
+                {visibleProducts.map((product) => {
                   const isLowStock = !product.isDigital && product.stock <= product.lowStockThreshold
                   return (
                     <tr key={product.id} className="group hover:bg-paper/60">
@@ -314,15 +408,12 @@ export default function AdminProducts() {
           title={editing ? 'Edit Product' : 'Add Product'}
           product={editing || undefined}
           categories={categories}
+          mutating={mutating}
           onClose={() => {
             setCreating(false)
             setEditing(null)
           }}
-          onSubmit={(data) => {
-            toast('Success', `Product ${editing ? 'updated' : 'added'} successfully`)
-            setCreating(false)
-            setEditing(null)
-          }}
+          onSubmit={handleSubmit}
         />
       )}
 
@@ -353,12 +444,13 @@ export default function AdminProducts() {
   )
 }
 
-function ProductFormModal({ title, product, categories, onClose, onSubmit }: {
+function ProductFormModal({ title, product, categories, mutating, onClose, onSubmit }: {
   title: string
   product?: Product
   categories: string[]
+  mutating: boolean
   onClose: () => void
-  onSubmit: (data: any) => void
+  onSubmit: (data: ProductFormData) => void
 }) {
   const [name, setName] = useState(product?.name || '')
   const [sku, setSku] = useState(product?.sku || '')
@@ -380,9 +472,9 @@ function ProductFormModal({ title, product, categories, onClose, onSubmit }: {
       title={title}
       footer={
         <>
-          <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button onClick={() => onSubmit({ name, sku, description, category, price: Number(price), costPrice: costPrice ? Number(costPrice) : undefined, stock: Number(stock), lowStockThreshold: Number(lowStockThreshold), isDigital, status })} disabled={!valid}>
-            {product ? 'Save Changes' : <><Plus className="h-4 w-4" /> Add Product</>}
+          <Button variant="outline" onClick={onClose} disabled={mutating}>Cancel</Button>
+          <Button onClick={() => onSubmit({ name, sku, description, category, price: Number(price), costPrice: costPrice ? Number(costPrice) : undefined, stock: Number(stock), lowStockThreshold: Number(lowStockThreshold), isDigital, status })} disabled={!valid || mutating}>
+            {mutating ? <Loader2 className="h-4 w-4 animate-spin" /> : product ? 'Save Changes' : <><Plus className="h-4 w-4" /> Add Product</>}
           </Button>
         </>
       }
