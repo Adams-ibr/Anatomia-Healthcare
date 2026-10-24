@@ -5,11 +5,11 @@ import { Award, Banknote, BookOpen, CheckCircle2, GraduationCap, Megaphone, Shop
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { useApp } from '../lib/store'
 import { adminApi, courseApi, getStoredToken, studentApi } from '../lib/api/auth'
+import { supabase } from '../lib/supabase'
 import { Avatar, Badge, ProgressBar, StatCard } from '../components/ui'
 import { formatPrice } from '../lib/utils'
 
 export function AdminDashboard() {
-  const { enrollments } = useApp()
   const { t } = useTranslation()
   const nav = useNavigate()
   const [stats, setStats] = useState<{
@@ -18,41 +18,33 @@ export function AdminDashboard() {
     instructors: number
     revenue: number
     courses: number
+    enrollments: number
     certificates: number
-    orders: number
-    monthly: { m: string; revenue: number }[]
+    completionRate: number
+    monthly: { m: string; users: number }[]
   } | null>(null)
+  const [statsError, setStatsError] = useState<string | null>(null)
+  const [loadingStats, setLoadingStats] = useState(true)
 
   useEffect(() => {
-    const token = getStoredToken()
-    if (!token) return
     let cancelled = false
-    Promise.all([
-      adminApi.getPayments(token),
-      adminApi.listUsers(token, { page: 1, perPage: 1 }),
-      adminApi.listUsers(token, { page: 1, perPage: 1, role: 'student' }),
-      adminApi.listUsers(token, { page: 1, perPage: 1, role: 'instructor' }),
-      courseApi.listCourses(token, { page: 1, perPage: 1, status: 'all' }),
-      adminApi.listCertificates(token)
-    ]).then(([pay, users, students, instructors, courses, certs]) => {
-      if (cancelled) return
-      setStats({
-        users: users?.total ?? 0,
-        students: students?.total ?? 0,
-        instructors: instructors?.total ?? 0,
-        revenue: pay?.grossRevenue ?? 0,
-        courses: courses?.total ?? 0,
-        certificates: certs?.certificates?.length ?? 0,
-        orders: pay?.orderCount ?? 0,
-        monthly: pay?.monthly ?? []
+    setLoadingStats(true)
+    setStatsError(null)
+    supabase.functions.invoke('auth/admin/dashboard', { method: 'GET' })
+      .then(({ data, error }) => {
+        if (error) throw error
+        if (!data) throw new Error('The dashboard returned no statistics.')
+        if (!cancelled) setStats(data)
       })
-    }).catch(() => {})
+      .catch((error: unknown) => {
+        if (cancelled) return
+        setStatsError(error instanceof Error ? error.message : 'Unable to load dashboard statistics.')
+      })
+      .finally(() => { if (!cancelled) setLoadingStats(false) })
     return () => { cancelled = true }
   }, [])
 
-  const completed = (enrollments ?? []).filter((e) => e.status === 'completed').length
-  const completionRate = (enrollments ?? []).length ? Math.round(completed / (enrollments ?? []).length * 100) : 0
-  const growth = useMemo(() => stats?.monthly?.map((m) => ({ month: m.m, users: Math.round(m.revenue) })) ?? [], [stats])
+  const growth = useMemo(() => stats?.monthly?.map((m) => ({ month: m.m, users: m.users })) ?? [], [stats])
 
   return (
     <div className="space-y-8">
@@ -61,23 +53,32 @@ export function AdminDashboard() {
         <p className="mt-1 text-sm text-muted">{t('admin.platformDesc')}</p>
       </div>
 
+      {statsError && (
+        <div role="alert" className="flex items-center justify-between gap-4 rounded-card border border-danger/30 bg-danger/5 px-4 py-3 text-sm text-danger">
+          <span>{statsError}</span>
+          <button onClick={() => window.location.reload()} className="shrink-0 font-semibold underline">{t('admin.retry')}</button>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label={t('admin.totalUsers')} value={(stats?.users ?? 0).toLocaleString()} sub={t('admin.registered')} icon={<Users className="h-5 w-5" />} />
-        <StatCard label={t('admin.students')} value={(stats?.students ?? 0).toLocaleString()} sub={t('admin.activeLearners')} icon={<GraduationCap className="h-5 w-5" />} />
-        <StatCard label={t('admin.instructors')} value={(stats?.instructors ?? 0).toLocaleString()} sub={t('admin.plusNewThisMonth')} icon={<UserCog className="h-5 w-5" />} />
-        <StatCard label={t('admin.revenue')} value={formatPrice(stats?.revenue ?? 0)} sub={t('admin.allTime')} icon={<Banknote className="h-5 w-5" />} />
+        <StatCard label={t('admin.totalUsers')} value={stats ? stats.users.toLocaleString() : loadingStats ? '…' : '—'} sub={t('admin.registered')} icon={<Users className="h-5 w-5" />} />
+        <StatCard label={t('admin.students')} value={stats ? stats.students.toLocaleString() : loadingStats ? '…' : '—'} sub={t('admin.activeLearners')} icon={<GraduationCap className="h-5 w-5" />} />
+        <StatCard label={t('admin.instructors')} value={stats ? stats.instructors.toLocaleString() : loadingStats ? '…' : '—'} sub={t('admin.plusNewThisMonth')} icon={<UserCog className="h-5 w-5" />} />
+        <StatCard label={t('admin.revenue')} value={stats ? formatPrice(stats.revenue) : loadingStats ? '…' : '—'} sub={t('admin.allTime')} icon={<Banknote className="h-5 w-5" />} />
       </div>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label={t('admin.courses')} value={(stats?.courses ?? 0).toLocaleString()} sub={t('admin.publishedCount')} icon={<BookOpen className="h-5 w-5" />} />
-        <StatCard label={t('admin.enrollments')} value={enrollments.length.toLocaleString()} sub={t('admin.platformWide')} icon={<TrendingUp className="h-5 w-5" />} />
-        <StatCard label={t('admin.certificatesIssued')} value={(stats?.certificates ?? 0).toLocaleString()} sub={t('admin.issuedAllTime')} icon={<Award className="h-5 w-5" />} />
-        <StatCard label={t('admin.completionRate')} value={`${completionRate}%`} sub={t('admin.acrossAll')} icon={<CheckCircle2 className="h-5 w-5" />} />
+        <StatCard label={t('admin.courses')} value={stats ? stats.courses.toLocaleString() : loadingStats ? '…' : '—'} sub={t('admin.publishedCount')} icon={<BookOpen className="h-5 w-5" />} />
+        <StatCard label={t('admin.enrollments')} value={stats ? stats.enrollments.toLocaleString() : loadingStats ? '…' : '—'} sub={t('admin.platformWide')} icon={<TrendingUp className="h-5 w-5" />} />
+        <StatCard label={t('admin.certificatesIssued')} value={stats ? stats.certificates.toLocaleString() : loadingStats ? '…' : '—'} sub={t('admin.issuedAllTime')} icon={<Award className="h-5 w-5" />} />
+        <StatCard label={t('admin.completionRate')} value={stats ? `${stats.completionRate}%` : loadingStats ? '…' : '—'} sub={t('admin.acrossAll')} icon={<CheckCircle2 className="h-5 w-5" />} />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="card p-5 lg:col-span-2">
           <h2 className="mb-4 font-semibold text-ink">{t('admin.userGrowth')}</h2>
-          {growth.length === 0 ? (
+          {loadingStats ? (
+            <p className="py-16 text-center text-sm text-muted">{t('common.loading')}</p>
+          ) : growth.length === 0 ? (
             <p className="py-16 text-center text-sm text-muted">{t('admin.noData')}</p>
           ) : (
             <ResponsiveContainer width="100%" height={260}>

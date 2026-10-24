@@ -2815,6 +2815,57 @@ async function handleAdminPayments(req: Request): Promise<Response> {
   })
 }
 
+async function handleAdminDashboard(req: Request): Promise<Response> {
+  const guard = await requireAdmin(req)
+  if (guard instanceof Response) return guard
+
+  const [users, students, instructors, courses, enrollments, completedEnrollments, certificates, profiles, orders] = await Promise.all([
+    supabase.from('profiles').select('id', { count: 'exact', head: true }),
+    supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('role', 'student'),
+    supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('role', 'instructor'),
+    supabase.from('courses').select('id', { count: 'exact', head: true }).eq('status', 'published'),
+    supabase.from('enrollments').select('id', { count: 'exact', head: true }),
+    supabase.from('enrollments').select('id', { count: 'exact', head: true }).eq('status', 'completed'),
+    supabase.from('certificates').select('id', { count: 'exact', head: true }),
+    supabase.from('profiles').select('joined_at'),
+    supabase.from('orders').select('total, status')
+  ])
+
+  const failed = [users, students, instructors, courses, enrollments, completedEnrollments, certificates, profiles, orders]
+    .find((result) => result.error)
+  if (failed?.error) return errorResponse(500, 'Failed to load dashboard statistics: ' + failed.error.message)
+
+  const now = new Date()
+  const firstMonth = new Date(now.getFullYear(), now.getMonth() - 5, 1)
+  const monthly = Array.from({ length: 6 }, (_, index) => {
+    const date = new Date(firstMonth.getFullYear(), firstMonth.getMonth() + index, 1)
+    return { m: date.toLocaleString('en-US', { month: 'short' }), users: 0 }
+  })
+  for (const profile of profiles.data ?? []) {
+    if (!profile.joined_at) continue
+    const date = new Date(profile.joined_at)
+    const index = (date.getFullYear() - firstMonth.getFullYear()) * 12 + date.getMonth() - firstMonth.getMonth()
+    if (index >= 0 && index < monthly.length) monthly[index].users += 1
+  }
+
+  const orderRows = orders.data ?? []
+  const revenue = orderRows
+    .filter((order) => order.status === 'completed')
+    .reduce((sum, order) => sum + (Number(order.total) || 0), 0)
+
+  return json({
+    users: users.count ?? 0,
+    students: students.count ?? 0,
+    instructors: instructors.count ?? 0,
+    revenue,
+    courses: courses.count ?? 0,
+    enrollments: enrollments.count ?? 0,
+    certificates: certificates.count ?? 0,
+    completionRate: enrollments.count ? Math.round((completedEnrollments.count ?? 0) / enrollments.count * 100) : 0,
+    monthly
+  })
+}
+
 // ---------------------------------------------------------------------------
 // Announcements
 // ---------------------------------------------------------------------------
@@ -3680,6 +3731,9 @@ Deno.serve(async (req) => {
       break
     case 'GET /admin/payments':
       response = await handleAdminPayments(req)
+      break
+    case 'GET /admin/dashboard':
+      response = await handleAdminDashboard(req)
       break
     case 'GET /admin/announcements':
       response = await handleAdminListAnnouncements(req)
