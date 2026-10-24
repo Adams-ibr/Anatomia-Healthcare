@@ -1169,9 +1169,14 @@ export const flashcardDecksApi = {
   },
 
   create: async (deck: any) => {
+    const { data: { user }, error: userError } = await supabase.auth.getUser()
+    if (userError) throw userError
+    if (!user) throw new Error('Please sign in again before creating a flashcard deck')
+
     const { data, error } = await supabase
       .from('flashcard_decks')
       .insert({
+        user_id: user.id,
         title: deck.name ?? deck.title,
         description: deck.description ?? '',
         category: deck.category ?? 'General',

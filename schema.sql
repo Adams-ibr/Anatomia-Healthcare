@@ -301,6 +301,7 @@ create table public.anatomy_models (
 
 create table public.flashcard_decks (
   id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users (id) on delete cascade,
   title text not null,
   description text not null default '',
   category text not null default 'General',

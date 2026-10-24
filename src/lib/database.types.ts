@@ -831,8 +831,9 @@ export type Database = {
           description: string | null
           id: string
           is_published: boolean | null
-          module_id: string | null
           title: string
+          updated_at: string
+          user_id: string
         }
         Insert: {
           category?: string | null
@@ -841,8 +842,9 @@ export type Database = {
           description?: string | null
           id?: string
           is_published?: boolean | null
-          module_id?: string | null
           title: string
+          updated_at?: string
+          user_id: string
         }
         Update: {
           category?: string | null
@@ -851,8 +853,9 @@ export type Database = {
           description?: string | null
           id?: string
           is_published?: boolean | null
-          module_id?: string | null
           title?: string
+          updated_at?: string
+          user_id?: string
         }
         Relationships: [
           {
@@ -860,13 +863,6 @@ export type Database = {
             columns: ["course_id"]
             isOneToOne: false
             referencedRelation: "courses"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "flashcard_decks_module_id_fkey"
-            columns: ["module_id"]
-            isOneToOne: false
-            referencedRelation: "course_modules"
             referencedColumns: ["id"]
           },
         ]
