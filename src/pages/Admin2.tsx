@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -422,24 +422,22 @@ export function AdminReports() {
   const { t } = useTranslation()
   const [report, setReport] = useState<Awaited<ReturnType<typeof adminApi.getReports>> | null>(null)
   const [failed, setFailed] = useState(false)
+  const [loadError, setLoadError] = useState('')
   const [busy, setBusy] = useState<string | null>(null)
 
-  const load = () => {
-    const token = getStoredToken()
-    if (!token) {
-      setReport({
-        users: { total: 0, students: 0, instructors: 0, admins: 0, newThisMonth: 0, monthly: [] },
-        courses: { total: 0, published: 0, pending: 0, drafts: 0, archived: 0, avgRating: 0, totalReviews: 0, top: [] },
-        revenue: { gross: 0, net: 0, refunds: 0, payouts: 0, orderCount: 0, completed: 0, refunded: 0, avgOrderValue: 0 },
-        certificates: { total: 0, thisMonth: 0, monthly: [] },
-        assessments: { totalAssessments: 0, attempts: 0, passed: 0, passRate: 0 }
-      })
+  const load = useCallback(async () => {
+    setFailed(false)
+    setLoadError('')
+    setReport(null)
+    const { data, error } = await supabase.functions.invoke('auth/admin/reports', { method: 'GET' })
+    if (error) {
+      setFailed(true)
+      setLoadError(error.message)
       return
     }
-    setFailed(false)
-    adminApi.getReports(token).then(setReport).catch(() => setFailed(true))
-  }
-  useEffect(load, [])
+    setReport(data as Awaited<ReturnType<typeof adminApi.getReports>>)
+  }, [])
+  useEffect(() => { void load().catch((error) => { setFailed(true); setLoadError(error instanceof Error ? error.message : String(error)) }) }, [load])
 
   const token = getStoredToken()
 
@@ -510,7 +508,8 @@ export function AdminReports() {
       {failed ? (
         <div className="card p-12 text-center text-sm text-muted">
           <p>{t('admin2.reportsFailed')}</p>
-          <Button variant="outline" className="mt-4" onClick={load}>{t('admin2.retry')}</Button>
+          {loadError && <p role="alert" className="mt-2 text-danger">{loadError}</p>}
+          <Button variant="outline" className="mt-4" onClick={() => void load()}>{t('admin2.retry')}</Button>
         </div>
       ) : !report ? (
         <p className="card p-12 text-center text-sm text-muted">{t('admin2.reportsLoading')}</p>
@@ -591,7 +590,7 @@ export function AdminReports() {
                 <MiniStat label={t('admin2.payouts')} value={formatPrice(report.revenue.payouts)} />
                 <MiniStat label={t('admin2.avgOrder')} value={formatPrice(report.revenue.avgOrderValue)} />
               </div>
-              <p className="mt-4 text-xs text-muted">{report.revenue.completed} {t('admin2.completed')} · {report.revenue.refunded} {t('admin2.refundedOrders')}</p>
+              <p className="mt-4 text-xs text-muted">{report.revenue.completed} {t('admin2.completed')} · {t('admin2.refundedOrders', { count: report.revenue.refunded })}</p>
             </div>
 
             <div className="card p-5">
@@ -657,23 +656,21 @@ export function AdminAnalytics() {
   const { t } = useTranslation()
   const [data, setData] = useState<Awaited<ReturnType<typeof adminApi.getAnalytics>> | null>(null)
   const [failed, setFailed] = useState(false)
+  const [loadError, setLoadError] = useState('')
 
-  const load = () => {
-    const token = getStoredToken()
-    if (!token) {
-      setData({
-        users: { total: 0, monthly: [] },
-        enrollments: { total: 0, active: 0, completed: 0, monthly: [] },
-        revenue: { gross: 0, net: 0, refunds: 0, monthly: [] },
-        courses: { total: 0, published: 0, byCategory: [] },
-        certificates: { total: 0, monthly: [] }
-      })
+  const load = useCallback(async () => {
+    setFailed(false)
+    setLoadError('')
+    setData(null)
+    const { data, error } = await supabase.functions.invoke('auth/admin/analytics', { method: 'GET' })
+    if (error) {
+      setFailed(true)
+      setLoadError(error.message)
       return
     }
-    setFailed(false)
-    adminApi.getAnalytics(token).then(setData).catch(() => setFailed(true))
-  }
-  useEffect(load, [])
+    setData(data as Awaited<ReturnType<typeof adminApi.getAnalytics>>)
+  }, [])
+  useEffect(() => { void load().catch((error) => { setFailed(true); setLoadError(error instanceof Error ? error.message : String(error)) }) }, [load])
 
   const revData = (data?.revenue.monthly ?? []).map((m) => ({ m: m.m, revenue: Math.round(m.revenue) }))
   const usersSeries = data?.users.monthly ?? []
@@ -686,16 +683,17 @@ export function AdminAnalytics() {
     <div className="space-y-6">
       <h1 className="font-display text-2xl font-bold text-ink">{t('admin2.analytics')}</h1>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label={t('admin2.totalUsers')} value={(data?.users.total ?? 0).toLocaleString()} sub={t('admin2.registeredUsers')} icon={<Users className="h-5 w-5" />} />
-        <StatCard label={t('admin2.enrollments')} value={(data?.enrollments.total ?? 0).toLocaleString()} sub={`${data?.enrollments.active ?? 0} ${t('admin2.active')} · ${data?.enrollments.completed ?? 0} ${t('admin2.completed')}`} icon={<BookOpen className="h-5 w-5" />} />
-        <StatCard label={t('admin2.certificates')} value={(data?.certificates.total ?? 0).toLocaleString()} sub={t('admin2.thisMonth')} icon={<Award className="h-5 w-5" />} />
-        <StatCard label={t('admin2.revenue')} value={formatPrice(data?.revenue.gross ?? 0)} sub={`${t('admin2.net')} · ${formatPrice(data?.revenue.net ?? 0)}`} icon={<TrendingUp className="h-5 w-5" />} />
+        <StatCard label={t('admin2.totalUsers')} value={data ? data.users.total.toLocaleString() : '—'} sub={t('admin2.registeredUsers')} icon={<Users className="h-5 w-5" />} />
+        <StatCard label={t('admin2.enrollments')} value={data ? data.enrollments.total.toLocaleString() : '—'} sub={data ? `${data.enrollments.active} ${t('admin2.active')} · ${data.enrollments.completed} ${t('admin2.completed')}` : ' '} icon={<BookOpen className="h-5 w-5" />} />
+        <StatCard label={t('admin2.certificates')} value={data ? data.certificates.total.toLocaleString() : '—'} sub={t('admin2.thisMonth')} icon={<Award className="h-5 w-5" />} />
+        <StatCard label={t('admin2.revenue')} value={data ? formatPrice(data.revenue.gross) : '—'} sub={data ? `${t('admin2.net')} · ${formatPrice(data.revenue.net)}` : ' '} icon={<TrendingUp className="h-5 w-5" />} />
       </div>
 
       {failed ? (
         <div className="card p-12 text-center text-sm text-muted">
           <p>{t('admin2.reportsFailed')}</p>
-          <Button variant="outline" className="mt-4" onClick={load}>{t('admin2.retry')}</Button>
+          {loadError && <p role="alert" className="mt-2 text-danger">{loadError}</p>}
+          <Button variant="outline" className="mt-4" onClick={() => void load()}>{t('admin2.retry')}</Button>
         </div>
       ) : !data ? (
         <p className="card p-12 text-center text-sm text-muted">{t('admin2.reportsLoading')}</p>
