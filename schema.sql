@@ -558,10 +558,16 @@ create policy "Public catalog read" on public.categories for select using (true)
 create policy "Published courses read" on public.courses for select using (status = 'published');
 create policy "Sections read" on public.course_sections for select using (exists (
   select 1 from public.courses c where c.id = course_sections.course_id and c.status = 'published'));
+create policy "Admins manage sections" on public.course_sections for all to authenticated
+  using (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin'))
+  with check (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin'));
 create policy "Lessons read" on public.lessons for select using (exists (
   select 1 from public.course_sections s
   join public.courses c on c.id = s.course_id
   where s.id = lessons.section_id and c.status = 'published'));
+create policy "Admins manage lessons" on public.lessons for all to authenticated
+  using (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin'))
+  with check (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin'));
 create policy "Objectives read" on public.course_objectives for select using (true);
 create policy "Requirements read" on public.course_requirements for select using (true);
 create policy "FAQs read" on public.course_faqs for select using (true);
