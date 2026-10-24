@@ -6,7 +6,8 @@ import {
   Clock3, CloudDownload, FileText, Flag, Layers, Loader2, PencilLine, Plus, Search, Star,
   Trash2
 } from 'lucide-react'
-import { coursesApi, categoriesApi, supabase } from '../lib/supabase'
+import { coursesApi, categoriesApi } from '../lib/supabase'
+import { publicApi } from '../lib/api/auth'
 import type { Course, Category, CourseLevel, CourseStatus } from '../lib/types/admin'
 import { useApp } from '../lib/store'
 import { Badge, Button, EmptyState, Modal, Skeleton } from '../components/ui'
@@ -94,7 +95,7 @@ export default function AdminCourses() {
         studentCount: 0,
         rating: c.level === 'Beginner' ? 4.5 : c.level === 'Advanced' ? 4.8 : 4.6,
         categoryName: c.category,
-        instructorName: '',
+        instructorName: instructors.find(instructor => instructor.id === c.instructor_id)?.name ?? '',
         isFeatured: false
       }))
       
@@ -108,7 +109,7 @@ export default function AdminCourses() {
     } finally {
       setLoading(false)
     }
-  }, [debouncedSearch, statusFilter, categoryFilter, t, perPage])
+  }, [debouncedSearch, statusFilter, categoryFilter, instructors, t, perPage])
 
   const loadCategories = useCallback(async () => {
     try {
@@ -122,13 +123,8 @@ export default function AdminCourses() {
 
   const loadInstructors = useCallback(async () => {
     try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('id, name')
-        .in('role', ['instructor', 'admin'])
-        .order('name', { ascending: true })
-      if (error) throw error
-      setInstructors(data ?? [])
+      const { instructors: data } = await publicApi.listInstructors()
+      setInstructors(data.map(({ id, name }) => ({ id, name })))
     } catch {
       /* instructors optional for create form */
       setInstructors([])
