@@ -12,6 +12,8 @@ import type { Course, Category, CourseLevel, CourseStatus } from '../lib/types/a
 import { useApp } from '../lib/store'
 import { Badge, Button, EmptyState, Modal, Skeleton } from '../components/ui'
 import { cn, formatPrice } from '../lib/utils'
+import { uploadAdminImage } from '../lib/adminMedia'
+import { ImageUploadField } from '../components/admin/ImageUploadField'
 
 // Extended Course type for UI display
 interface DisplayCourse extends Course {
@@ -349,7 +351,8 @@ export default function AdminCourses() {
             price: input.price,
             duration: input.duration,
             has_certificate: input.hasCertificate,
-            status: input.status
+            status: input.status,
+            thumbnail: input.thumbnailFile ? await uploadAdminImage(input.thumbnailFile, 'courses') : undefined
           }),
           t('admin.courseCreated'),
           input.title
@@ -374,7 +377,8 @@ export default function AdminCourses() {
               level: patch.level,
               price: patch.price,
               duration: patch.duration,
-              has_certificate: patch.hasCertificate
+              has_certificate: patch.hasCertificate,
+              thumbnail: patch.thumbnailFile ? await uploadAdminImage(patch.thumbnailFile, 'courses') : undefined
             }),
             t('admin.courseUpdated'),
             editing.title
@@ -453,8 +457,9 @@ function CreateCourseModal({ open, onClose, busy, categories, instructors, onCre
   const [price, setPrice] = useState('')
   const [duration, setDuration] = useState('')
   const [hasCertificate, setHasCertificate] = useState(true)
+  const [thumbnailFile, setThumbnailFile] = useState<File | null>(null)
 
-  const reset = () => { setTitle(''); setCategoryId(''); setInstructorId(''); setLevel('Beginner'); setPrice(''); setDuration(''); setHasCertificate(true) }
+  const reset = () => { setTitle(''); setCategoryId(''); setInstructorId(''); setLevel('Beginner'); setPrice(''); setDuration(''); setHasCertificate(true); setThumbnailFile(null) }
   const valid = title.trim().length > 0 && categoryId !== '' && instructorId !== ''
 
   return (
@@ -474,6 +479,7 @@ function CreateCourseModal({ open, onClose, busy, categories, instructors, onCre
               price: price ? Number(price) : 0,
               duration: duration ? Number(duration) : 0,
               hasCertificate,
+              thumbnailFile,
               status: 'draft'
             } as any)
             reset()
@@ -484,6 +490,7 @@ function CreateCourseModal({ open, onClose, busy, categories, instructors, onCre
       }
     >
       <div className="space-y-4">
+        <ImageUploadField label="Course cover image" onChange={setThumbnailFile} />
         <div>
           <label className="label-base">{t('admin.courseTitle')}</label>
           <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder={t('admin.courseTitlePlaceholder')} className="input-base" autoFocus />
@@ -552,6 +559,7 @@ function EditCourseModal({ course, busy, categories, onClose, onSave }: {
   const [duration, setDuration] = useState(String(course.duration || 0))
   const [hasCertificate, setHasCertificate] = useState(course.has_certificate ?? false)
   const [isFeatured, setIsFeatured] = useState(false)
+  const [thumbnailFile, setThumbnailFile] = useState<File | null>(null)
 
   const valid = title.trim().length > 0 && categoryId !== ''
 
@@ -570,7 +578,8 @@ function EditCourseModal({ course, busy, categories, onClose, onSave }: {
             price: price ? Number(price) : 0,
             duration: duration ? Number(duration) : 0,
             hasCertificate,
-            isFeatured
+            isFeatured,
+            thumbnailFile
           } as any)} disabled={!valid || busy}>
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : null} {t('admin.saveChanges')}
           </Button>
@@ -578,12 +587,8 @@ function EditCourseModal({ course, busy, categories, onClose, onSave }: {
       }
     >
       <div className="space-y-4">
+        <ImageUploadField label="Course cover image" value={course.thumbnail || course.thumbnail_url} onChange={setThumbnailFile} />
         <div className="flex items-center gap-3">
-          {course.thumbnail || course.thumbnail_url ? (
-            <img src={course.thumbnail || course.thumbnail_url} alt="" className="h-16 w-28 shrink-0 rounded-card object-cover" />
-          ) : (
-            <div className="flex h-16 w-28 shrink-0 items-center justify-center rounded-card bg-paper"><BookOpen className="h-6 w-6 text-muted" /></div>
-          )}
           <div className="min-w-0">
             <p className="font-semibold text-ink">{course.title}</p>
             <p className="text-xs text-muted">{course.instructor_id}</p>

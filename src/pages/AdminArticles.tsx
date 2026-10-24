@@ -7,6 +7,8 @@ import { useApp } from '../lib/store'
 import { Badge, Button, EmptyState, Modal, Skeleton } from '../components/ui'
 import { cn, formatDate } from '../lib/utils'
 import { articlesApi } from '../lib/supabase'
+import { uploadAdminImage } from '../lib/adminMedia'
+import { ImageUploadField } from '../components/admin/ImageUploadField'
 
 type ArticleStatus = 'draft' | 'published' | 'archived'
 
@@ -119,11 +121,12 @@ export default function AdminArticles() {
     }
   }
 
-  const handleCreate = async (data: { title: string; excerpt: string; content: string; status: ArticleStatus }) => {
+  const handleCreate = async (data: { title: string; excerpt: string; content: string; status: ArticleStatus; coverImageFile: File | null }) => {
     setMutating(true)
     try {
       const baseSlug = data.title.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'article'
-      await articlesApi.create({ ...data, slug: `${baseSlug}-${Date.now().toString(36)}`, category: 'General' })
+      const cover_image = data.coverImageFile ? await uploadAdminImage(data.coverImageFile, 'articles') : null
+      await articlesApi.create({ title: data.title, excerpt: data.excerpt, content: data.content, status: data.status, cover_image, slug: `${baseSlug}-${Date.now().toString(36)}`, category: 'General' })
       await reloadArticles()
       setCreating(false)
       toast('Success', 'Article created successfully')
@@ -134,10 +137,11 @@ export default function AdminArticles() {
     }
   }
 
-  const handleSave = async (article: Article, data: { title: string; excerpt: string; status: ArticleStatus }) => {
+  const handleSave = async (article: Article, data: { title: string; excerpt: string; status: ArticleStatus; coverImageFile: File | null }) => {
     setMutating(true)
     try {
-      await articlesApi.update(article.id, data)
+      const cover_image = data.coverImageFile ? await uploadAdminImage(data.coverImageFile, 'articles') : undefined
+      await articlesApi.update(article.id, { title: data.title, excerpt: data.excerpt, status: data.status, ...(cover_image ? { cover_image } : {}) })
       await reloadArticles()
       setEditing(null)
       toast('Success', 'Article updated successfully')
@@ -420,13 +424,14 @@ export default function AdminArticles() {
 
 function CreateArticleModal({ onClose, onCreate, saving }: {
   onClose: () => void
-  onCreate: (data: { title: string; excerpt: string; content: string; status: ArticleStatus }) => Promise<void>
+  onCreate: (data: { title: string; excerpt: string; content: string; status: ArticleStatus; coverImageFile: File | null }) => Promise<void>
   saving: boolean
 }) {
   const [title, setTitle] = useState('')
   const [excerpt, setExcerpt] = useState('')
   const [content, setContent] = useState('')
   const [status, setStatus] = useState<ArticleStatus>('draft')
+  const [coverImageFile, setCoverImageFile] = useState<File | null>(null)
 
   const valid = title.trim().length > 0 && excerpt.trim().length > 0
 
@@ -438,13 +443,14 @@ function CreateArticleModal({ onClose, onCreate, saving }: {
       footer={
         <>
           <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button onClick={() => onCreate({ title: title.trim(), excerpt: excerpt.trim(), content: content.trim(), status })} disabled={!valid || saving}>
+          <Button onClick={() => onCreate({ title: title.trim(), excerpt: excerpt.trim(), content: content.trim(), status, coverImageFile })} disabled={!valid || saving}>
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />} Create
           </Button>
         </>
       }
     >
       <div className="space-y-4">
+        <ImageUploadField label="Cover image" onChange={setCoverImageFile} />
         <div>
           <label className="label-base">Title</label>
           <input
@@ -490,12 +496,13 @@ function CreateArticleModal({ onClose, onCreate, saving }: {
 function EditArticleModal({ article, onClose, onSave, saving }: {
   article: Article
   onClose: () => void
-  onSave: (data: { title: string; excerpt: string; status: ArticleStatus }) => void
+  onSave: (data: { title: string; excerpt: string; status: ArticleStatus; coverImageFile: File | null }) => void
   saving: boolean
 }) {
   const [title, setTitle] = useState(article.title)
   const [excerpt, setExcerpt] = useState(article.excerpt)
   const [status, setStatus] = useState(article.status)
+  const [coverImageFile, setCoverImageFile] = useState<File | null>(null)
 
   const valid = title.trim().length > 0 && excerpt.trim().length > 0
 
@@ -507,13 +514,14 @@ function EditArticleModal({ article, onClose, onSave, saving }: {
       footer={
         <>
           <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button onClick={() => onSave({ title: title.trim(), excerpt: excerpt.trim(), status })} disabled={!valid || saving}>
+          <Button onClick={() => onSave({ title: title.trim(), excerpt: excerpt.trim(), status, coverImageFile })} disabled={!valid || saving}>
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null} Save Changes
           </Button>
         </>
       }
     >
       <div className="space-y-4">
+        <ImageUploadField label="Cover image" value={article.coverImage} onChange={setCoverImageFile} />
         <div>
           <label className="label-base">Title</label>
           <input

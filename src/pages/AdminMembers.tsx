@@ -7,6 +7,8 @@ import { useApp } from '../lib/store'
 import { Avatar, Badge, Button, EmptyState, Modal, Skeleton } from '../components/ui'
 import { cn, formatDate } from '../lib/utils'
 import { departmentsApi, teamApi } from '../lib/supabase'
+import { uploadAdminImage } from '../lib/adminMedia'
+import { ImageUploadField } from '../components/admin/ImageUploadField'
 
 interface TeamMember {
   id: string
@@ -117,7 +119,8 @@ export default function AdminMembers() {
         title: data.title.trim(), headline: data.title.trim(), department: data.department,
         description: data.bio.trim(), phone: data.phone.trim(), is_active: data.isActive,
         linkedin_url: data.linkedIn?.trim() || null, twitter_url: data.twitter?.trim() || null,
-        specialties: data.specialties ?? [], skills: data.specialties ?? []
+        specialties: data.specialties ?? [], skills: data.specialties ?? [],
+        ...(data.avatarFile ? { photo_url: await uploadAdminImage(data.avatarFile, 'team') } : {})
       }
       if (editing) await teamApi.update(editing.id, payload)
       else await teamApi.create(payload)
@@ -541,6 +544,7 @@ function MemberFormModal({ title, member, departments, roles, onClose, onSubmit 
   const [twitter, setTwitter] = useState(member?.twitter || '')
   const [specialties, setSpecialties] = useState(member?.specialties.join(', ') || '')
   const [isActive, setIsActive] = useState(member?.isActive ?? true)
+  const [avatarFile, setAvatarFile] = useState<File | null>(null)
 
   const valid = name.trim().length > 0 && email.trim().length > 0 && jobTitle.trim().length > 0
 
@@ -552,13 +556,14 @@ function MemberFormModal({ title, member, departments, roles, onClose, onSubmit 
       footer={
         <>
           <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button onClick={() => onSubmit({ name, email, role, title: jobTitle, department, bio, phone, linkedIn, twitter, specialties: specialties.split(',').map((item) => item.trim()).filter(Boolean), isActive })} disabled={!valid}>
+          <Button onClick={() => onSubmit({ name, email, role, title: jobTitle, department, bio, phone, linkedIn, twitter, specialties: specialties.split(',').map((item) => item.trim()).filter(Boolean), isActive, avatarFile })} disabled={!valid}>
             {member ? 'Save Changes' : <><Plus className="h-4 w-4" /> Add Member</>}
           </Button>
         </>
       }
     >
       <div className="space-y-4">
+        <ImageUploadField label="Profile photo" value={member?.avatar} onChange={setAvatarFile} />
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
             <label className="label-base">Full Name</label>

@@ -8,6 +8,8 @@ import { useApp } from '../lib/store'
 import { Badge, Button, EmptyState, Modal, Skeleton } from '../components/ui'
 import { cn, formatPrice } from '../lib/utils'
 import { productsApi } from '../lib/supabase'
+import { uploadAdminImage } from '../lib/adminMedia'
+import { ImageUploadField } from '../components/admin/ImageUploadField'
 
 type ProductStatus = 'available' | 'out_of_stock' | 'discontinued'
 
@@ -40,6 +42,7 @@ interface ProductFormData {
   lowStockThreshold: number
   isDigital: boolean
   status: ProductStatus
+  imageFile: File | null
 }
 
 function mapProduct(row: Record<string, unknown>): Product {
@@ -145,7 +148,8 @@ export default function AdminProducts() {
         low_stock_threshold: data.lowStockThreshold,
         is_digital: data.isDigital,
         status: data.status,
-        is_active: data.status === 'available'
+        is_active: data.status === 'available',
+        image_url: data.imageFile ? await uploadAdminImage(data.imageFile, 'products') : (editing?.imageUrl ?? null)
       }
       if (editing) await productsApi.update(editing.id, payload)
       else await productsApi.create(payload)
@@ -462,6 +466,7 @@ function ProductFormModal({ title, product, categories, mutating, onClose, onSub
   const [lowStockThreshold, setLowStockThreshold] = useState(product?.lowStockThreshold?.toString() || '10')
   const [isDigital, setIsDigital] = useState(product?.isDigital ?? false)
   const [status, setStatus] = useState<ProductStatus>(product?.status || 'available')
+  const [imageFile, setImageFile] = useState<File | null>(null)
 
   const valid = name.trim().length > 0 && sku.trim().length > 0 && price.length > 0
 
@@ -473,13 +478,14 @@ function ProductFormModal({ title, product, categories, mutating, onClose, onSub
       footer={
         <>
           <Button variant="outline" onClick={onClose} disabled={mutating}>Cancel</Button>
-          <Button onClick={() => onSubmit({ name, sku, description, category, price: Number(price), costPrice: costPrice ? Number(costPrice) : undefined, stock: Number(stock), lowStockThreshold: Number(lowStockThreshold), isDigital, status })} disabled={!valid || mutating}>
+          <Button onClick={() => onSubmit({ name, sku, description, category, price: Number(price), costPrice: costPrice ? Number(costPrice) : undefined, stock: Number(stock), lowStockThreshold: Number(lowStockThreshold), isDigital, status, imageFile })} disabled={!valid || mutating}>
             {mutating ? <Loader2 className="h-4 w-4 animate-spin" /> : product ? 'Save Changes' : <><Plus className="h-4 w-4" /> Add Product</>}
           </Button>
         </>
       }
     >
       <div className="space-y-4">
+        <ImageUploadField label="Product image" value={product?.imageUrl} onChange={setImageFile} />
         <div>
           <label className="label-base">Product Name</label>
           <input

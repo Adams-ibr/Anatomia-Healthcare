@@ -9,6 +9,8 @@ import { useApp } from '../lib/store'
 import { flashcardDecksApi, flashcardsApi } from '../lib/supabase'
 import { Badge, Button, EmptyState, Modal, Tabs } from '../components/ui'
 import { cn, formatDate } from '../lib/utils'
+import { uploadAdminImage } from '../lib/adminMedia'
+import { ImageUploadField } from '../components/admin/ImageUploadField'
 
 const CARD_TYPES = [
   { id: 'learning', label: 'Learning', icon: BookOpen, color: 'brand' },
@@ -649,6 +651,7 @@ function CardFormModal({ deckId, card, onClose, onSuccess }: { deckId: string; c
     imageUrl: card?.imageUrl || ''
   })
   const [saving, setSaving] = useState(false)
+  const [imageFile, setImageFile] = useState<File | null>(null)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -659,7 +662,7 @@ function CardFormModal({ deckId, card, onClose, onSuccess }: { deckId: string; c
         type: formData.type,
         front: formData.front.trim(),
         back: formData.back.trim(),
-        image_url: formData.imageUrl.trim() || null,
+        image_url: imageFile ? await uploadAdminImage(imageFile, 'flashcards') : (formData.imageUrl.trim() || null),
         order: card?.order ?? 0
       }
       if (card) await flashcardsApi.update(card.id, payload)
@@ -722,7 +725,8 @@ function CardFormModal({ deckId, card, onClose, onSuccess }: { deckId: string; c
         </div>
 
         <div>
-          <label className="label-base">Image URL (Optional)</label>
+          <ImageUploadField label="Flashcard image" value={formData.imageUrl} onChange={(file) => { setImageFile(file); if (file) setFormData((current) => ({ ...current, imageUrl: '' })) }} />
+          <label className="label-base mt-3">Or use an image URL (Optional)</label>
           <input
             type="url"
             value={formData.imageUrl}

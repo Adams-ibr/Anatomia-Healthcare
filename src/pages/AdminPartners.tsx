@@ -7,6 +7,8 @@ import { useApp } from '../lib/store'
 import { Badge, Button, EmptyState, Modal, Skeleton } from '../components/ui'
 import { formatDate } from '../lib/utils'
 import { partnersApi } from '../lib/supabase'
+import { uploadAdminImage } from '../lib/adminMedia'
+import { ImageUploadField } from '../components/admin/ImageUploadField'
 
 type PartnerType = 'academic' | 'corporate' | 'healthcare' | 'technology' | 'research'
 type PartnerStatus = 'active' | 'inactive' | 'pending'
@@ -87,6 +89,7 @@ export default function AdminPartners() {
         description: data.description.trim(), website: data.website.trim() || null,
         contact_name: data.contactName.trim() || null, contact_email: data.contactEmail.trim() || null,
         is_featured: data.isFeatured, is_active: data.status === 'active',
+        ...(data.logoFile ? { logo: await uploadAdminImage(data.logoFile, 'partners') } : {}),
         start_date: data.startDate || new Date().toISOString().slice(0, 10)
       }
       if (editing) await partnersApi.update(editing.id, payload)
@@ -327,6 +330,7 @@ function PartnerFormModal({ title, partner, mutating, onClose, onSubmit }: {
   const [contactEmail, setContactEmail] = useState(partner?.contactEmail || '')
   const [isFeatured, setIsFeatured] = useState(partner?.isFeatured ?? false)
   const [startDate, setStartDate] = useState(partner?.startDate?.slice(0, 10) || new Date().toISOString().slice(0, 10))
+  const [logoFile, setLogoFile] = useState<File | null>(null)
 
   return (
     <Modal
@@ -336,13 +340,14 @@ function PartnerFormModal({ title, partner, mutating, onClose, onSubmit }: {
       footer={
         <>
           <Button variant="outline" onClick={onClose} disabled={mutating}>Cancel</Button>
-          <Button onClick={() => onSubmit({ name, type, status, description, website, contactName, contactEmail, isFeatured, startDate })} disabled={!name.trim() || mutating}>
+          <Button onClick={() => onSubmit({ name, type, status, description, website, contactName, contactEmail, isFeatured, startDate, logoFile })} disabled={!name.trim() || mutating}>
             {mutating ? <Loader2 className="h-4 w-4 animate-spin" /> : partner ? 'Save' : <><Plus className="h-4 w-4" /> Add</>}
           </Button>
         </>
       }
     >
       <div className="space-y-4">
+        <ImageUploadField label="Partner logo" value={partner?.logo} onChange={setLogoFile} />
         <div>
           <label className="label-base">Partner Name</label>
           <input value={name} onChange={(e) => setName(e.target.value)} className="input-base" />
