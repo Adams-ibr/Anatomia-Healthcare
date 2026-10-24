@@ -156,11 +156,15 @@ export const coursesApi = {
   },
 
   create: async (course: any) => {
-    const slug = course.slug || (course.title ? course.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') + '-' + Date.now().toString(36) : 'course-' + Date.now().toString(36))
+    // Slugs are unique in the database. Use a UUID suffix and retry duplicate
+    // key errors so simultaneous creates cannot fail on a slug collision.
+    const baseSlug = (course.title || 'course')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '') || 'course'
 
     const payload: Record<string, any> = {
       title: course.title,
-      slug,
       category_id: course.category_id || course.category || course.categoryId,
       instructor_id: course.instructor_id || course.instructorId,
       level: course.level || 'Beginner',
@@ -173,15 +177,22 @@ export const coursesApi = {
 
     if (course.thumbnail) payload.thumbnail = course.thumbnail
     if (course.is_published !== undefined) payload.is_published = course.is_published
+    const cleanedPayload = Object.fromEntries(
+      Object.entries(payload).filter(([, v]) => v !== undefined && v !== null)
+    );
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const slug = `${baseSlug}-${crypto.randomUUID()}`
+      const { data, error } = await supabase
+        .from('courses')
+        .insert({ ...cleanedPayload, slug })
+        .select()
+        .single()
 
-    const { data, error } = await supabase
-      .from('courses')
-      .insert(payload)
-      .select()
-      .single()
-    
-    if (error) throw error
-    return data
+      if (!error) return data
+      if (error.code !== '23505' || attempt === 2) throw error
+    }
+
+    throw new Error('Could not create a course with a unique slug.')
   },
 
   update: async (id: string, updates: any) => {
