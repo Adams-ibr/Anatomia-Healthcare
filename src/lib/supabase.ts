@@ -1113,6 +1113,27 @@ export const anatomyModelsApi = {
   delete: async (id: string) => {
     const { error } = await supabase.from('anatomy_models').delete().eq('id', id)
     if (error) throw error
+  },
+
+  uploadAsset: async (file: File, path: string) => {
+    const { error } = await supabase.storage
+      .from('anatomy-models')
+      .upload(path, file, { cacheControl: '3600', upsert: false })
+    if (error) throw error
+    const { data } = supabase.storage.from('anatomy-models').getPublicUrl(path)
+    return data.publicUrl
+  },
+
+  removeAssets: async (urls: Array<string | null | undefined>) => {
+    const paths = urls.flatMap((url) => {
+      if (!url) return []
+      const marker = '/storage/v1/object/public/anatomy-models/'
+      const index = url.indexOf(marker)
+      return index >= 0 ? [decodeURIComponent(url.slice(index + marker.length))] : []
+    })
+    if (!paths.length) return
+    const { error } = await supabase.storage.from('anatomy-models').remove(paths)
+    if (error) throw error
   }
 }
 

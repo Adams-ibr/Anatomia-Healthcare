@@ -281,6 +281,26 @@ create table public.submissions (
 create index submissions_assignment_idx on public.submissions (assignment_id);
 create index submissions_user_idx on public.submissions (user_id);
 
+create table public.anatomy_models (
+  id uuid primary key default gen_random_uuid(),
+  title text not null,
+  description text not null default '',
+  category text not null default '',
+  model_type text not null default '',
+  body_system text not null default '',
+  model_url text not null,
+  thumbnail_url text,
+  file_size bigint not null default 0,
+  format text not null default 'GLB',
+  tags text[] not null default '{}',
+  is_published boolean not null default false,
+  views integer not null default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+grant select on public.anatomy_models to anon;
+grant select, insert, update, delete on public.anatomy_models to authenticated;
+
 -- -----------------------------------------------------------------------------
 -- Communication
 -- -----------------------------------------------------------------------------
@@ -523,6 +543,7 @@ alter table public.categories enable row level security;
 alter table public.courses enable row level security;
 alter table public.course_sections enable row level security;
 alter table public.lessons enable row level security;
+alter table public.anatomy_models enable row level security;
 alter table public.course_objectives enable row level security;
 alter table public.course_requirements enable row level security;
 alter table public.course_faqs enable row level security;
@@ -568,6 +589,27 @@ create policy "Lessons read" on public.lessons for select using (exists (
 create policy "Admins manage lessons" on public.lessons for all to authenticated
   using (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin'))
   with check (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin'));
+create policy "Published anatomy models read" on public.anatomy_models for select using (is_published = true);
+create policy "Admins manage anatomy models" on public.anatomy_models for all to authenticated
+  using (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin'))
+  with check (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin'));
+
+insert into storage.buckets (id, name, public, file_size_limit)
+values ('anatomy-models', 'anatomy-models', true, 104857600)
+on conflict (id) do update
+set public = excluded.public, file_size_limit = excluded.file_size_limit;
+grant insert, select, update, delete on storage.objects to authenticated;
+create policy "Admins upload anatomy model assets" on storage.objects for insert to authenticated
+  with check (bucket_id = 'anatomy-models' and exists (
+    select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin'));
+create policy "Admins update anatomy model assets" on storage.objects for update to authenticated
+  using (bucket_id = 'anatomy-models' and exists (
+    select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin'))
+  with check (bucket_id = 'anatomy-models' and exists (
+    select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin'));
+create policy "Admins delete anatomy model assets" on storage.objects for delete to authenticated
+  using (bucket_id = 'anatomy-models' and exists (
+    select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin'));
 create policy "Objectives read" on public.course_objectives for select using (true);
 create policy "Requirements read" on public.course_requirements for select using (true);
 create policy "FAQs read" on public.course_faqs for select using (true);

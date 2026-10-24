@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useState } from 'react'
-import { useTranslation } from 'react-i18next'
 import {
   Box, ChevronLeft, ChevronRight, Filter, Loader2, MoreVertical,
   PencilLine, Plus, Search, Trash2, Upload, X, Eye
 } from 'lucide-react'
 import { useApp } from '../lib/store'
-import { Avatar, Badge, Button, EmptyState, Modal, Tabs } from '../components/ui'
+import { anatomyModelsApi } from '../lib/supabase'
+import { Badge, Button, EmptyState, Modal } from '../components/ui'
 import { cn, formatDate } from '../lib/utils'
 
 const BODY_SYSTEMS = [
@@ -52,13 +52,11 @@ interface AnatomyModel {
 
 export default function AdminAnatomyModels() {
   const { toast } = useApp()
-  const { t } = useTranslation()
-
   const [models, setModels] = useState<AnatomyModel[]>([])
-  const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
   const perPage = 12
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
   const [search, setSearch] = useState('')
   const [systemFilter, setSystemFilter] = useState<string>('all')
@@ -69,12 +67,51 @@ export default function AdminAnatomyModels() {
   const [editing, setEditing] = useState<AnatomyModel | null>(null)
   const [viewing, setViewing] = useState<AnatomyModel | null>(null)
   const [deleting, setDeleting] = useState<AnatomyModel | null>(null)
-  const [uploading, setUploading] = useState(false)
 
-  // Mock data for demonstration
-  useEffect(() => {
-    setLoading(false)
+  const loadModels = useCallback(async () => {
+    setLoading(true)
+    setLoadError(null)
+    try {
+      const rows = await anatomyModelsApi.list()
+      setModels((rows ?? []).map((row: any) => {
+        const format = (row.format || row.model_url?.split(/[?#]/)[0]?.split('.').pop() || 'glb').toUpperCase()
+        return {
+          id: row.id,
+          name: row.title,
+          description: row.description || '',
+          bodySystem: row.body_system || '',
+          modelType: row.model_type || row.category || '',
+          fileUrl: row.model_url || '',
+          thumbnailUrl: row.thumbnail_url || undefined,
+          fileSize: row.file_size || 0,
+          format: format === 'GLTF' ? 'GLTF' : 'GLB',
+          tags: row.tags || [],
+          isPublished: Boolean(row.is_published),
+          views: row.views || 0,
+          createdAt: row.created_at || new Date().toISOString(),
+          updatedAt: row.updated_at || row.created_at || new Date().toISOString()
+        }
+      }))
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load 3D models')
+    } finally {
+      setLoading(false)
+    }
   }, [])
+
+  useEffect(() => { loadModels() }, [loadModels])
+
+  const filteredModels = models.filter((model) => {
+    const query = search.trim().toLowerCase()
+    if (query && !model.name.toLowerCase().includes(query) && !model.description.toLowerCase().includes(query)) return false
+    if (systemFilter !== 'all' && model.bodySystem !== systemFilter) return false
+    if (typeFilter !== 'all' && model.modelType !== typeFilter) return false
+    if (statusFilter === 'published' && !model.isPublished) return false
+    if (statusFilter === 'draft' && model.isPublished) return false
+    return true
+  })
+  const total = filteredModels.length
+  const pageModels = filteredModels.slice((page - 1) * perPage, page * perPage)
 
   const totalPages = Math.max(1, Math.ceil(total / perPage))
 
@@ -171,6 +208,13 @@ export default function AdminAnatomyModels() {
         </div>
       </div>
 
+      {loadError && (
+        <div className="flex items-center justify-between rounded-card border border-danger/30 bg-danger/5 px-4 py-3 text-sm text-danger">
+          <span>{loadError}</span>
+          <Button variant="outline" onClick={loadModels}>Retry</Button>
+        </div>
+      )}
+
       {/* Models Grid */}
       {loading ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -182,7 +226,7 @@ export default function AdminAnatomyModels() {
             </div>
           ))}
         </div>
-      ) : models.length === 0 ? (
+      ) : pageModels.length === 0 ? (
         <EmptyState
           icon={<Box className="h-12 w-12" />}
           title="No 3D models found"
@@ -197,7 +241,7 @@ export default function AdminAnatomyModels() {
       ) : (
         <>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {models.map((model) => (
+            {pageModels.map((model) => (
               <div key={model.id} className="card group overflow-hidden">
                 {/* Thumbnail */}
                 <div className="relative aspect-video bg-gradient-to-br from-brand-50 to-brand-100">
@@ -297,6 +341,7 @@ export default function AdminAnatomyModels() {
           onSuccess={() => {
             setCreating(false)
             toast('Success', 'Model uploaded successfully')
+            loadModels()
           }}
         />
       )}
@@ -309,6 +354,7 @@ export default function AdminAnatomyModels() {
           onSuccess={() => {
             setEditing(null)
             toast('Success', 'Model updated successfully')
+            loadModels()
           }}
         />
       )}
@@ -336,9 +382,16 @@ export default function AdminAnatomyModels() {
               Cancel
             </Button>
             <Button
-              onClick={() => {
-                toast('Success', 'Model deleted successfully')
-                setDeleting(null)
+              onClick={async () => {
+                try {
+                  await anatomyModelsApi.delete(deleting.id)
+                  await anatomyModelsApi.removeAssets([deleting.fileUrl, deleting.thumbnailUrl])
+                  toast('Success', 'Model deleted successfully')
+                  setDeleting(null)
+                  loadModels()
+                } catch (err) {
+                  toast('Error', err instanceof Error ? err.message : 'Delete failed', 'error')
+                }
               }}
               className="flex-1 bg-danger hover:bg-danger/90"
             >
@@ -352,6 +405,7 @@ export default function AdminAnatomyModels() {
 }
 
 function ModelUploadModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => void }) {
+  const { toast } = useApp()
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -366,14 +420,45 @@ function ModelUploadModal({ onClose, onSuccess }: { onClose: () => void; onSucce
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!file) return
+    if (!file) {
+      toast('Error', 'Choose a GLB or GLTF model file', 'error')
+      return
+    }
+    if (file.size > 100 * 1024 * 1024) {
+      toast('Error', 'Model files must be 100 MB or smaller', 'error')
+      return
+    }
 
     setUploading(true)
-    // Simulate upload
-    setTimeout(() => {
-      setUploading(false)
+    const modelPath = `${crypto.randomUUID()}/${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`
+    let modelUrl: string | null = null
+    let thumbnailUrl: string | null = null
+    try {
+      modelUrl = await anatomyModelsApi.uploadAsset(file, modelPath)
+      if (thumbnail) {
+        const thumbnailPath = `${modelPath}.thumbnail-${thumbnail.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`
+        thumbnailUrl = await anatomyModelsApi.uploadAsset(thumbnail, thumbnailPath)
+      }
+      await anatomyModelsApi.create({
+        title: formData.name.trim(),
+        description: formData.description.trim(),
+        category: formData.modelType,
+        model_type: formData.modelType,
+        body_system: formData.bodySystem,
+        model_url: modelUrl,
+        thumbnail_url: thumbnailUrl,
+        file_size: file.size,
+        format: file.name.toLowerCase().endsWith('.gltf') ? 'GLTF' : 'GLB',
+        tags: formData.tags.split(',').map(tag => tag.trim()).filter(Boolean),
+        is_published: formData.isPublished
+      })
       onSuccess()
-    }, 2000)
+    } catch (err) {
+      try { await anatomyModelsApi.removeAssets([modelUrl, thumbnailUrl]) } catch { /* keep the original save error */ }
+      toast('Error', err instanceof Error ? err.message : 'Upload failed', 'error')
+    } finally {
+      setUploading(false)
+    }
   }
 
   return (
@@ -514,6 +599,7 @@ function ModelUploadModal({ onClose, onSuccess }: { onClose: () => void; onSucce
 }
 
 function ModelEditModal({ model, onClose, onSuccess }: { model: AnatomyModel; onClose: () => void; onSuccess: () => void }) {
+  const { toast } = useApp()
   const [formData, setFormData] = useState({
     name: model.name,
     description: model.description,
@@ -527,10 +613,22 @@ function ModelEditModal({ model, onClose, onSuccess }: { model: AnatomyModel; on
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setSaving(true)
-    setTimeout(() => {
-      setSaving(false)
+    try {
+      await anatomyModelsApi.update(model.id, {
+        title: formData.name.trim(),
+        description: formData.description.trim(),
+        category: formData.modelType,
+        model_type: formData.modelType,
+        body_system: formData.bodySystem,
+        tags: formData.tags.split(',').map(tag => tag.trim()).filter(Boolean),
+        is_published: formData.isPublished
+      })
       onSuccess()
-    }, 1000)
+    } catch (err) {
+      toast('Error', err instanceof Error ? err.message : 'Update failed', 'error')
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
