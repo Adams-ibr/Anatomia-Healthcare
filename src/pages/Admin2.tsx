@@ -7,7 +7,7 @@ import { Area, AreaChart, Bar, BarChart, CartesianGrid, Line, LineChart, Respons
 import { useApp } from '../lib/store'
 import { adminApi, courseApi, getStoredToken } from '../lib/api/auth'
 import type { PlatformSettings } from '../lib/api/auth'
-import { settingsApi, DEFAULT_PLATFORM_SETTINGS } from '../lib/supabase'
+import { settingsApi, DEFAULT_PLATFORM_SETTINGS, supabase } from '../lib/supabase'
 import type { AuthUser } from '../lib/types'
 import { Badge, Button, Input, StatCard, Tabs } from '../components/ui'
 import { formatPrice, timeAgo } from '../lib/utils'
@@ -303,6 +303,7 @@ export function AdminAnnouncements() {
   const [title, setTitle] = useState('')
   const [body, setBody] = useState('')
   const [posting, setPosting] = useState(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [rows, setRows] = useState<{
     id: string
     authorName: string
@@ -311,30 +312,33 @@ export function AdminAnnouncements() {
     createdAt: string
   }[] | null>(null)
 
-  const load = () => {
-    const token = getStoredToken()
-    if (!token) {
-      setRows([])
-      return
-    }
-    adminApi.listAnnouncements(token)
-      .then((res) => setRows(res.announcements))
-      .catch(() => {})
+  const load = async () => {
+    setLoadError(null)
+    const { data, error } = await supabase.functions.invoke('auth/admin/announcements', { method: 'GET' })
+    if (error) throw error
+    setRows(data?.announcements ?? [])
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => {
+    let cancelled = false
+    load().catch((error) => {
+      if (!cancelled) setLoadError(error instanceof Error ? error.message : t('admin2.postFailed'))
+    })
+    return () => { cancelled = true }
+  }, [])
 
   const post = async () => {
     if (!title.trim() || posting) return
-    const token = getStoredToken()
-    if (!token) return
     setPosting(true)
     try {
-      await adminApi.createAnnouncement(token, { title, message: body })
+      const { error } = await supabase.functions.invoke('auth/admin/announcements', {
+        method: 'POST', body: { title, message: body }
+      })
+      if (error) throw error
       toast(t('admin2.announcementPosted'), t('admin2.sentAllUsers'))
       setTitle('')
       setBody('')
-      load()
+      await load()
     } catch (err) {
       toast(t('admin2.postFailed'), err instanceof Error ? err.message : '', 'error')
     } finally {
@@ -344,12 +348,11 @@ export function AdminAnnouncements() {
 
   const remove = async (id: string) => {
     if (!window.confirm(t('admin2.deleteConfirm'))) return
-    const token = getStoredToken()
-    if (!token) return
     try {
-      await adminApi.deleteAnnouncement(token, id)
+      const { error } = await supabase.functions.invoke(`auth/admin/announcements/${id}`, { method: 'DELETE' })
+      if (error) throw error
       toast(t('admin2.announcementDeleted'))
-      load()
+      await load()
     } catch (err) {
       toast(t('admin2.postFailed'), err instanceof Error ? err.message : '', 'error')
     }
@@ -358,6 +361,7 @@ export function AdminAnnouncements() {
   return (
     <div className="space-y-6">
       <h1 className="font-display text-2xl font-bold text-ink">{t('admin2.announcements')}</h1>
+      {loadError && <div role="alert" className="rounded-card border border-danger/30 bg-danger/5 p-3 text-sm text-danger">{loadError}</div>}
       <div className="card p-6">
         <h2 className="mb-4 font-semibold text-ink">{t('admin2.newAnnouncement')}</h2>
         <div className="space-y-4">

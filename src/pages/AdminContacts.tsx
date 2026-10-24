@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   Archive, Calendar, CheckCircle, ChevronLeft, ChevronRight, Clock,
@@ -8,6 +8,7 @@ import {
 import { useApp } from '../lib/store'
 import { Badge, Button, EmptyState, Modal } from '../components/ui'
 import { cn, formatDate } from '../lib/utils'
+import { contactsApi } from '../lib/supabase'
 
 type ContactStatus = 'new' | 'read' | 'replied' | 'archived'
 
@@ -32,7 +33,6 @@ export default function AdminContacts() {
   const { t } = useTranslation()
 
   const [contacts, setContacts] = useState<Contact[]>([])
-  const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
   const perPage = 15
   const [loading, setLoading] = useState(true)
@@ -44,23 +44,96 @@ export default function AdminContacts() {
   const [viewing, setViewing] = useState<Contact | null>(null)
   const [deleting, setDeleting] = useState<Contact | null>(null)
   const [addingNote, setAddingNote] = useState<Contact | null>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
-  // Mock data
-  useEffect(() => {
-    setLoading(false)
+  const loadContacts = useCallback(async () => {
+    setLoading(true)
+    setLoadError(null)
+    try {
+      const rows = await contactsApi.list()
+      setContacts((rows ?? []).map((row: any) => ({
+        id: row.id,
+        name: row.name,
+        email: row.email,
+        phone: row.phone ?? undefined,
+        subject: row.subject || row.topic || 'Contact message',
+        message: row.message,
+        category: row.category || row.topic || 'General',
+        status: row.status || (row.is_read ? 'read' : 'new'),
+        isStarred: Boolean(row.is_starred),
+        notes: row.notes ?? undefined,
+        assignedTo: row.assigned_to ?? undefined,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at ?? row.created_at
+      })))
+    } catch (error) {
+      setLoadError(error instanceof Error ? error.message : 'Unable to load contact submissions.')
+    } finally {
+      setLoading(false)
+    }
   }, [])
+
+  useEffect(() => { void loadContacts() }, [loadContacts])
+
+  const filteredContacts = useMemo(() => contacts.filter((contact) => {
+    const query = search.trim().toLowerCase()
+    const matchesSearch = !query || `${contact.name} ${contact.email} ${contact.subject} ${contact.message}`.toLowerCase().includes(query)
+    return matchesSearch && (categoryFilter === 'all' || contact.category === categoryFilter) && (statusFilter === 'all' || contact.status === statusFilter)
+  }), [contacts, search, categoryFilter, statusFilter])
+  const total = filteredContacts.length
+  const visibleContacts = filteredContacts.slice((page - 1) * perPage, page * perPage)
+  useEffect(() => { setPage(1) }, [search, categoryFilter, statusFilter])
 
   const totalPages = Math.max(1, Math.ceil(total / perPage))
   const categories = Array.from(new Set(contacts.map(c => c.category)))
 
-  const toggleStar = (id: string) => {
-    setContacts(contacts.map(c => c.id === id ? { ...c, isStarred: !c.isStarred } : c))
-    toast('Success', 'Contact updated')
+  const toggleStar = async (contact: Contact) => {
+    try {
+      const row = await contactsApi.update(contact.id, { is_starred: !contact.isStarred })
+      setContacts((current) => current.map((item) => item.id === contact.id ? { ...item, isStarred: Boolean(row.is_starred) } : item))
+      toast('Success', 'Contact updated')
+    } catch (error) {
+      toast('Unable to update contact', error instanceof Error ? error.message : 'Please try again.', 'error')
+    }
   }
 
-  const updateStatus = (id: string, status: ContactStatus) => {
-    setContacts(contacts.map(c => c.id === id ? { ...c, status } : c))
-    toast('Success', `Status changed to ${status}`)
+  const updateStatus = async (id: string, status: ContactStatus) => {
+    try {
+      const row = await contactsApi.update(id, { status, is_read: status !== 'new' })
+      const existing = contacts.find((contact) => contact.id === id)
+      if (!existing) return undefined
+      const updated = { ...existing, status: row.status, updatedAt: row.updated_at }
+      setContacts((current) => current.map((item) => item.id === id ? updated : item))
+      toast('Success', `Status changed to ${status}`)
+      return updated
+    } catch (error) {
+      toast('Unable to update contact', error instanceof Error ? error.message : 'Please try again.', 'error')
+      return undefined
+    }
+  }
+
+  const saveNote = async (contact: Contact, notes: string) => {
+    try {
+      await contactsApi.update(contact.id, { notes })
+      setContacts((current) => current.map((item) => item.id === contact.id ? { ...item, notes } : item))
+      setAddingNote(null)
+      toast('Success', 'Note saved')
+    } catch (error) {
+      toast('Unable to save note', error instanceof Error ? error.message : 'Please try again.', 'error')
+      throw error
+    }
+  }
+
+  const deleteContact = async () => {
+    if (!deleting) return
+    try {
+      await contactsApi.delete(deleting.id)
+      setDeleting(null)
+      toast('Success', 'Contact deleted successfully')
+      await loadContacts()
+    } catch (error) {
+      toast('Unable to delete contact', error instanceof Error ? error.message : 'Please try again.', 'error')
+    }
   }
 
   return (
@@ -162,6 +235,12 @@ export default function AdminContacts() {
         )}
       </div>
 
+      {loadError && (
+        <div role="alert" className="flex items-center justify-between gap-4 rounded-card border border-danger/30 bg-danger/5 px-4 py-3 text-sm text-danger">
+          <span>{loadError}</span><Button variant="outline" onClick={() => void loadContacts()}>Retry</Button>
+        </div>
+      )}
+
       {/* Contacts List */}
       {loading ? (
         <div className="space-y-3">
@@ -172,7 +251,7 @@ export default function AdminContacts() {
             </div>
           ))}
         </div>
-      ) : contacts.length === 0 ? (
+      ) : visibleContacts.length === 0 ? (
         <EmptyState
           icon={<Mail className="h-12 w-12" />}
           title="No contact messages"
@@ -181,7 +260,7 @@ export default function AdminContacts() {
       ) : (
         <>
           <div className="space-y-3">
-            {contacts.map((contact) => (
+            {visibleContacts.map((contact) => (
               <div
                 key={contact.id}
                 className={cn(
@@ -191,7 +270,7 @@ export default function AdminContacts() {
                 onClick={() => {
                   setViewing(contact)
                   if (contact.status === 'new') {
-                    updateStatus(contact.id, 'read')
+                    void updateStatus(contact.id, 'read')
                   }
                 }}
               >
@@ -201,7 +280,7 @@ export default function AdminContacts() {
                       <button
                         onClick={(e) => {
                           e.stopPropagation()
-                          toggleStar(contact.id)
+                          void toggleStar(contact)
                         }}
                         className={cn(
                           'rounded p-1 transition-colors',
@@ -270,7 +349,7 @@ export default function AdminContacts() {
                     <button
                       onClick={(e) => {
                         e.stopPropagation()
-                        updateStatus(contact.id, 'archived')
+                        void updateStatus(contact.id, 'archived')
                       }}
                       className="rounded-card p-2 text-ink hover:bg-line/40"
                       title="Archive"
@@ -327,9 +406,9 @@ export default function AdminContacts() {
         <ContactViewModal
           contact={viewing}
           onClose={() => setViewing(null)}
-          onUpdateStatus={(status) => {
-            updateStatus(viewing.id, status)
-            setViewing({ ...viewing, status })
+          onUpdateStatus={async (status) => {
+            const updated = await updateStatus(viewing.id, status)
+            if (updated) setViewing(updated)
           }}
         />
       )}
@@ -339,11 +418,7 @@ export default function AdminContacts() {
         <AddNoteModal
           contact={addingNote}
           onClose={() => setAddingNote(null)}
-          onSuccess={(notes) => {
-            setContacts(contacts.map(c => c.id === addingNote.id ? { ...c, notes } : c))
-            setAddingNote(null)
-            toast('Success', 'Note added')
-          }}
+          onSuccess={(notes) => saveNote(addingNote, notes)}
         />
       )}
 
@@ -358,10 +433,7 @@ export default function AdminContacts() {
               Cancel
             </Button>
             <Button
-              onClick={() => {
-                toast('Success', 'Contact deleted successfully')
-                setDeleting(null)
-              }}
+              onClick={() => void deleteContact()}
               className="flex-1 bg-danger hover:bg-danger/90"
             >
               Delete
@@ -488,18 +560,23 @@ function ContactViewModal({ contact, onClose, onUpdateStatus }: {
 function AddNoteModal({ contact, onClose, onSuccess }: {
   contact: Contact
   onClose: () => void
-  onSuccess: (notes: string) => void
+  onSuccess: (notes: string) => Promise<void>
 }) {
   const [notes, setNotes] = useState(contact.notes || '')
   const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setSaving(true)
-    setTimeout(() => {
+    setError(null)
+    try {
+      await onSuccess(notes)
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Could not save note.')
+    } finally {
       setSaving(false)
-      onSuccess(notes)
-    }, 500)
+    }
   }
 
   return (
@@ -517,6 +594,8 @@ function AddNoteModal({ contact, onClose, onSuccess }: {
           />
           <p className="mt-1 text-xs text-muted">Internal notes are not visible to the contact</p>
         </div>
+
+        {error && <p role="alert" className="text-sm text-danger">{error}</p>}
 
         <div className="flex gap-2">
           <Button type="button" variant="outline" onClick={onClose} disabled={saving} className="flex-1">

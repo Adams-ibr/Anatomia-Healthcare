@@ -228,37 +228,55 @@ export type Database = {
       }
       careers: {
         Row: {
+          application_count: number
+          closing_date: string | null
           created_at: string | null
           department: string
           description: string
           id: string
           is_active: boolean | null
           location: string
+          posted_at: string
           requirements: string
+          salary: string | null
+          status: string
           title: string
           type: string
+          updated_at: string
         }
         Insert: {
+          application_count?: number
+          closing_date?: string | null
           created_at?: string | null
           department: string
           description: string
           id?: string
           is_active?: boolean | null
           location: string
+          posted_at?: string
           requirements: string
+          salary?: string | null
+          status?: string
           title: string
           type: string
+          updated_at?: string
         }
         Update: {
+          application_count?: number
+          closing_date?: string | null
           created_at?: string | null
           department?: string
           description?: string
           id?: string
           is_active?: boolean | null
           location?: string
+          posted_at?: string
           requirements?: string
+          salary?: string | null
+          status?: string
           title?: string
           type?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -345,31 +363,55 @@ export type Database = {
       }
       contact_messages: {
         Row: {
+          assigned_to: string | null
+          category: string
           created_at: string | null
           email: string
           id: string
           is_read: boolean | null
+          is_starred: boolean
           message: string
           name: string
+          notes: string | null
+          phone: string | null
+          status: string
+          subject: string
           topic: string
+          updated_at: string
         }
         Insert: {
+          assigned_to?: string | null
+          category?: string
           created_at?: string | null
           email: string
           id?: string
           is_read?: boolean | null
+          is_starred?: boolean
           message: string
           name: string
+          notes?: string | null
+          phone?: string | null
+          status?: string
+          subject?: string
           topic: string
+          updated_at?: string
         }
         Update: {
+          assigned_to?: string | null
+          category?: string
           created_at?: string | null
           email?: string
           id?: string
           is_read?: boolean | null
+          is_starred?: boolean
           message?: string
           name?: string
+          notes?: string | null
+          phone?: string | null
+          status?: string
+          subject?: string
           topic?: string
+          updated_at?: string
         }
         Relationships: []
       }

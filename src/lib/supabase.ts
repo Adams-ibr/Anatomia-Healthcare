@@ -369,6 +369,16 @@ export const contactsApi = {
     return data
   },
 
+  create: async (contact: { name: string; email: string; phone?: string; topic?: string; subject?: string; message: string }) => {
+    const { data, error } = await supabase
+      .from('contact_messages')
+      .insert({ ...contact, topic: contact.topic ?? contact.subject ?? '', subject: contact.subject ?? contact.topic ?? '' })
+      .select()
+      .single()
+    if (error) throw error
+    return data
+  },
+
   delete: async (id: string) => {
     const { error } = await supabase.from('contact_messages').delete().eq('id', id)
     if (error) throw error
@@ -886,7 +896,7 @@ export const careersApi = {
 
 export const applicationsApi = {
   list: async (filters?: { job_id?: string; status?: string }) => {
-    let query = supabase.from('job_applications').select('*')
+    let query = supabase.from('job_applications').select('*, careers(title)')
     
     if (filters?.job_id) {
       query = query.eq('job_id', filters.job_id)
@@ -947,7 +957,7 @@ export const newsletterApi = {
   create: async (email: string) => {
     const { data, error } = await supabase
       .from('newsletter_subscriptions')
-      .insert({ email })
+      .insert({ email: email.trim().toLowerCase() })
       .select()
       .single()
     

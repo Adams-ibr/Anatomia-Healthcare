@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   Briefcase, ChevronLeft, ChevronRight, Eye, Loader2, MapPin,
@@ -45,7 +45,6 @@ export default function AdminCareers() {
   const { t } = useTranslation()
 
   const [jobs, setJobs] = useState<JobPosting[]>([])
-  const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
   const perPage = 20
   const [loading, setLoading] = useState(true)
@@ -59,15 +58,78 @@ export default function AdminCareers() {
   const [viewing, setViewing] = useState<JobPosting | null>(null)
   const [deleting, setDeleting] = useState<JobPosting | null>(null)
   const [mutating, setMutating] = useState(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
-  // Fetch from Supabase
-  useEffect(() => {
+  const loadJobs = useCallback(async () => {
     setLoading(true)
-    // TODO: Implement real Supabase fetch
-    setJobs([])
-    setTotal(0)
-    setLoading(false)
-  }, [search, statusFilter, typeFilter])
+    setLoadError(null)
+    try {
+      const rows = await careersApi.list()
+      setJobs((rows ?? []).map((row: any) => ({
+        id: row.id,
+        title: row.title,
+        department: row.department ?? '',
+        location: row.location ?? '',
+        type: row.type,
+        status: row.status ?? (row.is_active ? 'open' : 'draft'),
+        description: row.description ?? '',
+        requirements: Array.isArray(row.requirements) ? row.requirements : String(row.requirements ?? '').split('\n').filter(Boolean),
+        salary: row.salary ?? undefined,
+        applicationCount: Number(row.application_count) || 0,
+        postedAt: row.posted_at ?? row.created_at ?? new Date().toISOString(),
+        closingDate: row.closing_date ?? undefined
+      })))
+    } catch (error) {
+      setLoadError(error instanceof Error ? error.message : 'Unable to load job postings.')
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => { void loadJobs() }, [loadJobs])
+
+  const filteredJobs = useMemo(() => jobs.filter((job) => {
+    const matchesSearch = `${job.title} ${job.department} ${job.location}`.toLowerCase().includes(search.trim().toLowerCase())
+    return matchesSearch && (statusFilter === 'all' || job.status === statusFilter) && (typeFilter === 'all' || job.type === typeFilter)
+  }), [jobs, search, statusFilter, typeFilter])
+  const total = filteredJobs.length
+  const visibleJobs = filteredJobs.slice((page - 1) * perPage, page * perPage)
+
+  useEffect(() => { setPage(1) }, [search, statusFilter, typeFilter])
+
+  const saveJob = async (data: { jobTitle: string; department: string; location: string; type: JobType; status: JobStatus; description: string }) => {
+    setMutating(true)
+    try {
+      const payload = {
+        title: data.jobTitle.trim(), department: data.department.trim(), location: data.location.trim(),
+        type: data.type, status: data.status, is_active: data.status === 'open', description: data.description.trim()
+      }
+      if (editing) await careersApi.update(editing.id, payload)
+      else await careersApi.create(payload)
+      toast('Success', `Job ${editing ? 'updated' : 'posted'}`)
+      setCreating(false)
+      setEditing(null)
+      await loadJobs()
+    } catch (error) {
+      toast('Unable to save job', error instanceof Error ? error.message : 'Please check the job details and try again.', 'error')
+    } finally {
+      setMutating(false)
+    }
+  }
+
+  const deleteJob = async (job: JobPosting) => {
+    setMutating(true)
+    try {
+      await careersApi.delete(job.id)
+      setDeleting(null)
+      toast('Success', 'Job deleted')
+      await loadJobs()
+    } catch (error) {
+      toast('Unable to delete job', error instanceof Error ? error.message : 'Please try again.', 'error')
+    } finally {
+      setMutating(false)
+    }
+  }
 
   const totalPages = Math.max(1, Math.ceil(total / perPage))
 
@@ -90,7 +152,7 @@ export default function AdminCareers() {
               <Briefcase className="h-5 w-5" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-ink">{jobs.length}</p>
+              <p className="text-2xl font-bold text-ink">{total}</p>
               <p className="text-xs text-muted">Total Positions</p>
             </div>
           </div>
@@ -155,6 +217,12 @@ export default function AdminCareers() {
         </select>
       </div>
 
+      {loadError && (
+        <div role="alert" className="flex items-center justify-between gap-4 rounded-card border border-danger/30 bg-danger/5 px-4 py-3 text-sm text-danger">
+          <span>{loadError}</span><Button variant="outline" onClick={() => void loadJobs()}>Retry</Button>
+        </div>
+      )}
+
       <div className="space-y-3">
         {loading ? (
           Array.from({ length: 4 }).map((_, i) => (
@@ -163,7 +231,7 @@ export default function AdminCareers() {
               <Skeleton className="mt-2 h-4 w-1/2" />
             </div>
           ))
-        ) : jobs.length === 0 ? (
+        ) : visibleJobs.length === 0 ? (
           <EmptyState
             icon={<Briefcase className="h-6 w-6" />}
             title="No job postings"
@@ -171,7 +239,7 @@ export default function AdminCareers() {
             action={<Button onClick={() => setCreating(true)}><Plus className="h-4 w-4" /> Post Job</Button>}
           />
         ) : (
-          jobs.map((job) => (
+          visibleJobs.map((job) => (
             <div key={job.id} className="card p-5 hover:border-brand-200">
               <div className="flex items-start justify-between gap-4">
                 <div className="flex-1">
@@ -231,12 +299,9 @@ export default function AdminCareers() {
         <JobFormModal
           title={editing ? 'Edit Job' : 'Post Job'}
           job={editing || undefined}
+          mutating={mutating}
           onClose={() => { setCreating(false); setEditing(null) }}
-          onSubmit={(data) => {
-            toast('Success', `Job ${editing ? 'updated' : 'posted'}`)
-            setCreating(false)
-            setEditing(null)
-          }}
+          onSubmit={saveJob}
         />
       )}
       {deleting && (
@@ -246,15 +311,25 @@ export default function AdminCareers() {
           title="Delete Job Posting"
           footer={
             <>
-              <Button variant="outline" onClick={() => setDeleting(null)}>Cancel</Button>
-              <Button onClick={() => { toast('Success', 'Job deleted'); setDeleting(null) }} className="text-danger">
-                Delete
+              <Button variant="outline" onClick={() => setDeleting(null)} disabled={mutating}>Cancel</Button>
+              <Button onClick={() => void deleteJob(deleting)} className="text-danger" disabled={mutating}>
+                {mutating ? <Loader2 className="h-4 w-4 animate-spin" /> : null} Delete
               </Button>
             </>
           }
         >
           <p className="text-sm text-muted">Delete "{deleting.title}"?</p>
         </Modal>
+      )}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-muted">Showing {(page - 1) * perPage + 1} to {Math.min(page * perPage, total)} of {total} positions</p>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setPage((value) => Math.max(1, value - 1))} disabled={page === 1}><ChevronLeft className="h-4 w-4" /> Previous</Button>
+            <span className="self-center text-sm text-muted">{page} / {totalPages}</span>
+            <Button variant="outline" onClick={() => setPage((value) => Math.min(totalPages, value + 1))} disabled={page === totalPages}>Next <ChevronRight className="h-4 w-4" /></Button>
+          </div>
+        </div>
       )}
     </div>
   )
@@ -290,9 +365,10 @@ function JobViewModal({ job, onClose }: { job: JobPosting; onClose: () => void }
   )
 }
 
-function JobFormModal({ title, job, onClose, onSubmit }: {
+function JobFormModal({ title, job, mutating, onClose, onSubmit }: {
   title: string
   job?: JobPosting
+  mutating: boolean
   onClose: () => void
   onSubmit: (data: any) => void
 }) {
@@ -310,9 +386,9 @@ function JobFormModal({ title, job, onClose, onSubmit }: {
       title={title}
       footer={
         <>
-          <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button onClick={() => onSubmit({ jobTitle, department, location, type, status, description })}>
-            {job ? 'Save' : <><Plus className="h-4 w-4" /> Post</>}
+          <Button variant="outline" onClick={onClose} disabled={mutating}>Cancel</Button>
+          <Button onClick={() => onSubmit({ jobTitle, department, location, type, status, description })} disabled={mutating || !jobTitle.trim() || !department.trim() || !location.trim()}>
+            {mutating ? <Loader2 className="h-4 w-4 animate-spin" /> : job ? 'Save' : <><Plus className="h-4 w-4" /> Post</>}
           </Button>
         </>
       }
