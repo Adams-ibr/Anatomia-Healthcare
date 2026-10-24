@@ -6,7 +6,7 @@ import {
   Clock3, CloudDownload, FileText, Flag, Layers, Loader2, PencilLine, Plus, Search, Star,
   Trash2
 } from 'lucide-react'
-import { coursesApi, categoriesApi, teamApi } from '../lib/supabase'
+import { courseApi, getStoredToken } from '../lib/api/auth'
 import type { Course, Category, CourseLevel, CourseStatus } from '../lib/types/admin'
 import { useApp } from '../lib/store'
 import { Badge, Button, EmptyState, Modal, Skeleton } from '../components/ui'
@@ -34,6 +34,12 @@ const STATUS_BADGE: Record<CourseStatus, 'success' | 'warning' | 'line' | 'brand
   draft: 'line',
   approved: 'brand',
   archived: 'ink'
+}
+
+function requireAdminToken() {
+  const token = getStoredToken()
+  if (!token) throw new Error('Your session has expired. Please sign in again.')
+  return token
 }
 
 export default function AdminCourses() {
@@ -77,33 +83,25 @@ export default function AdminCourses() {
     setError(null)
     
     try {
-      // Fetch courses from Supabase with admin view (sees all statuses)
-      const data = await coursesApi.list({
+      const token = requireAdminToken()
+      const result = await courseApi.listCourses(token, {
         search: debouncedSearch || undefined,
         category: categoryFilter === 'all' ? undefined : categoryFilter,
-        status: statusFilter === 'all' ? undefined : statusFilter,
-        adminView: true
+        status: statusFilter,
+        page: p,
+        perPage
       })
-      
-      // Ensure data is an array
-      const coursesArray = Array.isArray(data) ? data : []
-      
-      // Map Supabase fields to component expected format
-      const mappedCourses: DisplayCourse[] = coursesArray.map(c => ({
+
+      const mappedCourses: DisplayCourse[] = result.courses.map(c => ({
         ...c,
-        instructorId: c.instructor_id,
-        categoryId: c.category_id || c.category,
-        thumbnail: c.thumbnail || c.thumbnail_url,
-        hasCertificate: c.has_certificate ?? false,
-        studentCount: 0, // TODO: fetch from enrollments
-        rating: c.level === 'Beginner' ? 4.5 : c.level === 'Advanced' ? 4.8 : 4.6,
-        categoryName: c.category,
-        instructorName: '', // TODO: join with instructors
-        isFeatured: false
+        category: c.categoryName,
+        instructor_id: c.instructorId,
+        thumbnail_url: c.thumbnail,
+        has_certificate: c.hasCertificate
       }))
       
       setCourses(mappedCourses)
-      setTotal(mappedCourses.length)
+      setTotal(result.total)
       setPage(p)
     } catch (err) {
       setError(err instanceof Error ? err.message : t('admin.coursesLoadFailed'))
@@ -116,8 +114,8 @@ export default function AdminCourses() {
 
   const loadCategories = useCallback(async () => {
     try {
-      const data = await categoriesApi.list()
-      setCategories(Array.isArray(data) ? data : [])
+      const { categories: data } = await courseApi.listCategories(requireAdminToken())
+      setCategories(data.map(category => ({ ...category, course_count: category.courseCount })))
     } catch {
       /* categories optional for filtering */
       setCategories([])
@@ -126,13 +124,8 @@ export default function AdminCourses() {
 
   const loadInstructors = useCallback(async () => {
     try {
-      // Fetch team members to use as instructors
-      const data = await teamApi.list()
-      const instructorsList = Array.isArray(data) ? data : []
-      setInstructors(instructorsList.map(member => ({
-        id: member.id,
-        name: member.name || `${member.first_name || ''} ${member.last_name || ''}`.trim() || 'Unknown'
-      })))
+      const { instructors: data } = await courseApi.listInstructors(requireAdminToken())
+      setInstructors(data)
     } catch {
       /* instructors optional for create form */
       setInstructors([])
@@ -349,14 +342,14 @@ export default function AdminCourses() {
         categories={categories}
         instructors={instructors}
         onCreate={(input) => runMutation(
-          async () => await coursesApi.create({
+          async () => await courseApi.createCourse(requireAdminToken(), {
             title: input.title,
-            category_id: input.categoryId,
-            instructor_id: input.instructorId,
+            categoryId: input.categoryId,
+            instructorId: input.instructorId,
             level: input.level,
             price: input.price,
             duration: input.duration,
-            has_certificate: input.hasCertificate,
+            hasCertificate: input.hasCertificate,
             status: input.status
           }),
           t('admin.courseCreated'),
@@ -376,13 +369,13 @@ export default function AdminCourses() {
           categories={categories}
           onClose={() => setEditing(null)}
           onSave={(patch) => runMutation(
-            async () => await coursesApi.update(editing.id, {
+            async () => await courseApi.updateCourse(requireAdminToken(), editing.id, {
               title: patch.title,
-              category_id: patch.categoryId,
+              categoryId: patch.categoryId,
               level: patch.level,
               price: patch.price,
               duration: patch.duration,
-              has_certificate: patch.hasCertificate
+              hasCertificate: patch.hasCertificate
             }),
             t('admin.courseUpdated'),
             editing.title
@@ -400,8 +393,8 @@ export default function AdminCourses() {
             const { course, mode } = confirming
             const statusFor: Record<string, CourseStatus> = { publish: 'published', unpublish: 'draft', archive: 'archived' }
             const fn = mode === 'delete'
-              ? () => coursesApi.delete(course.id)
-              : () => coursesApi.update(course.id, { status: statusFor[mode] })
+              ? () => courseApi.deleteCourse(requireAdminToken(), course.id)
+              : () => courseApi.updateCourse(requireAdminToken(), course.id, { status: statusFor[mode] })
             const title = mode === 'delete' ? t('admin.courseDeleted') : mode === 'publish' ? t('admin.coursePublished') : mode === 'unpublish' ? t('admin.courseUnpublished') : t('admin.courseArchived')
             runMutation(fn, title, course.title).then((ok) => { if (ok) setConfirming(null) })
           }}

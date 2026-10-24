@@ -837,9 +837,12 @@ export const newsletterApi = {
 
 export const categoriesApi = {
   list: async (filters?: { is_active?: boolean }) => {
-    let query = supabase.from('course_categories').select('*')
-    
-    // There is no is_active column on categories table
+    let query = supabase.from('categories').select('*')
+
+    if (filters?.is_active !== undefined) {
+      query = query.eq('is_active', filters.is_active)
+    }
+
     const { data, error } = await query.order('name', { ascending: true })
     if (error) throw error
     return data
@@ -847,7 +850,7 @@ export const categoriesApi = {
 
   getById: async (id: string) => {
     const { data, error } = await supabase
-      .from('course_categories')
+      .from('categories')
       .select('*')
       .eq('id', id)
       .single()
@@ -857,9 +860,14 @@ export const categoriesApi = {
   },
 
   create: async (category: any) => {
+    const slug = category.slug?.trim() || (category.name || 'category')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '')
+
     const { data, error } = await supabase
-      .from('course_categories')
-      .insert(category)
+      .from('categories')
+      .insert({ ...category, slug: slug || 'category' })
       .select()
       .single()
     
@@ -869,7 +877,7 @@ export const categoriesApi = {
 
   update: async (id: string, updates: any) => {
     const { data, error } = await supabase
-      .from('course_categories')
+      .from('categories')
       .update(updates)
       .eq('id', id)
       .select()
@@ -880,7 +888,7 @@ export const categoriesApi = {
   },
 
   delete: async (id: string) => {
-    const { error } = await supabase.from('course_categories').delete().eq('id', id)
+    const { error } = await supabase.from('categories').delete().eq('id', id)
     if (error) throw error
   }
 }
