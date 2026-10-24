@@ -79,7 +79,7 @@ export default function AdminFlashcards() {
         name: d.name ?? d.title ?? '',
         description: d.description ?? '',
         category: d.category ?? 'General',
-        cardCount: 0,
+        cardCount: d.flashcards?.[0]?.count ?? 0,
         isPublished: d.is_published ?? false,
         createdAt: d.created_at ?? '',
         updatedAt: d.updated_at ?? d.created_at ?? ''
@@ -432,6 +432,7 @@ export default function AdminFlashcards() {
           onSuccess={() => {
             setCreatingDeck(false)
             toast('Success', 'Deck created successfully')
+            loadDecks()
           }}
         />
       )}
@@ -444,6 +445,7 @@ export default function AdminFlashcards() {
           onSuccess={() => {
             setEditingDeck(null)
             toast('Success', 'Deck updated successfully')
+            loadDecks()
           }}
         />
       )}
@@ -459,10 +461,7 @@ export default function AdminFlashcards() {
               Cancel
             </Button>
             <Button
-              onClick={() => {
-                toast('Success', 'Deck deleted successfully')
-                setDeletingDeck(null)
-              }}
+              onClick={handleDeleteDeck}
               className="flex-1 bg-danger hover:bg-danger/90"
             >
               Delete
@@ -484,6 +483,7 @@ export default function AdminFlashcards() {
             setCreatingCard(false)
             setEditingCard(null)
             toast('Success', editingCard ? 'Card updated' : 'Card created')
+            if (selectedDeck) loadCards(selectedDeck.id)
           }}
         />
       )}
@@ -507,10 +507,7 @@ export default function AdminFlashcards() {
               Cancel
             </Button>
             <Button
-              onClick={() => {
-                toast('Success', 'Card deleted successfully')
-                setDeletingCard(null)
-              }}
+              onClick={handleDeleteCard}
               className="flex-1 bg-danger hover:bg-danger/90"
             >
               Delete
@@ -644,6 +641,7 @@ try {
 }
 
 function CardFormModal({ deckId, card, onClose, onSuccess }: { deckId: string; card?: Flashcard | null; onClose: () => void; onSuccess: () => void }) {
+  const { toast } = useApp()
   const [formData, setFormData] = useState({
     type: card?.type || 'learning' as CardType,
     front: card?.front || '',
@@ -655,10 +653,23 @@ function CardFormModal({ deckId, card, onClose, onSuccess }: { deckId: string; c
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setSaving(true)
-    setTimeout(() => {
-      setSaving(false)
+    try {
+      const payload = {
+        deck_id: deckId,
+        type: formData.type,
+        front: formData.front.trim(),
+        back: formData.back.trim(),
+        image_url: formData.imageUrl.trim() || null,
+        order: card?.order ?? 0
+      }
+      if (card) await flashcardsApi.update(card.id, payload)
+      else await flashcardsApi.create(payload)
       onSuccess()
-    }, 1000)
+    } catch (err) {
+      toast('Error', err instanceof Error ? err.message : 'Failed to save flashcard', 'error')
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (

@@ -298,8 +298,37 @@ create table public.anatomy_models (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+create table public.flashcard_decks (
+  id uuid primary key default gen_random_uuid(),
+  title text not null,
+  description text not null default '',
+  category text not null default 'General',
+  course_id uuid references public.courses (id) on delete set null,
+  is_published boolean not null default false,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table public.flashcards (
+  id uuid primary key default gen_random_uuid(),
+  deck_id uuid not null references public.flashcard_decks (id) on delete cascade,
+  front text not null,
+  back text not null,
+  card_type text not null default 'learning',
+  image_url text,
+  audio_url text,
+  options jsonb,
+  correct_answer text,
+  explanation text,
+  "order" integer not null default 0,
+  created_at timestamptz not null default now()
+);
+
 grant select on public.anatomy_models to anon;
 grant select, insert, update, delete on public.anatomy_models to authenticated;
+grant select on public.flashcard_decks, public.flashcards to anon;
+grant select, insert, update, delete on public.flashcard_decks, public.flashcards to authenticated;
 
 -- -----------------------------------------------------------------------------
 -- Communication
@@ -544,6 +573,8 @@ alter table public.courses enable row level security;
 alter table public.course_sections enable row level security;
 alter table public.lessons enable row level security;
 alter table public.anatomy_models enable row level security;
+alter table public.flashcard_decks enable row level security;
+alter table public.flashcards enable row level security;
 alter table public.course_objectives enable row level security;
 alter table public.course_requirements enable row level security;
 alter table public.course_faqs enable row level security;
@@ -591,6 +622,15 @@ create policy "Admins manage lessons" on public.lessons for all to authenticated
   with check (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin'));
 create policy "Published anatomy models read" on public.anatomy_models for select using (is_published = true);
 create policy "Admins manage anatomy models" on public.anatomy_models for all to authenticated
+  using (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin'))
+  with check (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin'));
+create policy "Published flashcard decks read" on public.flashcard_decks for select using (is_published = true);
+create policy "Admins manage flashcard decks" on public.flashcard_decks for all to authenticated
+  using (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin'))
+  with check (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin'));
+create policy "Published flashcards read" on public.flashcards for select using (exists (
+  select 1 from public.flashcard_decks d where d.id = flashcards.deck_id and d.is_published = true));
+create policy "Admins manage flashcards" on public.flashcards for all to authenticated
   using (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin'))
   with check (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin'));
 

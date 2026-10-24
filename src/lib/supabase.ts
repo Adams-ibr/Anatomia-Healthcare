@@ -1143,7 +1143,7 @@ export const anatomyModelsApi = {
 
 export const flashcardDecksApi = {
   list: async (filters?: { course_id?: string; is_published?: boolean }) => {
-    let query = supabase.from('flashcard_decks').select('*')
+    let query = supabase.from('flashcard_decks').select('*, flashcards(count)')
     
     if (filters?.course_id) {
       query = query.eq('course_id', filters.course_id)
@@ -1171,7 +1171,13 @@ export const flashcardDecksApi = {
   create: async (deck: any) => {
     const { data, error } = await supabase
       .from('flashcard_decks')
-      .insert(deck)
+      .insert({
+        title: deck.name ?? deck.title,
+        description: deck.description ?? '',
+        category: deck.category ?? 'General',
+        is_published: deck.is_published ?? false,
+        ...(deck.course_id ? { course_id: deck.course_id } : {})
+      })
       .select()
       .single()
     
@@ -1182,7 +1188,13 @@ export const flashcardDecksApi = {
   update: async (id: string, updates: any) => {
     const { data, error } = await supabase
       .from('flashcard_decks')
-      .update(updates)
+      .update({
+        ...(updates.name !== undefined || updates.title !== undefined ? { title: updates.name ?? updates.title } : {}),
+        ...(updates.description !== undefined ? { description: updates.description } : {}),
+        ...(updates.category !== undefined ? { category: updates.category } : {}),
+        ...(updates.is_published !== undefined ? { is_published: updates.is_published } : {}),
+        ...(updates.course_id !== undefined ? { course_id: updates.course_id } : {})
+      })
       .eq('id', id)
       .select()
       .single()
@@ -1228,7 +1240,14 @@ export const flashcardsApi = {
   create: async (flashcard: any) => {
     const { data, error } = await supabase
       .from('flashcards')
-      .insert(flashcard)
+      .insert({
+        deck_id: flashcard.deck_id ?? flashcard.deckId,
+        front: flashcard.front,
+        back: flashcard.back,
+        card_type: flashcard.card_type ?? flashcard.type ?? 'learning',
+        image_url: flashcard.image_url ?? flashcard.imageUrl ?? null,
+        order: flashcard.order ?? 0
+      })
       .select()
       .single()
     
@@ -1239,7 +1258,13 @@ export const flashcardsApi = {
   update: async (id: string, updates: any) => {
     const { data, error } = await supabase
       .from('flashcards')
-      .update(updates)
+      .update({
+        ...(updates.front !== undefined ? { front: updates.front } : {}),
+        ...(updates.back !== undefined ? { back: updates.back } : {}),
+        ...(updates.type !== undefined || updates.card_type !== undefined ? { card_type: updates.type ?? updates.card_type } : {}),
+        ...(updates.imageUrl !== undefined || updates.image_url !== undefined ? { image_url: updates.imageUrl ?? updates.image_url ?? null } : {}),
+        ...(updates.order !== undefined ? { order: updates.order } : {})
+      })
       .eq('id', id)
       .select()
       .single()
