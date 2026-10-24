@@ -1,6 +1,4 @@
 import { useCallback, useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { useTranslation } from 'react-i18next'
 import {
   AlertTriangle, BookOpen, Calendar, CheckCircle2, ChevronLeft, ChevronRight,
   Eye, Loader2, PencilLine, Plus, Search, Trash2, User
@@ -39,11 +37,8 @@ const STATUS_BADGE: Record<ArticleStatus, 'line' | 'success' | 'ink'> = {
 
 export default function AdminArticles() {
   const { toast } = useApp()
-  const { t } = useTranslation()
-  const nav = useNavigate()
 
   const [articles, setArticles] = useState<Article[]>([])
-  const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
   const perPage = 20
   const [loading, setLoading] = useState(true)
@@ -57,29 +52,100 @@ export default function AdminArticles() {
   const [deleting, setDeleting] = useState<Article | null>(null)
   const [mutating, setMutating] = useState(false)
 
-  // Mock data for demonstration
-  // No mock data - articles should come from database only
-  useEffect(() => {
-    setLoading(false)
+  const reloadArticles = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const rows = await articlesApi.list()
+      setArticles((rows ?? []).map((row: any) => ({
+        id: row.id,
+        title: row.title,
+        slug: row.slug,
+        excerpt: row.excerpt ?? '',
+        content: row.content ?? '',
+        coverImage: row.cover_image ?? row.image_url ?? undefined,
+        authorId: row.author_id ?? '',
+        authorName: row.author_name ?? 'Admin',
+        categoryId: undefined,
+        categoryName: row.category ?? 'General',
+        status: row.is_published ? 'published' : 'draft',
+        viewCount: row.view_count ?? 0,
+        publishedAt: row.published_at ?? undefined,
+        createdAt: row.created_at ?? '',
+        updatedAt: row.updated_at ?? row.created_at ?? '',
+        tags: row.tags ?? []
+      })))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load articles')
+    } finally {
+      setLoading(false)
+    }
   }, [])
 
+  useEffect(() => { reloadArticles() }, [reloadArticles])
+  useEffect(() => { setPage(1) }, [search, statusFilter])
+
+  const filteredArticles = articles.filter(article => {
+    const query = search.trim().toLowerCase()
+    if (query && !`${article.title} ${article.excerpt}`.toLowerCase().includes(query)) return false
+    if (statusFilter !== 'all' && article.status !== statusFilter) return false
+    return true
+  })
+  const total = filteredArticles.length
+  const pageArticles = filteredArticles.slice((page - 1) * perPage, page * perPage)
   const totalPages = Math.max(1, Math.ceil(total / perPage))
 
-  const handleDelete = (article: Article) => {
+  const handleDelete = async (article: Article) => {
     setMutating(true)
-    setTimeout(() => {
-      setArticles(articles.filter(a => a.id !== article.id))
+    try {
+      await articlesApi.delete(article.id)
+      await reloadArticles()
       setDeleting(null)
-      setMutating(false)
       toast('Success', `Article "${article.title}" deleted`)
-    }, 500)
+    } catch (err) {
+      toast('Error', err instanceof Error ? err.message : 'Failed to delete article', 'error')
+    } finally {
+      setMutating(false)
+    }
   }
 
-  const handleStatusChange = (articleId: string, newStatus: ArticleStatus) => {
-    setArticles(articles.map(a =>
-      a.id === articleId ? { ...a, status: newStatus, publishedAt: newStatus === 'published' ? new Date().toISOString() : a.publishedAt } : a
-    ))
-    toast('Success', 'Article status updated')
+  const handleStatusChange = async (article: Article, newStatus: ArticleStatus) => {
+    try {
+      await articlesApi.update(article.id, { status: newStatus })
+      await reloadArticles()
+      toast('Success', 'Article status updated')
+    } catch (err) {
+      toast('Error', err instanceof Error ? err.message : 'Failed to update article status', 'error')
+    }
+  }
+
+  const handleCreate = async (data: { title: string; excerpt: string; content: string; status: ArticleStatus }) => {
+    setMutating(true)
+    try {
+      const baseSlug = data.title.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'article'
+      await articlesApi.create({ ...data, slug: `${baseSlug}-${Date.now().toString(36)}`, category: 'General' })
+      await reloadArticles()
+      setCreating(false)
+      toast('Success', 'Article created successfully')
+    } catch (err) {
+      toast('Error', err instanceof Error ? err.message : 'Failed to create article', 'error')
+    } finally {
+      setMutating(false)
+    }
+  }
+
+  const handleSave = async (article: Article, data: { title: string; excerpt: string; status: ArticleStatus }) => {
+    setMutating(true)
+    try {
+      await articlesApi.update(article.id, data)
+      await reloadArticles()
+      setEditing(null)
+      toast('Success', 'Article updated successfully')
+    } catch (err) {
+      toast('Error', err instanceof Error ? err.message : 'Failed to update article', 'error')
+    } finally {
+      setMutating(false)
+    }
   }
 
   return (
@@ -170,6 +236,7 @@ export default function AdminArticles() {
         <div className="flex items-center gap-3 rounded-card border border-danger/30 bg-danger/5 px-4 py-3 text-sm text-danger">
           <AlertTriangle className="h-4 w-4 shrink-0" />
           <span className="flex-1">{error}</span>
+          <Button variant="outline" onClick={reloadArticles}>Retry</Button>
         </div>
       )}
 
@@ -187,7 +254,7 @@ export default function AdminArticles() {
               </div>
             ))}
           </div>
-        ) : articles.length === 0 ? (
+        ) : filteredArticles.length === 0 ? (
           <EmptyState
             icon={<BookOpen className="h-6 w-6" />}
             title="No articles found"
@@ -209,7 +276,7 @@ export default function AdminArticles() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-line">
-                {articles.map((article) => (
+                {pageArticles.map((article) => (
                   <tr key={article.id} className="group hover:bg-paper/60">
                     <td className="px-5 py-3">
                       <div className="flex items-center gap-4">
@@ -263,7 +330,7 @@ export default function AdminArticles() {
                         </button>
                         {article.status === 'draft' && (
                           <button
-                            onClick={() => handleStatusChange(article.id, 'published')}
+                            onClick={() => handleStatusChange(article, 'published')}
                             className="rounded px-2 py-1 text-xs font-medium text-success hover:bg-success/10"
                             title="Publish"
                           >
@@ -309,10 +376,8 @@ export default function AdminArticles() {
       {creating && (
         <CreateArticleModal
           onClose={() => setCreating(false)}
-          onCreate={(data) => {
-            toast('Success', 'Article created successfully')
-            setCreating(false)
-          }}
+          onCreate={handleCreate}
+          saving={mutating}
         />
       )}
 
@@ -321,10 +386,8 @@ export default function AdminArticles() {
         <EditArticleModal
           article={editing}
           onClose={() => setEditing(null)}
-          onSave={(data) => {
-            toast('Success', 'Article updated successfully')
-            setEditing(null)
-          }}
+          onSave={(data) => handleSave(editing, data)}
+          saving={mutating}
         />
       )}
 
@@ -355,9 +418,10 @@ export default function AdminArticles() {
   )
 }
 
-function CreateArticleModal({ onClose, onCreate }: {
+function CreateArticleModal({ onClose, onCreate, saving }: {
   onClose: () => void
-  onCreate: (data: any) => void
+  onCreate: (data: { title: string; excerpt: string; content: string; status: ArticleStatus }) => Promise<void>
+  saving: boolean
 }) {
   const [title, setTitle] = useState('')
   const [excerpt, setExcerpt] = useState('')
@@ -374,8 +438,8 @@ function CreateArticleModal({ onClose, onCreate }: {
       footer={
         <>
           <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button onClick={() => onCreate({ title, excerpt, content, status })} disabled={!valid}>
-            <Plus className="h-4 w-4" /> Create
+          <Button onClick={() => onCreate({ title: title.trim(), excerpt: excerpt.trim(), content: content.trim(), status })} disabled={!valid || saving}>
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />} Create
           </Button>
         </>
       }
@@ -423,10 +487,11 @@ function CreateArticleModal({ onClose, onCreate }: {
   )
 }
 
-function EditArticleModal({ article, onClose, onSave }: {
+function EditArticleModal({ article, onClose, onSave, saving }: {
   article: Article
   onClose: () => void
-  onSave: (data: any) => void
+  onSave: (data: { title: string; excerpt: string; status: ArticleStatus }) => void
+  saving: boolean
 }) {
   const [title, setTitle] = useState(article.title)
   const [excerpt, setExcerpt] = useState(article.excerpt)
@@ -442,8 +507,8 @@ function EditArticleModal({ article, onClose, onSave }: {
       footer={
         <>
           <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button onClick={() => onSave({ title, excerpt, status })} disabled={!valid}>
-            Save Changes
+          <Button onClick={() => onSave({ title: title.trim(), excerpt: excerpt.trim(), status })} disabled={!valid || saving}>
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null} Save Changes
           </Button>
         </>
       }

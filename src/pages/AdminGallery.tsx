@@ -1,5 +1,4 @@
-import { useEffect, useState } from 'react'
-import { useTranslation } from 'react-i18next'
+import { useCallback, useEffect, useState } from 'react'
 import {
   ChevronLeft, ChevronRight, Eye, Image, Loader2, PencilLine,
   Plus, Search, Trash2, Upload
@@ -24,13 +23,13 @@ interface GalleryItem {
 
 export default function AdminGallery() {
   const { toast } = useApp()
-  const { t } = useTranslation()
 
   const [items, setItems] = useState<GalleryItem[]>([])
-  const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
   const perPage = 24
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [mutating, setMutating] = useState(false)
 
   const [search, setSearch] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('all')
@@ -42,15 +41,71 @@ export default function AdminGallery() {
 
   const categories = ['Anatomy Models', 'Classroom', 'Events', 'Laboratory', 'Student Work', 'Facilities']
 
-  useEffect(() => {
+  const reloadGallery = useCallback(async () => {
     setLoading(true)
-    // TODO: Implement real Supabase fetch
-    setItems([])
-    setTotal(0)
-    setLoading(false)
-  }, [search, categoryFilter])
+    setError(null)
+    try {
+      const rows = await galleryApi.list()
+      setItems((rows ?? []).map((row: any) => ({
+        id: row.id,
+        title: row.title,
+        description: row.description ?? '',
+        imageUrl: row.image_url ?? '',
+        category: row.category ?? 'General',
+        tags: row.tags ?? [],
+        uploadedBy: row.uploaded_by ?? 'Admin',
+        uploadedAt: row.created_at ?? '',
+        viewCount: row.view_count ?? 0,
+        isPublished: row.is_published ?? false
+      })))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load gallery photos')
+    } finally {
+      setLoading(false)
+    }
+  }, [])
 
+  useEffect(() => { reloadGallery() }, [reloadGallery])
+  useEffect(() => { setPage(1) }, [search, categoryFilter])
+
+  const filteredItems = items.filter(item => {
+    if (search.trim() && !`${item.title} ${item.description ?? ''}`.toLowerCase().includes(search.trim().toLowerCase())) return false
+    if (categoryFilter !== 'all' && item.category !== categoryFilter) return false
+    return true
+  })
+  const pageItems = filteredItems.slice((page - 1) * perPage, page * perPage)
+  const total = filteredItems.length
   const totalPages = Math.max(1, Math.ceil(total / perPage))
+
+  const handleSubmit = async (data: { title: string; description: string; category: string; isPublished: boolean; imageFile: File | null }) => {
+    setMutating(true)
+    try {
+      if (editing) await galleryApi.update(editing.id, data)
+      else await galleryApi.create(data)
+      await reloadGallery()
+      toast('Success', editing ? 'Photo updated' : 'Photo uploaded')
+      setCreating(false)
+      setEditing(null)
+    } catch (err) {
+      toast('Error', err instanceof Error ? err.message : 'Failed to save gallery photo', 'error')
+    } finally {
+      setMutating(false)
+    }
+  }
+
+  const handleDelete = async (item: GalleryItem) => {
+    setMutating(true)
+    try {
+      await galleryApi.delete(item.id)
+      await reloadGallery()
+      setDeleting(null)
+      toast('Success', 'Photo deleted')
+    } catch (err) {
+      toast('Error', err instanceof Error ? err.message : 'Failed to delete photo', 'error')
+    } finally {
+      setMutating(false)
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -127,6 +182,13 @@ export default function AdminGallery() {
         </select>
       </div>
 
+      {error && (
+        <div className="flex items-center justify-between rounded-card border border-danger/30 bg-danger/5 px-4 py-3 text-sm text-danger">
+          <span>{error}</span>
+          <Button variant="outline" onClick={reloadGallery}>Retry</Button>
+        </div>
+      )}
+
       {loading ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {Array.from({ length: 8 }).map((_, i) => (
@@ -138,7 +200,7 @@ export default function AdminGallery() {
             </div>
           ))}
         </div>
-      ) : items.length === 0 ? (
+      ) : filteredItems.length === 0 ? (
         <EmptyState
           icon={<Image className="h-6 w-6" />}
           title="No photos"
@@ -147,7 +209,7 @@ export default function AdminGallery() {
         />
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {items.map((item) => (
+          {pageItems.map((item) => (
             <div key={item.id} className="card group relative overflow-hidden">
               <img src={item.imageUrl} alt={item.title} className="aspect-video w-full object-cover" />
               <div className="absolute inset-0 flex items-center justify-center gap-2 bg-black/60 opacity-0 transition-opacity group-hover:opacity-100">
@@ -207,12 +269,9 @@ export default function AdminGallery() {
           title={editing ? 'Edit Photo' : 'Upload Photo'}
           item={editing || undefined}
           categories={categories}
+          saving={mutating}
           onClose={() => { setCreating(false); setEditing(null) }}
-          onSubmit={() => {
-            toast('Success', editing ? 'Photo updated' : 'Photo uploaded')
-            setCreating(false)
-            setEditing(null)
-          }}
+          onSubmit={handleSubmit}
         />
       )}
 
@@ -223,8 +282,9 @@ export default function AdminGallery() {
           title="Delete Photo"
           footer={
             <>
-              <Button variant="outline" onClick={() => setDeleting(null)}>Cancel</Button>
-              <Button onClick={() => { toast('Success', 'Photo deleted'); setDeleting(null) }} className="text-danger">
+              <Button variant="outline" onClick={() => setDeleting(null)} disabled={mutating}>Cancel</Button>
+              <Button onClick={() => handleDelete(deleting)} disabled={mutating} className="text-danger">
+                {mutating && <Loader2 className="h-4 w-4 animate-spin" />}
                 Delete
               </Button>
             </>
@@ -237,17 +297,20 @@ export default function AdminGallery() {
   )
 }
 
-function GalleryFormModal({ title, item, categories, onClose, onSubmit }: {
+function GalleryFormModal({ title, item, categories, saving, onClose, onSubmit }: {
   title: string
   item?: GalleryItem
   categories: string[]
+  saving: boolean
   onClose: () => void
-  onSubmit: () => void
+  onSubmit: (data: { title: string; description: string; category: string; isPublished: boolean; imageFile: File | null }) => void
 }) {
   const [photoTitle, setPhotoTitle] = useState(item?.title || '')
   const [description, setDescription] = useState(item?.description || '')
   const [category, setCategory] = useState(item?.category || categories[0])
   const [isPublished, setIsPublished] = useState(item?.isPublished ?? true)
+  const [imageFile, setImageFile] = useState<File | null>(null)
+  const valid = photoTitle.trim().length > 0 && (Boolean(item) || Boolean(imageFile))
 
   return (
     <Modal
@@ -257,8 +320,8 @@ function GalleryFormModal({ title, item, categories, onClose, onSubmit }: {
       footer={
         <>
           <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button onClick={onSubmit}>
-            {item ? 'Save' : <><Upload className="h-4 w-4" /> Upload</>}
+          <Button onClick={() => onSubmit({ title: photoTitle.trim(), description: description.trim(), category, isPublished, imageFile })} disabled={!valid || saving}>
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : item ? 'Save' : <><Upload className="h-4 w-4" /> Upload</>}
           </Button>
         </>
       }
@@ -278,12 +341,10 @@ function GalleryFormModal({ title, item, categories, onClose, onSubmit }: {
             {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
           </select>
         </div>
-        {!item && (
-          <div>
-            <label className="label-base">Image File</label>
-            <input type="file" accept="image/*" className="input-base" />
-          </div>
-        )}
+        <div>
+          <label className="label-base">{item ? 'Replace Image (optional)' : 'Image File *'}</label>
+          <input type="file" accept="image/*" className="input-base" onChange={(e) => setImageFile(e.target.files?.[0] ?? null)} />
+        </div>
         <label className="flex items-center gap-2 text-sm">
           <input type="checkbox" checked={isPublished} onChange={(e) => setIsPublished(e.target.checked)} className="h-4 w-4 rounded" />
           Publish immediately

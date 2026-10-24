@@ -277,9 +277,26 @@ export const articlesApi = {
   },
 
   create: async (article: any) => {
+    const { data: { user }, error: userError } = await supabase.auth.getUser()
+    if (userError) throw userError
+    if (!user) throw new Error('Please sign in again before creating an article')
+    const isPublished = article.status !== undefined
+      ? article.status === 'published'
+      : Boolean(article.is_published)
     const { data, error } = await supabase
       .from('articles')
-      .insert(article)
+      .insert({
+        title: article.title,
+        slug: article.slug,
+        excerpt: article.excerpt ?? '',
+        content: article.content ?? '',
+        cover_image: article.cover_image ?? article.coverImage ?? null,
+        author_id: user.id,
+        category: article.category ?? article.categoryName ?? 'General',
+        is_published: isPublished,
+        published_at: isPublished ? (article.published_at ?? new Date().toISOString()) : null,
+        tags: article.tags ?? []
+      })
       .select()
       .single()
     
@@ -288,9 +305,24 @@ export const articlesApi = {
   },
 
   update: async (id: string, updates: any) => {
+    const isPublished = updates.status !== undefined
+      ? updates.status === 'published'
+      : updates.is_published
     const { data, error } = await supabase
       .from('articles')
-      .update({ ...updates, updated_at: new Date().toISOString() })
+      .update({
+        ...(updates.title !== undefined ? { title: updates.title } : {}),
+        ...(updates.slug !== undefined ? { slug: updates.slug } : {}),
+        ...(updates.excerpt !== undefined ? { excerpt: updates.excerpt } : {}),
+        ...(updates.content !== undefined ? { content: updates.content } : {}),
+        ...(updates.cover_image !== undefined || updates.coverImage !== undefined ? { cover_image: updates.cover_image ?? updates.coverImage } : {}),
+        ...(updates.category !== undefined ? { category: updates.category } : {}),
+        ...(isPublished !== undefined ? {
+          is_published: isPublished,
+          published_at: isPublished ? (updates.published_at ?? new Date().toISOString()) : null
+        } : {}),
+        updated_at: new Date().toISOString()
+      })
       .eq('id', id)
       .select()
       .single()
@@ -591,32 +623,113 @@ export const galleryApi = {
   },
 
   create: async (item: any) => {
+    const { data: { user }, error: userError } = await supabase.auth.getUser()
+    if (userError) throw userError
+    if (!user) throw new Error('Please sign in again before uploading a gallery photo')
+    if (!item.imageFile && !item.image_url) throw new Error('Choose an image to upload')
+
+    let uploadedPath: string | null = null
+    let imageUrl = item.image_url as string | undefined
+    if (item.imageFile) {
+      const file = item.imageFile as File
+      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '-') || 'image'
+      uploadedPath = `${user.id}/${crypto.randomUUID()}-${safeName}`
+      const { error: uploadError } = await supabase.storage
+        .from('gallery-images')
+        .upload(uploadedPath, file, { contentType: file.type || undefined, upsert: false })
+      if (uploadError) throw uploadError
+      imageUrl = supabase.storage.from('gallery-images').getPublicUrl(uploadedPath).data.publicUrl
+    }
+    if (!imageUrl) throw new Error('The image upload did not return a public URL')
+
     const { data, error } = await supabase
       .from('gallery_items')
-      .insert(item)
+      .insert({
+        title: item.title,
+        description: item.description ?? '',
+        category: item.category ?? 'General',
+        image_url: imageUrl,
+        uploaded_by: user.id,
+        is_published: item.isPublished ?? item.is_published ?? true,
+        tags: item.tags ?? [],
+        view_count: 0
+      })
       .select()
       .single()
-    
-    if (error) throw error
+    if (error) {
+      if (uploadedPath) await supabase.storage.from('gallery-images').remove([uploadedPath])
+      throw error
+    }
     return data
   },
 
   update: async (id: string, updates: any) => {
+    let uploadedPath: string | null = null
+    let previousImageUrl: string | null = null
+    const payload: Record<string, unknown> = {
+      ...(updates.title !== undefined ? { title: updates.title } : {}),
+      ...(updates.description !== undefined ? { description: updates.description } : {}),
+      ...(updates.category !== undefined ? { category: updates.category } : {}),
+      ...(updates.isPublished !== undefined || updates.is_published !== undefined ? { is_published: updates.isPublished ?? updates.is_published } : {}),
+      ...(updates.tags !== undefined ? { tags: updates.tags } : {}),
+      updated_at: new Date().toISOString()
+    }
+    if (updates.imageFile) {
+      const { data: previous, error: previousError } = await supabase
+        .from('gallery_items')
+        .select('image_url')
+        .eq('id', id)
+        .single()
+      if (previousError) throw previousError
+      previousImageUrl = previous.image_url
+      const { data: { user }, error: userError } = await supabase.auth.getUser()
+      if (userError) throw userError
+      if (!user) throw new Error('Please sign in again before changing a gallery photo')
+      const file = updates.imageFile as File
+      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '-') || 'image'
+      uploadedPath = `${user.id}/${crypto.randomUUID()}-${safeName}`
+      const { error: uploadError } = await supabase.storage
+        .from('gallery-images')
+        .upload(uploadedPath, file, { contentType: file.type || undefined, upsert: false })
+      if (uploadError) throw uploadError
+      payload.image_url = supabase.storage.from('gallery-images').getPublicUrl(uploadedPath).data.publicUrl
+    }
     const { data, error } = await supabase
       .from('gallery_items')
-      .update({ ...updates, updated_at: new Date().toISOString() })
+      .update(payload)
       .eq('id', id)
       .select()
       .single()
-    
-    if (error) throw error
+    if (error) {
+      if (uploadedPath) await supabase.storage.from('gallery-images').remove([uploadedPath])
+      throw error
+    }
+    const previousPath = galleryStoragePath(previousImageUrl)
+    if (uploadedPath && previousPath) await supabase.storage.from('gallery-images').remove([previousPath])
     return data
   },
 
   delete: async (id: string) => {
+    const { data: item, error: fetchError } = await supabase
+      .from('gallery_items')
+      .select('image_url')
+      .eq('id', id)
+      .single()
+    if (fetchError) throw fetchError
     const { error } = await supabase.from('gallery_items').delete().eq('id', id)
     if (error) throw error
+    const path = galleryStoragePath(item.image_url)
+    if (path) await supabase.storage.from('gallery-images').remove([path])
   }
+}
+
+function galleryStoragePath(imageUrl?: string | null) {
+  if (!imageUrl) return null
+  const marker = '/storage/v1/object/public/gallery-images/'
+  const markerIndex = imageUrl.indexOf(marker)
+  if (markerIndex < 0) return null
+  const path = imageUrl.slice(markerIndex + marker.length).split('?')[0]
+  try { return decodeURIComponent(path) } catch { return path }
 }
 
 // ============================================================================

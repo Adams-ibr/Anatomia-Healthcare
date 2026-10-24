@@ -130,49 +130,52 @@ export type Database = {
       }
       articles: {
         Row: {
-          author: string
-          category: string
-          content: string
+          author_id: string | null
+          category: string | null
+          content: string | null
+          cover_image: string | null
           created_at: string | null
-          excerpt: string
+          excerpt: string | null
           id: string
-          image_url: string | null
-          is_featured: boolean | null
+          published_at: string | null
           is_published: boolean | null
-          read_time: string | null
           slug: string
+          tags: string[] | null
           title: string
           updated_at: string | null
+          view_count: number | null
         }
         Insert: {
-          author: string
-          category: string
-          content: string
+          author_id?: string | null
+          category?: string | null
+          content?: string | null
+          cover_image?: string | null
           created_at?: string | null
-          excerpt: string
+          excerpt?: string | null
           id?: string
-          image_url?: string | null
-          is_featured?: boolean | null
+          published_at?: string | null
           is_published?: boolean | null
-          read_time?: string | null
           slug: string
+          tags?: string[] | null
           title: string
           updated_at?: string | null
+          view_count?: number | null
         }
         Update: {
-          author?: string
-          category?: string
-          content?: string
+          author_id?: string | null
+          category?: string | null
+          content?: string | null
+          cover_image?: string | null
           created_at?: string | null
-          excerpt?: string
+          excerpt?: string | null
           id?: string
-          image_url?: string | null
-          is_featured?: boolean | null
+          published_at?: string | null
           is_published?: boolean | null
-          read_time?: string | null
           slug?: string
+          tags?: string[] | null
           title?: string
           updated_at?: string | null
+          view_count?: number | null
         }
         Relationships: []
       }
@@ -979,8 +982,11 @@ export type Database = {
           id: string
           image_url: string
           is_published: boolean | null
+          tags: string[] | null
           title: string
+          uploaded_by: string | null
           updated_at: string | null
+          view_count: number | null
         }
         Insert: {
           category: string
@@ -989,8 +995,11 @@ export type Database = {
           id?: string
           image_url: string
           is_published?: boolean | null
+          tags?: string[] | null
           title: string
+          uploaded_by?: string | null
           updated_at?: string | null
+          view_count?: number | null
         }
         Update: {
           category?: string
@@ -999,8 +1008,11 @@ export type Database = {
           id?: string
           image_url?: string
           is_published?: boolean | null
+          tags?: string[] | null
           title?: string
+          uploaded_by?: string | null
           updated_at?: string | null
+          view_count?: number | null
         }
         Relationships: []
       }

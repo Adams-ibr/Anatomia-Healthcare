@@ -299,6 +299,37 @@ create table public.anatomy_models (
   updated_at timestamptz not null default now()
 );
 
+create table public.articles (
+  id uuid primary key default gen_random_uuid(),
+  title text not null,
+  slug text not null unique,
+  excerpt text not null default '',
+  content text not null default '',
+  cover_image text,
+  author_id uuid references auth.users (id) on delete set null,
+  category text not null default 'General',
+  is_published boolean not null default false,
+  view_count integer not null default 0,
+  published_at timestamptz,
+  tags text[] not null default '{}',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table public.gallery_items (
+  id uuid primary key default gen_random_uuid(),
+  title text not null,
+  description text not null default '',
+  category text not null default 'General',
+  is_published boolean not null default true,
+  image_url text not null,
+  uploaded_by uuid references auth.users (id) on delete set null,
+  tags text[] not null default '{}',
+  view_count integer not null default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
 create table public.flashcard_decks (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users (id) on delete cascade,
@@ -366,6 +397,8 @@ create table public.question_topic_links (
 
 grant select on public.anatomy_models to anon;
 grant select, insert, update, delete on public.anatomy_models to authenticated;
+grant select on public.articles, public.gallery_items to anon;
+grant select, insert, update, delete on public.articles, public.gallery_items to authenticated;
 grant select on public.flashcard_decks, public.flashcards to anon;
 grant select, insert, update, delete on public.flashcard_decks, public.flashcards to authenticated;
 grant select on public.question_topics, public.question_bank, public.question_bank_options, public.question_topic_links to anon;
@@ -614,6 +647,8 @@ alter table public.courses enable row level security;
 alter table public.course_sections enable row level security;
 alter table public.lessons enable row level security;
 alter table public.anatomy_models enable row level security;
+alter table public.articles enable row level security;
+alter table public.gallery_items enable row level security;
 alter table public.flashcard_decks enable row level security;
 alter table public.flashcards enable row level security;
 alter table public.question_topics enable row level security;
@@ -669,6 +704,14 @@ create policy "Published anatomy models read" on public.anatomy_models for selec
 create policy "Admins manage anatomy models" on public.anatomy_models for all to authenticated
   using (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin'))
   with check (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin'));
+create policy "Published articles are public" on public.articles for select using (is_published = true);
+create policy "Admins manage articles" on public.articles for all to authenticated
+  using (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin'))
+  with check (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin'));
+create policy "Published gallery items are public" on public.gallery_items for select using (is_published = true);
+create policy "Admins manage gallery items" on public.gallery_items for all to authenticated
+  using (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin'))
+  with check (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin'));
 create policy "Published flashcard decks read" on public.flashcard_decks for select using (is_published = true);
 create policy "Admins manage flashcard decks" on public.flashcard_decks for all to authenticated
   using (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin'))
@@ -701,6 +744,10 @@ insert into storage.buckets (id, name, public, file_size_limit)
 values ('anatomy-models', 'anatomy-models', true, 104857600)
 on conflict (id) do update
 set public = excluded.public, file_size_limit = excluded.file_size_limit;
+insert into storage.buckets (id, name, public, file_size_limit)
+values ('gallery-images', 'gallery-images', true, 52428800)
+on conflict (id) do update
+set public = excluded.public, file_size_limit = excluded.file_size_limit;
 grant insert, select, update, delete on storage.objects to authenticated;
 create policy "Admins upload anatomy model assets" on storage.objects for insert to authenticated
   with check (bucket_id = 'anatomy-models' and exists (
@@ -712,6 +759,13 @@ create policy "Admins update anatomy model assets" on storage.objects for update
     select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin'));
 create policy "Admins delete anatomy model assets" on storage.objects for delete to authenticated
   using (bucket_id = 'anatomy-models' and exists (
+    select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin'));
+create policy "Public gallery image reads" on storage.objects for select to public
+  using (bucket_id = 'gallery-images');
+create policy "Admins manage gallery images" on storage.objects for all to authenticated
+  using (bucket_id = 'gallery-images' and exists (
+    select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin'))
+  with check (bucket_id = 'gallery-images' and exists (
     select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin'));
 create policy "Objectives read" on public.course_objectives for select using (true);
 create policy "Requirements read" on public.course_requirements for select using (true);
