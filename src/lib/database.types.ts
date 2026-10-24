@@ -769,28 +769,37 @@ export type Database = {
           answer: string
           category: string
           created_at: string | null
+          helpful_count: number
           id: string
           is_active: boolean | null
           order: number | null
           question: string
+          updated_at: string | null
+          view_count: number
         }
         Insert: {
           answer: string
           category: string
           created_at?: string | null
+          helpful_count?: number
           id?: string
           is_active?: boolean | null
           order?: number | null
           question: string
+          updated_at?: string | null
+          view_count?: number
         }
         Update: {
           answer?: string
           category?: string
           created_at?: string | null
+          helpful_count?: number
           id?: string
           is_active?: boolean | null
           order?: number | null
           question?: string
+          updated_at?: string | null
+          view_count?: number
         }
         Relationships: []
       }

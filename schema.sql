@@ -330,6 +330,19 @@ create table public.gallery_items (
   updated_at timestamptz not null default now()
 );
 
+create table public.faq_items (
+  id uuid primary key default gen_random_uuid(),
+  question text not null,
+  answer text not null,
+  category text default 'General',
+  "order" integer default 0,
+  is_active boolean default true,
+  view_count integer not null default 0,
+  helpful_count integer not null default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
 create table public.flashcard_decks (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users (id) on delete cascade,
@@ -399,6 +412,8 @@ grant select on public.anatomy_models to anon;
 grant select, insert, update, delete on public.anatomy_models to authenticated;
 grant select on public.articles, public.gallery_items to anon;
 grant select, insert, update, delete on public.articles, public.gallery_items to authenticated;
+grant select on public.faq_items to anon;
+grant select, insert, update, delete on public.faq_items to authenticated;
 grant select on public.flashcard_decks, public.flashcards to anon;
 grant select, insert, update, delete on public.flashcard_decks, public.flashcards to authenticated;
 grant select on public.question_topics, public.question_bank, public.question_bank_options, public.question_topic_links to anon;
@@ -649,6 +664,7 @@ alter table public.lessons enable row level security;
 alter table public.anatomy_models enable row level security;
 alter table public.articles enable row level security;
 alter table public.gallery_items enable row level security;
+alter table public.faq_items enable row level security;
 alter table public.flashcard_decks enable row level security;
 alter table public.flashcards enable row level security;
 alter table public.question_topics enable row level security;
@@ -710,6 +726,10 @@ create policy "Admins manage articles" on public.articles for all to authenticat
   with check (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin'));
 create policy "Published gallery items are public" on public.gallery_items for select using (is_published = true);
 create policy "Admins manage gallery items" on public.gallery_items for all to authenticated
+  using (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin'))
+  with check (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin'));
+create policy "Published FAQs are public" on public.faq_items for select to anon, authenticated using (is_active = true);
+create policy "Admins manage FAQs" on public.faq_items for all to authenticated
   using (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin'))
   with check (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin'));
 create policy "Published flashcard decks read" on public.flashcard_decks for select using (is_published = true);

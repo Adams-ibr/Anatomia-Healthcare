@@ -41,35 +41,90 @@ export default function AdminFaq() {
   const [deleting, setDeleting] = useState<FAQ | null>(null)
   const [mutating, setMutating] = useState(false)
   const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
   const categories = ['General', 'Courses', 'Account', 'Payment', 'Technical', 'Certificates']
 
-  // Fetch from Supabase
-  useEffect(() => {
+  const reloadFaqs = useCallback(async () => {
     setLoading(true)
-    // TODO: Implement real Supabase fetch
-    setFaqs([])
-    setTotal(0)
-    setLoading(false)
-  }, [search, categoryFilter, statusFilter])
+    setLoadError(null)
+    try {
+      const rows = await faqApi.list()
+      setFaqs((rows ?? []).map((row: any) => ({
+        id: row.id,
+        question: row.question,
+        answer: row.answer,
+        category: row.category ?? 'General',
+        order: row.order ?? 0,
+        isPublished: row.is_active ?? true,
+        viewCount: row.view_count ?? 0,
+        helpfulCount: row.helpful_count ?? 0,
+        createdAt: row.created_at ?? '',
+        updatedAt: row.updated_at ?? ''
+      })))
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load FAQs')
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => { reloadFaqs() }, [reloadFaqs])
+
+  const filteredFaqs = faqs.filter(faq => {
+    if (search.trim() && !`${faq.question} ${faq.answer}`.toLowerCase().includes(search.trim().toLowerCase())) return false
+    if (categoryFilter !== 'all' && faq.category !== categoryFilter) return false
+    if (statusFilter === 'published' && !faq.isPublished) return false
+    if (statusFilter === 'draft' && faq.isPublished) return false
+    return true
+  })
+  const pageFaqs = filteredFaqs.slice((page - 1) * perPage, page * perPage)
+  useEffect(() => { setPage(1) }, [search, categoryFilter, statusFilter])
+  useEffect(() => { setTotal(filteredFaqs.length) }, [filteredFaqs.length])
 
   const totalPages = Math.max(1, Math.ceil(total / perPage))
 
-  const handleDelete = (faq: FAQ) => {
+  const handleSubmit = async (data: { question: string; answer: string; category: string; isPublished: boolean }) => {
     setMutating(true)
-    setTimeout(() => {
-      setFaqs(faqs.filter(f => f.id !== faq.id))
-      setDeleting(null)
+    try {
+      if (editing) await faqApi.update(editing.id, data)
+      else await faqApi.create(data)
+      await reloadFaqs()
+      toast('Success', `FAQ ${editing ? 'updated' : 'created'} successfully`)
+      setCreating(false)
+      setEditing(null)
+    } catch (err) {
+      toast('Error', err instanceof Error ? err.message : 'Failed to save FAQ', 'error')
+    } finally {
       setMutating(false)
-      toast('Success', 'FAQ deleted successfully')
-    }, 500)
+    }
   }
 
-  const togglePublish = (id: string) => {
-    setFaqs(faqs.map(f =>
-      f.id === id ? { ...f, isPublished: !f.isPublished } : f
-    ))
-    toast('Success', 'FAQ status updated')
+  const handleDelete = async (faq: FAQ) => {
+    setMutating(true)
+    try {
+      await faqApi.delete(faq.id)
+      await reloadFaqs()
+      setDeleting(null)
+      toast('Success', 'FAQ deleted successfully')
+    } catch (err) {
+      toast('Error', err instanceof Error ? err.message : 'Failed to delete FAQ', 'error')
+    } finally {
+      setMutating(false)
+    }
+  }
+
+  const togglePublish = async (faq: FAQ) => {
+    setMutating(true)
+    try {
+      await faqApi.update(faq.id, { isPublished: !faq.isPublished })
+      await reloadFaqs()
+      toast('Success', 'FAQ status updated')
+    } catch (err) {
+      toast('Error', err instanceof Error ? err.message : 'Failed to update FAQ status', 'error')
+    } finally {
+      setMutating(false)
+    }
   }
 
   return (
@@ -133,6 +188,13 @@ export default function AdminFaq() {
         </div>
       </div>
 
+      {loadError && (
+        <div className="flex items-center justify-between rounded-card border border-danger/30 bg-danger/5 px-4 py-3 text-sm text-danger">
+          <span>{loadError}</span>
+          <Button variant="outline" onClick={reloadFaqs}>Retry</Button>
+        </div>
+      )}
+
       {/* Filters */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="relative max-w-xs flex-1">
@@ -174,7 +236,7 @@ export default function AdminFaq() {
               <Skeleton className="mt-2 h-4 w-full" />
             </div>
           ))
-        ) : faqs.length === 0 ? (
+        ) : pageFaqs.length === 0 ? (
           <EmptyState
             icon={<HelpCircle className="h-6 w-6" />}
             title="No FAQs found"
@@ -182,7 +244,7 @@ export default function AdminFaq() {
             action={<Button onClick={() => setCreating(true)}><Plus className="h-4 w-4" /> New FAQ</Button>}
           />
         ) : (
-          faqs.map((faq) => (
+          pageFaqs.map((faq) => (
             <div key={faq.id} className="card overflow-hidden">
               <div
                 className="flex cursor-pointer items-start justify-between gap-4 p-5 hover:bg-paper/60"
@@ -227,8 +289,9 @@ export default function AdminFaq() {
                       variant="outline"
                       onClick={(e) => {
                         e.stopPropagation()
-                        togglePublish(faq.id)
+                        togglePublish(faq)
                       }}
+                      disabled={mutating}
                     >
                       {faq.isPublished ? 'Unpublish' : 'Publish'}
                     </Button>
@@ -278,11 +341,8 @@ export default function AdminFaq() {
             setCreating(false)
             setEditing(null)
           }}
-          onSubmit={(data) => {
-            toast('Success', `FAQ ${editing ? 'updated' : 'created'} successfully`)
-            setCreating(false)
-            setEditing(null)
-          }}
+          onSubmit={handleSubmit}
+          saving={mutating}
         />
       )}
 
@@ -313,10 +373,11 @@ export default function AdminFaq() {
   )
 }
 
-function FAQFormModal({ title, faq, categories, onClose, onSubmit }: {
+function FAQFormModal({ title, faq, categories, saving, onClose, onSubmit }: {
   title: string
   faq?: FAQ
   categories: string[]
+  saving: boolean
   onClose: () => void
   onSubmit: (data: any) => void
 }) {
@@ -335,8 +396,8 @@ function FAQFormModal({ title, faq, categories, onClose, onSubmit }: {
       footer={
         <>
           <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button onClick={() => onSubmit({ question, answer, category, isPublished })} disabled={!valid}>
-            {faq ? 'Save Changes' : <><Plus className="h-4 w-4" /> Create</>}
+          <Button onClick={() => onSubmit({ question: question.trim(), answer: answer.trim(), category, isPublished })} disabled={!valid || saving}>
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : faq ? 'Save Changes' : <><Plus className="h-4 w-4" /> Create</>}
           </Button>
         </>
       }

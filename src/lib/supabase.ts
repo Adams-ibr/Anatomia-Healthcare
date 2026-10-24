@@ -391,9 +391,21 @@ export const faqApi = {
   },
 
   create: async (faq: any) => {
+    const { data: rows, error: orderError } = await supabase
+      .from('faq_items')
+      .select('order')
+      .order('order', { ascending: false })
+      .limit(1)
+    if (orderError) throw orderError
     const { data, error } = await supabase
       .from('faq_items')
-      .insert(faq)
+      .insert({
+        question: faq.question,
+        answer: faq.answer,
+        category: faq.category ?? 'General',
+        is_active: faq.isPublished ?? faq.is_active ?? true,
+        order: faq.order ?? ((rows?.[0]?.order ?? -1) + 1)
+      })
       .select()
       .single()
     
@@ -402,9 +414,19 @@ export const faqApi = {
   },
 
   update: async (id: string, updates: any) => {
+    const payload = {
+      ...(updates.question !== undefined ? { question: updates.question } : {}),
+      ...(updates.answer !== undefined ? { answer: updates.answer } : {}),
+      ...(updates.category !== undefined ? { category: updates.category } : {}),
+      ...(updates.order !== undefined ? { order: updates.order } : {}),
+      ...(updates.isPublished !== undefined || updates.is_active !== undefined
+        ? { is_active: updates.isPublished ?? updates.is_active }
+        : {}),
+      updated_at: new Date().toISOString()
+    }
     const { data, error } = await supabase
       .from('faq_items')
-      .update(updates)
+      .update(payload)
       .eq('id', id)
       .select()
       .single()
