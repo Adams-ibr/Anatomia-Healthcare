@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
   ArrowLeft, ArrowRight, BookOpen, Check, CheckCircle2, ChevronDown, ChevronUp, Eye, FilePlus2,
-  GripVertical, HelpCircle, ImagePlus, Layers, ListChecks, Loader2, Plus, Save, Settings2, Sparkles, Trash2, Video
+  GripVertical, HelpCircle, ImagePlus, Layers, ListChecks, Loader2, Plus, Save, Settings2, Sparkles, Trash2, Upload, Video
 } from 'lucide-react'
 import type { AssessmentQuestion, Course, CourseStatus, LessonType } from '../lib/types'
 import type { AdminCategory, AdminCourseFull } from '../lib/api/auth'
@@ -11,6 +11,7 @@ import { categoriesApi, courseStudioApi } from '../lib/supabase'
 import { useApp } from '../lib/store'
 import { Badge, Button, Input } from '../components/ui'
 import { cn, formatDuration, formatPrice, uid } from '../lib/utils'
+import { uploadAdminImage } from '../lib/adminMedia'
 
 interface StudioLesson {
   id: string
@@ -234,6 +235,7 @@ export default function CourseStudio() {
     return blank()
   })
   const [saveState, setSaveState] = useState<'saved' | 'dirty' | 'saving'>('saved')
+  const [thumbnailUploading, setThumbnailUploading] = useState(false)
   const [sel, setSel] = useState<Selection>(null)
 
   const loadCategories = useCallback(async () => {
@@ -423,10 +425,16 @@ export default function CourseStudio() {
   const totalMinutes = draft.sections.reduce((a, s) => a + s.lessons.reduce((x, l) => x + (l.duration || 0), 0), 0)
   const preview = toCourse(draft, currentUser?.id ?? 'u1')
 
+  const sectionsWithLessons = draft.sections.filter((section) =>
+    section.lessons.some((lesson) => lesson.title.trim().length > 0)
+  ).length
+  const hasAssessmentOrAssignment = draft.assessments.length > 0 || draft.sections.some((section) =>
+    section.lessons.some((lesson) => lesson.type === 'assignment')
+  )
   const checklist = [
-    { ok: draft.title.trim().length > 0, label: t('instrCourses.checklist1') },
-    { ok: draft.sections.length > 0 && totalLessons > 0, label: t('instrCourses.checklist2') },
-    { ok: draft.assessments.length > 0, label: t('instrCourses.checklist3') }
+    { ok: sectionsWithLessons >= 3, label: t('instrCourses.checklist1') },
+    { ok: hasAssessmentOrAssignment, label: t('instrCourses.checklist2') },
+    { ok: draft.thumbnail.trim().length > 0, label: t('instrCourses.checklist3') }
   ]
   const complete = checklist.every((c) => c.ok)
 
@@ -639,6 +647,31 @@ export default function CourseStudio() {
             <div className="mt-4 aspect-[16/9] w-full overflow-hidden rounded-card bg-brand-900">
               {draft.thumbnail ? <img src={draft.thumbnail} alt="" className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center text-brand-200"><ImagePlus className="h-8 w-8" /></div>}
             </div>
+            <label className="mt-3 flex cursor-pointer items-center justify-center gap-2 rounded-card border border-line px-3 py-2 text-sm font-medium text-ink hover:bg-paper">
+              {thumbnailUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+              {thumbnailUploading ? t('common.loading') : t('instrCourses.uploadThumbnail')}
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/gif"
+                disabled={thumbnailUploading}
+                className="sr-only"
+                onChange={async (event) => {
+                  const file = event.target.files?.[0]
+                  event.target.value = ''
+                  if (!file) return
+                  setThumbnailUploading(true)
+                  try {
+                    const thumbnail = await uploadAdminImage(file, 'course-thumbnails')
+                    patch({ thumbnail })
+                  } catch (error) {
+                    toast(t('instrCourses.uploadThumbnail'), error instanceof Error ? error.message : t('admin.errorGeneric'), 'error')
+                  } finally {
+                    setThumbnailUploading(false)
+                  }
+                }}
+              />
+            </label>
+            <p className="mt-1 text-xs text-muted">PNG, JPEG, WebP, or GIF · up to 10 MB</p>
             <input value={draft.thumbnail} onChange={(e) => patch({ thumbnail: e.target.value })} className="input-base mt-3" placeholder="https://…" />
             <Button variant="outline" className="mt-2 w-full" onClick={() => patch({ thumbnail: placeholderThumb() })}><Sparkles className="h-4 w-4" /> {t('instrCourses.thumbnailUploaded')}</Button>
           </div>

@@ -858,7 +858,7 @@ export default {
     courseThumbnail: 'Course thumbnail',
     thumbnailBody: 'Upload 16:9 picture or make gradient placeholder',
     uploadThumbnail: 'Upload thumbnail',
-    thumbnailUploaded: 'Thumbnail don upload',
+    thumbnailUploaded: 'Use generated thumbnail',
     thumbnailUploadedBody: 'Placeholder gradient don use (demo).',
     whatStudentsLearn: 'Wetin students go learn (one for each line)',
     addSection: 'Add section',
