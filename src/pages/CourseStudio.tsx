@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
@@ -236,6 +236,7 @@ export default function CourseStudio() {
   })
   const [saveState, setSaveState] = useState<'saved' | 'dirty' | 'saving'>('saved')
   const [thumbnailUploading, setThumbnailUploading] = useState(false)
+  const contentSaveInFlight = useRef(false)
   const [sel, setSel] = useState<Selection>(null)
 
   const loadCategories = useCallback(async () => {
@@ -439,6 +440,8 @@ export default function CourseStudio() {
   const complete = checklist.every((c) => c.ok)
 
   const saveNow = async () => {
+    if (contentSaveInFlight.current) return
+    contentSaveInFlight.current = true
     localStorage.setItem(key, JSON.stringify(draft))
     setSaveState('saving')
     try {
@@ -472,15 +475,19 @@ export default function CourseStudio() {
     } catch (err) {
       setSaveState('dirty')
       toast(t('instrCourses.saveFailed'), err instanceof Error ? err.message : t('admin.errorGeneric'), 'error')
+    } finally {
+      contentSaveInFlight.current = false
     }
   }
 
   const publish = async () => {
+    if (contentSaveInFlight.current) return
     if (!complete) {
       toast(t('instrCourses.publishWarning'), '', 'info')
       setTab('preview')
       return
     }
+    contentSaveInFlight.current = true
     setDraft((d) => ({ ...d, status: 'published' }))
     const published = { ...draft, status: 'published' as const }
     localStorage.setItem(key, JSON.stringify(published))
@@ -517,6 +524,8 @@ export default function CourseStudio() {
       setDraft((d) => ({ ...d, status: published.status }))
       setSaveState('dirty')
       toast(t('instrCourses.publishFailed'), err instanceof Error ? err.message : t('admin.errorGeneric'), 'error')
+    } finally {
+      contentSaveInFlight.current = false
     }
   }
 
@@ -560,8 +569,8 @@ export default function CourseStudio() {
           <p className="mt-1 text-sm text-muted">{saveLabel}</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={saveNow}><Save className="h-4 w-4" /> {t('instrCourses.saveDraft')}</Button>
-          <Button onClick={publish}>{t('instrCourses.publish')}</Button>
+          <Button variant="outline" onClick={saveNow} disabled={saveState === 'saving'}><Save className="h-4 w-4" /> {t('instrCourses.saveDraft')}</Button>
+          <Button onClick={publish} disabled={saveState === 'saving'}>{t('instrCourses.publish')}</Button>
         </div>
       </div>
 
@@ -969,7 +978,7 @@ export default function CourseStudio() {
                 </li>
               ))}
             </ul>
-            <Button className="w-full" onClick={publish} disabled={!complete}><Check className="h-4 w-4" /> {t('instrCourses.publish')}</Button>
+            <Button className="w-full" onClick={publish} disabled={!complete || saveState === 'saving'}><Check className="h-4 w-4" /> {t('instrCourses.publish')}</Button>
             {!complete && <p className="text-center text-xs text-muted">{t('instrCourses.publishWarning')}</p>}
           </div>
         </div>

@@ -330,7 +330,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
       
       // Create enrollment in Supabase
       const newEnrollment = await enrollmentsApi.create({
-        id: uid('enr'),
         member_id: userId,
         course_id: courseId,
         enrolled_at: new Date().toISOString(),
@@ -359,7 +358,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       toast('Enrolled Successfully', 'You have been enrolled in the course', 'success')
     } catch (error) {
       console.error('Failed to enroll:', error)
-      toast('Enrollment Failed', 'Failed to enroll in the course', 'error')
+      toast('Enrollment Failed', error instanceof Error ? error.message : 'Failed to enroll in the course', 'error')
     }
   }, [currentUser, hydrateStudentData, toast])
 
