@@ -3,15 +3,17 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
   ArrowLeft, ArrowRight, BookOpen, Check, CheckCircle2, ChevronDown, ChevronUp, Eye, FilePlus2,
-  GripVertical, HelpCircle, ImagePlus, Layers, ListChecks, Loader2, Plus, Save, Settings2, Sparkles, Trash2, Upload, Video
+  GripVertical, HelpCircle, ImagePlus, Layers, ListChecks, Loader2, Plus, Save, Search, Settings2, Sparkles, Trash2, Upload, Video
 } from 'lucide-react'
 import type { AssessmentQuestion, Course, CourseStatus, LessonType } from '../lib/types'
 import type { AdminCategory, AdminCourseFull } from '../lib/api/auth'
-import { categoriesApi, courseStudioApi } from '../lib/supabase'
+import { categoriesApi, courseStudioApi, flashcardDecksApi, flashcardsApi, questionBankApi } from '../lib/supabase'
 import { useApp } from '../lib/store'
-import { Badge, Button, Input } from '../components/ui'
+import { Badge, Button, Input, Modal } from '../components/ui'
 import { cn, formatDuration, formatPrice, uid } from '../lib/utils'
 import { uploadAdminImage } from '../lib/adminMedia'
+import { LessonContentEditor, parseLessonContent, serializeLessonContent } from '../components/lesson/LessonContent'
+import type { LessonContentBlock } from '../components/lesson/LessonContent'
 
 interface StudioLesson {
   id: string
@@ -36,6 +38,7 @@ interface StudioQuestion {
   options: string[]
   answer: string
   explanation: string
+  sourceId?: string
 }
 
 interface StudioAssessment {
@@ -79,6 +82,27 @@ const QUESTION_TYPES: AssessmentQuestion['type'][] = ['mc', 'multi', 'truefalse'
 
 const lessonTypeKey = (t: LessonType) => `instrCourses.lessonType${t[0].toUpperCase()}${t.slice(1)}`
 const questionTypeKey = (t: AssessmentQuestion['type']) => `instrCourses.qtype${t[0].toUpperCase()}${t.slice(1)}`
+
+function mapBankQuestion(row: any): StudioQuestion {
+  const options = (row.question_bank_options ?? [])
+    .slice()
+    .sort((a: any, b: any) => (a.order ?? 0) - (b.order ?? 0))
+  const isTrueFalse = ['truefalse', 'true-false', 'true_false'].includes(String(row.question_type).toLowerCase())
+  const normalizedOptions = isTrueFalse ? ['True', 'False'] : options.map((option: any) => String(option.option_text ?? ''))
+  if (!normalizedOptions.length) normalizedOptions.push('', '')
+  const correctIndex = isTrueFalse
+    ? (options.find((option: any) => option.is_correct)?.option_text?.toLowerCase() === 'false' ? 1 : 0)
+    : Math.max(0, options.findIndex((option: any) => option.is_correct))
+  return {
+    id: uid('q'),
+    sourceId: row.id,
+    type: isTrueFalse ? 'truefalse' : 'mc',
+    question: String(row.question ?? row.question_text ?? ''),
+    options: normalizedOptions,
+    answer: String(correctIndex),
+    explanation: String(row.explanation ?? '')
+  }
+}
 
 const placeholderThumb = () => {
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#1e3a8a"/><stop offset="100%" stop-color="#7c3aed"/></linearGradient></defs><rect width="640" height="360" fill="url(#g)"/><text x="320" y="190" font-family="system-ui" font-size="28" fill="#ffffff" text-anchor="middle" opacity="0.85">Anatomia</text></svg>`
@@ -238,6 +262,19 @@ export default function CourseStudio() {
   const [thumbnailUploading, setThumbnailUploading] = useState(false)
   const contentSaveInFlight = useRef(false)
   const [sel, setSel] = useState<Selection>(null)
+  const [questionImportAssessment, setQuestionImportAssessment] = useState<number | null>(null)
+  const [bankQuestions, setBankQuestions] = useState<any[]>([])
+  const [bankQuestionIds, setBankQuestionIds] = useState<Set<string>>(new Set())
+  const [bankQuestionSearch, setBankQuestionSearch] = useState('')
+  const [bankQuestionsLoading, setBankQuestionsLoading] = useState(false)
+  const [bankQuestionsError, setBankQuestionsError] = useState('')
+  const [flashcardImportLesson, setFlashcardImportLesson] = useState<{ section: number; lesson: number } | null>(null)
+  const [flashcardDecks, setFlashcardDecks] = useState<any[]>([])
+  const [flashcardDeckId, setFlashcardDeckId] = useState('')
+  const [importCards, setImportCards] = useState<any[]>([])
+  const [importCardIds, setImportCardIds] = useState<Set<string>>(new Set())
+  const [flashcardsLoading, setFlashcardsLoading] = useState(false)
+  const [flashcardsError, setFlashcardsError] = useState('')
 
   const loadCategories = useCallback(async () => {
     try {
@@ -417,6 +454,104 @@ export default function CourseStudio() {
       assessments: d.assessments.map((a, i) => (i === ai ? { ...a, questions: a.questions.map((q, j) => (j === qi ? { ...q, ...p } : q)) } : a))
     }))
 
+  const openQuestionImport = async (assessmentIndex: number) => {
+    setQuestionImportAssessment(assessmentIndex)
+    setBankQuestionIds(new Set())
+    setBankQuestionSearch('')
+    setBankQuestionsError('')
+    setBankQuestionsLoading(true)
+    try {
+      setBankQuestions(await questionBankApi.list({ is_active: true }) ?? [])
+    } catch (error) {
+      setBankQuestionsError(error instanceof Error ? error.message : 'Unable to load questions from the question bank.')
+    } finally {
+      setBankQuestionsLoading(false)
+    }
+  }
+
+  const importSelectedQuestions = () => {
+    if (questionImportAssessment === null) return
+    const assessmentIndex = questionImportAssessment
+    const selected = bankQuestions.filter((question) => bankQuestionIds.has(question.id)).map(mapBankQuestion)
+    if (!selected.length) return
+    const existing = new Set(draft.assessments[assessmentIndex]?.questions.map((question) => question.sourceId).filter(Boolean))
+    const newQuestions = selected.filter((question) => !existing.has(question.sourceId))
+    if (!newQuestions.length) {
+      toast('Questions already added', 'The selected questions are already in this assessment.', 'info')
+      setQuestionImportAssessment(null)
+      return
+    }
+    setDraft((d) => ({
+      ...d,
+      assessments: d.assessments.map((assessment, index) => {
+        if (index !== assessmentIndex) return assessment
+        return { ...assessment, questions: [...assessment.questions, ...newQuestions] }
+      })
+    }))
+    toast('Questions imported', `${newQuestions.length} question${newQuestions.length === 1 ? '' : 's'} added to the assessment.`)
+    setQuestionImportAssessment(null)
+  }
+
+  const openFlashcardImport = async (section: number, lesson: number) => {
+    setFlashcardImportLesson({ section, lesson })
+    setFlashcardDecks([])
+    setFlashcardDeckId('')
+    setImportCards([])
+    setImportCardIds(new Set())
+    setFlashcardsError('')
+    setFlashcardsLoading(true)
+    try {
+      // RLS exposes published decks to instructors and all decks to admins.
+      const decks = await flashcardDecksApi.list()
+      setFlashcardDecks(decks ?? [])
+      if (!decks?.length) setFlashcardsError('No flashcard decks are available to import.')
+    } catch (error) {
+      setFlashcardsError(error instanceof Error ? error.message : 'Unable to load flashcard decks.')
+    } finally {
+      setFlashcardsLoading(false)
+    }
+  }
+
+  const loadImportCards = async (deckId: string) => {
+    setFlashcardDeckId(deckId)
+    setImportCards([])
+    setImportCardIds(new Set())
+    if (!deckId) return
+    setFlashcardsLoading(true)
+    setFlashcardsError('')
+    try {
+      setImportCards(await flashcardsApi.list(deckId) ?? [])
+    } catch (error) {
+      setFlashcardsError(error instanceof Error ? error.message : 'Unable to load cards from this deck.')
+    } finally {
+      setFlashcardsLoading(false)
+    }
+  }
+
+  const importSelectedFlashcards = () => {
+    if (!flashcardImportLesson) return
+    const { section, lesson } = flashcardImportLesson
+    const selectedCards = importCards.filter((card) => importCardIds.has(card.id))
+    if (!selectedCards.length) return
+    const currentContent = draft.sections[section]?.lessons[lesson]?.content ?? ''
+    const blocks: LessonContentBlock[] = parseLessonContent(currentContent) ?? (currentContent
+      ? [{ id: uid('txt'), type: 'section', heading: '', body: currentContent }]
+      : [])
+    const importedBlock: LessonContentBlock = {
+      id: uid('fcset'),
+      type: 'flashcards',
+      cards: selectedCards.map((card) => ({
+        id: uid('fc'),
+        front: String(card.front ?? ''),
+        back: String(card.back ?? ''),
+        ...(card.image_url ? { imageUrl: String(card.image_url) } : {})
+      }))
+    }
+    patchLesson(section, lesson, { type: 'article', content: serializeLessonContent([...blocks, importedBlock]) })
+    toast('Flashcards imported', `${selectedCards.length} interactive card${selectedCards.length === 1 ? '' : 's'} added to the lesson.`)
+    setFlashcardImportLesson(null)
+  }
+
   const addFaq = () => setDraft((d) => ({ ...d, faqs: [...d.faqs, { id: uid('faq'), q: '', a: '' }] }))
   const removeFaq = (fi: number) => setDraft((d) => ({ ...d, faqs: d.faqs.filter((_, i) => i !== fi) }))
   const patchFaq = (fi: number, p: Partial<StudioFaq>) =>
@@ -425,6 +560,10 @@ export default function CourseStudio() {
   const totalLessons = draft.sections.reduce((a, s) => a + s.lessons.length, 0)
   const totalMinutes = draft.sections.reduce((a, s) => a + s.lessons.reduce((x, l) => x + (l.duration || 0), 0), 0)
   const preview = toCourse(draft, currentUser?.id ?? 'u1')
+  const filteredBankQuestions = bankQuestions.filter((question) => {
+    const search = bankQuestionSearch.trim().toLowerCase()
+    return !search || String(question.question ?? question.question_text ?? '').toLowerCase().includes(search)
+  })
 
   const sectionsWithLessons = draft.sections.filter((section) =>
     section.lessons.some((lesson) => lesson.title.trim().length > 0)
@@ -787,10 +926,19 @@ export default function CourseStudio() {
                   {(l.type === 'pdf' || l.type === 'assignment' || l.type === 'project') && (
                     <Input label={t('instrCourses.resourceUrl')} value={l.resourceUrl ?? ''} onChange={(e) => patchLesson(sel.section, sel.lesson!, { resourceUrl: e.target.value })} placeholder={t('instrCourses.resourceUrlPlaceholder')} />
                   )}
-                  <div>
-                    <label className="label-base">{t('instrCourses.lessonContent')}</label>
-                    <textarea value={l.content} onChange={(e) => patchLesson(sel.section, sel.lesson!, { content: e.target.value })} rows={8} className="input-base font-mono text-sm" placeholder={t('instrCourses.lessonContentPlaceholder')} />
-                  </div>
+                  {l.type === 'article' ? (
+                    <div className="space-y-3">
+                      <div className="flex justify-end">
+                        <Button variant="outline" onClick={() => void openFlashcardImport(sel.section, sel.lesson!)}><Layers className="h-4 w-4" /> Import from flashcards</Button>
+                      </div>
+                      <LessonContentEditor value={l.content} onChange={(content) => patchLesson(sel.section, sel.lesson!, { content })} />
+                    </div>
+                  ) : (
+                    <div>
+                      <label className="label-base">{t('instrCourses.lessonContent')}</label>
+                      <textarea value={l.content} onChange={(e) => patchLesson(sel.section, sel.lesson!, { content: e.target.value })} rows={8} className="input-base font-mono text-sm" placeholder={t('instrCourses.lessonContentPlaceholder')} />
+                    </div>
+                  )}
                 </div>
               )
             })()}
@@ -840,7 +988,10 @@ export default function CourseStudio() {
               <div className="space-y-4 border-t border-line pt-5">
                 <div className="flex items-center justify-between">
                   <h3 className="font-semibold text-ink">{t('instrCourses.questions')}</h3>
-                  <Button variant="outline" onClick={() => addQuestion(ai)}><Plus className="h-4 w-4" /> {t('instrCourses.addQuestion')}</Button>
+                  <div className="flex flex-wrap gap-2">
+                    <Button variant="outline" onClick={() => void openQuestionImport(ai)}><Search className="h-4 w-4" /> Import from question bank</Button>
+                    <Button variant="outline" onClick={() => addQuestion(ai)}><Plus className="h-4 w-4" /> {t('instrCourses.addQuestion')}</Button>
+                  </div>
                 </div>
                 {a.questions.map((q, qi) => (
                   <div key={q.id} className="rounded-card border border-line bg-paper p-4">
@@ -983,6 +1134,91 @@ export default function CourseStudio() {
           </div>
         </div>
       )}
+
+      <Modal
+        open={questionImportAssessment !== null}
+        onClose={() => setQuestionImportAssessment(null)}
+        title="Import questions from question bank"
+        footer={(
+          <>
+            <Button variant="outline" onClick={() => setQuestionImportAssessment(null)}>Cancel</Button>
+            <Button onClick={importSelectedQuestions} disabled={!bankQuestionIds.size || bankQuestionsLoading}>Import {bankQuestionIds.size || ''}</Button>
+          </>
+        )}
+      >
+        <div className="space-y-3">
+          <p className="text-sm text-muted">Choose active questions to copy into this assessment. Imported questions can be edited without changing the question bank.</p>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
+            <input value={bankQuestionSearch} onChange={(event) => setBankQuestionSearch(event.target.value)} className="input-base pl-9" placeholder="Search questions" />
+          </div>
+          {bankQuestionsError && <p role="alert" className="text-sm text-danger">{bankQuestionsError}</p>}
+          {bankQuestionsLoading ? <div className="py-8 text-center text-sm text-muted">Loading question bank…</div> : filteredBankQuestions.length === 0 ? <div className="py-8 text-center text-sm text-muted">No active questions found.</div> : (
+            <div className="max-h-[45vh] space-y-2 overflow-y-auto">
+              {filteredBankQuestions.map((question) => {
+                const options = (question.question_bank_options ?? []).slice().sort((a: any, b: any) => (a.order ?? 0) - (b.order ?? 0))
+                const isTrueFalse = ['truefalse', 'true-false', 'true_false'].includes(String(question.question_type).toLowerCase())
+                return (
+                  <label key={question.id} className="flex cursor-pointer items-start gap-3 rounded-card border border-line p-3 hover:bg-paper">
+                    <input type="checkbox" checked={bankQuestionIds.has(question.id)} onChange={(event) => setBankQuestionIds((current) => {
+                      const next = new Set(current)
+                      if (event.target.checked) next.add(question.id)
+                      else next.delete(question.id)
+                      return next
+                    })} className="mt-1 h-4 w-4 accent-brand-500" />
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-sm font-medium text-ink">{question.question ?? question.question_text}</span>
+                      <span className="mt-1 block text-xs text-muted">{isTrueFalse ? 'True / false' : 'Multiple choice'} · {question.difficulty ?? 'medium'}{options.length ? ` · ${options.length} options` : ''}</span>
+                    </span>
+                  </label>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      </Modal>
+
+      <Modal
+        open={flashcardImportLesson !== null}
+        onClose={() => setFlashcardImportLesson(null)}
+        title="Import flashcards into lesson"
+        footer={(
+          <>
+            <Button variant="outline" onClick={() => setFlashcardImportLesson(null)}>Cancel</Button>
+            <Button onClick={importSelectedFlashcards} disabled={!importCardIds.size || flashcardsLoading}>Add {importCardIds.size || ''} to lesson</Button>
+          </>
+        )}
+      >
+        <div className="space-y-3">
+          <p className="text-sm text-muted">Choose a deck you can access, then select cards. They’ll be copied into this lesson as an interactive flip-card activity.</p>
+          {flashcardsError && <p role="alert" className="text-sm text-warning">{flashcardsError}</p>}
+          {flashcardsLoading && !flashcardDecks.length ? <div className="py-6 text-center text-sm text-muted">Loading flashcard decks…</div> : flashcardDecks.length > 0 && (
+            <select value={flashcardDeckId} onChange={(event) => void loadImportCards(event.target.value)} className="input-base" aria-label="Flashcard deck">
+              <option value="">Choose a deck</option>
+              {flashcardDecks.map((deck) => <option key={deck.id} value={deck.id}>{deck.title ?? deck.name}</option>)}
+            </select>
+          )}
+          {flashcardsLoading && flashcardDeckId ? <div className="py-6 text-center text-sm text-muted">Loading flashcards…</div> : importCards.length > 0 ? (
+            <div className="max-h-[45vh] space-y-2 overflow-y-auto">
+              {importCards.map((card) => (
+                <label key={card.id} className="flex cursor-pointer items-start gap-3 rounded-card border border-line p-3 hover:bg-paper">
+                  <input type="checkbox" checked={importCardIds.has(card.id)} onChange={(event) => setImportCardIds((current) => {
+                    const next = new Set(current)
+                    if (event.target.checked) next.add(card.id)
+                    else next.delete(card.id)
+                    return next
+                  })} className="mt-1 h-4 w-4 accent-brand-500" />
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-medium text-ink">{card.front}</span>
+                    <span className="mt-1 block text-sm text-muted">{card.back}</span>
+                    {card.image_url && <span className="mt-1 block text-xs text-brand-700">Includes an image</span>}
+                  </span>
+                </label>
+              ))}
+            </div>
+          ) : flashcardDeckId && !flashcardsLoading && !flashcardsError ? <div className="py-6 text-center text-sm text-muted">This deck has no cards.</div> : null}
+        </div>
+      </Modal>
     </div>
   )
 }

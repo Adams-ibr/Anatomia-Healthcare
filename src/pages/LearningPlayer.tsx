@@ -10,6 +10,7 @@ import { getStoredToken, studentApi } from '../lib/api/auth'
 import { Badge, Button, ProgressBar, Rating, Tabs } from '../components/ui'
 import { cn, formatDuration } from '../lib/utils'
 import type { Course, Lesson } from '../lib/types'
+import { LessonContentView } from '../components/lesson/LessonContent'
 
 function LessonIcon({ type }: { type: Lesson['type'] }) {
   const map: Record<string, React.ReactNode> = {
@@ -298,7 +299,7 @@ export default function LearningPlayer() {
     return (
       <div className="card p-6 sm:p-8">
         <h2 className="font-display text-xl font-semibold text-ink">{lesson.title}</h2>
-        <div className="prose-plain mt-4 text-muted" dangerouslySetInnerHTML={{ __html: lesson.content }} />
+        <div className="prose-plain mt-4 text-muted"><LessonContentView content={lesson.content} /></div>
         {lesson.resourceUrl && (
           <div className="mt-6 flex items-center justify-between rounded-card border border-line bg-paper p-4">
             <span className="flex items-center gap-2 text-sm font-medium text-ink"><FileText className="h-4 w-4 text-brand-500" /> {t('player.supportingResource')}</span>
