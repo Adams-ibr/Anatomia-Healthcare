@@ -952,6 +952,59 @@ async function handleAdminListUsers(req: Request): Promise<Response> {
   const guard = await requireAdmin(req)
   if (guard instanceof Response) return guard
 
+  // Some accounts were created directly in Supabase Auth and never received a
+  // matching application profile. Keep admin user management in sync so those
+  // accounts remain visible and can be managed from the app.
+  const authUsersPerPage = 200
+  for (let authPage = 1; ; authPage++) {
+    const { data: authResult, error: authListError } = await supabase.auth.admin.listUsers({ page: authPage, perPage: authUsersPerPage })
+    if (authListError) return errorResponse(500, 'Failed to reconcile Auth users: ' + authListError.message)
+    const authUsers = authResult.users
+    if (!authUsers.length) break
+
+    const ids = authUsers.map((u) => u.id)
+    const emails = authUsers.map((u) => u.email?.toLowerCase()).filter((email): email is string => Boolean(email))
+    const [byId, byEmail] = await Promise.all([
+      supabase.from('profiles').select('id').in('id', ids),
+      emails.length ? supabase.from('profiles').select('email').in('email', emails) : Promise.resolve({ data: [], error: null })
+    ])
+    if (byId.error || byEmail.error) {
+      return errorResponse(500, 'Failed to check Auth profile links: ' + (byId.error ?? byEmail.error)?.message)
+    }
+    const existingIds = new Set((byId.data ?? []).map((p) => p.id))
+    const existingEmails = new Set((byEmail.data ?? []).map((p) => p.email.toLowerCase()))
+    const missingProfiles = authUsers.flatMap((user) => {
+      const email = user.email?.toLowerCase()
+      if (!email || existingIds.has(user.id) || existingEmails.has(email)) return []
+      const metadata = user.user_metadata ?? {}
+      const appMetadata = user.app_metadata ?? {}
+      const metadataRole = appMetadata.role === 'instructor' || appMetadata.role === 'support'
+        ? appMetadata.role
+        : metadata.role === 'instructor' ? 'instructor' : 'student'
+      const firstName = typeof metadata.first_name === 'string' ? metadata.first_name.trim() : ''
+      const lastName = typeof metadata.last_name === 'string' ? metadata.last_name.trim() : ''
+      const displayName = typeof metadata.name === 'string' ? metadata.name.trim() : ''
+      const name = [firstName, lastName].filter(Boolean).join(' ') || displayName || email.split('@')[0]
+      return [{
+        id: user.id,
+        name,
+        email,
+        role: metadataRole,
+        avatar: typeof metadata.avatar_url === 'string' ? metadata.avatar_url : null,
+        is_active: true,
+        joined_at: user.created_at,
+        email_confirmed: Boolean(user.email_confirmed_at),
+        last_sign_in_at: user.last_sign_in_at ?? null
+      }]
+    })
+
+    if (missingProfiles.length) {
+      const { error: insertError } = await supabase.from('profiles').upsert(missingProfiles, { onConflict: 'email', ignoreDuplicates: true })
+      if (insertError) return errorResponse(500, 'Failed to link Auth users to profiles: ' + insertError.message)
+    }
+    if (authUsers.length < authUsersPerPage) break
+  }
+
   const url = new URL(req.url)
   const search = (url.searchParams.get('search') ?? '').trim().toLowerCase()
   const role = url.searchParams.get('role') ?? 'all'
