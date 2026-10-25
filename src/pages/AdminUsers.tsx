@@ -5,7 +5,7 @@ import {
   PencilLine, Plus, Search, ShieldAlert, ShieldCheck, Trash2, UserPlus, Users, X
 } from 'lucide-react'
 import { adminApi, type AdminRole, type AdminUser, type AdminUserListResult } from '../lib/api/auth'
-import { getStoredToken } from '../lib/api/auth'
+import * as auth from '../lib/auth'
 import { useApp } from '../lib/store'
 import { Avatar, Badge, Button, EmptyState, Modal, Skeleton } from '../components/ui'
 import { cn, formatDate, timeAgo } from '../lib/utils'
@@ -17,6 +17,12 @@ const ROLE_BADGE: Record<AdminRole, 'brand' | 'success' | 'danger' | 'warning'> 
   instructor: 'brand',
   admin: 'danger',
   support: 'warning'
+}
+
+async function getAdminToken() {
+  const session = await auth.getCurrentSession()
+  if (!session?.token) throw new Error('Your session has expired. Please sign in again.')
+  return session.token
 }
 
 export default function AdminUsers() {
@@ -53,11 +59,6 @@ export default function AdminUsers() {
   }, [debouncedSearch, roleFilter, statusFilter])
 
   const loadUsers = useCallback(async (p: number) => {
-    const token = getStoredToken()
-    if (!token) {
-      setLoading(false)
-      return
-    }
     setLoading(true)
     setError(null)
     
@@ -68,6 +69,7 @@ export default function AdminUsers() {
     }, 15000) // 15 second timeout
     
     try {
+      const token = await getAdminToken()
       const res = await adminApi.listUsers(token, {
         search: debouncedSearch,
         role: roleFilter,
@@ -280,7 +282,7 @@ export default function AdminUsers() {
         onClose={() => setCreating(false)}
         busy={mutating}
         onCreate={(input) => runMutation(
-          async () => { const token = getStoredToken(); if (token) await adminApi.createUser(token, input) },
+          async () => { const token = await getAdminToken(); await adminApi.createUser(token, input) },
           t('admin.userCreated'),
           input.name
         ).then((ok) => { 
@@ -297,7 +299,7 @@ export default function AdminUsers() {
           busy={mutating}
           onClose={() => setEditing(null)}
           onSave={(patch) => runMutation(
-            async () => { const token = getStoredToken(); if (token) await adminApi.updateUser(token, editing.id, patch) },
+            async () => { const token = await getAdminToken(); await adminApi.updateUser(token, editing.id, patch) },
             t('admin.userUpdated'),
             editing.name
           ).then((ok) => { if (ok) setEditing(null) })}
@@ -310,15 +312,15 @@ export default function AdminUsers() {
           mode={confirming.mode}
           busy={mutating}
           onClose={() => setConfirming(null)}
-          onConfirm={() => {
-            const token = getStoredToken()
-            if (!token) return
+          onConfirm={async () => {
             const { user, mode } = confirming
-            const fn = mode === 'delete'
-              ? () => adminApi.deleteUser(token, user.id)
-              : () => adminApi.updateUser(token, user.id, { is_active: mode === 'activate' })
             runMutation(
-              fn,
+              async () => {
+                const token = await getAdminToken()
+                return mode === 'delete'
+                  ? adminApi.deleteUser(token, user.id)
+                  : adminApi.updateUser(token, user.id, { is_active: mode === 'activate' })
+              },
               mode === 'delete' ? t('admin.userDeleted') : mode === 'activate' ? t('admin.userActivated') : t('admin.userSuspended'),
               user.name
             ).then((ok) => { if (ok) setConfirming(null) })
