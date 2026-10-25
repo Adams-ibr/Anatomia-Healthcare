@@ -17,7 +17,7 @@ Node host.
 # 1. One-time: log in + init/link the project
 supabase login
 supabase init
-supabase link --project-ref jfnhvzwksemvorxlzwwv
+supabase link --project-ref evfdnyxrkrkcigkkrhyr
 
 # 2. Set the frontend origin (used in reset-password email links)
 supabase secrets set FRONTEND_URL=https://www.anatomia.co
@@ -38,7 +38,7 @@ after adding it. No `VITE_API_URL` change needed.
 ## Verify
 
 ```bash
-curl -X POST https://jfnhvzwksemvorxlzwwv.supabase.co/functions/v1/auth/register \
+curl -X POST https://evfdnyxrkrkcigkkrhyr.supabase.co/functions/v1/auth/register \
   -H 'Content-Type: application/json' \
   -d '{"name":"Test","email":"test@example.com","password":"password123","role":"student"}'
 ```
