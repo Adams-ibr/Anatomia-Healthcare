@@ -76,12 +76,12 @@ export default function CourseStudy() {
   }, [courseId])
 
   const enrollment = useMemo(
-    () => currentUser ? enrollments.find((e) => e.userId === currentUser.id && e.courseId === courseId) : null,
+    () => currentUser ? enrollments.find((e) => e.courseId === courseId) : null,
     [enrollments, currentUser, courseId]
   )
 
   const cert = useMemo(
-    () => currentUser ? certificates.find((c) => c.userId === currentUser.id && c.courseId === courseId) : null,
+    () => currentUser ? certificates.find((c) => c.courseId === courseId) : null,
     [certificates, currentUser, courseId]
   )
 
@@ -140,14 +140,22 @@ export default function CourseStudy() {
             </div>
             <div className="mt-auto flex flex-wrap gap-3 pt-2">
               {isComplete ? (
-                <Button variant="outline" onClick={() => nav(`/courses/${course.slug}`)}><CheckCircle2 className="h-4 w-4" /> {t('study.completedCourse')}</Button>
+                cert ? (
+                  <Button onClick={() => nav(`/certificates/${cert.id}`)}><Award className="h-4 w-4" /> {t('study.viewCertificate')}</Button>
+                ) : course.hasCertificate ? (
+                  <Button onClick={() => nav('/assessments')}><Award className="h-4 w-4" /> {t('study.takeExam', 'Take Exam (70% Pass Mark)')}</Button>
+                ) : (
+                  <Button variant="outline" onClick={() => nav(`/courses/${course.slug}`)}><CheckCircle2 className="h-4 w-4" /> {t('study.completedCourse')}</Button>
+                )
               ) : (
                 <Button onClick={() => nav(`/learning/${course.id}/${current.id}`)}><Play className="h-4 w-4" /> {doneCount === 0 ? t('study.startLearning') : t('study.continueLearning')}</Button>
               )}
-              {course.hasCertificate && !cert && (
+              {!isComplete && course.hasCertificate && !cert && (
                 <Button variant="outline" onClick={() => nav('/assessments')}><Award className="h-4 w-4" /> {t('study.takeExam', 'Take Exam (70% Pass Mark)')}</Button>
               )}
-              {cert && <Button variant="outline" onClick={() => nav(`/certificates/${cert.id}`)}><Award className="h-4 w-4" /> {t('study.viewCertificate')}</Button>}
+              {isComplete && !course.hasCertificate && (
+                <Button variant="outline" onClick={() => nav(`/learning/${course.id}/${current?.id ?? ''}`)}><Play className="h-4 w-4" /> {t('study.reviewCourse')}</Button>
+              )}
             </div>
           </div>
         </div>

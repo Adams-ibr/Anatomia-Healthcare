@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Award, CheckCircle2, Download, Link2, Loader2, QrCode, Share2 } from 'lucide-react'
 import { useApp } from '../lib/store'
-import { authApi } from '../lib/api/auth'
+import { authApi, getStoredToken, studentApi } from '../lib/api/auth'
 import { Button } from '../components/ui'
 import { formatDate, printCertificate } from '../lib/utils'
 import type { PublicCertificate } from '../lib/api/auth'
@@ -13,8 +13,30 @@ export function CertificateDetail() {
   const { certificates, currentUser } = useApp()
   const { t } = useTranslation()
   const nav = useNavigate()
-  const cert = certificates.find((c) => c.id === id)
+  const [remoteCert, setRemoteCert] = useState<(typeof certificates)[number] | null>(null)
+  const [loading, setLoading] = useState(false)
+  const localCert = certificates.find((c) => c.id === id)
+  const cert = localCert?.course ? localCert : remoteCert ?? localCert
   const course = cert ? cert.course ?? null : null
+
+  useEffect(() => {
+    if (!id || cert?.course) return
+    let cancelled = false
+    const token = getStoredToken()
+    if (!token) return
+    setLoading(true)
+    studentApi.listCertificates(token)
+      .then(({ certificates: list }) => {
+        if (!cancelled) setRemoteCert(list.find((item) => item.id === id) ?? null)
+      })
+      .catch(() => { if (!cancelled) setRemoteCert(null) })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
+  }, [id, cert?.course])
+
+  if (loading && (!cert || !course)) {
+    return <div className="container-page py-20 text-center"><Loader2 className="mx-auto h-8 w-8 animate-spin text-brand-700" /></div>
+  }
 
   if (!cert || !course) {
     return (

@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
   Award, BookOpen, Check, ChevronDown, ChevronLeft, ChevronRight, CirclePlay,
-  Download, FileText, ListVideo, MessageSquare, PlayCircle, StickyNote, X
+  Download, FileText, ListVideo, Loader2, MessageSquare, PlayCircle, StickyNote, X
 } from 'lucide-react'
 import { useApp } from '../lib/store'
 import { getStoredToken, studentApi } from '../lib/api/auth'
@@ -134,6 +134,7 @@ export default function LearningPlayer() {
   const nav = useNavigate()
   const { t } = useTranslation()
   const { currentUser, enrollments, completeLesson, setCurrentLesson, toast } = useApp()
+  const [savingProgress, setSavingProgress] = useState(false)
   const [fullCourse, setFullCourse] = useState<Course | null>(null)
   const course = fullCourse ?? (enrollments.find((e) => e.courseId === courseId)?.course as unknown as Course | undefined) ?? undefined
   const [notesOpen, setNotesOpen] = useState(false)
@@ -185,7 +186,7 @@ export default function LearningPlayer() {
   }, [courseId])
 
   const enrollment = useMemo(
-    () => currentUser ? enrollments.find((e) => e.userId === currentUser.id && e.courseId === courseId) : null,
+    () => currentUser ? enrollments.find((e) => e.courseId === courseId) : null,
     [enrollments, currentUser, courseId]
   )
 
@@ -194,6 +195,12 @@ export default function LearningPlayer() {
   const idx = allLessons.findIndex((l) => l.id === lesson?.id)
   const prev = allLessons[idx - 1]
   const next = allLessons[idx + 1]
+
+  useEffect(() => {
+    if (enrollment?.status === 'completed' && lesson && !next && enrollment.completedLessons.includes(lesson.id)) {
+      nav(`/learning/${courseId}`, { replace: true })
+    }
+  }, [enrollment, lesson, next, nav, courseId])
 
   useEffect(() => {
     if (lesson) setCurrentLesson(courseId!, lesson.id)
@@ -236,17 +243,20 @@ export default function LearningPlayer() {
   const isDone = enrollment.completedLessons?.includes(lesson.id) ?? false
   const progress = enrollment.progress
 
-  const markComplete = () => {
-    completeLesson(course.id, lesson.id)
+  const markComplete = async () => {
+    if (savingProgress || isDone) return
+    setSavingProgress(true)
+    const saved = await completeLesson(course.id, lesson.id)
+    setSavingProgress(false)
+    if (!saved) return
     setCompletedFlash(true)
     toast(t('player.lessonCompleted'), next ? t('player.nextUp', { title: next.title }) : t('player.courseComplete'))
-    if (next) nav(`/learning/${course.id}/${next.id}`, { replace: true })
+    nav(next ? `/learning/${course.id}/${next.id}` : `/learning/${course.id}`, { replace: true })
   }
 
   const autoAdvance = () => {
     if (autoplay && next) {
-      completeLesson(course.id, lesson.id)
-      nav(`/learning/${course.id}/${next.id}`, { replace: true })
+      void markComplete()
     }
   }
 
@@ -391,8 +401,8 @@ export default function LearningPlayer() {
               <Button variant="outline" onClick={() => prev ? nav(`/learning/${course.id}/${prev.id}`) : toast(t('player.atStart'), t('player.firstLesson'))} disabled={!prev}>
                 <ChevronLeft className="h-4 w-4" /> {t('player.previous')}
               </Button>
-              <Button onClick={markComplete} variant={isDone ? 'outline' : 'primary'} disabled={isDone}>
-                <Check className="h-4 w-4" /> {isDone ? t('player.completed') : t('player.markAsComplete')}
+              <Button onClick={() => void markComplete()} variant={isDone ? 'outline' : 'primary'} disabled={isDone || savingProgress}>
+                {savingProgress ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />} {isDone ? t('player.completed') : savingProgress ? t('common.saving', 'Saving…') : t('player.markAsComplete')}
               </Button>
               <Button variant="outline" onClick={() => next ? nav(`/learning/${course.id}/${next.id}`) : toast(t('player.courseComplete'), t('player.greatWork'))} disabled={!next}>
                 {t('player.next')} <ChevronRight className="h-4 w-4" />

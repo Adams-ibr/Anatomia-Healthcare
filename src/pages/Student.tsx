@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { ArrowRight, Award, CheckCircle2, Clock, PlayCircle } from 'lucide-react'
+import { ArrowRight, Award, CheckCircle2, Clock, Loader2, PlayCircle } from 'lucide-react'
 import { useApp } from '../lib/store'
+import { getStoredToken, studentApi } from '../lib/api/auth'
 import { coursesApi } from '../lib/supabase'
 import { Badge, ProgressBar, Rating, Tabs, MedicalEmptyState } from '../components/ui'
 import { formatPrice, printCertificate } from '../lib/utils'
@@ -137,7 +138,21 @@ export function Certificates() {
   const { currentUser, certificates } = useApp()
   const { t } = useTranslation()
   const nav = useNavigate()
-  const mine = certificates.filter((c) => c.userId === currentUser!.id)
+  const [remoteCertificates, setRemoteCertificates] = useState<typeof certificates>([])
+  const [loading, setLoading] = useState(true)
+  const [remoteLoaded, setRemoteLoaded] = useState(false)
+  useEffect(() => {
+    const token = getStoredToken()
+    if (!token || !currentUser) { setLoading(false); return }
+    let cancelled = false
+    studentApi.listCertificates(token)
+      .then(({ certificates: list }) => { if (!cancelled) { setRemoteCertificates(list); setRemoteLoaded(true) } })
+      .catch((error) => console.error('Failed to load certificates:', error))
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
+  }, [currentUser])
+  const localMine = certificates.filter((c) => c.userId === currentUser!.id)
+  const mine = remoteLoaded ? remoteCertificates : localMine
 
   return (
     <div className="space-y-6">
@@ -145,7 +160,9 @@ export function Certificates() {
         <h1 className="font-display text-2xl font-bold text-ink">{t('mycert.title')}</h1>
         <p className="mt-1 text-sm text-muted">{t('mycert.subtitle')}</p>
       </div>
-      {mine.length === 0 ? (
+      {loading && mine.length === 0 ? (
+        <div className="card flex justify-center p-12"><Loader2 className="h-7 w-7 animate-spin text-brand-700" aria-label="Loading certificates" /></div>
+      ) : mine.length === 0 ? (
         <MedicalEmptyState
           title={t('mycert.emptyTitle')}
           message={t('mycert.emptyMessage')}

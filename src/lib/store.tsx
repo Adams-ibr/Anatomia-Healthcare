@@ -47,7 +47,7 @@ interface AppState {
   resetPassword: (token: string, password: string) => Promise<{ ok: boolean; error?: string }>
   verifyEmail: (token: string) => Promise<{ ok: boolean; error?: string }>
   enroll: (courseId: string) => void
-  completeLesson: (courseId: string, lessonId: string) => void
+  completeLesson: (courseId: string, lessonId: string) => Promise<boolean>
   setCurrentLesson: (courseId: string, lessonId: string) => void
   toggleWishlist: (courseId: string) => void
   addToCart: (courseId: string, course?: CartCourse) => void
@@ -170,8 +170,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
     try {
       const session = token ? { token } : await auth.getCurrentSession()
       if (!session?.token) return
-      const { enrollments: data } = await studentApi.listEnrollments(session.token)
-      setEnrollments(data.filter((e) => e.userId === userId))
+      const [enrollmentResult, certificateResult] = await Promise.allSettled([
+        studentApi.listEnrollments(session.token),
+        studentApi.listCertificates(session.token)
+      ])
+      if (enrollmentResult.status === 'rejected') throw enrollmentResult.reason
+      const { enrollments: data } = enrollmentResult.value
+      // These endpoints are scoped to the authenticated user on the server.
+      // Use their profile IDs as returned: older Auth accounts may have a
+      // different UUID from the corresponding application profile.
+      setEnrollments(data)
+      if (certificateResult.status === 'fulfilled') {
+        setCertificates(certificateResult.value.certificates)
+      } else {
+        console.error('Failed to fetch certificates:', certificateResult.reason)
+      }
     } catch (error) {
       console.error('Failed to fetch enrollments:', error)
       /* keep local fallback data when offline */
@@ -307,12 +320,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, [currentUser, hydrateStudentData, toast])
 
-  const completeLesson = useCallback(async (courseId: string, lessonId: string) => {
+  const completeLesson = useCallback(async (courseId: string, lessonId: string): Promise<boolean> => {
     const userId = currentUser?.id
-    if (!userId) return
+    if (!userId) return false
     
     try {
-      const enrollment = enrollments.find((e) => e.userId === userId && e.courseId === courseId)
+      const enrollment = enrollments.find((e) => e.courseId === courseId)
       if (enrollment) {
         const completedLessons = enrollment.completedLessons.includes(lessonId)
           ? enrollment.completedLessons 
@@ -324,11 +337,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
         if (!session?.token) throw new Error('Your session has expired. Please sign in again.')
         const { enrollment: updated } = await studentApi.updateEnrollment(session.token, courseId, { completedLessons })
         setEnrollments((current) => current.map((en) => en.id === updated.id ? updated : en))
+        if (updated.certificateIssued) {
+          const { certificates: userCertificates } = await studentApi.listCertificates(session.token)
+          setCertificates(userCertificates)
+        }
+        return true
       }
+      return false
     } catch (error) {
       console.error('Failed to update lesson progress:', error)
+      toast('Progress not saved', error instanceof Error ? error.message : 'Please try again.', 'error')
+      return false
     }
-  }, [currentUser, enrollments])
+  }, [currentUser, enrollments, toast])
 
   const setCurrentLesson = useCallback(async (courseId: string, lessonId: string) => {
     const userId = currentUser?.id
