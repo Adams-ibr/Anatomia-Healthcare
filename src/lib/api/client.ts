@@ -23,6 +23,9 @@ export async function apiFetch<T>(path: string, options: RequestOptions = {}): P
   try {
     res = await fetch(`${API_BASE_URL}${path}`, {
       method,
+      // The API authenticates with the explicit Bearer token below. Avoid
+      // forwarding unrelated site cookies, which can exceed edge header limits.
+      credentials: 'omit',
       headers: {
         ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
         ...(token ? { Authorization: `Bearer ${token}` } : {})
@@ -41,7 +44,10 @@ export async function apiFetch<T>(path: string, options: RequestOptions = {}): P
     try {
       data = JSON.parse(text)
     } catch {
-      throw new ApiError(0, 'Unexpected response from the server. The API may not be configured or reachable.')
+      if (res.status === 494) {
+        throw new ApiError(res.status, 'The request was rejected because its headers are too large. Please sign out and sign in again, then retry.')
+      }
+      throw new ApiError(res.status, 'Unexpected response from the server. The API may not be configured or reachable.')
     }
   }
 
