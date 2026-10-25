@@ -5,6 +5,7 @@ import { uid } from './utils'
 import * as auth from './auth'
 import type { AuthSession } from './auth'
 import { supabase } from './supabase'
+import { studentApi } from './api/auth'
 
 interface Toast {
   id: string
@@ -164,45 +165,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => () => Object.values(timers.current).forEach((t) => clearTimeout(t)), [])
 
-  const hydrateStudentData = useCallback(async (userId: string) => {
+  const hydrateStudentData = useCallback(async (userId: string, token?: string) => {
     try {
-      // Import enrollmentsApi
-      const { enrollmentsApi } = await import('./supabase')
-      
-      // Fetch enrollments from Supabase
-      const enrollmentsData = await enrollmentsApi.list({ member_id: userId })
-      
-      // Transform to match the Enrollment type
-      const transformedEnrollments: Enrollment[] = (enrollmentsData || []).map((e: any) => ({
-        id: e.id,
-        userId: e.member_id,
-        courseId: e.course_id,
-        enrolledAt: e.enrolled_at,
-        progress: e.progress || 0,
-        status: e.status || 'active',
-        completedLessons: [],
-        pricePaid: 0,
-        course: e.courses ? {
-          id: e.courses.id,
-          title: e.courses.title,
-          slug: e.courses.slug,
-          thumbnail: e.courses.thumbnail_url || '',
-          price: e.courses.price || 0,
-          description: e.courses.description || '',
-          rating: 0,
-          reviewCount: 0,
-          studentCount: 0,
-          duration: e.courses.duration || 0,
-          level: e.courses.level || 'Beginner',
-          language: 'English',
-          instructorName: '',
-          categoryName: e.courses.category || '',
-          hasCertificate: false,
-          status: e.courses.is_published ? 'published' : 'draft'
-        } : undefined
-      }))
-      
-      setEnrollments(transformedEnrollments)
+      const session = token ? { token } : await auth.getCurrentSession()
+      if (!session?.token) return
+      const { enrollments: data } = await studentApi.listEnrollments(session.token)
+      setEnrollments(data.filter((e) => e.userId === userId))
     } catch (error) {
       console.error('Failed to fetch enrollments:', error)
       /* keep local fallback data when offline */
@@ -216,7 +184,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         if (session) {
           setCurrentUser(normalizeUser(session.user))
           setAuthStatus('authenticated')
-          hydrateStudentData(session.user.id)
+          hydrateStudentData(session.user.id, session.token)
         } else {
           setAuthStatus('unauthenticated')
         }
@@ -230,7 +198,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (session) {
         setCurrentUser(normalizeUser(session.user))
         setAuthStatus('authenticated')
-        hydrateStudentData(session.user.id)
+        hydrateStudentData(session.user.id, session.token)
       } else {
         setCurrentUser(null)
         setAuthStatus('unauthenticated')
@@ -247,7 +215,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const session = await auth.login(email, password)
       setCurrentUser(normalizeUser(session.user))
       setAuthStatus('authenticated')
-      hydrateStudentData(session.user.id)
+      hydrateStudentData(session.user.id, session.token)
       return { ok: true, user: normalizeUser(session.user) }
     } catch (err) {
       return { ok: false, error: getErrorMessage(err) }
@@ -318,42 +286,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (!userId) return
     
     try {
-      // Import enrollmentsApi
-      const { enrollmentsApi } = await import('./supabase')
-      
-      // Check if already enrolled
-      const existing = await enrollmentsApi.list({ member_id: userId, course_id: courseId })
-      if (existing && existing.length > 0) {
-        console.log('Already enrolled in this course')
-        return
-      }
-      
-      // Create enrollment in Supabase
-      const newEnrollment = await enrollmentsApi.create({
-        member_id: userId,
-        course_id: courseId,
-        enrolled_at: new Date().toISOString(),
-        progress: 0,
-        status: 'active'
-      })
-      
-      // Update local state
-      setEnrollments((e) => {
-        const en: Enrollment = {
-          id: newEnrollment.id,
-          userId,
-          courseId,
-          enrolledAt: newEnrollment.enrolled_at,
-          progress: newEnrollment.progress || 0,
-          status: newEnrollment.status || 'active',
-          completedLessons: [],
-          pricePaid: 0
-        }
-        return [...e, en]
-      })
-      
-      // Refresh enrollments from Supabase
-      await hydrateStudentData(userId)
+      const session = await auth.getCurrentSession()
+      if (!session?.token) throw new Error('Your session has expired. Please sign in again.')
+      const { enrollment } = await studentApi.enroll(session.token, { courseId })
+      setEnrollments((current) => current.some((e) => e.courseId === courseId && e.userId === userId)
+        ? current.map((e) => e.courseId === courseId && e.userId === userId ? enrollment : e)
+        : [...current, enrollment])
       
       toast('Enrolled Successfully', 'You have been enrolled in the course', 'success')
     } catch (error) {
@@ -367,27 +305,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (!userId) return
     
     try {
-      const { enrollmentsApi } = await import('./supabase')
-      
-      // Update local state first for instant feedback
-      setEnrollments((e) => e.map((en) => {
-        if (en.userId !== userId || en.courseId !== courseId) return en
-        if (en.completedLessons.includes(lessonId)) return en
-        const completedLessons = [...en.completedLessons, lessonId]
-        const progress = Math.min(100, Math.round((completedLessons.length / 12) * 100))
-        return { ...en, completedLessons, progress, status: progress >= 100 ? 'completed' : en.status }
-      }))
-      
-      // Get updated enrollment for Supabase sync
       const enrollment = enrollments.find((e) => e.userId === userId && e.courseId === courseId)
       if (enrollment) {
-        const completedLessons = enrollment.completedLessons.includes(lessonId) 
+        const completedLessons = enrollment.completedLessons.includes(lessonId)
           ? enrollment.completedLessons 
           : [...enrollment.completedLessons, lessonId]
-        const progress = Math.min(100, Math.round((completedLessons.length / 12) * 100))
-        
-        // Update progress in Supabase
-        await enrollmentsApi.updateProgress(userId, courseId, progress)
+        setEnrollments((current) => current.map((en) => en.id === enrollment.id
+          ? { ...en, completedLessons }
+          : en))
+        const session = await auth.getCurrentSession()
+        if (!session?.token) throw new Error('Your session has expired. Please sign in again.')
+        const { enrollment: updated } = await studentApi.updateEnrollment(session.token, courseId, { completedLessons })
+        setEnrollments((current) => current.map((en) => en.id === updated.id ? updated : en))
       }
     } catch (error) {
       console.error('Failed to update lesson progress:', error)
