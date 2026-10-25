@@ -1957,11 +1957,19 @@ async function handleAdminCreateInstructor(req: Request): Promise<Response> {
 
   if (!name || !email) return errorResponse(422, 'Name and email are required.')
 
-  const { data: existing } = await supabase.from('profiles').select('id, role').eq('email', email).maybeSingle()
+  const { data: existing, error: lookupErr } = await supabase.from('profiles').select('id, role').eq('email', email).maybeSingle()
+  if (lookupErr) return errorResponse(500, 'Failed to check instructor account: ' + lookupErr.message)
   if (existing) {
+    // Never silently convert an administrator account into an instructor. This
+    // can happen when the admin enters their own email while adding an instructor.
+    if (existing.role === 'admin') {
+      return errorResponse(409, 'This email belongs to an administrator. Use the instructor’s own email address.')
+    }
+
     const { data: updated, error: updateErr } = await supabase
       .from('profiles')
       .update({
+        name,
         role: 'instructor',
         title: title || undefined,
         headline: headline || undefined,
