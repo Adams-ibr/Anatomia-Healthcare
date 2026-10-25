@@ -6,6 +6,8 @@ import {
   ShieldCheck, Star, UserCheck, UserPlus, Users, X
 } from 'lucide-react'
 import { teamApi, coursesApi } from '../lib/supabase'
+import { adminApi } from '../lib/api/auth'
+import { getCurrentSession } from '../lib/auth'
 import type { Instructor } from '../lib/types/admin'
 import { useApp } from '../lib/store'
 import { Avatar, Badge, Button, EmptyState, Input, Modal, StatCard } from '../components/ui'
@@ -149,14 +151,38 @@ export default function AdminInstructors() {
     if (!formName.trim() || !formEmail.trim()) return
     setMutating(true)
     try {
-      await teamApi.create({
+      const session = await getCurrentSession()
+      if (!session?.token) throw new Error('Your admin session is unavailable. Please sign in again.')
+
+      const instructorInput = {
         name: formName.trim(),
         email: formEmail.trim(),
+        password: formPassword,
         title: formTitle.trim() || undefined,
-        role: formTitle.trim() || 'Instructor',
+        headline: formHeadline.trim() || undefined,
+        bio: (formBio.trim() || formHeadline.trim()) || undefined,
+        skills: formSkills.split(',').map((skill) => skill.trim()).filter(Boolean)
+      }
+
+      // Courses reference instructor profiles. Persist that record first so the
+      // new instructor is immediately selectable in course creation.
+      await adminApi.createInstructor(session.token, instructorInput)
+
+      // Keep the public team roster in sync, updating an existing row when the
+      // same instructor was already added there independently.
+      const currentTeam = await teamApi.list()
+      const existingTeamMember = currentTeam.find((member) => member.email?.toLowerCase() === formEmail.trim().toLowerCase())
+      const teamMember = {
+        name: formName.trim(),
+        email: formEmail.trim(),
+        title: formTitle.trim() || 'Instructor',
+        role: 'Instructor',
         bio: (formBio.trim() || formHeadline.trim()) || undefined,
         is_active: true
-      })
+      }
+      if (existingTeamMember) await teamApi.update(existingTeamMember.id, teamMember)
+      else await teamApi.create(teamMember)
+
       toast(t('adminInstructors.createdTitle', 'Instructor Added'), t('adminInstructors.createdDesc', 'New instructor profile created successfully.'))
       setCreating(false)
       loadInstructors()
