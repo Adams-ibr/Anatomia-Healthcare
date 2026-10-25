@@ -4,7 +4,7 @@ import {
   AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, Loader2, Mail, MoreVertical,
   PencilLine, Plus, Search, ShieldAlert, ShieldCheck, Trash2, UserPlus, Users, X
 } from 'lucide-react'
-import { adminApi, type AdminRole, type AdminUser, type AdminUserListResult } from '../lib/api/auth'
+import { adminApi, type AdminRole, type AdminUser, type AdminUserListResult, type CustomRole } from '../lib/api/auth'
 import * as auth from '../lib/auth'
 import { useApp } from '../lib/store'
 import { Avatar, Badge, Button, EmptyState, Modal, Skeleton } from '../components/ui'
@@ -26,10 +26,11 @@ async function getAdminToken() {
 }
 
 export default function AdminUsers() {
-  const { toast } = useApp()
+  const { toast, currentUser } = useApp()
   const { t } = useTranslation()
 
   const [users, setUsers] = useState<AdminUser[]>([])
+  const [customRoles, setCustomRoles] = useState<CustomRole[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
   const perPage = 25
@@ -47,6 +48,7 @@ export default function AdminUsers() {
   const [mutating, setMutating] = useState(false)
 
   const searchTimer = useRef<number | undefined>(undefined)
+  const canManageUsers = currentUser?.role === 'admin' || currentUser?.permissions?.includes('users:manage') === true
 
   useEffect(() => {
     window.clearTimeout(searchTimer.current)
@@ -81,13 +83,23 @@ export default function AdminUsers() {
       setUsers(res.users)
       setTotal(res.total)
       setPage(res.page)
+      if (currentUser?.role === 'admin') {
+        try {
+          const { roles } = await adminApi.listRoles(token)
+          setCustomRoles(roles)
+        } catch {
+          // A role-list failure (for example, before the custom-role migration
+          // is deployed) must not hide the users that were loaded successfully.
+          setCustomRoles([])
+        }
+      }
     } catch (err) {
       clearTimeout(timeoutId)
       setError(err instanceof Error ? err.message : t('admin.loadFailed'))
     } finally {
       setLoading(false)
     }
-  }, [debouncedSearch, roleFilter, statusFilter, t, perPage])
+  }, [currentUser, debouncedSearch, roleFilter, statusFilter, t, perPage])
 
   useEffect(() => {
     loadUsers(page)
@@ -125,7 +137,7 @@ export default function AdminUsers() {
           <h1 className="font-display text-2xl font-bold text-ink">{t('admin.userManagement')}</h1>
           <p className="mt-1 text-sm text-muted">{t('admin.userManagementDesc')}</p>
         </div>
-        <Button onClick={() => setCreating(true)}><UserPlus className="h-4 w-4" /> {t('admin.newUser')}</Button>
+        {canManageUsers && <Button onClick={() => setCreating(true)}><UserPlus className="h-4 w-4" /> {t('admin.newUser')}</Button>}
       </div>
 
       <div className="grid gap-3 sm:grid-cols-3">
@@ -193,7 +205,7 @@ export default function AdminUsers() {
             icon={<Users className="h-6 w-6" />}
             title={t('admin.noUsersTitle')}
             message={t('admin.noUsersMessage')}
-            action={<Button onClick={() => setCreating(true)}><Plus className="h-4 w-4" /> {t('admin.newUser')}</Button>}
+            action={canManageUsers ? <Button onClick={() => setCreating(true)}><Plus className="h-4 w-4" /> {t('admin.newUser')}</Button> : undefined}
           />
         ) : (
           <div className="overflow-x-auto">
@@ -220,7 +232,7 @@ export default function AdminUsers() {
                         </div>
                       </div>
                     </td>
-                    <td className="px-5 py-3"><Badge color={ROLE_BADGE[u.role]}>{t(`admin.role_${u.role}`)}</Badge></td>
+                    <td className="px-5 py-3"><div className="flex flex-wrap gap-1"><Badge color={ROLE_BADGE[u.role]}>{t(`admin.role_${u.role}`)}</Badge>{u.customRoleName && <Badge color="warning">{u.customRoleName}</Badge>}</div></td>
                     <td className="px-5 py-3">
                       <span className={cn('flex items-center gap-1.5 text-xs font-medium', u.isActive ? 'text-success' : 'text-danger')}>
                         <span className={cn('h-2 w-2 rounded-full', u.isActive ? 'bg-success' : 'bg-danger')} />
@@ -230,7 +242,7 @@ export default function AdminUsers() {
                     <td className="hidden px-5 py-3 text-muted lg:table-cell">{formatDate(u.joinedAt)}</td>
                     <td className="hidden px-5 py-3 text-muted lg:table-cell">{u.lastSignInAt ? timeAgo(u.lastSignInAt) : '—'}</td>
                     <td className="px-5 py-3 text-right">
-                      <div className="flex items-center justify-end gap-1 opacity-100 transition-opacity lg:opacity-0 lg:group-hover:opacity-100">
+                      {canManageUsers && <div className="flex items-center justify-end gap-1 opacity-100 transition-opacity lg:opacity-0 lg:group-hover:opacity-100">
                         <button
                           onClick={() => setEditing(u)}
                           className="rounded px-2 py-1 text-xs font-medium text-brand-700 hover:bg-brand-50"
@@ -254,7 +266,7 @@ export default function AdminUsers() {
                           className="rounded px-2 py-1 text-xs font-medium text-danger hover:bg-danger/10"
                           aria-label={t('admin.delete')}
                         ><Trash2 className="h-3.5 w-3.5" /></button>
-                      </div>
+                      </div>}
                     </td>
                   </tr>
                 ))}
@@ -296,6 +308,8 @@ export default function AdminUsers() {
       {editing && (
         <EditUserModal
           user={editing}
+          customRoles={customRoles}
+          canAssignRoles={currentUser?.role === 'admin'}
           busy={mutating}
           onClose={() => setEditing(null)}
           onSave={(patch) => runMutation(
@@ -385,15 +399,18 @@ function CreateUserModal({ open, onClose, busy, onCreate }: {
   )
 }
 
-function EditUserModal({ user, busy, onClose, onSave }: {
+function EditUserModal({ user, busy, onClose, onSave, customRoles = [], canAssignRoles = false }: {
   user: AdminUser
+  customRoles?: CustomRole[]
+  canAssignRoles?: boolean
   busy: boolean
   onClose: () => void
-  onSave: (patch: { name: string; role: AdminRole; title?: string; bio?: string }) => void
+  onSave: (patch: { name: string; role: AdminRole; custom_role_id?: string | null; title?: string; bio?: string }) => void
 }) {
   const { t } = useTranslation()
   const [name, setName] = useState(user.name)
   const [role, setRole] = useState<AdminRole>(user.role)
+  const [customRoleId, setCustomRoleId] = useState(user.customRoleId ?? '')
   const [title, setTitle] = useState(user.title ?? '')
   const [bio, setBio] = useState(user.bio ?? '')
 
@@ -405,7 +422,7 @@ function EditUserModal({ user, busy, onClose, onSave }: {
       footer={
         <>
           <Button variant="outline" onClick={onClose} disabled={busy}>{t('admin.cancel')}</Button>
-          <Button onClick={() => onSave({ name: name.trim(), role, title, bio })} disabled={!name.trim() || busy}>
+          <Button onClick={() => onSave({ name: name.trim(), role, custom_role_id: canAssignRoles ? customRoleId || null : undefined, title, bio })} disabled={!name.trim() || busy}>
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : null} {t('admin.saveChanges')}
           </Button>
         </>
@@ -429,6 +446,14 @@ function EditUserModal({ user, busy, onClose, onSave }: {
             {ROLES.map((r) => <option key={r} value={r}>{t(`admin.role_${r}`)}</option>)}
           </select>
         </div>
+        {canAssignRoles && <div>
+          <label className="label-base">Additional custom access role</label>
+          <select value={customRoleId} onChange={(e) => setCustomRoleId(e.target.value)} className="input-base">
+            <option value="">No custom role</option>
+            {customRoles.map((customRole) => <option key={customRole.id} value={customRole.id}>{customRole.name}</option>)}
+          </select>
+          <p className="mt-1 text-xs text-muted">This adds the selected module permissions while keeping the account’s student or instructor identity.</p>
+        </div>}
         <div>
           <label className="label-base">{t('admin.title')}</label>
           <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder={t('admin.titlePlaceholder')} className="input-base" />

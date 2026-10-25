@@ -38,6 +38,7 @@ import { InstructorCourses } from './InstructorCourses'
 import CourseStudio from './CourseStudio'
 import { AdminDashboard, AdminEnrollments } from './Admin'
 import AdminUsers from './AdminUsers'
+import AdminRoles from './AdminRoles'
 import AdminInstructors from './AdminInstructors'
 import AdminCourses from './AdminCourses'
 import AdminCategories from './AdminCategories'
@@ -64,6 +65,12 @@ function AuthLoader() {
   return <LoadingScreen />
 }
 
+function customAdminHome(currentUser: ReturnType<typeof useApp>['currentUser']) {
+  const firstPermission = currentUser?.permissions?.find((p) => p.endsWith(':view') || p.endsWith(':manage'))
+  const module = firstPermission?.split(':')[0]
+  return !module || module === 'dashboard' ? '/admin' : `/admin/${module}`
+}
+
 function RequireAuth() {
   const { currentUser, authStatus } = useApp()
   if (authStatus === 'loading') return <AuthLoader />
@@ -75,8 +82,22 @@ function RequireRole({ role }: { role: string }) {
   const { currentUser, authStatus } = useApp()
   if (authStatus === 'loading') return <AuthLoader />
   if (!currentUser) return <Navigate to={`/login?next=${encodeURIComponent(window.location.pathname)}`} replace />
-  if (currentUser.role !== role && currentUser.role !== 'admin') return <Navigate to={homePath(currentUser.role)} replace />
+  const hasAdminAccess = role === 'admin' && Boolean(currentUser.permissions?.some((p) => p.endsWith(':view') || p.endsWith(':manage')))
+  if (currentUser.role !== role && currentUser.role !== 'admin' && !hasAdminAccess) return <Navigate to={homePath(currentUser.role)} replace />
   return <Outlet />
+}
+
+function RequireAdminPermission({ module }: { module: string }) {
+  const { currentUser } = useApp()
+  if (!currentUser) return <Navigate to="/login" replace />
+  if (currentUser.role === 'admin' || currentUser.permissions?.some((p) => p === `${module}:view` || p === `${module}:manage`)) return <Outlet />
+  return <Navigate to={customAdminHome(currentUser)} replace />
+}
+
+function RequirePlatformAdmin() {
+  const { currentUser } = useApp()
+  if (!currentUser) return <Navigate to="/login" replace />
+  return currentUser.role === 'admin' ? <Outlet /> : <Navigate to={customAdminHome(currentUser)} replace />
 }
 
 function PublicOnly() {
@@ -85,7 +106,7 @@ function PublicOnly() {
   if (authStatus === 'loading') return <AuthLoader />
   if (currentUser) {
     const next = new URLSearchParams(location.search).get('next')
-    const target = next && next.startsWith('/') ? next : homePath(currentUser.role)
+    const target = next && next.startsWith('/') ? next : currentUser.permissions?.length ? customAdminHome(currentUser) : homePath(currentUser.role)
     return <Navigate to={target} replace />
   }
   return <Outlet />
@@ -207,6 +228,7 @@ const ADMIN_NAV: NavItem[] = [
     icon: I(NAV_ICONS.users),
     children: [
       { label: 'Users', to: '/admin/users', icon: I(NAV_ICONS.user) },
+      { label: 'Custom Roles', to: '/admin/roles', icon: I(NAV_ICONS.users) },
       { label: 'Instructors', to: '/admin/instructors', icon: I(NAV_ICONS.users) },
       { label: 'Members', to: '/admin/members', icon: I(NAV_ICONS.users) },
     ]
@@ -370,36 +392,37 @@ export default function App() {
 
         <Route element={<RequireRole role="admin" />}>
           <Route element={<PortalLayout nav={ADMIN_NAV} role="admin" />}>
-            <Route path="/admin" element={<AdminDashboard />} />
-            <Route path="/admin/users" element={<AdminUsers />} />
-            <Route path="/admin/instructors" element={<AdminInstructors />} />
-            <Route path="/admin/courses" element={<AdminCourses />} />
-            <Route path="/admin/categories" element={<AdminCategories />} />
-            <Route path="/admin/modules" element={<AdminModules />} />
-            <Route path="/admin/lessons" element={<AdminLessons />} />
-            <Route path="/admin/anatomy-models" element={<AdminAnatomyModels />} />
-            <Route path="/admin/flashcards" element={<AdminFlashcards />} />
-            <Route path="/admin/question-bank" element={<AdminQuestionBank />} />
-            <Route path="/admin/enrollments" element={<AdminEnrollments />} />
-            <Route path="/admin/certificates" element={<AdminCertificates />} />
-            <Route path="/admin/orders" element={<AdminOrders />} />
-            <Route path="/admin/payments" element={<AdminPayments />} />
-            <Route path="/admin/announcements" element={<AdminAnnouncements />} />
-            <Route path="/admin/reports" element={<AdminReports />} />
-            <Route path="/admin/analytics" element={<AdminAnalytics />} />
-            <Route path="/admin/settings" element={<AdminSettings />} />
-            <Route path="/admin/articles" element={<AdminArticles />} />
-            <Route path="/admin/contacts" element={<AdminContacts />} />
-            <Route path="/admin/departments" element={<AdminDepartments />} />
-            <Route path="/admin/faq" element={<AdminFaq />} />
-            <Route path="/admin/members" element={<AdminMembers />} />
-            <Route path="/admin/products" element={<AdminProducts />} />
-            <Route path="/admin/team" element={<AdminTeam />} />
-            <Route path="/admin/careers" element={<AdminCareers />} />
-            <Route path="/admin/gallery" element={<AdminGallery />} />
-            <Route path="/admin/partners" element={<AdminPartners />} />
-            <Route path="/admin/newsletter" element={<AdminNewsletter />} />
-            <Route path="/admin/applications" element={<AdminApplications />} />
+            <Route element={<RequireAdminPermission module="dashboard" />}><Route path="/admin" element={<AdminDashboard />} /></Route>
+            <Route element={<RequireAdminPermission module="users" />}><Route path="/admin/users" element={<AdminUsers />} /></Route>
+            <Route element={<RequirePlatformAdmin />}><Route path="/admin/roles" element={<AdminRoles />} /></Route>
+            <Route element={<RequireAdminPermission module="instructors" />}><Route path="/admin/instructors" element={<AdminInstructors />} /></Route>
+            <Route element={<RequireAdminPermission module="courses" />}><Route path="/admin/courses" element={<AdminCourses />} /></Route>
+            <Route element={<RequireAdminPermission module="categories" />}><Route path="/admin/categories" element={<AdminCategories />} /></Route>
+            <Route element={<RequireAdminPermission module="modules" />}><Route path="/admin/modules" element={<AdminModules />} /></Route>
+            <Route element={<RequireAdminPermission module="lessons" />}><Route path="/admin/lessons" element={<AdminLessons />} /></Route>
+            <Route element={<RequireAdminPermission module="anatomy-models" />}><Route path="/admin/anatomy-models" element={<AdminAnatomyModels />} /></Route>
+            <Route element={<RequireAdminPermission module="flashcards" />}><Route path="/admin/flashcards" element={<AdminFlashcards />} /></Route>
+            <Route element={<RequireAdminPermission module="question-bank" />}><Route path="/admin/question-bank" element={<AdminQuestionBank />} /></Route>
+            <Route element={<RequireAdminPermission module="enrollments" />}><Route path="/admin/enrollments" element={<AdminEnrollments />} /></Route>
+            <Route element={<RequireAdminPermission module="certificates" />}><Route path="/admin/certificates" element={<AdminCertificates />} /></Route>
+            <Route element={<RequireAdminPermission module="orders" />}><Route path="/admin/orders" element={<AdminOrders />} /></Route>
+            <Route element={<RequireAdminPermission module="payments" />}><Route path="/admin/payments" element={<AdminPayments />} /></Route>
+            <Route element={<RequireAdminPermission module="announcements" />}><Route path="/admin/announcements" element={<AdminAnnouncements />} /></Route>
+            <Route element={<RequireAdminPermission module="reports" />}><Route path="/admin/reports" element={<AdminReports />} /></Route>
+            <Route element={<RequireAdminPermission module="analytics" />}><Route path="/admin/analytics" element={<AdminAnalytics />} /></Route>
+            <Route element={<RequireAdminPermission module="settings" />}><Route path="/admin/settings" element={<AdminSettings />} /></Route>
+            <Route element={<RequireAdminPermission module="articles" />}><Route path="/admin/articles" element={<AdminArticles />} /></Route>
+            <Route element={<RequireAdminPermission module="contacts" />}><Route path="/admin/contacts" element={<AdminContacts />} /></Route>
+            <Route element={<RequireAdminPermission module="departments" />}><Route path="/admin/departments" element={<AdminDepartments />} /></Route>
+            <Route element={<RequireAdminPermission module="faq" />}><Route path="/admin/faq" element={<AdminFaq />} /></Route>
+            <Route element={<RequireAdminPermission module="members" />}><Route path="/admin/members" element={<AdminMembers />} /></Route>
+            <Route element={<RequireAdminPermission module="products" />}><Route path="/admin/products" element={<AdminProducts />} /></Route>
+            <Route element={<RequireAdminPermission module="team" />}><Route path="/admin/team" element={<AdminTeam />} /></Route>
+            <Route element={<RequireAdminPermission module="careers" />}><Route path="/admin/careers" element={<AdminCareers />} /></Route>
+            <Route element={<RequireAdminPermission module="gallery" />}><Route path="/admin/gallery" element={<AdminGallery />} /></Route>
+            <Route element={<RequireAdminPermission module="partners" />}><Route path="/admin/partners" element={<AdminPartners />} /></Route>
+            <Route element={<RequireAdminPermission module="newsletter" />}><Route path="/admin/newsletter" element={<AdminNewsletter />} /></Route>
+            <Route element={<RequireAdminPermission module="applications" />}><Route path="/admin/applications" element={<AdminApplications />} /></Route>
           </Route>
         </Route>
 

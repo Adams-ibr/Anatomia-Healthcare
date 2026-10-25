@@ -33,6 +33,8 @@ export interface AuthUser {
   studentCount?: number
   courseCount?: number
   rating?: number
+  permissions?: string[]
+  customRoleName?: string
   isActive: boolean
   joinedAt: string
 }

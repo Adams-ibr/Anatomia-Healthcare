@@ -6,6 +6,7 @@ import * as auth from './auth'
 import type { AuthSession } from './auth'
 import { supabase } from './supabase'
 import { studentApi } from './api/auth'
+import { clearStoredToken, storeToken } from './api/auth'
 
 interface Toast {
   id: string
@@ -182,10 +183,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
     auth.getCurrentSession()
       .then((session) => {
         if (session) {
+          storeToken(session.token)
           setCurrentUser(normalizeUser(session.user))
           setAuthStatus('authenticated')
           hydrateStudentData(session.user.id, session.token)
         } else {
+          clearStoredToken()
           setAuthStatus('unauthenticated')
         }
       })
@@ -196,10 +199,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
     // Listen for auth state changes
     const subscription = auth.onAuthStateChange((session) => {
       if (session) {
+        storeToken(session.token)
         setCurrentUser(normalizeUser(session.user))
         setAuthStatus('authenticated')
         hydrateStudentData(session.user.id, session.token)
       } else {
+        clearStoredToken()
         setCurrentUser(null)
         setAuthStatus('unauthenticated')
       }
@@ -213,6 +218,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const login = useCallback(async (email: string, password: string) => {
     try {
       const session = await auth.login(email, password)
+      storeToken(session.token)
       setCurrentUser(normalizeUser(session.user))
       setAuthStatus('authenticated')
       hydrateStudentData(session.user.id, session.token)
@@ -247,6 +253,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(async () => {
     try {
       await auth.logout()
+      clearStoredToken()
     } catch {
       /* ignore logout errors */
     }

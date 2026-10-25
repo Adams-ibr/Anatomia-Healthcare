@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { apiFetch } from './api/client'
 import type { User, Session } from '@supabase/supabase-js'
 
 export interface AuthUser {
@@ -8,6 +9,8 @@ export interface AuthUser {
   lastName?: string
   role: 'student' | 'instructor' | 'admin' | 'support'
   avatar?: string
+  permissions?: string[]
+  customRoleName?: string
 }
 
 export interface AuthSession {
@@ -27,15 +30,24 @@ function mapSupabaseUser(user: User, metadata?: any): AuthUser {
   }
 }
 
+async function withAccess(user: AuthUser, token: string): Promise<AuthUser> {
+  try {
+    const access = await apiFetch<{ role?: AuthUser['role']; customRoleName?: string; permissions?: string[] }>('/api/auth/me/access', { token })
+    return { ...user, role: access.role ?? user.role, customRoleName: access.customRoleName, permissions: access.permissions ?? [] }
+  } catch {
+    return user
+  }
+}
+
 // Get current session from Supabase
 export async function getCurrentSession(): Promise<AuthSession | null> {
   try {
     const { data: { session }, error } = await supabase.auth.getSession()
     
     if (error || !session) return null
-    
+    const user = await withAccess(mapSupabaseUser(session.user), session.access_token)
     return {
-      user: mapSupabaseUser(session.user),
+      user,
       token: session.access_token
     }
   } catch (error) {
@@ -65,9 +77,9 @@ export async function login(email: string, password: string): Promise<AuthSessio
   if (!data.session || !data.user) {
     throw new Error('No session returned. Please try again.')
   }
-  
+  const user = await withAccess(mapSupabaseUser(data.user), data.session.access_token)
   return {
-    user: mapSupabaseUser(data.user),
+    user,
     token: data.session.access_token
   }
 }
@@ -101,9 +113,9 @@ export async function register(
   if (!data.session || !data.user) {
     throw new Error('Registration succeeded but no session was created. Please check your email for confirmation.')
   }
-  
+  const user = await withAccess(mapSupabaseUser(data.user), data.session.access_token)
   return {
-    user: mapSupabaseUser(data.user),
+    user,
     token: data.session.access_token
   }
 }
@@ -170,10 +182,7 @@ export function onAuthStateChange(
 ) {
   const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
     if (session && session.user) {
-      callback({
-        user: mapSupabaseUser(session.user),
-        token: session.access_token
-      })
+      void withAccess(mapSupabaseUser(session.user), session.access_token).then((user) => callback({ user, token: session.access_token }))
     } else {
       callback(null)
     }

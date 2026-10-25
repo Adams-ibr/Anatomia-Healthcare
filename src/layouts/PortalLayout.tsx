@@ -96,9 +96,21 @@ const ADMIN_NAV: NavItem[] = [
   { label: 'adminSettings', to: '/admin/settings', icon: <Settings className="h-4 w-4" /> }
 ]
 
-function SidebarContent({ nav, role }: { nav: NavItem[]; role: string }) {
+function SidebarContent({ nav, role, permissions, platformAdmin }: { nav: NavItem[]; role: string; permissions?: string[]; platformAdmin: boolean }) {
   const { t } = useTranslation()
   const [expandedGroups, setExpandedGroups] = useState<string[]>([])
+
+  const canVisit = (item: NavItem) => {
+    if (platformAdmin || role !== 'admin' || !item.to) return true
+    const segment = item.to.split('/')[2] || 'dashboard'
+    if (segment === 'roles') return false
+    return permissions?.includes(`${segment}:view`) || permissions?.includes(`${segment}:manage`) || false
+  }
+  const visibleNav = nav.flatMap((item) => {
+    if (!item.children) return canVisit(item) ? [item] : []
+    const children = item.children.filter(canVisit)
+    return children.length ? [{ ...item, children }] : []
+  })
 
   const toggleGroup = (label: string) => {
     setExpandedGroups(prev => 
@@ -123,7 +135,7 @@ function SidebarContent({ nav, role }: { nav: NavItem[]; role: string }) {
       {/* Scrollable nav area */}
       <div className="flex-1 space-y-1 overflow-y-auto overflow-x-hidden">
         <nav className="flex flex-col gap-1 px-2" aria-label="Portal navigation">
-          {nav.map((item) => {
+        {visibleNav.map((item) => {
             const isExpanded = expandedGroups.includes(item.label)
             
             // Group with children (dropdown)
@@ -260,6 +272,12 @@ export function PortalLayout({ nav, role }: { nav: NavItem[]; role: string }) {
   const navTo = useNavigate()
   if (!currentUser) return null
 
+  const visibleMobileNav = getMobileNav(role).filter((item) => {
+    if (currentUser.role === 'admin' || role !== 'admin') return true
+    const segment = item.to?.split('/')[2] || 'dashboard'
+    return currentUser.permissions?.includes(`${segment}:view`) || currentUser.permissions?.includes(`${segment}:manage`)
+  })
+
   const unread = (notifications ?? []).filter((n) => !n.read).length
   const unreadMsg = (conversations ?? []).reduce((acc, cv) => {
     const msgs = (messages ?? []).filter((m) => m.conversationId === cv.id && m.toId === currentUser.id && !m.read)
@@ -269,7 +287,7 @@ export function PortalLayout({ nav, role }: { nav: NavItem[]; role: string }) {
   return (
     <div className="min-h-screen bg-paper">
       <aside className="fixed inset-y-0 left-0 z-30 hidden h-screen w-60 border-r border-line bg-surface px-3 py-5 lg:block">
-        <SidebarContent nav={nav} role={role} />
+        <SidebarContent nav={nav} role={role} permissions={currentUser.permissions} platformAdmin={currentUser.role === 'admin'} />
       </aside>
 
       <div className="lg:pl-60">
@@ -386,7 +404,7 @@ export function PortalLayout({ nav, role }: { nav: NavItem[]; role: string }) {
                 </button>
               </div>
               <div className="flex-1 overflow-y-auto px-4 pb-4">
-                <SidebarContent nav={nav} role={role} />
+                <SidebarContent nav={nav} role={role} permissions={currentUser.permissions} platformAdmin={currentUser.role === 'admin'} />
               </div>
             </motion.div>
           </div>
@@ -394,7 +412,7 @@ export function PortalLayout({ nav, role }: { nav: NavItem[]; role: string }) {
       </AnimatePresence>
 
       <nav className="fixed inset-x-0 bottom-0 z-30 flex items-center justify-around border-t border-line bg-surface py-1.5 pb-[max(6px,env(safe-area-inset-bottom))] lg:hidden" aria-label="Mobile">
-        {getMobileNav(role).map((item) => (
+        {visibleMobileNav.map((item) => (
           <NavLink key={item.label} to={item.to!} end={item.end} aria-label={t(item.label)} className={({ isActive }) => cn('flex min-h-[44px] flex-col items-center justify-center gap-0.5 rounded px-3 py-1 text-[10px] font-medium', isActive ? 'text-brand-700' : 'text-muted')}>
             {item.icon}
             <span>{t(item.label)}</span>

@@ -318,6 +318,7 @@ interface ProfileRow {
   name: string
   email: string
   role: Role
+  custom_role_id?: string | null
   avatar: string | null
   title: string | null
   bio: string | null
@@ -599,6 +600,16 @@ async function handleMe(req: Request): Promise<Response> {
   if (!profile) return errorResponse(401, 'No profile found for this account.')
 
   return json({ user: mapProfile(profile) })
+}
+
+async function handleMyAccess(req: Request): Promise<Response> {
+  const guard = await requireUser(req)
+  if (guard instanceof Response) return guard
+  if (guard.profile.role === 'admin') return json({ role: 'admin', customRoleName: undefined, permissions: [...ADMIN_MODULE_KEYS].flatMap((key) => [`${key}:view`, `${key}:manage`]) })
+  if (!guard.profile.custom_role_id) return json({ role: guard.profile.role, permissions: [] })
+  const { data, error } = await supabase.from('custom_roles').select('name,permissions').eq('id', guard.profile.custom_role_id).maybeSingle()
+  if (error) return errorResponse(500, 'Failed to load role permissions: ' + error.message)
+  return json({ role: guard.profile.role, customRoleName: data?.name, permissions: data?.permissions ?? [] })
 }
 
 async function handleLogout(req: Request): Promise<Response> {
@@ -928,8 +939,28 @@ async function requireAdmin(req: Request): Promise<{ profile: ProfileRow } | Res
   if (!user) return errorResponse(401, 'Not authenticated.')
   const profile = await getProfile(user.id)
   if (!profile) return errorResponse(401, 'No profile found for this account.')
-  if (profile.role !== 'admin') return errorResponse(403, 'Admin access required.')
+  if (profile.role === 'admin') return { profile }
+
+  const path = new URL(req.url).pathname
+  const authIndex = path.lastIndexOf('/auth')
+  const apiPath = authIndex >= 0 ? path.slice(authIndex + '/auth'.length) : path
+  const moduleKey = apiPath.match(/^\/admin\/([^/]+)/)?.[1]
+  if (!moduleKey || moduleKey === 'roles' || !profile.custom_role_id) return errorResponse(403, 'Admin access required.')
+  const { data: assignedRole } = await supabase.from('custom_roles').select('permissions').eq('id', profile.custom_role_id).maybeSingle()
+  const access = (assignedRole?.permissions ?? []) as string[]
+  const needed = `${moduleKey}:${req.method.toUpperCase() === 'GET' ? 'view' : 'manage'}`
+  const viewFallback = `${moduleKey}:manage`
+  if (!access.includes(needed) && !(needed.endsWith(':view') && access.includes(viewFallback))) {
+    return errorResponse(403, `This role does not have access to the ${moduleKey} module.`)
+  }
   return { profile }
+}
+
+async function requirePlatformAdmin(req: Request): Promise<{ profile: ProfileRow } | Response> {
+  const guard = await requireUser(req)
+  if (guard instanceof Response) return guard
+  if (guard.profile.role !== 'admin') return errorResponse(403, 'Platform administrator access required.')
+  return guard
 }
 
 async function requireUser(req: Request): Promise<{ profile: ProfileRow } | Response> {
@@ -953,10 +984,10 @@ async function handleAdminListUsers(req: Request): Promise<Response> {
   if (guard instanceof Response) return guard
 
   // Some accounts were created directly in Supabase Auth and never received a
-  // matching application profile. Keep admin user management in sync so those
-  // accounts remain visible and can be managed from the app.
+  // matching application profile. Keep the platform administrator's user list
+  // in sync so those accounts can be managed from the app.
   const authUsersPerPage = 200
-  for (let authPage = 1; ; authPage++) {
+  if (guard.profile.role === 'admin') for (let authPage = 1; ; authPage++) {
     const { data: authResult, error: authListError } = await supabase.auth.admin.listUsers({ page: authPage, perPage: authUsersPerPage })
     if (authListError) return errorResponse(500, 'Failed to reconcile Auth users: ' + authListError.message)
     const authUsers = authResult.users
@@ -1026,12 +1057,111 @@ async function handleAdminListUsers(req: Request): Promise<Response> {
   if (error) return errorResponse(500, 'Failed to load users: ' + error.message)
 
   const rows = (data ?? []) as ProfileRow[]
+  const customRoleIds = [...new Set(rows.map((r) => r.custom_role_id).filter((id): id is string => Boolean(id)))]
+  const customRoleNames = new Map<string, string>()
+  if (customRoleIds.length) {
+    const { data: assignedRoles } = await supabase.from('custom_roles').select('id,name').in('id', customRoleIds)
+    for (const assignedRole of assignedRoles ?? []) customRoleNames.set(assignedRole.id, assignedRole.name)
+  }
   const users = rows.map((r) => ({
     ...mapProfile(r),
+    customRoleId: r.custom_role_id ?? undefined,
+    customRoleName: r.custom_role_id ? customRoleNames.get(r.custom_role_id) : undefined,
     lastSignInAt: r.last_sign_in_at ?? undefined
   }))
 
   return json({ users, total: count ?? rows.length, page, perPage, hasMore: (count ?? 0) > offset + rows.length })
+}
+
+const ADMIN_MODULE_KEYS = new Set([
+  'dashboard', 'users', 'instructors', 'courses', 'categories', 'modules', 'lessons',
+  'anatomy-models', 'flashcards', 'question-bank', 'enrollments', 'certificates', 'orders',
+  'payments', 'announcements', 'reports', 'analytics', 'settings', 'articles', 'contacts',
+  'departments', 'faq', 'members', 'products', 'team', 'careers', 'gallery', 'partners',
+  'newsletter', 'applications'
+])
+
+interface CustomRoleRow {
+  id: string
+  name: string
+  description: string
+  permissions: string[]
+  created_at: string
+}
+
+function mapCustomRole(role: CustomRoleRow, assignedUsers = 0) {
+  return {
+    id: role.id,
+    name: role.name,
+    description: role.description,
+    permissions: role.permissions ?? [],
+    createdAt: role.created_at,
+    assignedUsers
+  }
+}
+
+function validateRoleInput(body: Record<string, unknown>): { name: string; description: string; permissions: string[] } | string {
+  const name = typeof body.name === 'string' ? body.name.trim() : ''
+  if (name.length < 2 || name.length > 60) return 'Role name must be between 2 and 60 characters.'
+  if (typeof body.description !== 'undefined' && typeof body.description !== 'string') return 'Role description must be text.'
+  const permissions = Array.isArray(body.permissions) ? body.permissions : []
+  if (permissions.some((p) => typeof p !== 'string' || !/^([a-z-]+):(view|manage)$/.test(p) || !ADMIN_MODULE_KEYS.has(p.split(':')[0]))) {
+    return 'One or more permissions are invalid.'
+  }
+  return {
+    name,
+    description: typeof body.description === 'string' ? body.description.trim().slice(0, 500) : '',
+    permissions: [...new Set(permissions as string[])]
+  }
+}
+
+async function handleAdminListRoles(req: Request): Promise<Response> {
+  const guard = await requirePlatformAdmin(req)
+  if (guard instanceof Response) return guard
+  const { data, error } = await supabase.from('custom_roles').select('*').order('name')
+  if (error) return errorResponse(500, 'Failed to load custom roles: ' + error.message)
+  const roles = (data ?? []) as CustomRoleRow[]
+  const ids = roles.map((r) => r.id)
+  const assignedCounts = new Map<string, number>()
+  if (ids.length) {
+    const { data: assigned, error: assignedError } = await supabase.from('profiles').select('custom_role_id').in('custom_role_id', ids)
+    if (assignedError) return errorResponse(500, 'Failed to count assigned users: ' + assignedError.message)
+    for (const profile of assigned ?? []) {
+      if (profile.custom_role_id) assignedCounts.set(profile.custom_role_id, (assignedCounts.get(profile.custom_role_id) ?? 0) + 1)
+    }
+  }
+  return json({ roles: roles.map((r) => mapCustomRole(r, assignedCounts.get(r.id) ?? 0)) })
+}
+
+async function handleAdminCreateRole(req: Request): Promise<Response> {
+  const guard = await requirePlatformAdmin(req)
+  if (guard instanceof Response) return guard
+  const input = validateRoleInput(await readBody(req))
+  if (typeof input === 'string') return errorResponse(422, input)
+  const { data, error } = await supabase.from('custom_roles').insert(input).select('*').single()
+  if (error) return errorResponse(error.code === '23505' ? 409 : 500, error.code === '23505' ? 'A role with this name already exists.' : 'Failed to create role: ' + error.message)
+  return json({ role: mapCustomRole(data as CustomRoleRow) }, 201)
+}
+
+async function handleAdminUpdateRole(req: Request): Promise<Response> {
+  const guard = await requirePlatformAdmin(req)
+  if (guard instanceof Response) return guard
+  const id = new URL(req.url).pathname.split('/').filter(Boolean).at(-1) ?? ''
+  const input = validateRoleInput(await readBody(req))
+  if (typeof input === 'string') return errorResponse(422, input)
+  const { data, error } = await supabase.from('custom_roles').update({ ...input, updated_at: new Date().toISOString() }).eq('id', id).select('*').maybeSingle()
+  if (error) return errorResponse(error.code === '23505' ? 409 : 500, error.code === '23505' ? 'A role with this name already exists.' : 'Failed to update role: ' + error.message)
+  if (!data) return errorResponse(404, 'Role not found.')
+  return json({ role: mapCustomRole(data as CustomRoleRow) })
+}
+
+async function handleAdminDeleteRole(req: Request): Promise<Response> {
+  const guard = await requirePlatformAdmin(req)
+  if (guard instanceof Response) return guard
+  const id = new URL(req.url).pathname.split('/').filter(Boolean).at(-1) ?? ''
+  const { error } = await supabase.from('custom_roles').delete().eq('id', id)
+  if (error) return errorResponse(500, 'Failed to delete role: ' + error.message)
+  return json({ ok: true })
 }
 
 async function handleAdminCreateUser(req: Request): Promise<Response> {
@@ -1045,6 +1175,9 @@ async function handleAdminCreateUser(req: Request): Promise<Response> {
   if (typeof password !== 'string' || password.length < 8) return errorResponse(422, 'Password must be at least 8 characters.')
   if (role !== 'student' && role !== 'instructor' && role !== 'admin' && role !== 'support') {
     return errorResponse(422, 'Role must be student, instructor, admin or support.')
+  }
+  if (guard.profile.role !== 'admin' && role !== 'student') {
+    return errorResponse(403, 'Only a platform administrator can create staff or administrator accounts.')
   }
 
   const id = crypto.randomUUID()
@@ -1084,6 +1217,9 @@ async function handleAdminUpdateUser(req: Request): Promise<Response> {
   const body = await readBody(req)
   const allowedRoles = ['student', 'instructor', 'admin', 'support']
   const patch: Record<string, unknown> = {}
+  if (guard.profile.role !== 'admin' && (body.role !== undefined || body.custom_role_id !== undefined)) {
+    return errorResponse(403, 'Only a platform administrator can change account roles.')
+  }
   if (body.name !== undefined) {
     if (typeof body.name !== 'string' || !body.name.trim()) return errorResponse(422, 'Name must be a non-empty string.')
     patch.name = body.name.trim()
@@ -1091,6 +1227,14 @@ async function handleAdminUpdateUser(req: Request): Promise<Response> {
   if (body.role !== undefined) {
     if (!allowedRoles.includes(body.role as string)) return errorResponse(422, 'Invalid role.')
     patch.role = body.role
+  }
+  if (body.custom_role_id !== undefined) {
+    if (body.custom_role_id !== null && typeof body.custom_role_id !== 'string') return errorResponse(422, 'Invalid custom role.')
+    if (typeof body.custom_role_id === 'string') {
+      const { data: assignedRole } = await supabase.from('custom_roles').select('id').eq('id', body.custom_role_id).maybeSingle()
+      if (!assignedRole) return errorResponse(422, 'The selected custom role no longer exists.')
+    }
+    patch.custom_role_id = body.custom_role_id
   }
   if (body.is_active !== undefined && typeof body.is_active === 'boolean') patch.is_active = body.is_active
   if (body.title !== undefined && typeof body.title === 'string') patch.title = body.title || null
@@ -1109,7 +1253,12 @@ async function handleAdminUpdateUser(req: Request): Promise<Response> {
   if (error) return errorResponse(500, 'Failed to update user: ' + error.message)
 
   const profile = await getProfile(id)
-  return json({ user: profile ? mapProfile(profile) : null })
+  let customRoleName: string | undefined
+  if (profile?.custom_role_id) {
+    const { data: customRole } = await supabase.from('custom_roles').select('name').eq('id', profile.custom_role_id).maybeSingle()
+    customRoleName = customRole?.name
+  }
+  return json({ user: profile ? { ...mapProfile(profile), customRoleId: profile.custom_role_id ?? undefined, customRoleName } : null })
 }
 
 async function handleAdminDeleteUser(req: Request): Promise<Response> {
@@ -1124,6 +1273,7 @@ async function handleAdminDeleteUser(req: Request): Promise<Response> {
   if (!target) return errorResponse(404, 'User not found.')
 
   if (id === guard.profile.id) return errorResponse(400, 'You cannot delete your own account.')
+  if (guard.profile.role !== 'admin' && target.role !== 'student') return errorResponse(403, 'Only a platform administrator can delete staff accounts.')
 
   const { error } = await supabase.from('profiles').delete().eq('id', id)
   if (error) return errorResponse(500, 'Failed to delete user: ' + error.message)
@@ -3687,6 +3837,9 @@ Deno.serve(async (req) => {
     case 'GET /me':
       response = await handleMe(req)
       break
+    case 'GET /me/access':
+      response = await handleMyAccess(req)
+      break
     case 'POST /logout':
       response = await handleLogout(req)
       break
@@ -3728,6 +3881,20 @@ Deno.serve(async (req) => {
       break
     case 'GET /admin/users':
       response = await handleAdminListUsers(req)
+      break
+    case 'GET /admin/roles':
+      response = await handleAdminListRoles(req)
+      break
+    case 'POST /admin/roles':
+      response = await handleAdminCreateRole(req)
+      break
+    case 'PATCH /admin/roles':
+    case 'PATCH /admin/roles/remove':
+      response = await handleAdminUpdateRole(req)
+      break
+    case 'DELETE /admin/roles':
+    case 'DELETE /admin/roles/remove':
+      response = await handleAdminDeleteRole(req)
       break
     case 'POST /admin/users':
       response = await handleAdminCreateUser(req)
@@ -3858,7 +4025,11 @@ Deno.serve(async (req) => {
       response = await handleAdminUpdateSettings(req)
       break
     default:
-      if (/^\/admin\/users\/[^/]+$/.test(path)) {
+      if (/^\/admin\/roles\/[^/]+$/.test(path)) {
+        if (method === 'PATCH') response = await handleAdminUpdateRole(req)
+        else if (method === 'DELETE') response = await handleAdminDeleteRole(req)
+        else response = errorResponse(404, 'API endpoint not found.')
+      } else if (/^\/admin\/users\/[^/]+$/.test(path)) {
         if (method === 'PATCH') response = await handleAdminUpdateUser(req)
         else if (method === 'DELETE') response = await handleAdminDeleteUser(req)
         else response = errorResponse(404, 'API endpoint not found.')

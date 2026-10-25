@@ -43,7 +43,53 @@ export type AdminRole = 'student' | 'instructor' | 'admin' | 'support'
 
 export interface AdminUser extends AuthUser {
   lastSignInAt?: string
+  customRoleId?: string
+  customRoleName?: string
 }
+
+export interface CustomRole {
+  id: string
+  name: string
+  description: string
+  permissions: string[]
+  createdAt: string
+  assignedUsers: number
+}
+
+export const ADMIN_PERMISSION_MODULES = [
+  { key: 'dashboard', label: 'Dashboard' },
+  { key: 'users', label: 'User management' },
+  { key: 'instructors', label: 'Instructors' },
+  { key: 'courses', label: 'Courses' },
+  { key: 'categories', label: 'Categories' },
+  { key: 'modules', label: 'Modules' },
+  { key: 'lessons', label: 'Lessons' },
+  { key: 'anatomy-models', label: '3D models' },
+  { key: 'flashcards', label: 'Flashcards' },
+  { key: 'question-bank', label: 'Question bank' },
+  { key: 'enrollments', label: 'Enrollments' },
+  { key: 'certificates', label: 'Certificates' },
+  { key: 'orders', label: 'Orders' },
+  { key: 'payments', label: 'Payments' },
+  { key: 'announcements', label: 'Announcements' },
+  { key: 'reports', label: 'Reports' },
+  { key: 'analytics', label: 'Analytics' },
+  { key: 'settings', label: 'Settings' },
+  { key: 'articles', label: 'Articles' },
+  { key: 'contacts', label: 'Contacts' },
+  { key: 'departments', label: 'Departments' },
+  { key: 'faq', label: 'FAQs' },
+  { key: 'members', label: 'Members' },
+  { key: 'products', label: 'Products' },
+  { key: 'team', label: 'Team' },
+  { key: 'careers', label: 'Careers' },
+  { key: 'gallery', label: 'Gallery' },
+  { key: 'partners', label: 'Partners' },
+  { key: 'newsletter', label: 'Newsletter' },
+  { key: 'applications', label: 'Applications' }
+] as const
+
+export type AdminPermission = `${typeof ADMIN_PERMISSION_MODULES[number]['key']}:${'view' | 'manage'}`
 
 export interface AdminUserListResult {
   users: AdminUser[]
@@ -139,11 +185,27 @@ export const adminApi = {
     return apiFetch<AdminUserListResult>(`/api/auth/admin/users${query ? `?${query}` : ''}`, { token })
   },
 
+  listRoles(token: string): Promise<{ roles: CustomRole[] }> {
+    return apiFetch<{ roles: CustomRole[] }>('/api/auth/admin/roles', { token })
+  },
+
+  createRole(token: string, input: { name: string; description: string; permissions: string[] }): Promise<{ role: CustomRole }> {
+    return apiFetch<{ role: CustomRole }>('/api/auth/admin/roles', { method: 'POST', body: input, token })
+  },
+
+  updateRole(token: string, id: string, input: { name: string; description: string; permissions: string[] }): Promise<{ role: CustomRole }> {
+    return apiFetch<{ role: CustomRole }>(`/api/auth/admin/roles/${id}`, { method: 'PATCH', body: input, token })
+  },
+
+  deleteRole(token: string, id: string): Promise<unknown> {
+    return apiFetch<unknown>(`/api/auth/admin/roles/${id}`, { method: 'DELETE', token })
+  },
+
   createUser(token: string, input: { name: string; email: string; password: string; role: AdminRole }): Promise<{ user: AdminUser }> {
     return apiFetch<{ user: AdminUser }>('/api/auth/admin/users', { method: 'POST', body: input, token })
   },
 
-  updateUser(token: string, id: string, patch: Partial<{ name: string; role: AdminRole; is_active: boolean; title: string; bio: string }>): Promise<{ user: AdminUser }> {
+  updateUser(token: string, id: string, patch: Partial<{ name: string; role: AdminRole; custom_role_id: string | null; is_active: boolean; title: string; bio: string }>): Promise<{ user: AdminUser }> {
     return apiFetch<{ user: AdminUser }>(`/api/auth/admin/users/${id}`, { method: 'PATCH', body: patch, token })
   },
 

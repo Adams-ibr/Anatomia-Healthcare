@@ -24,7 +24,10 @@ export function Navbar() {
   const [profileOpen, setProfileOpen] = useState(false)
   const nav = useNavigate()
 
-  const portal = currentUser?.role === 'admin' ? '/admin' : currentUser?.role === 'instructor' ? '/instructor' : '/dashboard'
+  const hasAdminPortal = currentUser?.role === 'admin' || Boolean(currentUser?.permissions?.length)
+  const firstAdminPermission = currentUser?.permissions?.find((p) => p.endsWith(':view') || p.endsWith(':manage'))
+  const adminModule = firstAdminPermission?.split(':')[0]
+  const portal = hasAdminPortal ? (adminModule && adminModule !== 'dashboard' ? `/admin/${adminModule}` : '/admin') : currentUser?.role === 'instructor' ? '/instructor' : '/dashboard'
 
   const publicLinks = [
     { to: '/courses', label: t('nav.courses') },
@@ -35,7 +38,7 @@ export function Navbar() {
     { to: '/support', label: t('nav.support') }
   ]
 
-  const portalLabel = currentUser?.role === 'admin' ? t('nav.adminDashboard') : currentUser?.role === 'instructor' ? t('nav.instructorDashboard') : t('nav.studentDashboard')
+  const portalLabel = hasAdminPortal ? t('nav.adminDashboard') : currentUser?.role === 'instructor' ? t('nav.instructorDashboard') : t('nav.studentDashboard')
 
   return (
     <header className="sticky top-0 z-40 border-b border-line bg-paper/90 backdrop-blur">
