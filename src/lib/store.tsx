@@ -5,7 +5,7 @@ import { uid } from './utils'
 import * as auth from './auth'
 import type { AuthSession } from './auth'
 import { supabase } from './supabase'
-import { studentApi } from './api/auth'
+import { authApi, getStoredToken, studentApi } from './api/auth'
 import { clearStoredToken, storeToken } from './api/auth'
 
 interface Toast {
@@ -505,12 +505,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const updateProfile = useCallback(async (patch: Partial<AuthUser>) => {
     if (!currentUser) return { ok: false, error: 'You must be logged in.' }
     try {
-      const user = await auth.updateProfile({
-        firstName: patch.name?.split(' ')[0],
-        lastName: patch.name?.split(' ').slice(1).join(' '),
-        avatar: patch.avatar
+      const token = getStoredToken()
+      if (!token) return { ok: false, error: 'Your session has expired. Please sign in again.' }
+      const { user } = await authApi.updateProfile(token, {
+        name: patch.name,
+        title: patch.title,
+        bio: patch.bio,
+        skills: patch.skills,
+        headline: patch.headline,
+        website: patch.website
       })
-      setCurrentUser(normalizeUser(user))
+      setCurrentUser((existing) => existing ? { ...existing, ...user } : { ...currentUser, ...user })
       return { ok: true }
     } catch (err) {
       return { ok: false, error: getErrorMessage(err) }
@@ -564,10 +569,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const uploadAvatar = useCallback(async (dataUrl: string) => {
     if (!currentUser) return { ok: false, error: 'You must be logged in.' }
     try {
-      // TODO: Upload to Supabase storage
-      await auth.updateProfile({ avatar: dataUrl })
-      setCurrentUser((u) => (u ? { ...u, avatar: dataUrl } : u))
-      return { ok: true, avatar: dataUrl }
+      const token = getStoredToken()
+      if (!token) return { ok: false, error: 'Your session has expired. Please sign in again.' }
+      const { avatar } = await authApi.uploadAvatar(token, dataUrl)
+      setCurrentUser((u) => (u ? { ...u, avatar } : u))
+      return { ok: true, avatar }
     } catch (err) {
       return { ok: false, error: getErrorMessage(err) }
     }

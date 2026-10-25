@@ -31,11 +31,21 @@ function mapSupabaseUser(user: User, metadata?: any): AuthUser {
 }
 
 async function withAccess(user: AuthUser, token: string): Promise<AuthUser> {
-  try {
-    const access = await apiFetch<{ role?: AuthUser['role']; customRoleName?: string; permissions?: string[] }>('/api/auth/me/access', { token })
-    return { ...user, role: access.role ?? user.role, customRoleName: access.customRoleName, permissions: access.permissions ?? [] }
-  } catch {
-    return user
+  const [accessResult, profileResult] = await Promise.allSettled([
+    apiFetch<{ role?: AuthUser['role']; customRoleName?: string; permissions?: string[] }>('/api/auth/me/access', { token }),
+    apiFetch<{ user: { name?: string; avatar?: string } }>('/api/auth/me', { token })
+  ])
+  const access = accessResult.status === 'fulfilled' ? accessResult.value : undefined
+  const profile = profileResult.status === 'fulfilled' ? profileResult.value.user : undefined
+  const [firstName = '', ...lastName] = (profile?.name ?? '').split(' ')
+  return {
+    ...user,
+    firstName: firstName || user.firstName,
+    lastName: lastName.join(' ') || user.lastName,
+    avatar: profile?.avatar || user.avatar,
+    role: access?.role ?? user.role,
+    customRoleName: access?.customRoleName,
+    permissions: access?.permissions ?? []
   }
 }
 
@@ -157,23 +167,29 @@ export async function updateProfile(updates: {
   lastName?: string
   avatar?: string
 }): Promise<AuthUser> {
-  const { data, error } = await supabase.auth.updateUser({
-    data: {
-      first_name: updates.firstName,
-      last_name: updates.lastName,
-      avatar: updates.avatar
-    }
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session) throw new Error('Please sign in before updating your profile.')
+  if (updates.avatar?.startsWith('data:image/')) {
+    throw new Error('Upload profile photos through the avatar upload endpoint.')
+  }
+
+  const name = [updates.firstName, updates.lastName].filter(Boolean).join(' ')
+  const { user } = await apiFetch<{ user: { name?: string; avatar?: string } }>('/api/auth/profile', {
+    method: 'PATCH',
+    body: {
+      ...(name ? { name } : {}),
+      ...(updates.avatar !== undefined ? { avatar: updates.avatar } : {})
+    },
+    token: session.access_token
   })
-  
-  if (error) {
-    throw new Error(error.message || 'Profile update failed')
+  const mapped = mapSupabaseUser(session.user)
+  const [firstName = '', ...lastName] = (user.name ?? '').split(' ')
+  return {
+    ...mapped,
+    firstName: firstName || mapped.firstName,
+    lastName: lastName.join(' ') || mapped.lastName,
+    avatar: user.avatar || mapped.avatar
   }
-  
-  if (!data.user) {
-    throw new Error('No user returned after update')
-  }
-  
-  return mapSupabaseUser(data.user)
 }
 
 // Listen to auth state changes
