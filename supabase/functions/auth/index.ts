@@ -363,6 +363,11 @@ async function getProfile(id: string): Promise<ProfileRow | null> {
   return (data as ProfileRow | null) ?? null
 }
 
+async function getProfileByEmail(email: string): Promise<ProfileRow | null> {
+  const { data } = await supabase.from('profiles').select('*').ilike('email', email.trim()).maybeSingle()
+  return (data as ProfileRow | null) ?? null
+}
+
 function bearerToken(req: Request): string | null {
   const match = /^Bearer\s+(.+)$/i.exec(req.headers.get('authorization') ?? '')
   return match ? match[1] : null
@@ -389,7 +394,13 @@ async function authUser(req: Request): Promise<{ id: string; email?: string } | 
   // custom sessions while validating modern access tokens with Supabase Auth.
   const { data: authData, error: authError } = await supabase.auth.getUser(token)
   if (authError || !authData.user) return null
-  const profile = await getProfile(authData.user.id)
+  let profile = await getProfile(authData.user.id)
+
+  // Some older platform accounts have a profile keyed independently from the
+  // Supabase Auth UUID. A confirmed Auth email safely reconnects those records.
+  if (!profile && authData.user.email_confirmed_at && authData.user.email) {
+    profile = await getProfileByEmail(authData.user.email)
+  }
   if (!profile) return null
   if (!profile.is_active) return null
   return { id: profile.id, email: profile.email }

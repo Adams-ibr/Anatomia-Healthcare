@@ -13,6 +13,8 @@ import { Badge, Button, EmptyState, Modal, Skeleton } from '../components/ui'
 import { cn, formatPrice } from '../lib/utils'
 import { uploadAdminImage } from '../lib/adminMedia'
 import { ImageUploadField } from '../components/admin/ImageUploadField'
+import { courseApi } from '../lib/api/auth'
+import { getCurrentSession } from '../lib/auth'
 
 // Extended Course type for UI display
 interface DisplayCourse extends Course {
@@ -126,14 +128,10 @@ export default function AdminCourses() {
   const loadInstructors = useCallback(async () => {
     setInstructorsLoadError(null)
     try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('id, name')
-        .eq('role', 'instructor')
-        .eq('is_active', true)
-        .order('name')
-      if (error) throw error
-      setInstructors((data ?? []).map(({ id, name }) => ({ id, name })))
+      const session = await getCurrentSession()
+      if (!session?.token) throw new Error('Your admin session is unavailable. Please sign in again.')
+      const { instructors: availableInstructors } = await courseApi.listInstructors(session.token)
+      setInstructors(availableInstructors)
     } catch (error) {
       setInstructorsLoadError(error instanceof Error ? error.message : 'Could not load instructors from the database.')
       setInstructors([])
