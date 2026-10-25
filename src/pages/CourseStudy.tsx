@@ -31,11 +31,14 @@ export default function CourseStudy() {
   const { t } = useTranslation()
   const { currentUser, enrollments, certificates } = useApp()
   const [fullCourse, setFullCourse] = useState<Course | null>(null)
+  const [courseLoadError, setCourseLoadError] = useState(false)
   const course = fullCourse ?? (enrollments.find((e) => e.courseId === courseId)?.course as unknown as Course | undefined) ?? null
 
   useEffect(() => {
     if (!courseId) return
     let cancelled = false
+    setFullCourse(null)
+    setCourseLoadError(false)
     const token = getStoredToken()
     studentApi.getCourseFull(token, courseId)
       .then(({ course: full }) => {
@@ -71,7 +74,7 @@ export default function CourseStudy() {
           faqs: full.faqs ?? []
         } as unknown as Course)
       })
-      .catch(() => { /* fall back to mock/enrollment summary */ })
+      .catch(() => { if (!cancelled) setCourseLoadError(true) })
     return () => { cancelled = true }
   }, [courseId])
 
@@ -86,6 +89,9 @@ export default function CourseStudy() {
   )
 
   const allLessons = useMemo(() => course?.sections?.flatMap((s) => s.lessons ?? []) ?? [], [course])
+  const sections = course?.sections ?? []
+  const objectives = course?.objectives ?? []
+  const completedLessonIds = enrollment?.completedLessons ?? []
 
   if (!course || !currentUser || !enrollment) {
     return (
@@ -96,13 +102,12 @@ export default function CourseStudy() {
     )
   }
 
-  const completed = enrollment.completedLessons?.length ?? 0
   const total = allLessons.length
   const progress = enrollment.progress ?? 0
   const hoursLearned = Math.round((progress / 100) * (course.duration ?? 0))
   const isComplete = enrollment.status === 'completed' || progress >= 100
   const current = allLessons.find((l) => l.id === enrollment.currentLessonId) ?? allLessons[0]
-  const doneCount = allLessons.filter((l) => (enrollment.completedLessons ?? []).includes(l.id)).length
+  const doneCount = allLessons.filter((l) => completedLessonIds.includes(l.id)).length
 
   const stats = [
     { label: t('study.lessonsCompleted'), value: `${doneCount}/${total}`, icon: <ListVideo className="h-4 w-4" /> },
@@ -128,7 +133,7 @@ export default function CourseStudy() {
           </div>
           <div className="flex flex-col gap-3 p-5 sm:p-6">
             <div className="flex flex-wrap items-center gap-2">
-              <Badge color="brand">{t(`cards.level_${course.level.toLowerCase()}`)}</Badge>
+              <Badge color="brand">{t(`cards.level_${(course.level ?? 'Beginner').toLowerCase()}`)}</Badge>
               {course.hasCertificate && <Badge color="success"><Trophy className="mr-1 h-3 w-3" /> {t('study.certificateCourse')}</Badge>}
             </div>
             <h1 className="font-display text-2xl font-bold text-ink">{course.title}</h1>
@@ -147,8 +152,10 @@ export default function CourseStudy() {
                 ) : (
                   <Button variant="outline" onClick={() => nav(`/courses/${course.slug}`)}><CheckCircle2 className="h-4 w-4" /> {t('study.completedCourse')}</Button>
                 )
-              ) : (
+              ) : current ? (
                 <Button onClick={() => nav(`/learning/${course.id}/${current.id}`)}><Play className="h-4 w-4" /> {doneCount === 0 ? t('study.startLearning') : t('study.continueLearning')}</Button>
+              ) : (
+                <Button variant="outline" onClick={() => nav(`/courses/${course.slug}`)}>{t('study.curriculum')} <ChevronRight className="h-4 w-4" /></Button>
               )}
               {!isComplete && course.hasCertificate && !cert && (
                 <Button variant="outline" onClick={() => nav('/assessments')}><Award className="h-4 w-4" /> {t('study.takeExam', 'Take Exam (70% Pass Mark)')}</Button>
@@ -181,9 +188,11 @@ export default function CourseStudy() {
           <h2 className="flex items-center gap-2 font-display text-lg font-semibold text-ink"><GraduationCap className="h-5 w-5 text-brand-500" /> {t('study.curriculum')}</h2>
           <span className="text-xs text-muted">{total} {t('study.lessonsTotal')}</span>
         </div>
+        {courseLoadError && <p role="status" className="mb-3 text-sm text-warning">{t('common.loadFailed', 'Some course details could not be loaded. Please refresh to retry.')}</p>}
         <div className="space-y-3">
-          {course.sections.map((s, si) => {
-            const sectionDone = s.lessons.every((l) => enrollment.completedLessons.includes(l.id))
+          {sections.map((s, si) => {
+            const lessons = s.lessons ?? []
+            const sectionDone = lessons.length > 0 && lessons.every((l) => completedLessonIds.includes(l.id))
             return (
               <div key={s.id} className="overflow-hidden rounded-card border border-line">
                 <div className="flex items-center justify-between gap-3 border-b border-line bg-paper px-4 py-3">
@@ -193,15 +202,15 @@ export default function CourseStudy() {
                     </span>
                     <div>
                       <p className="text-sm font-semibold text-ink">{s.title}</p>
-                      <p className="text-xs text-muted">{s.lessons.length} {t('study.lessonsTotal')} · {formatDuration(s.lessons.reduce((a, l) => a + l.duration, 0))}</p>
+                      <p className="text-xs text-muted">{lessons.length} {t('study.lessonsTotal')} · {formatDuration(lessons.reduce((a, l) => a + (l.duration ?? 0), 0))}</p>
                     </div>
                   </div>
                   <ChevronRight className="h-4 w-4 shrink-0 text-muted" />
                 </div>
                 <div>
-                  {s.lessons.map((l) => {
-                    const done = enrollment.completedLessons.includes(l.id)
-                    const isCurrent = l.id === current.id
+                  {lessons.map((l) => {
+                    const done = completedLessonIds.includes(l.id)
+                    const isCurrent = l.id === current?.id
                     return (
                       <button
                         key={l.id}
@@ -225,18 +234,18 @@ export default function CourseStudy() {
         </div>
       </div>
 
-      {course.objectives.length > 0 && (
+      {objectives.length > 0 && (
         <div className="card p-5 sm:p-6">
           <h2 className="mb-3 flex items-center gap-2 font-display text-lg font-semibold text-ink"><Target className="h-5 w-5 text-brand-500" /> {t('study.whatYouLearn')}</h2>
           <div className="grid gap-2 sm:grid-cols-2">
-            {course.objectives.map((o) => (
+            {objectives.map((o) => (
               <p key={o.id} className="flex items-start gap-2 text-sm text-muted"><Check className="mt-0.5 h-4 w-4 shrink-0 text-success" /> {o.text}</p>
             ))}
           </div>
         </div>
       )}
 
-      {!isComplete && (
+      {!isComplete && current && (
         <div className="card flex flex-col items-center gap-3 border-dashed p-6 text-center sm:flex-row sm:text-left">
           <span className="rounded-full bg-brand-50 p-3 text-brand-700"><Sparkles className="h-5 w-5" /></span>
           <div className="flex-1">
