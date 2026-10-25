@@ -2498,11 +2498,48 @@ async function handleUpdateEnrollment(req: Request): Promise<Response> {
   })
 }
 
+async function calculateCouponPricing(courseIds: string[], code: string) {
+  const normalizedCode = code.trim().toUpperCase()
+  if (!normalizedCode || normalizedCode.length > 64) return { error: 'Enter a valid coupon code.' as const }
+  const { data: coupon, error } = await supabase.from('coupons')
+    .select('id, code, discount_percent, is_active, starts_at, ends_at, coupon_courses(course_id)')
+    .eq('code', normalizedCode).maybeSingle()
+  if (error) return { error: 'Could not validate this coupon right now.' as const }
+  if (!coupon || !coupon.is_active) return { error: 'This coupon code is invalid or inactive.' as const }
+  const now = Date.now()
+  if (coupon.starts_at && new Date(coupon.starts_at).getTime() > now) return { error: 'This coupon is not active yet.' as const }
+  if (coupon.ends_at && new Date(coupon.ends_at).getTime() < now) return { error: 'This coupon has expired.' as const }
+  const eligibleCourseIds = (coupon.coupon_courses ?? []).map((row: { course_id: string }) => row.course_id)
+    .filter((id: string) => courseIds.includes(id))
+  if (!eligibleCourseIds.length) return { error: 'This coupon does not apply to any course in your cart.' as const }
+  return { coupon, eligibleCourseIds }
+}
+
+async function handleValidateCoupon(req: Request): Promise<Response> {
+  const guard = await requireUser(req)
+  if (guard instanceof Response) return guard
+  const { courseIds, code } = await readBody(req)
+  if (!Array.isArray(courseIds) || !courseIds.length || typeof code !== 'string') return errorResponse(422, 'Coupon code and cart courses are required.')
+  const ids = [...new Set(courseIds.filter((id): id is string => typeof id === 'string'))]
+  const result = await calculateCouponPricing(ids, code)
+  if ('error' in result) return errorResponse(422, result.error)
+  const { data: courses, error } = await supabase.from('courses').select('id, price, discount_price, status').in('id', ids)
+  if (error || (courses ?? []).length !== ids.length) return errorResponse(404, 'One or more courses were not found.')
+  if ((courses ?? []).some((course) => course.status !== 'published')) return errorResponse(409, 'One or more courses are not available for purchase.')
+  const eligible = new Set(result.eligibleCourseIds)
+  const subtotal = (courses ?? []).reduce((sum, course) => sum + (Number(course.discount_price ?? course.price) || 0), 0)
+  const discount = (courses ?? []).reduce((sum, course) => {
+    const price = Number(course.discount_price ?? course.price) || 0
+    return sum + (eligible.has(course.id) ? Math.round(price * Number(result.coupon.discount_percent) / 100 * 100) / 100 : 0)
+  }, 0)
+  return json({ code: result.coupon.code, discountPercent: result.coupon.discount_percent, subtotal, discount, total: Math.max(0, Math.round((subtotal - discount) * 100) / 100) })
+}
+
 async function handleCheckout(req: Request): Promise<Response> {
   const guard = await requireUser(req)
   if (guard instanceof Response) return guard
 
-  const { courseIds, paymentMethod } = await readBody(req)
+  const { courseIds, paymentMethod, couponCode } = await readBody(req)
   if (!Array.isArray(courseIds) || courseIds.length === 0) return errorResponse(422, 'At least one course is required.')
   const ids = [...new Set(courseIds.filter((x): x is string => typeof x === 'string'))]
   if (ids.length === 0) return errorResponse(422, 'At least one valid course is required.')
@@ -2523,19 +2560,36 @@ async function handleCheckout(req: Request): Promise<Response> {
   if (enrollmentLookupError) return errorResponse(500, 'Could not verify existing enrollments.')
   if ((existingEnrollments ?? []).length > 0) return errorResponse(409, 'Remove courses you are already enrolled in before checking out.')
 
-  const unpaid = ids.filter((id) => {
+  const subtotal = ids.reduce((sum, id) => sum + (Number(courseMap.get(id)!.discount_price ?? courseMap.get(id)!.price) || 0), 0)
+  let coupon: { id: string; code: string; discount_percent: number } | null = null
+  let eligibleCourseIds = new Set<string>()
+  if (typeof couponCode === 'string' && couponCode.trim()) {
+    const result = await calculateCouponPricing(ids, couponCode)
+    if ('error' in result) return errorResponse(422, result.error)
+    coupon = result.coupon
+    eligibleCourseIds = new Set(result.eligibleCourseIds)
+  }
+  const linePrices = new Map(ids.map((id) => {
     const c = courseMap.get(id)!
-    return (Number(c.discount_price ?? c.price) || 0) > 0
-  })
+    const price = Number(c.discount_price ?? c.price) || 0
+    const linePrice = eligibleCourseIds.has(id) && coupon
+      ? Math.max(0, Math.round(price * (100 - Number(coupon.discount_percent)) / 100 * 100) / 100)
+      : price
+    return [id, linePrice] as const
+  }))
+  const total = Math.round([...linePrices.values()].reduce((sum, price) => sum + price, 0) * 100) / 100
+  const discountTotal = Math.round((subtotal - total) * 100) / 100
+  const unpaid = ids.filter((id) => (linePrices.get(id) ?? 0) > 0)
   if (unpaid.length > 0 && !paymentMethod) return errorResponse(422, 'A payment method is required for paid courses.')
-
-  const total = ids.reduce((sum, id) => sum + (Number(courseMap.get(id)!.discount_price ?? courseMap.get(id)!.price) || 0), 0)
   const method = typeof paymentMethod === 'string' && paymentMethod ? paymentMethod : 'paystack'
 
   if (total === 0) {
     const { data: order, error: orderError } = await supabase.from('orders').insert({
       user_id: guard.profile.id,
       total: 0,
+      subtotal,
+      discount_total: discountTotal,
+      coupon_code: coupon?.code ?? null,
       status: 'completed',
       payment_method: 'free',
       created_at: new Date().toISOString()
@@ -2544,7 +2598,7 @@ async function handleCheckout(req: Request): Promise<Response> {
 
     const items = ids.map((courseId) => {
       const c = courseMap.get(courseId)!
-      return { order_id: order.id, course_id: courseId, title: c.title, price: 0 }
+      return { order_id: order.id, course_id: courseId, title: c.title, price: linePrices.get(courseId) ?? 0 }
     })
     const { error: itemsError } = await supabase.from('order_items').insert(items)
     if (itemsError) return errorResponse(500, 'Failed to create order items: ' + itemsError.message)
@@ -2584,6 +2638,9 @@ async function handleCheckout(req: Request): Promise<Response> {
   const { data: order, error: orderError } = await supabase.from('orders').insert({
     user_id: guard.profile.id,
     total,
+    subtotal,
+    discount_total: discountTotal,
+    coupon_code: coupon?.code ?? null,
     status: 'pending',
     payment_method: 'paystack',
     payment_reference: reference,
@@ -2593,7 +2650,7 @@ async function handleCheckout(req: Request): Promise<Response> {
 
   const items = ids.map((courseId) => {
     const c = courseMap.get(courseId)!
-    return { order_id: order.id, course_id: courseId, title: c.title, price: Number(c.discount_price ?? c.price) || 0 }
+    return { order_id: order.id, course_id: courseId, title: c.title, price: linePrices.get(courseId) ?? 0 }
   })
   const { error: itemsError } = await supabase.from('order_items').insert(items)
   if (itemsError) {
@@ -3953,6 +4010,9 @@ Deno.serve(async (req) => {
       break
     case 'POST /checkout':
       response = await handleCheckout(req)
+      break
+    case 'POST /checkout/coupon':
+      response = await handleValidateCoupon(req)
       break
     case 'POST /checkout/verify':
       response = await handleCheckoutVerify(req)

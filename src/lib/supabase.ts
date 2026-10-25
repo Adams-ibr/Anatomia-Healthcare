@@ -373,8 +373,6 @@ export const contactsApi = {
     const { data, error } = await supabase
       .from('contact_messages')
       .insert({ ...contact, topic: contact.topic ?? contact.subject ?? '', subject: contact.subject ?? contact.topic ?? '' })
-      .select()
-      .single()
     if (error) throw error
     return data
   },
@@ -917,6 +915,14 @@ export const applicationsApi = {
       .eq('id', id)
       .single()
     
+    if (error) throw error
+    return data
+  },
+
+  create: async (application: { job_id: string; name: string; email: string; phone: string; location: string; experience: number; cover_letter: string; portfolio_url?: string | null; resume_url?: string | null; start_date: string }) => {
+    const { data, error } = await supabase
+      .from('job_applications')
+      .insert({ ...application, status: 'pending' })
     if (error) throw error
     return data
   },
@@ -1610,6 +1616,9 @@ export const flashcardsApi = {
         back: flashcard.back,
         card_type: flashcard.card_type ?? flashcard.type ?? 'learning',
         image_url: flashcard.image_url ?? flashcard.imageUrl ?? null,
+        options: flashcard.options ?? null,
+        correct_answer: flashcard.correct_answer ?? flashcard.correctAnswer ?? null,
+        explanation: flashcard.explanation ?? null,
         order: flashcard.order ?? 0
       })
       .select()
@@ -1627,6 +1636,9 @@ export const flashcardsApi = {
         ...(updates.back !== undefined ? { back: updates.back } : {}),
         ...(updates.type !== undefined || updates.card_type !== undefined ? { card_type: updates.type ?? updates.card_type } : {}),
         ...(updates.imageUrl !== undefined || updates.image_url !== undefined ? { image_url: updates.imageUrl ?? updates.image_url ?? null } : {}),
+        ...(updates.options !== undefined ? { options: updates.options } : {}),
+        ...(updates.correctAnswer !== undefined || updates.correct_answer !== undefined ? { correct_answer: updates.correctAnswer ?? updates.correct_answer ?? null } : {}),
+        ...(updates.explanation !== undefined ? { explanation: updates.explanation } : {}),
         ...(updates.order !== undefined ? { order: updates.order } : {})
       })
       .eq('id', id)

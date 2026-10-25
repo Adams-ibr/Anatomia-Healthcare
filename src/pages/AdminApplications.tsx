@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from 'react'
-import { FileText, Users, CheckCircle, Clock, Loader2 } from 'lucide-react'
+import { FileText, Users, CheckCircle, Clock, Loader2, Eye } from 'lucide-react'
 import { useApp } from '../lib/store'
 import { applicationsApi } from '../lib/supabase'
-import { Badge, Button, EmptyState } from '../components/ui'
+import { Badge, Button, EmptyState, Modal } from '../components/ui'
 import { formatDate } from '../lib/utils'
+import { supabase } from '../lib/supabase'
 
 interface Application {
   id: string
@@ -12,6 +13,13 @@ interface Application {
   position: string
   status: string
   date: string
+  phone: string
+  location: string
+  experience: number
+  coverLetter: string
+  portfolioUrl?: string
+  resumePath?: string
+  startDate: string
 }
 
 export default function AdminApplications() {
@@ -20,6 +28,9 @@ export default function AdminApplications() {
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [updating, setUpdating] = useState<string | null>(null)
+  const [viewing, setViewing] = useState<Application | null>(null)
+  const [resumeUrl, setResumeUrl] = useState('')
+  const [resumeLoading, setResumeLoading] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -32,7 +43,14 @@ export default function AdminApplications() {
         email: row.email,
         position: row.careers?.title ?? 'Job application',
         status: row.status ?? 'pending',
-        date: row.created_at
+        date: row.created_at,
+        phone: row.phone ?? '',
+        location: row.location ?? '',
+        experience: Number(row.experience) || 0,
+        coverLetter: row.cover_letter ?? '',
+        portfolioUrl: row.portfolio_url ?? undefined,
+        resumePath: row.resume_url ?? undefined,
+        startDate: row.start_date ?? ''
       })))
     } catch (error) {
       setLoadError(error instanceof Error ? error.message : 'Unable to load applications.')
@@ -40,6 +58,23 @@ export default function AdminApplications() {
       setLoading(false)
     }
   }, [])
+
+  const viewApplication = async (application: Application) => {
+    setViewing(application)
+    setResumeUrl('')
+    if (!application.resumePath) return
+    setResumeLoading(true)
+    try {
+      if (/^https?:\/\//i.test(application.resumePath)) setResumeUrl(application.resumePath)
+      else {
+        const { data, error } = await supabase.storage.from('job-resumes').createSignedUrl(application.resumePath, 60 * 15)
+        if (error) throw error
+        setResumeUrl(data.signedUrl)
+      }
+    } catch (error) {
+      setLoadError(error instanceof Error ? error.message : 'Could not open the resume.')
+    } finally { setResumeLoading(false) }
+  }
 
   useEffect(() => { void load() }, [load])
 
@@ -88,6 +123,7 @@ export default function AdminApplications() {
                   <p className="mt-1 text-xs text-muted">{formatDate(application.date)}</p>
                 </div>
                 <div className="flex items-center gap-3">
+                  <Button variant="outline" onClick={() => void viewApplication(application)}><Eye className="h-4 w-4" /> Details</Button>
                   <Badge color={application.status === 'approved' ? 'success' : application.status === 'rejected' ? 'danger' : 'warning'}>{application.status}</Badge>
                   <select value={application.status} onChange={(event) => void updateStatus(application, event.target.value)} disabled={updating === application.id} className="input-base w-auto">
                     <option value="pending">Pending</option><option value="reviewing">Reviewing</option><option value="approved">Approved</option><option value="rejected">Rejected</option>
@@ -99,6 +135,9 @@ export default function AdminApplications() {
           </div>
         )}
       </div>
+      {viewing && <Modal open onClose={() => setViewing(null)} title={`Application: ${viewing.position}`}>
+        <div className="space-y-4 text-sm"><div className="grid gap-3 sm:grid-cols-2"><p><span className="text-muted">Name</span><br /><strong>{viewing.name}</strong></p><p><span className="text-muted">Email</span><br /><a className="text-brand-700 underline" href={`mailto:${viewing.email}`}>{viewing.email}</a></p><p><span className="text-muted">Phone</span><br />{viewing.phone || '—'}</p><p><span className="text-muted">Location</span><br />{viewing.location || '—'}</p><p><span className="text-muted">Experience</span><br />{viewing.experience} years</p><p><span className="text-muted">Available from</span><br />{viewing.startDate || '—'}</p></div><div><p className="font-medium text-ink">Cover letter</p><p className="mt-1 whitespace-pre-wrap text-muted">{viewing.coverLetter || '—'}</p></div>{viewing.portfolioUrl && <p><a className="text-brand-700 underline" href={viewing.portfolioUrl} target="_blank" rel="noreferrer">Open portfolio</a></p>}{viewing.resumePath && (resumeLoading ? <p className="text-muted">Preparing resume…</p> : resumeUrl ? <p><a className="text-brand-700 underline" href={resumeUrl} target="_blank" rel="noreferrer">Open resume</a></p> : <p className="text-danger">Resume could not be opened. Retry by closing and reopening the application.</p>)}<p className="text-xs text-muted">Submitted {formatDate(viewing.date)}</p></div>
+      </Modal>}
     </div>
   )
 }

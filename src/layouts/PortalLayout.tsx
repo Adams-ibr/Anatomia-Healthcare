@@ -90,6 +90,7 @@ const ADMIN_NAV: NavItem[] = [
   { label: 'certificates', to: '/admin/certificates', icon: <GraduationCap className="h-4 w-4" /> },
   { label: 'orders', to: '/admin/orders', icon: <ShoppingBag className="h-4 w-4" /> },
   { label: 'payments', to: '/admin/payments', icon: <DollarSign className="h-4 w-4" /> },
+  { label: 'Coupons', to: '/admin/coupons', icon: <Tag className="h-4 w-4" /> },
   { label: 'announcements', to: '/admin/announcements', icon: <Megaphone className="h-4 w-4" /> },
   { label: 'reports', to: '/admin/reports', icon: <FileText className="h-4 w-4" /> },
   { label: 'analytics', to: '/admin/analytics', icon: <ChartColumn className="h-4 w-4" /> },

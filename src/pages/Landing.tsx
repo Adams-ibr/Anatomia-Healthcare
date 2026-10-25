@@ -1,14 +1,14 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
-  Award, BookOpen, CheckCircle2, ChevronRight, Clock, Code2, Compass,
+  Award, BookOpen, Briefcase, CheckCircle2, ChevronRight, Clock, Code2, Compass,
   GraduationCap, ListChecks, MessageSquare, PlayCircle, ShieldCheck,
   Sparkles, TrendingUp, Trophy
 } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { useTranslation } from 'react-i18next'
 import { useApp } from '../lib/store'
-import { categoriesApi, coursesApi, membersApi, faqApi, partnersApi, articlesApi } from '../lib/supabase'
+import { categoriesApi, coursesApi, membersApi, faqApi, partnersApi, articlesApi, careersApi } from '../lib/supabase'
 import type { AdminCourse, AdminCategory, PublicInstructor } from '../lib/api/auth'
 import { CourseCard, InstructorCard } from '../components/cards'
 import { Accordion, Avatar, Badge, Button, Rating, Skeleton, PresetAnimation } from '../components/ui'
@@ -173,6 +173,7 @@ export default function Landing() {
   const [faqs, setFaqs] = useState<any[]>([])
   const [partnersList, setPartnersList] = useState<any[]>([])
   const [articlesList, setArticlesList] = useState<any[]>([])
+  const [openCareers, setOpenCareers] = useState<any[]>([])
 
   useEffect(() => {
     // Fetch all live data sources in parallel from Supabase
@@ -191,6 +192,10 @@ export default function Landing() {
 
     faqApi.list()
       .then((res) => setFaqs(res ?? []))
+      .catch(() => {})
+
+    careersApi.list({ status: 'open', is_active: true })
+      .then((res) => setOpenCareers((res ?? []).slice(0, 3)))
       .catch(() => {})
 
     coursesApi.list({ status: 'published' })
@@ -687,6 +692,18 @@ export default function Landing() {
           </div>
         </section>
       )}
+
+      <section className="border-y border-line bg-surface py-14">
+          <div className="container-page">
+            <Reveal>
+              <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
+                <div><p className="text-sm font-semibold text-brand-700">Careers</p><h2 className="section-title mt-1">Join the Anatomia team</h2><p className="mt-2 text-sm text-muted">Explore current opportunities and apply online.</p></div>
+                <Button variant="outline" onClick={() => nav('/careers')}>View all openings <ChevronRight className="h-4 w-4" /></Button>
+              </div>
+            </Reveal>
+            {openCareers.length ? <div className="grid gap-4 md:grid-cols-3">{openCareers.map((job, index) => <Reveal key={job.id} delay={Math.min(index * 0.06, 0.18)}><Link to="/careers" className="card block p-5 transition-all hover:-translate-y-1 hover:shadow-lift"><div className="flex items-center gap-2 text-brand-700"><Briefcase className="h-4 w-4" /><span className="text-xs font-semibold">{job.department || job.location || 'Anatomia'}</span></div><h3 className="mt-3 font-semibold text-ink">{job.title}</h3><p className="mt-1 text-sm text-muted">{job.location}{job.location && job.type ? ' · ' : ''}{job.type?.replace('_', ' ')}</p></Link></Reveal>)}</div> : <div className="card py-8 text-center text-sm text-muted">No open roles at the moment. Check back soon.</div>}
+          </div>
+        </section>
 
       {/* ── CTA ──────────────────────────────────────────────────────────── */}
       <section className="border-t border-line bg-brand-900">

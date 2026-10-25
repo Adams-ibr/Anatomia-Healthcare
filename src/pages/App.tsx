@@ -30,7 +30,7 @@ import SettingsPage from './Settings'
 import Community from './Community'
 import Checkout from './Checkout'
 import Search from './Search'
-import { About, Blog, BlogPost, InstructorProfile, Instructors, Pricing, Support } from './Marketing'
+import { About, Blog, BlogPost, Careers, Contact, InstructorProfile, Instructors, Pricing, Support } from './Marketing'
 import Articles from './Articles'
 import ArticleDetail from './ArticleDetail'
 import { InstructorDashboard, InstructorStudents, InstructorAnalytics, InstructorEarnings } from './Instructor'
@@ -54,6 +54,7 @@ import AdminDepartments from './AdminDepartments'
 import AdminFaq from './AdminFaq'
 import AdminMembers from './AdminMembers'
 import AdminProducts from './AdminProducts'
+import AdminCoupons from './AdminCoupons'
 import AdminTeam from './AdminTeam'
 import AdminCareers from './AdminCareers'
 import AdminGallery from './AdminGallery'
@@ -267,6 +268,7 @@ const ADMIN_NAV: NavItem[] = [
       { label: 'Orders', to: '/admin/orders', icon: I(NAV_ICONS.cart) },
       { label: 'Payments', to: '/admin/payments', icon: I(NAV_ICONS.card) },
       { label: 'Products', to: '/admin/products', icon: I(NAV_ICONS.cart) },
+      { label: 'Coupons', to: '/admin/coupons', icon: I(NAV_ICONS.tag) },
     ]
   },
   
@@ -334,6 +336,8 @@ export default function App() {
           <Route path="/instructors/:id" element={<InstructorProfile />} />
           <Route path="/pricing" element={<Pricing />} />
           <Route path="/about" element={<About />} />
+          <Route path="/careers" element={<Careers />} />
+          <Route path="/contact" element={<Contact />} />
           <Route path="/blog" element={<Blog />} />
           <Route path="/blog/:slug" element={<BlogPost />} />
           <Route path="/articles" element={<Articles />} />
@@ -417,6 +421,7 @@ export default function App() {
             <Route element={<RequireAdminPermission module="faq" />}><Route path="/admin/faq" element={<AdminFaq />} /></Route>
             <Route element={<RequireAdminPermission module="members" />}><Route path="/admin/members" element={<AdminMembers />} /></Route>
             <Route element={<RequireAdminPermission module="products" />}><Route path="/admin/products" element={<AdminProducts />} /></Route>
+            <Route element={<RequireAdminPermission module="products" />}><Route path="/admin/coupons" element={<AdminCoupons />} /></Route>
             <Route element={<RequireAdminPermission module="team" />}><Route path="/admin/team" element={<AdminTeam />} /></Route>
             <Route element={<RequireAdminPermission module="careers" />}><Route path="/admin/careers" element={<AdminCareers />} /></Route>
             <Route element={<RequireAdminPermission module="gallery" />}><Route path="/admin/gallery" element={<AdminGallery />} /></Route>

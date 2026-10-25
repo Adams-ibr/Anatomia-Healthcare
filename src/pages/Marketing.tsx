@@ -1,16 +1,16 @@
 import { useParams, useNavigate } from 'react-router-dom'
 import {
-  BookOpen, CheckCircle2, Clock, Compass, HelpCircle,
+  BookOpen, Briefcase, CheckCircle2, Clock, Compass, HelpCircle,
   LifeBuoy, Mail, MessageSquare, Search, ShieldCheck, Sparkles, Users
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { useApp } from '../lib/store'
 import { useTranslation } from 'react-i18next'
 import { CourseCard, InstructorCard } from '../components/cards'
-import { Accordion, Avatar, Badge, Button } from '../components/ui'
+import { Accordion, Avatar, Badge, Button, Modal } from '../components/ui'
 import { cn, formatPrice } from '../lib/utils'
 import { Reveal } from '../lib/motion'
-import { coursesApi, articlesApi, membersApi, faqApi } from '../lib/supabase'
+import { applicationsApi, careersApi, contactsApi, coursesApi, articlesApi, membersApi, faqApi, supabase } from '../lib/supabase'
 
 const DEFAULT_PLANS = [
   { id: 'free', name: 'Free Student Access', price: 0, period: 'lifetime', description: 'Open access to introductory anatomical modules.', features: ['Access to Free Modules', 'Community Discussions', 'Mobile & Web Access'] },
@@ -604,11 +604,117 @@ export function BlogPost() {
   )
 }
 
+type PublicJob = { id: string; title: string; department: string; location: string; type: string; description: string; requirements: string; salary: string | null; closing_date: string | null }
+
+const jobTypeLabel = (type: string) => ({ full_time: 'Full time', part_time: 'Part time', contract: 'Contract', remote: 'Remote' }[type] ?? type)
+
+export function Careers() {
+  const { toast } = useApp()
+  const [jobs, setJobs] = useState<PublicJob[]>([])
+  const [loading, setLoading] = useState(true)
+  const [selected, setSelected] = useState<PublicJob | null>(null)
+  const [submitting, setSubmitting] = useState(false)
+  const [resume, setResume] = useState<File | null>(null)
+  const [form, setForm] = useState({ name: '', email: '', phone: '', location: '', experience: '0', cover_letter: '', portfolio_url: '', start_date: '' })
+
+  const loadJobs = async () => {
+    setLoading(true)
+    try { setJobs(await careersApi.list({ status: 'open', is_active: true }) as PublicJob[]) }
+    catch { toast('Unable to load opportunities', 'Please refresh the page and try again.', 'error') }
+    finally { setLoading(false) }
+  }
+  useEffect(() => { void loadJobs() }, [])
+
+  const apply = async (event: React.FormEvent) => {
+    event.preventDefault()
+    if (!selected || submitting) return
+    if (resume && (resume.size > 10 * 1024 * 1024 || !['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'].includes(resume.type))) {
+      toast('Resume file not supported', 'Upload a PDF or Word document no larger than 10 MB.', 'error')
+      return
+    }
+    setSubmitting(true)
+    let resumePath: string | undefined
+    try {
+      if (resume) {
+        const safeName = resume.name.replace(/[^a-zA-Z0-9._-]/g, '_')
+        resumePath = `${crypto.randomUUID()}/${safeName}`
+        const { error } = await supabase.storage.from('job-resumes').upload(resumePath, resume, { contentType: resume.type, upsert: false })
+        if (error) throw error
+      }
+      await applicationsApi.create({
+        job_id: selected.id,
+        ...form,
+        experience: Math.max(0, Number(form.experience) || 0),
+        portfolio_url: form.portfolio_url.trim() || null,
+        resume_url: resumePath ?? null
+      })
+      toast('Application submitted', `Your application for ${selected.title} has been received.`)
+      setSelected(null); setResume(null)
+      setForm({ name: '', email: '', phone: '', location: '', experience: '0', cover_letter: '', portfolio_url: '', start_date: '' })
+      await loadJobs()
+    } catch (error) {
+      if (resumePath) await supabase.storage.from('job-resumes').remove([resumePath])
+      toast('Could not submit application', error instanceof Error ? error.message : 'Please try again.', 'error')
+    } finally { setSubmitting(false) }
+  }
+
+  return <div>
+    <section className="border-b border-line bg-surface py-16 text-center"><div className="container-page max-w-3xl"><Badge color="brand" className="mb-4"><Briefcase className="h-3.5 w-3.5" /> Careers</Badge><h1 className="font-display text-4xl font-bold text-ink">Build better health education with us</h1><p className="mt-4 text-lg text-muted">Explore open roles and apply directly. Our team reviews every application.</p></div></section>
+    <section className="container-page py-14">
+      <div className="mb-7"><h2 className="font-display text-2xl font-bold text-ink">Open opportunities</h2><p className="mt-1 text-sm text-muted">Current roles published by the Anatomia team.</p></div>
+      {loading ? <div className="card p-8 text-center text-sm text-muted">Loading open roles…</div> : jobs.length ? <div className="grid gap-5 md:grid-cols-2">{jobs.map((job) => {
+        const requirements = Array.isArray(job.requirements) ? job.requirements : String(job.requirements ?? '').split('\n').filter(Boolean)
+        return <article key={job.id} className="card p-6"><div className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="font-display text-xl font-bold text-ink">{job.title}</h3><p className="mt-1 text-sm text-muted">{job.department}</p></div><Badge color="brand">{jobTypeLabel(job.type)}</Badge></div><p className="mt-4 whitespace-pre-line text-sm leading-relaxed text-muted">{job.description}</p><div className="mt-4 flex flex-wrap gap-x-4 gap-y-2 text-sm text-muted">{job.location && <span>{job.location}</span>}{job.salary && <span>{job.salary}</span>}{job.closing_date && <span>Apply by {new Date(job.closing_date).toLocaleDateString()}</span>}</div>{requirements.length > 0 && <ul className="mt-4 list-inside list-disc space-y-1 text-sm text-muted">{requirements.map((requirement, index) => <li key={index}>{requirement}</li>)}</ul>}<Button className="mt-6" onClick={() => setSelected(job)}>Apply for this role</Button></article>
+      })}</div> : <div className="card py-14 text-center"><Briefcase className="mx-auto h-8 w-8 text-muted" /><h3 className="mt-4 font-semibold text-ink">No open roles right now</h3><p className="mt-1 text-sm text-muted">Please check back later for new opportunities.</p></div>}
+    </section>
+    {selected && <Modal open onClose={() => !submitting && setSelected(null)} title={`Apply: ${selected.title}`}>
+      <form onSubmit={apply} className="max-h-[75vh] space-y-3 overflow-y-auto pr-1">
+        <p className="text-sm text-muted">Your application will be sent to the hiring team for {selected.title}.</p>
+        <div className="grid gap-3 sm:grid-cols-2"><input className="input-base" placeholder="Full name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required /><input className="input-base" type="email" placeholder="Email address" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required /><input className="input-base" type="tel" placeholder="Phone" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} required /><input className="input-base" placeholder="Location" value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} required /><label className="text-sm text-muted">Years of experience<input className="input-base mt-1" type="number" min="0" value={form.experience} onChange={(e) => setForm({ ...form, experience: e.target.value })} /></label><label className="text-sm text-muted">Available start date<input className="input-base mt-1" type="date" value={form.start_date} onChange={(e) => setForm({ ...form, start_date: e.target.value })} required /></label></div>
+        <input className="input-base" type="url" placeholder="Portfolio or profile URL (optional)" value={form.portfolio_url} onChange={(e) => setForm({ ...form, portfolio_url: e.target.value })} />
+        <label className="block text-sm font-medium text-ink">Resume (optional)<input className="input-base mt-1" type="file" accept=".pdf,.doc,.docx" onChange={(e) => setResume(e.target.files?.[0] ?? null)} /><span className="mt-1 block text-xs text-muted">PDF or Word document, up to 10 MB.</span></label>
+        <textarea className="input-base" rows={5} placeholder="Cover letter" value={form.cover_letter} onChange={(e) => setForm({ ...form, cover_letter: e.target.value })} required />
+        <div className="flex gap-2 pt-2"><Button type="button" variant="outline" className="flex-1" disabled={submitting} onClick={() => setSelected(null)}>Cancel</Button><Button type="submit" className="flex-1" disabled={submitting}>{submitting ? 'Submitting…' : 'Submit application'}</Button></div>
+      </form>
+    </Modal>}
+  </div>
+}
+
+export function Contact() {
+  const { toast } = useApp()
+  const [form, setForm] = useState({ name: '', email: '', phone: '', subject: '', message: '' })
+  const [submitting, setSubmitting] = useState(false)
+  const submit = async (event: React.FormEvent) => {
+    event.preventDefault(); if (submitting) return
+    setSubmitting(true)
+    try {
+      await contactsApi.create({ ...form, topic: form.subject || 'General' })
+      toast('Message sent', 'Our support team has received your message.')
+      setForm({ name: '', email: '', phone: '', subject: '', message: '' })
+    } catch (error) { toast('Could not send message', error instanceof Error ? error.message : 'Please try again.', 'error') }
+    finally { setSubmitting(false) }
+  }
+  return <section className="container-page py-14"><div className="mx-auto max-w-2xl"><Badge color="brand" className="mb-4"><Mail className="h-3.5 w-3.5" /> Contact</Badge><h1 className="font-display text-4xl font-bold text-ink">Get in touch</h1><p className="mt-3 text-muted">Send a message to our team and we’ll follow up by email.</p><form onSubmit={submit} className="card mt-7 space-y-4 p-6"><div className="grid gap-4 sm:grid-cols-2"><label className="label-base">Name<input className="input-base mt-1" autoComplete="name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required /></label><label className="label-base">Email<input className="input-base mt-1" type="email" autoComplete="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required /></label></div><label className="label-base">Phone (optional)<input className="input-base mt-1" type="tel" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></label><label className="label-base">Subject<input className="input-base mt-1" value={form.subject} onChange={(e) => setForm({ ...form, subject: e.target.value })} required /></label><label className="label-base">Message<textarea className="input-base mt-1" rows={6} value={form.message} onChange={(e) => setForm({ ...form, message: e.target.value })} required /></label><Button type="submit" disabled={submitting}>{submitting ? 'Sending…' : 'Send message'}</Button></form></div></section>
+}
+
 export function Support() {
   const { toast } = useApp()
   const { t } = useTranslation()
+  const nav = useNavigate()
   const [faqs, setFaqs] = useState<any[]>([])
   const [form, setForm] = useState({ name: '', email: '', topic: t('mktg.courseHelp'), message: '' })
+  const [submitting, setSubmitting] = useState(false)
+
+  const submitSupportRequest = async (event: React.FormEvent) => {
+    event.preventDefault(); if (submitting) return
+    setSubmitting(true)
+    try {
+      await contactsApi.create({ name: form.name, email: form.email, topic: form.topic, subject: form.topic, message: form.message })
+      toast(t('mktg.ticketSubmitted'), 'Your support request has been sent to our team.')
+      setForm({ name: '', email: '', topic: t('mktg.courseHelp'), message: '' })
+    } catch (error) { toast('Could not send support request', error instanceof Error ? error.message : 'Please try again.', 'error') }
+    finally { setSubmitting(false) }
+  }
 
   useEffect(() => {
     faqApi.list()
@@ -649,7 +755,7 @@ export function Support() {
           <div className="mt-8 grid gap-4 sm:grid-cols-2">
             {[[t('mktg.contactSupport'), <Mail key="m" className="h-5 w-5" />], [t('mktg.communityHelp'), <MessageSquare key="c" className="h-5 w-5" />], [t('mktg.knowledgeBase'), <HelpCircle key="k" className="h-5 w-5" />], [t('mktg.verifyCertificate'), <ShieldCheck key="v" className="h-5 w-5" />]].map(([label, icon], i) => (
               <Reveal key={label as string} delay={Math.min(i * 0.06, 0.18)}>
-                <button onClick={() => toast(t('mktg.openingSupport'), label as string, 'info')} className="card flex w-full items-center gap-3 p-5 text-left transition-all duration-300 hover:-translate-y-1 hover:shadow-lift">
+                <button onClick={() => i === 0 ? nav('/contact') : toast(t('mktg.openingSupport'), label as string, 'info')} className="card flex w-full items-center gap-3 p-5 text-left transition-all duration-300 hover:-translate-y-1 hover:shadow-lift">
                   <div className="rounded-card bg-brand-50 p-2.5 text-brand-700">{icon as React.ReactNode}</div>
                   <div>
                     <p className="font-semibold text-ink">{label}</p>
@@ -664,14 +770,14 @@ export function Support() {
           <div className="card p-6 lg:sticky lg:top-24">
             <h2 className="mb-1 font-semibold text-ink">{t('mktg.submitTicket')}</h2>
             <p className="mb-4 text-sm text-muted">{t('mktg.respondByEmail')}</p>
-            <form className="space-y-3" onSubmit={(e) => { e.preventDefault(); toast(t('mktg.ticketSubmitted'), `Reference #${Math.floor(Math.random() * 90000) + 10000}`, 'info'); setForm({ name: '', email: '', topic: t('mktg.courseHelp'), message: '' }) }}>
+            <form className="space-y-3" onSubmit={submitSupportRequest}>
               <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required placeholder={t('mktg.yourName')} className="input-base" />
               <input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required type="email" placeholder={t('mktg.emailAddress')} className="input-base" />
               <select value={form.topic} onChange={(e) => setForm({ ...form, topic: e.target.value })} className="input-base">
                 <option>{t('mktg.courseHelp')}</option><option>{t('mktg.billing')}</option><option>{t('mktg.certificates')}</option><option>{t('mktg.technicalIssue')}</option><option>{t('mktg.other')}</option>
               </select>
               <textarea value={form.message} onChange={(e) => setForm({ ...form, message: e.target.value })} required rows={4} placeholder={t('mktg.howCanWeHelpShort')} className="input-base" />
-              <Button type="submit" className="w-full">{t('mktg.submitTicketBtn')}</Button>
+              <Button type="submit" disabled={submitting} className="w-full">{submitting ? 'Sending…' : t('mktg.submitTicketBtn')}</Button>
             </form>
           </div>
         </div>

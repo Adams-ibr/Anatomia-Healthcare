@@ -53,7 +53,7 @@ interface AppState {
   addToCart: (courseId: string, course?: CartCourse) => void
   removeFromCart: (courseId: string) => void
   clearCart: () => void
-  checkout: (method: string) => Promise<'completed' | 'redirected'>
+  checkout: (method: string, couponCode?: string) => Promise<'completed' | 'redirected'>
   verifyCheckout: (reference: string) => Promise<{ ok: boolean; error?: string; enrollments?: Enrollment[]; order?: Order }>
   markNotificationsRead: () => void
   sendMessage: (conversationId: string, toId: string, text: string) => void
@@ -389,13 +389,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setCartCourses({})
   }, [])
 
-  const checkout = useCallback(async (method: string): Promise<'completed' | 'redirected'> => {
+  const checkout = useCallback(async (method: string, couponCode?: string): Promise<'completed' | 'redirected'> => {
     if (!currentUser) throw new Error('Please sign in before checking out.')
     if (cart.length === 0) throw new Error('Your cart is empty.')
     const { data, error } = await supabase.functions.invoke('auth/checkout', {
       body: {
         courseIds: [...new Set(cart)],
         paymentMethod: method,
+        couponCode,
         callbackUrl: `${window.location.origin}/checkout`
       }
     })

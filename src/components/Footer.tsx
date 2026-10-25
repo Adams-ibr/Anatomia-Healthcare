@@ -12,8 +12,8 @@ export function Footer() {
   const cols = [
     { title: t('footer.platform'), links: [{ label: t('nav.courses'), to: '/courses' }, { label: t('nav.categories'), to: '/courses' }, { label: t('footer.learningPaths'), to: '/courses' }, { label: t('nav.instructors'), to: '/instructors' }, { label: t('nav.pricing'), to: '/pricing' }] },
     { title: t('footer.resources'), links: [{ label: t('nav.blog'), to: '/blog' }, { label: t('footer.helpCenter'), to: '/support' }, { label: t('footer.verifyCertificate'), to: '/verify-certificate' }, { label: t('nav.community'), to: '/community' }, { label: t('nav.about'), to: '/about' }] },
-    { title: t('footer.company'), links: [{ label: t('footer.aboutUs'), to: '/about' }, { label: t('footer.careers'), to: '/about' }, { label: t('footer.forBusiness'), to: '/pricing' }, { label: t('footer.becomeInstructor'), to: '/register' }] },
-    { title: t('footer.support'), links: [{ label: t('footer.contact'), to: '/support' }, { label: t('footer.faqs'), to: '/support' }, { label: t('footer.terms'), to: '/support' }, { label: t('footer.privacy'), to: '/support' }] }
+    { title: t('footer.company'), links: [{ label: t('footer.aboutUs'), to: '/about' }, { label: t('footer.careers'), to: '/careers' }, { label: t('footer.forBusiness'), to: '/pricing' }, { label: t('footer.becomeInstructor'), to: '/register' }] },
+    { title: t('footer.support'), links: [{ label: t('footer.contact'), to: '/contact' }, { label: t('footer.faqs'), to: '/support' }, { label: t('footer.terms'), to: '/support' }, { label: t('footer.privacy'), to: '/support' }] }
   ]
 
   return (

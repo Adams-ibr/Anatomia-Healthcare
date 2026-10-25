@@ -27,6 +27,9 @@ interface Flashcard {
   type: CardType
   front: string
   back: string
+  options?: string[]
+  correctAnswer?: string
+  explanation?: string
   imageUrl?: string
   order: number
   createdAt: string
@@ -103,6 +106,9 @@ export default function AdminFlashcards() {
         type: (c.card_type as CardType) || 'learning',
         front: c.front,
         back: c.back,
+        options: Array.isArray(c.options) ? c.options : [],
+        correctAnswer: c.correct_answer ?? undefined,
+        explanation: c.explanation ?? undefined,
         imageUrl: c.image_url ?? undefined,
         order: c.order ?? 0,
         createdAt: c.created_at ?? '',
@@ -648,20 +654,38 @@ function CardFormModal({ deckId, card, onClose, onSuccess }: { deckId: string; c
     type: card?.type || 'learning' as CardType,
     front: card?.front || '',
     back: card?.back || '',
-    imageUrl: card?.imageUrl || ''
+    imageUrl: card?.imageUrl || '',
+    options: card?.options?.length ? card.options : ['', '', '', ''],
+    correctAnswer: card?.correctAnswer || '',
+    explanation: card?.explanation || ''
   })
   const [saving, setSaving] = useState(false)
   const [imageFile, setImageFile] = useState<File | null>(null)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (formData.type === 'question') {
+      const options = formData.options.map((option) => option.trim()).filter(Boolean)
+      if (options.length < 2) {
+        toast('Add answer choices', 'Question flashcards need at least two non-empty answer choices.', 'error')
+        return
+      }
+      if (!options.includes(formData.correctAnswer.trim())) {
+        toast('Choose the correct answer', 'Select one of the answer choices as the correct answer.', 'error')
+        return
+      }
+    }
     setSaving(true)
     try {
+      const questionOptions = formData.options.map((option) => option.trim()).filter(Boolean)
       const payload = {
         deck_id: deckId,
         type: formData.type,
         front: formData.front.trim(),
-        back: formData.back.trim(),
+        back: formData.type === 'question' ? (formData.explanation.trim() || formData.correctAnswer.trim()) : formData.back.trim(),
+        options: formData.type === 'question' ? questionOptions : null,
+        correctAnswer: formData.type === 'question' ? formData.correctAnswer.trim() : null,
+        explanation: formData.type === 'question' ? formData.explanation.trim() : null,
         image_url: imageFile ? await uploadAdminImage(imageFile, 'flashcards') : (formData.imageUrl.trim() || null),
         order: card?.order ?? 0
       }
@@ -701,28 +725,27 @@ function CardFormModal({ deckId, card, onClose, onSuccess }: { deckId: string; c
         </div>
 
         <div>
-          <label className="label-base">Front (Question/Prompt)</label>
+          <label className="label-base">{formData.type === 'question' ? 'Question' : formData.type === 'funfact' ? 'Fact title' : formData.type === 'tip' ? 'Tip heading' : 'Term or concept'}</label>
           <textarea
             value={formData.front}
             onChange={(e) => setFormData({ ...formData, front: e.target.value })}
             className="input-base"
             rows={3}
-            placeholder="Enter the front side content..."
+            placeholder={formData.type === 'question' ? 'Write the question...' : formData.type === 'funfact' ? 'Name the fact...' : formData.type === 'tip' ? 'Summarize the tip...' : 'Enter the term or concept...'}
             required
           />
         </div>
 
-        <div>
-          <label className="label-base">Back (Answer/Content)</label>
-          <textarea
-            value={formData.back}
-            onChange={(e) => setFormData({ ...formData, back: e.target.value })}
-            className="input-base"
-            rows={4}
-            placeholder="Enter the back side content..."
-            required
-          />
-        </div>
+        {formData.type === 'question' ? <>
+          <fieldset className="space-y-2"><legend className="label-base">Answer choices — select the correct answer</legend>
+            {formData.options.map((option, index) => <div key={index} className="flex items-center gap-2"><input type="radio" name="flashcard-correct-answer" aria-label={`Mark choice ${index + 1} as correct`} checked={Boolean(option.trim()) && formData.correctAnswer === option.trim()} onChange={() => setFormData((current) => ({ ...current, correctAnswer: current.options[index].trim() }))} /><input className="input-base" value={option} onChange={(event) => setFormData((current) => { const options = [...current.options]; options[index] = event.target.value; return { ...current, options, ...(current.correctAnswer === current.options[index].trim() ? { correctAnswer: event.target.value.trim() } : {}) } })} placeholder={`Choice ${index + 1}`} required={index < 2} /></div>)}
+            <Button type="button" variant="outline" onClick={() => setFormData((current) => ({ ...current, options: [...current.options, ''] }))}>Add choice</Button>
+          </fieldset>
+          <div><label className="label-base">Explanation (optional)</label><textarea value={formData.explanation} onChange={(e) => setFormData({ ...formData, explanation: e.target.value })} className="input-base" rows={3} placeholder="Explain why the answer is correct..." /></div>
+        </> : <div>
+          <label className="label-base">{formData.type === 'funfact' ? 'Fun fact' : formData.type === 'tip' ? 'Tip details' : 'Explanation'}</label>
+          <textarea value={formData.back} onChange={(e) => setFormData({ ...formData, back: e.target.value })} className="input-base" rows={4} placeholder={formData.type === 'funfact' ? 'Write the fact...' : formData.type === 'tip' ? 'Write the practical tip...' : 'Explain the term or concept...'} required />
+        </div>}
 
         <div>
           <ImageUploadField label="Flashcard image" value={formData.imageUrl} onChange={(file) => { setImageFile(file); if (file) setFormData((current) => ({ ...current, imageUrl: '' })) }} />
@@ -777,6 +800,8 @@ function CardViewModal({ card, onClose }: { card: Flashcard; onClose: () => void
           <p className="text-ink whitespace-pre-wrap">
             {flipped ? card.back : card.front}
           </p>
+          {card.type === 'question' && !flipped && card.options?.length ? <ul className="mt-4 space-y-2">{card.options.map((option, index) => <li key={index} className={cn('rounded-control border px-3 py-2 text-sm', option === card.correctAnswer ? 'border-success/40 bg-success/5 text-success' : 'border-line text-ink')}>{option}{option === card.correctAnswer ? ' · Correct answer' : ''}</li>)}</ul> : null}
+          {card.type === 'question' && flipped && card.explanation ? <p className="mt-3 text-sm text-muted">{card.explanation}</p> : null}
           {card.imageUrl && (
             <img src={card.imageUrl} alt="Flashcard" className="mt-4 rounded-card max-h-48 w-full object-cover" />
           )}

@@ -6,6 +6,7 @@ import { useApp } from '../lib/store'
 import { Button, Input } from '../components/ui'
 import { formatPrice } from '../lib/utils'
 import { cn } from '../lib/utils'
+import { supabase } from '../lib/supabase'
 
 export default function Checkout() {
   const { currentUser, cart, cartCourses, removeFromCart, checkout, verifyCheckout, toast } = useApp()
@@ -16,6 +17,10 @@ export default function Checkout() {
   const [done, setDone] = useState(false)
   const [failed, setFailed] = useState(false)
   const [verifying, setVerifying] = useState(false)
+  const [couponCode, setCouponCode] = useState('')
+  const [coupon, setCoupon] = useState<{ code: string; discountPercent: number; subtotal: number; discount: number; total: number } | null>(null)
+  const [couponBusy, setCouponBusy] = useState(false)
+  const [couponError, setCouponError] = useState('')
 
   const reference = searchParams.get('reference') ?? searchParams.get('trxref')
 
@@ -48,6 +53,33 @@ export default function Checkout() {
   // falling back to just the ID if no snapshot is available
   const items = cart.map((id) => cartCourses[id] ?? { id, title: id, price: 0 })
   const total = items.reduce((a, c) => a + (c.discountPrice ?? c.price), 0)
+  const checkoutTotal = coupon?.total ?? total
+  const displaySubtotal = coupon?.subtotal ?? total
+
+  useEffect(() => {
+    setCoupon(null)
+    setCouponError('')
+  }, [cart.join('|')])
+
+  const applyCoupon = async () => {
+    const code = couponCode.trim().toUpperCase()
+    if (!code || !cart.length || couponBusy) return
+    setCouponBusy(true)
+    setCouponError('')
+    const { data, error } = await supabase.functions.invoke('auth/checkout/coupon', { body: { code, courseIds: [...new Set(cart)] } })
+    setCouponBusy(false)
+    if (error || data?.error) {
+      setCoupon(null)
+      let message = data?.error ?? error?.message ?? 'Could not validate this coupon.'
+      const context = (error as { context?: unknown } | null)?.context
+      if (context instanceof Response) {
+        try { message = (await context.clone().json())?.error ?? message } catch { /* retain fallback */ }
+      }
+      setCouponError(message)
+      return
+    }
+    setCoupon(data)
+  }
 
   if (!currentUser) {
     return (
@@ -91,7 +123,7 @@ export default function Checkout() {
     setFailed(false)
     setProcessing(true)
     try {
-      const result = await checkout('paystack')
+      const result = await checkout('paystack', coupon?.code)
       if (result === 'completed') {
         setDone(true)
         toast(t('checkout.paymentSuccessful'), t('checkout.welcomeAboard'))
@@ -161,12 +193,19 @@ export default function Checkout() {
                 </div>
               ))}
             </div>
+            {items.length > 0 && <div className="mt-5 border-t border-line pt-4">
+              <label className="mb-2 block text-sm font-medium text-ink" htmlFor="checkout-coupon">Coupon code</label>
+              <div className="flex gap-2"><Input id="checkout-coupon" value={couponCode} onChange={(event) => { setCouponCode(event.target.value.toUpperCase()); setCoupon(null); setCouponError('') }} placeholder="Enter coupon code" maxLength={64} disabled={Boolean(coupon)} /><Button type="button" variant="outline" disabled={couponBusy || !couponCode.trim() || Boolean(coupon)} onClick={applyCoupon}>{couponBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : coupon ? 'Applied' : 'Apply'}</Button></div>
+              {couponError && <p className="mt-2 text-sm text-danger">{couponError}</p>}
+              {coupon && <p className="mt-2 text-sm text-success">{coupon.code} applied: {coupon.discountPercent}% off eligible courses. <button className="underline" onClick={() => { setCoupon(null); setCouponCode('') }}>Remove</button></p>}
+            </div>}
             {items.length > 0 && (
               <>
                 <div className="mt-5 space-y-2 border-t border-line pt-4 text-sm">
-                  <div className="flex justify-between text-muted"><span>{t('checkout.subtotal')}</span><span>{formatPrice(total)}</span></div>
-                  <div className="flex justify-between text-muted"><span>{t('checkout.discount')}</span><span className="text-success">-{formatPrice(items.reduce((a, c) => a + (c.price - (c.discountPrice ?? c.price)), 0))}</span></div>
-                  <div className="flex justify-between text-base font-semibold text-ink"><span>{t('checkout.total')}</span><span>{formatPrice(total)}</span></div>
+                  <div className="flex justify-between text-muted"><span>{t('checkout.subtotal')}</span><span>{formatPrice(displaySubtotal)}</span></div>
+                  <div className="flex justify-between text-muted"><span>{t('checkout.discount')}</span><span className="text-success">-{formatPrice(items.reduce((a, c) => a + (c.price - (c.discountPrice ?? c.price)), 0) + (coupon?.discount ?? 0))}</span></div>
+                  {coupon && <div className="flex justify-between text-xs text-muted"><span>Coupon ({coupon.code})</span><span>{coupon.discountPercent}% off selected courses</span></div>}
+                  <div className="flex justify-between text-base font-semibold text-ink"><span>{t('checkout.total')}</span><span>{formatPrice(checkoutTotal)}</span></div>
                 </div>
                 <Button className="mt-5 w-full py-3" disabled={processing} onClick={handlePurchase}>
                   {processing ? (

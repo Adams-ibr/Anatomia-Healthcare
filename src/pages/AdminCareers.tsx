@@ -97,12 +97,14 @@ export default function AdminCareers() {
 
   useEffect(() => { setPage(1) }, [search, statusFilter, typeFilter])
 
-  const saveJob = async (data: { jobTitle: string; department: string; location: string; type: JobType; status: JobStatus; description: string }) => {
+  const saveJob = async (data: { jobTitle: string; department: string; location: string; type: JobType; status: JobStatus; description: string; requirements: string; salary: string; closingDate: string }) => {
     setMutating(true)
     try {
       const payload = {
         title: data.jobTitle.trim(), department: data.department.trim(), location: data.location.trim(),
-        type: data.type, status: data.status, is_active: data.status === 'open', description: data.description.trim()
+        type: data.type, status: data.status, is_active: data.status === 'open', description: data.description.trim(),
+        requirements: data.requirements.trim(), salary: data.salary.trim() || null,
+        closing_date: data.closingDate ? new Date(`${data.closingDate}T23:59:59`).toISOString() : null
       }
       if (editing) await careersApi.update(editing.id, payload)
       else await careersApi.create(payload)
@@ -378,6 +380,9 @@ function JobFormModal({ title, job, mutating, onClose, onSubmit }: {
   const [type, setType] = useState<JobType>(job?.type || 'full_time')
   const [status, setStatus] = useState<JobStatus>(job?.status || 'draft')
   const [description, setDescription] = useState(job?.description || '')
+  const [requirements, setRequirements] = useState(job?.requirements.join('\n') || '')
+  const [salary, setSalary] = useState(job?.salary || '')
+  const [closingDate, setClosingDate] = useState(job?.closingDate?.slice(0, 10) || '')
 
   return (
     <Modal
@@ -387,7 +392,7 @@ function JobFormModal({ title, job, mutating, onClose, onSubmit }: {
       footer={
         <>
           <Button variant="outline" onClick={onClose} disabled={mutating}>Cancel</Button>
-          <Button onClick={() => onSubmit({ jobTitle, department, location, type, status, description })} disabled={mutating || !jobTitle.trim() || !department.trim() || !location.trim()}>
+          <Button onClick={() => onSubmit({ jobTitle, department, location, type, status, description, requirements, salary, closingDate })} disabled={mutating || !jobTitle.trim() || !department.trim() || !location.trim()}>
             {mutating ? <Loader2 className="h-4 w-4 animate-spin" /> : job ? 'Save' : <><Plus className="h-4 w-4" /> Post</>}
           </Button>
         </>
@@ -430,6 +435,14 @@ function JobFormModal({ title, job, mutating, onClose, onSubmit }: {
         <div>
           <label className="label-base">Description</label>
           <textarea value={description} onChange={(e) => setDescription(e.target.value)} className="input-base" rows={4} />
+        </div>
+        <div>
+          <label className="label-base">Requirements (one per line)</label>
+          <textarea value={requirements} onChange={(e) => setRequirements(e.target.value)} className="input-base" rows={4} placeholder="Relevant experience\nRequired qualifications" />
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div><label className="label-base">Salary range (optional)</label><input value={salary} onChange={(e) => setSalary(e.target.value)} className="input-base" placeholder="e.g. ₦250,000–₦350,000" /></div>
+          <div><label className="label-base">Application deadline (optional)</label><input type="date" value={closingDate} onChange={(e) => setClosingDate(e.target.value)} className="input-base" /></div>
         </div>
       </div>
     </Modal>
