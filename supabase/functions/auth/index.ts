@@ -2293,6 +2293,142 @@ async function handlePublicListInstructors(req: Request): Promise<Response> {
 }
 
 // ---------------------------------------------------------------------------
+// Direct messages
+// ---------------------------------------------------------------------------
+
+async function handleMyMessages(req: Request): Promise<Response> {
+  const guard = await requireUser(req)
+  if (guard instanceof Response) return guard
+  const userId = guard.profile.id
+
+  const { data: memberships, error: membershipError } = await supabase
+    .from('conversation_participants').select('conversation_id').eq('user_id', userId)
+  if (membershipError) return errorResponse(500, 'Failed to load conversations: ' + membershipError.message)
+  const conversationIds = [...new Set((memberships ?? []).map((row) => row.conversation_id))]
+  if (!conversationIds.length) return json({ conversations: [], messages: [] })
+
+  const [conversationResult, participantResult, messageResult] = await Promise.all([
+    supabase.from('conversations').select('id,last_message_at').in('id', conversationIds).order('last_message_at', { ascending: false }),
+    supabase.from('conversation_participants').select('conversation_id,user_id').in('conversation_id', conversationIds),
+    supabase.from('messages').select('id,conversation_id,from_id,to_id,text,attachment,is_read,created_at').in('conversation_id', conversationIds).order('created_at').limit(500)
+  ])
+  if (conversationResult.error) return errorResponse(500, 'Failed to load conversations: ' + conversationResult.error.message)
+  if (participantResult.error) return errorResponse(500, 'Failed to load conversation participants: ' + participantResult.error.message)
+  if (messageResult.error) return errorResponse(500, 'Failed to load messages: ' + messageResult.error.message)
+
+  const otherIds = [...new Set((participantResult.data ?? []).map((row) => row.user_id).filter((id) => id !== userId))]
+  const { data: profiles, error: profileError } = otherIds.length
+    ? await supabase.from('profiles').select('id,name,role,title,avatar').in('id', otherIds)
+    : { data: [], error: null }
+  if (profileError) return errorResponse(500, 'Failed to load conversation contacts: ' + profileError.message)
+  const profileById = new Map((profiles ?? []).map((profile) => [profile.id, profile]))
+  const participantsByConversation = new Map<string, string[]>()
+  for (const participant of participantResult.data ?? []) {
+    const current = participantsByConversation.get(participant.conversation_id) ?? []
+    current.push(participant.user_id)
+    participantsByConversation.set(participant.conversation_id, current)
+  }
+
+  return json({
+    conversations: (conversationResult.data ?? []).map((conversation) => {
+      const participants = participantsByConversation.get(conversation.id) ?? []
+      const otherId = participants.find((id) => id !== userId)
+      const profile = otherId ? profileById.get(otherId) : null
+      return {
+        id: conversation.id,
+        participants,
+        lastMessageAt: conversation.last_message_at,
+        otherParticipant: profile ? { id: profile.id, name: profile.name, role: profile.role, title: profile.title ?? '', avatar: profile.avatar ?? '' } : null
+      }
+    }),
+    messages: (messageResult.data ?? []).map((message) => ({
+      id: message.id,
+      conversationId: message.conversation_id,
+      fromId: message.from_id,
+      toId: message.to_id,
+      text: message.text,
+      attachment: message.attachment,
+      read: message.is_read,
+      createdAt: message.created_at
+    }))
+  })
+}
+
+async function handleSendMessage(req: Request): Promise<Response> {
+  const guard = await requireUser(req)
+  if (guard instanceof Response) return guard
+  const userId = guard.profile.id
+  const body = await req.json().catch(() => ({})) as { conversationId?: string; toId?: string; text?: string }
+  const text = typeof body.text === 'string' ? body.text.trim() : ''
+  if (text.length > 10000) return errorResponse(422, 'Message must be 10,000 characters or fewer.')
+
+  let conversationId = body.conversationId?.trim() ?? ''
+  let toId = body.toId?.trim() ?? ''
+
+  if (conversationId) {
+    const { data: memberships, error } = await supabase.from('conversation_participants')
+      .select('user_id').eq('conversation_id', conversationId)
+    if (error) return errorResponse(500, 'Failed to verify conversation: ' + error.message)
+    const participantIds = (memberships ?? []).map((item) => item.user_id)
+    if (!participantIds.includes(userId)) return errorResponse(403, 'You are not a participant in this conversation.')
+    if (!toId) toId = participantIds.find((id) => id !== userId) ?? ''
+    if (!participantIds.includes(toId) || toId === userId) return errorResponse(422, 'Choose a valid conversation recipient.')
+  } else {
+    if (!toId || toId === userId) return errorResponse(422, 'Choose a valid conversation recipient.')
+    const { data: recipient, error: recipientError } = await supabase.from('profiles')
+      .select('id').eq('id', toId).eq('is_active', true).maybeSingle()
+    if (recipientError) return errorResponse(500, 'Failed to find recipient: ' + recipientError.message)
+    if (!recipient) return errorResponse(404, 'Recipient account was not found or is inactive.')
+
+    const { data: myMemberships, error: myMembershipError } = await supabase.from('conversation_participants')
+      .select('conversation_id').eq('user_id', userId)
+    if (myMembershipError) return errorResponse(500, 'Failed to find conversation: ' + myMembershipError.message)
+    for (const membership of myMemberships ?? []) {
+      const { data: pair } = await supabase.from('conversation_participants')
+        .select('user_id').eq('conversation_id', membership.conversation_id)
+      const ids = (pair ?? []).map((item) => item.user_id)
+      if (ids.length === 2 && ids.includes(toId)) {
+        conversationId = membership.conversation_id
+        break
+      }
+    }
+
+    if (!conversationId) {
+      const { data: conversation, error: conversationError } = await supabase.from('conversations')
+        .insert({}).select('id').single()
+      if (conversationError || !conversation) return errorResponse(500, 'Failed to start conversation: ' + (conversationError?.message ?? 'Unknown error'))
+      conversationId = conversation.id
+      const { error: participantError } = await supabase.from('conversation_participants').insert([
+        { conversation_id: conversationId, user_id: userId },
+        { conversation_id: conversationId, user_id: toId }
+      ])
+      if (participantError) {
+        await supabase.from('conversations').delete().eq('id', conversationId)
+        return errorResponse(500, 'Failed to add conversation participants: ' + participantError.message)
+      }
+    }
+  }
+
+  let message = null
+  if (text) {
+    const { data, error } = await supabase.from('messages').insert({
+      conversation_id: conversationId, from_id: userId, to_id: toId, text
+    }).select('id,conversation_id,from_id,to_id,text,attachment,is_read,created_at').single()
+    if (error) return errorResponse(500, 'Failed to send message: ' + error.message)
+    message = {
+      id: data.id, conversationId: data.conversation_id, fromId: data.from_id,
+      toId: data.to_id, text: data.text, attachment: data.attachment,
+      read: data.is_read, createdAt: data.created_at
+    }
+    const { error: updateError } = await supabase.from('conversations')
+      .update({ last_message_at: data.created_at }).eq('id', conversationId)
+    if (updateError) return errorResponse(500, 'Message sent, but conversation could not be refreshed: ' + updateError.message)
+  }
+
+  return json({ conversationId, toId, message }, text ? 201 : 200)
+}
+
+// ---------------------------------------------------------------------------
 // Enrollment / learning handlers
 // ---------------------------------------------------------------------------
 
@@ -4003,6 +4139,12 @@ Deno.serve(async (req) => {
       break
     case 'GET /instructors':
       response = await handlePublicListInstructors(req)
+      break
+    case 'GET /me/messages':
+      response = await handleMyMessages(req)
+      break
+    case 'POST /me/messages':
+      response = await handleSendMessage(req)
       break
     case 'GET /me/enrollments':
       response = await handleMyEnrollments(req)

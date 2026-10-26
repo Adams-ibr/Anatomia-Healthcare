@@ -1,5 +1,5 @@
 import { apiFetch } from './client'
-import type { AuthUser, Role } from '../types'
+import type { AuthUser, Conversation, Message, Role } from '../types'
 
 export interface AuthSession {
   user: AuthUser
@@ -171,6 +171,24 @@ export const publicApi = {
     return apiFetch<{ settings: unknown }>('/api/auth/settings') as unknown as Promise<{
       settings: { platformName: string; tagline: string; primaryColor: string; supportEmail: string; defaultCurrency: string; paystackPublicKey?: string }
     }>
+  }
+}
+
+export interface MessageConversation extends Conversation {
+  otherParticipant: Pick<PublicInstructor, 'id' | 'name' | 'title' | 'avatar'> & { role: AuthUser['role'] } | null
+}
+
+export const messagesApi = {
+  list(token: string): Promise<{ conversations: MessageConversation[]; messages: Message[] }> {
+    return apiFetch('/api/auth/me/messages', { token })
+  },
+
+  start(token: string, toId: string): Promise<{ conversationId: string; toId: string; message: null }> {
+    return apiFetch('/api/auth/me/messages', { method: 'POST', token, body: { toId } })
+  },
+
+  send(token: string, payload: { conversationId: string; toId: string; text: string }): Promise<{ conversationId: string; toId: string; message: Message }> {
+    return apiFetch('/api/auth/me/messages', { method: 'POST', token, body: payload })
   }
 }
 
