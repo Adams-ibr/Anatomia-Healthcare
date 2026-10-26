@@ -1314,7 +1314,7 @@ interface CourseRow {
   status: string
   created_at: string
   categories?: { id: string; name: string } | null
-  instructors?: { id: string; name: string } | null
+  instructors?: { id: string; name: string; title?: string | null; bio?: string | null; headline?: string | null; avatar?: string | null; rating?: number | null } | null
 }
 
 function mapCourse(c: CourseRow) {
@@ -1329,6 +1329,10 @@ function mapCourse(c: CourseRow) {
     categoryName: c.categories?.name,
     instructorId: c.instructor_id,
     instructorName: c.instructors?.name,
+    instructorTitle: c.instructors?.title ?? c.instructors?.headline ?? '',
+    instructorBio: c.instructors?.bio ?? '',
+    instructorAvatar: c.instructors?.avatar ?? '',
+    instructorRating: Number(c.instructors?.rating ?? 0),
     thumbnail: c.thumbnail ?? undefined,
     price: Number(c.price),
     discountPrice: c.discount_price != null ? Number(c.discount_price) : undefined,
@@ -1599,7 +1603,11 @@ interface QuestionRow {
 }
 
 async function loadCourseContent(id: string): Promise<Record<string, unknown> | null> {
-  const { data: course } = await supabase.from('courses').select('*').eq('id', id).single()
+  const { data: course } = await supabase
+    .from('courses')
+    .select('*, categories(id,name), instructors:profiles!courses_instructor_id_fkey(id,name,title,bio,headline,avatar,rating)')
+    .eq('id', id)
+    .single()
   if (!course) return null
 
   const [sections, objectives, requirements, faqs, assessments] = await Promise.all([

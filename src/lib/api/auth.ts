@@ -161,7 +161,8 @@ export const publicApi = {
   },
 
   getCourseFull(slug: string): Promise<{ course: AdminCourse }> {
-    return apiFetch<{ course: AdminCourse }>(`/api/auth/courses?slug=${slug}`)
+    const params = new URLSearchParams({ slug })
+    return apiFetch<{ course: AdminCourse }>(`/api/auth/courses?${params.toString()}`)
   },
 
   getSettings(): Promise<{
@@ -431,6 +432,10 @@ export interface AdminCourse {
   categoryName?: string
   instructorId: string
   instructorName?: string
+  instructorTitle?: string
+  instructorBio?: string
+  instructorAvatar?: string
+  instructorRating?: number
   thumbnail?: string
   price: number
   discountPrice?: number

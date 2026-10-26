@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
@@ -9,9 +9,9 @@ import { Course } from '../lib/types'
 import { useApp } from '../lib/store'
 import { CourseCard } from '../components/cards'
 import { Accordion, Avatar, Badge, Button, Rating, MedicalLoader, MedicalEmptyState } from '../components/ui'
-import { discountPercent, formatDuration, formatPrice, slugify, timeAgo } from '../lib/utils'
+import { discountPercent, formatDuration, formatPrice, timeAgo } from '../lib/utils'
 import { cn } from '../lib/utils'
-import { coursesApi } from '../lib/supabase'
+import { publicApi } from '../lib/api/auth'
 
 const TYPE_ICON: Record<string, React.ReactNode> = {
   video: <PlayCircle className="h-4 w-4" />,
@@ -26,12 +26,6 @@ const TYPE_ICON: Record<string, React.ReactNode> = {
 
 function CodeIcon() {
   return <span className="text-xs font-bold" />
-}
-
-const INSTRUCTOR_NAMES: Record<string, string> = {
-  u_in_1: 'Dr. Amara Okafor', u_in_2: 'Marcus Bennett', u_in_3: 'Sofia Reyes',
-  u_in_4: 'David Chen', u_in_5: 'Priya Sharma', u_in_6: 'James Oyelaran',
-  u_in_7: 'Elena Petrova', u_in_8: 'Kwame Mensah', u_in_9: 'Laura Kim'
 }
 
 export default function CourseDetails() {
@@ -54,37 +48,42 @@ export default function CourseDetails() {
         return
       }
       try {
-        const result = await coursesApi.getBySlug(normalizedSlug)
-        const raw = result as any
+        const result = await publicApi.getCourseFull(normalizedSlug)
+        const raw = result.course as any
         if (raw && (raw.id || raw.title)) {
           setCourse({
             id: raw.id || normalizedSlug,
             slug: raw.slug || normalizedSlug,
             title: raw.title,
-            subtitle: raw.short_description || raw.subtitle || '',
-            description: raw.description || raw.short_description || '',
-            longDescription: raw.description || raw.longDescription || '',
-            categoryId: raw.category || raw.categoryId || raw.category_id || '',
-            instructorId: raw.created_by || raw.instructorId || raw.instructor_id || '',
-            thumbnail: raw.thumbnail_url || raw.thumbnail || '/placeholder-course.jpg',
-            price: typeof raw.price === 'number' ? raw.price : (parseFloat(raw.price) || 0),
-            discountPrice: raw.discountPrice ?? raw.discount_price,
-            rating: typeof raw.rating === 'number' ? raw.rating : 5.0,
-            reviewCount: raw.reviewCount ?? raw.review_count ?? 0,
-            studentCount: raw.studentCount ?? raw.student_count ?? 0,
-            duration: typeof raw.duration === 'string' ? (parseInt(raw.duration) || 0) : (raw.duration ?? 0),
+            subtitle: raw.subtitle || '',
+            description: raw.description || '',
+            longDescription: raw.longDescription || raw.description || '',
+            categoryId: raw.categoryId || '',
+            categoryName: raw.categoryName || '',
+            instructorId: raw.instructorId || '',
+            instructorName: raw.instructorName || '',
+            instructorTitle: raw.instructorTitle || '',
+            instructorBio: raw.instructorBio || '',
+            instructorAvatar: raw.instructorAvatar || '',
+            instructorRating: Number(raw.instructorRating) || 0,
+            thumbnail: raw.thumbnail || '/placeholder-course.jpg',
+            price: Number(raw.price) || 0,
+            discountPrice: raw.discountPrice,
+            rating: Number(raw.rating) || 0,
+            reviewCount: Number(raw.reviewCount) || 0,
+            studentCount: Number(raw.studentCount) || 0,
+            duration: Number(raw.duration) || 0,
             level: raw.level ?? 'Beginner',
             language: raw.language ?? 'English',
-            lastUpdated: raw.updated_at || raw.created_at || raw.lastUpdated || new Date().toISOString(),
-            hasCertificate: raw.hasCertificate ?? raw.has_certificate ?? true,
-            isFeatured: raw.isFeatured ?? raw.is_featured ?? false,
-            isTrending: raw.isTrending ?? raw.is_trending ?? false,
-            isNew: raw.isNew ?? raw.is_new ?? false,
-            status: raw.is_published ? 'published' : (raw.status ?? 'published'),
-            instructorName: raw.instructorName ?? raw.instructor_name ?? 'Anatomia Faculty',
+            lastUpdated: raw.lastUpdated || raw.createdAt || new Date().toISOString(),
+            hasCertificate: raw.hasCertificate ?? false,
+            isFeatured: raw.isFeatured ?? false,
+            isTrending: raw.isTrending ?? false,
+            isNew: raw.isNew ?? false,
+            status: raw.status ?? 'published',
             objectives: (raw.objectives ?? []).map((o: any, idx: number) => typeof o === 'string' ? { id: `obj_${idx}`, text: o } : o),
             requirements: (raw.requirements ?? []).map((r: any, idx: number) => typeof r === 'string' ? { id: `req_${idx}`, text: r } : r),
-            sections: (raw.course_sections ?? raw.course_modules ?? raw.sections ?? []).map((s: any, idx: number) => ({
+            sections: (raw.sections ?? raw.course_sections ?? raw.course_modules ?? []).map((s: any, idx: number) => ({
               id: s.id ?? `sec_${idx}`,
               title: s.title ?? '',
               lessons: (s.lessons ?? []).map((l: any, lidx: number) => ({
@@ -103,15 +102,12 @@ export default function CourseDetails() {
           })
         }
       } catch (err) {
-        console.error('Failed to fetch course from Supabase:', err)
+        console.error('Failed to fetch course details:', err)
         setCourse(null)
       }
       setLoading(false)
     })()
   }, [normalizedSlug])
-
-  // useMemo must be above all early returns to satisfy Rules of Hooks
-  const instructor = useMemo(() => course ? { id: course.instructorId, name: course.instructorId.replace('u_in_', 'Instructor '), rating: 4.8, students: 8000 } : null, [course])
 
   if (loading) {
     return (
@@ -133,7 +129,7 @@ export default function CourseDetails() {
     )
   }
 
-  const category = course.categoryId ? { name: course.categoryId, slug: course.categoryId } : null
+  const category = course.categoryName ? { name: course.categoryName, slug: course.categoryId } : null
   const saved = wishlist.includes(course.id)
   const sections = course.sections ?? []
   const totalLessons = sections.reduce((a, s) => a + (s.lessons ?? []).length, 0)
@@ -184,7 +180,7 @@ export default function CourseDetails() {
           </div>
           <div className="mt-4 grid gap-8 lg:grid-cols-[1fr_400px]">
             <div>
-              <Badge color="brand" className="mb-3">{t(`cards.level_${course.level.toLowerCase()}`)} · {category?.name}</Badge>
+              <Badge color="brand" className="mb-3">{course.level}{category ? ` · ${category.name}` : ''}</Badge>
               <h1 className="font-display text-3xl font-bold leading-tight text-ink lg:text-4xl">{course.title}</h1>
               <p className="mt-3 text-lg text-muted">{course.subtitle}</p>
               <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-muted">
@@ -195,10 +191,11 @@ export default function CourseDetails() {
                 <span className="flex items-center gap-1.5">{t('course.updated', { date: new Date(course.lastUpdated).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) })}</span>
               </div>
               <div className="mt-5 flex items-center gap-3">
-                <Avatar name={course.instructorId} size="md" />
+                <Avatar name={course.instructorName || t('course.instructor')} src={course.instructorAvatar} size="md" />
                 <div>
-                  <p className="text-sm font-semibold text-ink">{t('course.taughtBy', { name: INSTRUCTOR_NAMES[course.instructorId] ?? 'Tomás Ferreira' })}</p>
-                  <p className="text-xs text-muted">{t('course.instructorRating')}</p>
+                  <p className="text-sm font-semibold text-ink">{t('course.taughtBy', { name: course.instructorName || t('course.instructor') })}</p>
+                  {course.instructorTitle && <p className="text-xs text-muted">{course.instructorTitle}</p>}
+                  {course.instructorRating ? <p className="text-xs text-muted">{course.instructorRating.toFixed(1)} instructor rating</p> : null}
                 </div>
               </div>
             </div>
@@ -326,19 +323,19 @@ export default function CourseDetails() {
               {tab === 'instructor' && (
                 <div className="card p-6">
                   <div className="flex flex-col gap-5 sm:flex-row">
-                    <Avatar name={course.instructorId} size="xl" />
+                    <Avatar name={course.instructorName || t('course.instructor')} src={course.instructorAvatar} size="xl" />
                     <div className="flex-1">
-                      <h2 className="font-display text-xl font-semibold text-ink">{INSTRUCTOR_NAMES[course.instructorId] ?? 'Tomás Ferreira'}</h2>
-                      <p className="text-sm text-muted">{course.instructorId === 'u_in_1' ? 'Cybersecurity Researcher & CISSP' : course.instructorId === 'u_in_2' ? 'Penetration Tester & OSCP Trainer' : course.instructorId === 'u_in_3' ? 'Machine Learning Engineer' : course.instructorId === 'u_in_4' ? 'Senior Cloud Architect' : course.instructorId === 'u_in_5' ? 'Full-Stack Engineer & Educator' : course.instructorId === 'u_in_6' ? 'DevOps Engineer' : course.instructorId === 'u_in_7' ? 'UX Designer & Design Lead' : course.instructorId === 'u_in_8' ? 'Finance Strategist' : course.instructorId === 'u_in_9' ? 'Digital Marketing Director' : 'Data Engineer & Analytics Lead'}</p>
+                      <h2 className="font-display text-xl font-semibold text-ink">{course.instructorName || t('course.instructor')}</h2>
+                      {course.instructorTitle && <p className="text-sm text-muted">{course.instructorTitle}</p>}
                       <div className="mt-3 flex flex-wrap gap-4 text-sm text-muted">
-                        <Rating value={4.8} />
+                        <Rating value={course.instructorRating} />
                         <span>{t('course.students', { count: course.studentCount })}</span>
                         <span>{t('course.reviewsCount', { count: course.reviewCount })}</span>
                       </div>
                     </div>
                     <Button variant="outline" onClick={() => currentUser ? nav('/messages') : nav('/login')}>{t('course.message')}</Button>
                   </div>
-                  <p className="mt-5 text-sm leading-relaxed text-muted">{course.instructorId === 'u_in_1' ? 'Former SOC director with 15 years in threat detection and incident response.' : course.instructorId === 'u_in_2' ? 'Ethical hacker focused on web and cloud exploitation.' : course.instructorId === 'u_in_3' ? 'Building ML systems that are accurate, explainable, and production-ready.' : course.instructorId === 'u_in_4' ? 'AWS and GCP certified architect specializing in serverless.' : course.instructorId === 'u_in_5' ? '12 years building web products; loves turning beginners into builders.' : course.instructorId === 'u_in_6' ? 'Automation obsessed. CI/CD pipelines and Kubernetes at scale.' : course.instructorId === 'u_in_7' ? 'Human-centered design that ships.' : course.instructorId === 'u_in_8' ? 'Chartered accountant and ex-investment banker, now an educator.' : course.instructorId === 'u_in_9' ? 'Growth marketing for SaaS and education brands.' : 'Turning raw data into decisions.'}</p>
+                  {course.instructorBio && <p className="mt-5 text-sm leading-relaxed text-muted">{course.instructorBio}</p>}
                 </div>
               )}
 

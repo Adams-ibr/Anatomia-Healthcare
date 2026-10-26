@@ -114,6 +114,11 @@ export interface Course {
   isNew: boolean
   status: CourseStatus
   instructorName?: string
+  instructorTitle?: string
+  instructorBio?: string
+  instructorAvatar?: string
+  instructorRating?: number
+  categoryName?: string
   objectives: Objective[]
   requirements: Requirement[]
   sections: CourseSection[]
