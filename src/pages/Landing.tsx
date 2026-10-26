@@ -1,733 +1,205 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
-  Award, BookOpen, Briefcase, CheckCircle2, ChevronRight, Clock, Code2, Compass,
-  GraduationCap, ListChecks, MessageSquare, PlayCircle, ShieldCheck,
-  Sparkles, TrendingUp, Trophy
+  ArrowRight, ArrowUpRight, BookOpen, Check, Clock3, GraduationCap,
+  HeartPulse, ShieldCheck
 } from 'lucide-react'
 import { motion } from 'framer-motion'
-import { useTranslation } from 'react-i18next'
-import { useApp } from '../lib/store'
-import { categoriesApi, coursesApi, membersApi, faqApi, partnersApi, articlesApi, careersApi } from '../lib/supabase'
-import type { AdminCourse, AdminCategory, PublicInstructor } from '../lib/api/auth'
-import { CourseCard, InstructorCard } from '../components/cards'
-import { Accordion, Avatar, Badge, Button, Rating, Skeleton, PresetAnimation } from '../components/ui'
+import {
+  articlesApi, careersApi, categoriesApi, coursesApi, faqApi, membersApi, partnersApi
+} from '../lib/supabase'
+import { Accordion, Avatar, Skeleton } from '../components/ui'
 import { formatPrice } from '../lib/utils'
-import { cn } from '../lib/utils'
-import { Counter, EASE, Reveal } from '../lib/motion'
-import type { Course, User } from '../lib/types'
-import PartnersSlider from '../components/PartnersSlider'
+import type { PublicInstructor } from '../lib/api/auth'
+import './Landing.css'
 
-// ---------------------------------------------------------------------------
-// Motion variants
-// ---------------------------------------------------------------------------
-const HERO_LEFT = {
-  hidden: {},
-  show: { transition: { staggerChildren: 0.1, delayChildren: 0.05 } }
-}
-const HERO_ITEM = {
-  hidden: { opacity: 0, y: 26 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.65, ease: EASE } }
+type Row = Record<string, any>
+
+function coursePath(course: Row) {
+  return `/courses/${course.slug || course.id}`
 }
 
-// ---------------------------------------------------------------------------
-// Static sections (no API needed)
-// ---------------------------------------------------------------------------
-const WHY = (t: (key: string) => string) => [
-  { icon: <Award className="h-5 w-5" />, title: t('landing.why1Title'), text: t('landing.why1Text') },
-  { icon: <ListChecks className="h-5 w-5" />, title: t('landing.why2Title'), text: t('landing.why2Text') },
-  { icon: <Code2 className="h-5 w-5" />, title: t('landing.why3Title'), text: t('landing.why3Text') },
-  { icon: <GraduationCap className="h-5 w-5" />, title: t('landing.why4Title'), text: t('landing.why4Text') },
-  { icon: <Clock className="h-5 w-5" />, title: t('landing.why5Title'), text: t('landing.why5Text') },
-  { icon: <MessageSquare className="h-5 w-5" />, title: t('landing.why6Title'), text: t('landing.why6Text') }
-]
-
-const FLOW = (t: (key: string) => string) => [
-  { step: t('landing.flow1Step'), text: t('landing.flow1Text'), icon: <Compass className="h-5 w-5" /> },
-  { step: t('landing.flow2Step'), text: t('landing.flow2Text'), icon: <PlayCircle className="h-5 w-5" /> },
-  { step: t('landing.flow3Step'), text: t('landing.flow3Text'), icon: <BookOpen className="h-5 w-5" /> },
-  { step: t('landing.flow4Step'), text: t('landing.flow4Text'), icon: <Code2 className="h-5 w-5" /> },
-  { step: t('landing.flow5Step'), text: t('landing.flow5Text'), icon: <CheckCircle2 className="h-5 w-5" /> },
-  { step: t('landing.flow6Step'), text: t('landing.flow6Text'), icon: <Trophy className="h-5 w-5" /> }
-]
-
-// ---------------------------------------------------------------------------
-// Helpers: adapt API shapes to component props
-// ---------------------------------------------------------------------------
-function apiCourseToCard(c: any): Course {
-  return {
-    id: c.id,
-    slug: c.slug,
-    title: c.title,
-    subtitle: c.short_description || c.subtitle || '',
-    description: c.description || c.short_description || '',
-    longDescription: c.description || '',
-    categoryId: c.category || c.categoryId || '',
-    instructorId: c.created_by || c.instructorId || '',
-    instructorName: c.instructorName || c.instructor_name || 'Anatomia Faculty',
-    thumbnail: c.thumbnail_url || c.thumbnail || '',
-    price: typeof c.price === 'number' ? c.price : (parseFloat(c.price) || 0),
-    discountPrice: c.discount_price ?? c.discountPrice,
-    rating: typeof c.rating === 'number' ? c.rating : 5.0,
-    reviewCount: c.review_count ?? c.reviewCount ?? 0,
-    studentCount: c.student_count ?? c.studentCount ?? 0,
-    duration: typeof c.duration === 'string' ? (parseInt(c.duration) || 0) : (c.duration ?? 0),
-    level: c.level || 'Beginner',
-    language: c.language || 'English',
-    lastUpdated: c.updated_at || c.created_at || c.lastUpdated || '',
-    hasCertificate: c.has_certificate ?? true,
-    isFeatured: c.is_featured ?? c.isFeatured ?? false,
-    isTrending: c.is_trending ?? c.isTrending ?? false,
-    isNew: c.is_new ?? c.isNew ?? false,
-    status: c.is_published ? 'published' : (c.status || 'draft'),
-    objectives: [],
-    requirements: [],
-    sections: [],
-    reviews: [],
-    faqs: []
-  } as Course
-}
-
-function apiInstructorToCard(i: PublicInstructor): User {
-  return {
-    id: i.id,
-    name: i.name,
-    email: '',
-    role: 'instructor',
-    avatar: i.avatar,
-    title: i.title,
-    bio: i.bio,
-    headline: i.headline,
-    skills: i.skills,
-    studentCount: i.studentCount,
-    courseCount: i.courseCount,
-    rating: i.rating,
-    joinedAt: '',
-    isActive: true
-  } as User
-}
-
-// ---------------------------------------------------------------------------
-// Skeleton helpers
-// ---------------------------------------------------------------------------
-function CourseSkeleton() {
+function CourseTile({ course }: { course: Row }) {
+  const price = Number(course.price) || 0
   return (
-    <div className="card overflow-hidden">
-      <Skeleton className="aspect-video w-full" />
-      <div className="space-y-2 p-4">
-        <Skeleton className="h-4 w-3/4" />
-        <Skeleton className="h-3 w-1/2" />
-        <Skeleton className="h-3 w-1/3 mt-2" />
+    <Link to={coursePath(course)} className="home-course group">
+      <div className="home-course-image">
+        {course.thumbnail_url || course.thumbnail ? (
+          <img src={course.thumbnail_url || course.thumbnail} alt="" loading="lazy" />
+        ) : (
+          <div className="home-course-art"><BookOpen aria-hidden="true" /></div>
+        )}
+        <span className="home-course-level">{course.level || 'Course'}</span>
+        <span className="home-course-open" aria-hidden="true"><ArrowUpRight /></span>
       </div>
-    </div>
-  )
-}
-
-function CategorySkeleton() {
-  return (
-    <div className="card flex items-start gap-3 p-5">
-      <Skeleton className="h-10 w-10 rounded-card" />
-      <div className="space-y-1.5 flex-1">
-        <Skeleton className="h-4 w-24" />
-        <Skeleton className="h-3 w-16" />
+      <div className="home-course-copy">
+        <span className="home-course-category">{course.category_name || course.category || 'Anatomia course'}</span>
+        <h3>{course.title}</h3>
+        {course.short_description && <p>{course.short_description}</p>}
+        <div className="home-course-meta">
+          <span>{Number(course.duration) ? <><Clock3 /> {course.duration}h</> : <><GraduationCap /> Self-paced</>}</span>
+          <strong>{price === 0 ? 'Free' : formatPrice(course.discount_price ?? price)}</strong>
+        </div>
       </div>
-    </div>
+    </Link>
   )
 }
 
-function InstructorSkeleton() {
-  return (
-    <div className="card flex flex-col items-center gap-3 p-6">
-      <Skeleton className="h-16 w-16 rounded-full" />
-      <Skeleton className="h-4 w-28" />
-      <Skeleton className="h-3 w-20" />
-      <Skeleton className="h-3 w-24" />
-    </div>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// Main component
-// ---------------------------------------------------------------------------
 export default function Landing() {
   const nav = useNavigate()
-  const { currentUser, toast } = useApp()
-  const { t } = useTranslation()
-
-  // API data
-  const [categories, setCategories] = useState<any[]>([])
-  const [featured, setFeatured] = useState<any[]>([])
-  const [trending, setTrending] = useState<any[]>([])
-  const [instructors, setInstructors] = useState<any[]>([])
-
-  // Loading states per section
-  const [loadingCats, setLoadingCats] = useState(true)
-  const [loadingFeatured, setLoadingFeatured] = useState(true)
-  const [loadingTrending, setLoadingTrending] = useState(true)
-  const [loadingInstructors, setLoadingInstructors] = useState(true)
-
-  // Stats derived from live API data (updated once courses load)
-  const [stats, setStats] = useState<{ value: number; suffix: string; label: string }[]>([])
-
-  // Additional Supabase data
-  const [faqs, setFaqs] = useState<any[]>([])
-  const [partnersList, setPartnersList] = useState<any[]>([])
-  const [articlesList, setArticlesList] = useState<any[]>([])
-  const [openCareers, setOpenCareers] = useState<any[]>([])
+  const [courses, setCourses] = useState<Row[]>([])
+  const [categories, setCategories] = useState<Row[]>([])
+  const [instructors, setInstructors] = useState<PublicInstructor[]>([])
+  const [partners, setPartners] = useState<Row[]>([])
+  const [articles, setArticles] = useState<Row[]>([])
+  const [faqs, setFaqs] = useState<Row[]>([])
+  const [jobs, setJobs] = useState<Row[]>([])
+  const [loadingCourses, setLoadingCourses] = useState(true)
+  const [loadingCategories, setLoadingCategories] = useState(true)
 
   useEffect(() => {
-    // Fetch all live data sources in parallel from Supabase
-    categoriesApi.list()
-      .then((res) => setCategories(res ?? []))
-      .catch(() => {})
-      .finally(() => setLoadingCats(false))
+    let active = true
+    const load = async <T,>(request: Promise<T>, setter: (value: T) => void) => {
+      try {
+        const result = await request
+        if (active) setter(result)
+      } catch {
+        // A page section stays hidden when its public data source is unavailable.
+      }
+    }
 
-    partnersApi.list({ is_active: true })
-      .then((res) => setPartnersList(res ?? []))
-      .catch(() => {})
+    void load(coursesApi.list({ status: 'published' }), (rows) => setCourses((rows || []) as Row[]))
+      .finally(() => { if (active) setLoadingCourses(false) })
+    void load(categoriesApi.list({ is_active: true }), (rows) => setCategories((rows || []) as Row[]))
+      .finally(() => { if (active) setLoadingCategories(false) })
+    void load(membersApi.list({ role: 'instructor' }), (rows) => setInstructors((rows || []) as PublicInstructor[]))
+    void load(partnersApi.list({ is_active: true }), (rows) => setPartners((rows || []) as Row[]))
+    void load(articlesApi.list({ is_published: true }), (rows) => setArticles((rows || []) as Row[]))
+    void load(faqApi.list(), (rows) => setFaqs((rows || []) as Row[]))
+    void load(careersApi.list({ status: 'open', is_active: true }), (rows) => setJobs(((rows || []) as Row[]).slice(0, 3)))
+    return () => { active = false }
+  }, [])
 
-    articlesApi.list({ is_published: true })
-      .then((res) => setArticlesList(res ?? []))
-      .catch(() => {})
-
-    faqApi.list()
-      .then((res) => setFaqs(res ?? []))
-      .catch(() => {})
-
-    careersApi.list({ status: 'open', is_active: true })
-      .then((res) => setOpenCareers((res ?? []).slice(0, 3)))
-      .catch(() => {})
-
-    coursesApi.list({ status: 'published' })
-      .then((res) => {
-        const published = res ?? []
-        setFeatured(published.filter((c: any) => c.is_featured).slice(0, 4))
-        setTrending(published.filter((c: any) => c.is_trending).slice(0, 4))
-        
-        // Derive stats from all published courses
-        const courses = published
-        const totalStudents = courses.reduce((s: number, c: any) => s + (c.student_count || c.studentCount || 0), 0)
-        const avgRating = courses.length
-          ? Number((courses.reduce((s: number, c: any) => s + (c.rating || 0), 0) / courses.length).toFixed(0))
-          : 0
-        setStats([
-          { value: Math.max(1, Math.round(totalStudents / 1000)), suffix: 'K+', label: t('landing.statLearners') },
-          { value: courses.length, suffix: '+', label: t('landing.statCourses') },
-          { value: 0, suffix: '+', label: t('landing.statInstructors') }, // filled below
-          { value: avgRating, suffix: '%', label: t('landing.statSatisfaction') }
-        ])
-      })
-      .catch(() => {})
-
-    membersApi.list({ role: 'instructor' })
-      .then((res) => {
-        const instructorsList = res ?? []
-        setInstructors(instructorsList as any)
-        setStats((prev) => prev.map((s) =>
-          s.label === t('landing.statInstructors')
-            ? { ...s, value: instructorsList.length }
-            : s
-        ))
-      })
-      .catch(() => {})
-      .finally(() => {
-        setLoadingFeatured(false)
-        setLoadingTrending(false)
-        setLoadingInstructors(false)
-      })
-  }, [t])
-
-  const why = WHY(t)
-  const flow = FLOW(t)
+  const shownCourses = useMemo(() => {
+    const featured = courses.filter((course) => course.is_featured)
+    return (featured.length ? featured : courses).slice(0, 4)
+  }, [courses])
+  const heroCourse = shownCourses[0]
+  const whyItems = [
+    { icon: <BookOpen />, title: 'Learn with clarity', body: 'Focused lessons make complex anatomy easier to understand and remember.' },
+    { icon: <HeartPulse />, title: 'Built for health sciences', body: 'Explore structured learning created around the human body and clinical practice.' },
+    { icon: <ShieldCheck />, title: 'Learn at your pace', body: 'Return to your lessons whenever it fits your schedule.' }
+  ]
 
   return (
-    <div>
-      {/* ── HERO ─────────────────────────────────────────────────────────── */}
-      <section className="relative overflow-hidden border-b border-line">
-        <div className="pointer-events-none absolute -right-40 -top-40 h-[480px] w-[480px] rounded-full bg-brand-50 blur-3xl" />
-        <div className="container-page grid items-center gap-12 py-16 lg:grid-cols-2 lg:py-24">
-          <motion.div variants={HERO_LEFT} initial="hidden" animate="show">
-            <motion.div variants={HERO_ITEM}>
-              <Badge color="brand" className="mb-5">
-                <Sparkles className="h-3.5 w-3.5" /> {t('landing.heroBadge')}
-              </Badge>
-            </motion.div>
-            <motion.div variants={HERO_ITEM}>
-              <h1 className="text-4xl font-bold leading-tight tracking-tight text-ink sm:text-5xl">
-                {t('landing.heroTitle')}
-              </h1>
-            </motion.div>
-            <motion.div variants={HERO_ITEM}>
-              <p className="mt-5 max-w-xl text-lg leading-relaxed text-muted">
-                {t('landing.heroBody')}
-              </p>
-            </motion.div>
-            <motion.div variants={HERO_ITEM}>
-              <div className="mt-8 flex flex-wrap gap-3">
-                <Button onClick={() => nav('/courses')} className="px-6 py-3 text-base">
-                  {t('landing.exploreCourses')} <ChevronRight className="h-4 w-4" />
-                </Button>
-                <Button variant="outline" onClick={() => nav('/register?role=instructor')} className="px-6 py-3 text-base">
-                  {t('landing.becomeInstructor')}
-                </Button>
-              </div>
-            </motion.div>
-            <motion.div variants={HERO_ITEM}>
-              <div className="mt-8 flex items-center gap-4 text-sm text-muted">
-                {instructors.length > 0 ? (
-                  <div className="flex -space-x-2">
-                    {instructors.slice(0, 3).map((ins) => (
-                      <Avatar key={ins.id} name={ins.name} size="sm" className="ring-2 ring-paper" />
-                    ))}
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-2 text-brand-700 font-medium">
-                    <ShieldCheck className="h-5 w-5 text-brand-600" />
-                    <span>Specialized Anatomy & Health Sciences Platform</span>
-                  </div>
-                )}
-              </div>
-            </motion.div>
+    <div className="home-page">
+      <section className="home-hero">
+        <div className="home-hero-grid" aria-hidden="true" />
+        <div className="container-page home-hero-inner">
+          <motion.div className="home-hero-copy" initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.55 }}>
+            <div className="home-eyebrow"><span /> ANATOMIA EDUCATION</div>
+            <h1>Understand the body.<br /><em>Advance your practice.</em></h1>
+            <p>Thoughtful, practical learning for the people who care for human health.</p>
+            <div className="home-hero-actions">
+              <button className="home-button home-button-dark" onClick={() => nav('/courses')}>Explore courses <ArrowRight /></button>
+              <Link className="home-text-link" to="/instructors">Meet the instructors <ArrowUpRight /></Link>
+            </div>
+            <div className="home-hero-note"><span><Check /></span> Learn from anywhere, at your own pace</div>
           </motion.div>
 
-          {/* Hero real course showcase */}
-          <motion.div
-            initial={{ opacity: 0, y: 44, scale: 0.96 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            transition={{ duration: 0.75, delay: 0.15, ease: EASE }}
-            className="relative mx-auto w-full max-w-xl"
-          >
-            {featured[0] ? (
-              <div className="relative">
-                <div className="card overflow-hidden shadow-panel border border-line">
-                  {featured[0].thumbnail_url ? (
-                    <div className="relative aspect-video w-full overflow-hidden bg-brand-900">
-                      <img
-                        src={featured[0].thumbnail_url}
-                        alt={featured[0].title}
-                        className="h-full w-full object-cover"
-                      />
-                      <span className="absolute top-3 left-3 rounded-full bg-brand-600/90 px-3 py-1 text-xs font-semibold text-white backdrop-blur">
-                        Featured Course
-                      </span>
-                    </div>
-                  ) : null}
-                  <div className="p-6">
-                    <div className="flex items-center justify-between text-xs font-medium text-brand-700">
-                      <span className="rounded bg-brand-50 px-2 py-0.5 uppercase tracking-wide">
-                        {featured[0].category || 'Anatomy'}
-                      </span>
-                      <span className="text-muted">{featured[0].duration || 'Comprehensive'}</span>
-                    </div>
-                    <h3 className="mt-2.5 font-display text-xl font-bold text-ink">
-                      {featured[0].title}
-                    </h3>
-                    <p className="mt-1.5 text-sm text-muted line-clamp-2">
-                      {featured[0].short_description || featured[0].description || 'Master clinical anatomy through detailed modular lessons.'}
-                    </p>
-                    <div className="mt-5 flex items-center justify-between border-t border-line pt-4">
-                      <div>
-                        <span className="text-xs text-muted">Access</span>
-                        <p className="text-base font-bold text-ink">
-                          {featured[0].is_free || featured[0].price === 0 ? 'Free' : `₦${featured[0].price?.toLocaleString()}`}
-                        </p>
-                      </div>
-                      <Button onClick={() => nav(`/courses/${featured[0].slug}`)} className="px-4 py-2 text-sm">
-                        Start Learning
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Floating Live Anatomia Vital Pulse Lottie Badge */}
-                <div className="absolute -bottom-6 -left-4 hidden sm:flex items-center gap-3 rounded-2xl border border-line bg-surface/95 p-3 shadow-panel backdrop-blur z-20">
-                  <PresetAnimation preset="heartbeat" size={54} />
-                  <div>
-                    <div className="flex items-center gap-1.5">
-                      <span className="h-2 w-2 rounded-full bg-success animate-ping" />
-                      <p className="text-xs font-bold text-ink">Live Clinical Engine</p>
-                    </div>
-                    <p className="text-[11px] text-muted">Vital Signs & Simulations Active</p>
-                  </div>
-                </div>
-              </div>
+          <motion.div className="home-hero-visual" initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.65, delay: 0.1 }}>
+            <div className="home-visual-backdrop" />
+            {heroCourse && (heroCourse.thumbnail_url || heroCourse.thumbnail) ? (
+              <img className="home-hero-image" src={heroCourse.thumbnail_url || heroCourse.thumbnail} alt="" />
             ) : (
-              <div className="card p-8 text-center shadow-panel border border-line">
-                <PresetAnimation preset="loading" size={140} className="mx-auto" />
-                <h3 className="mt-2 font-display text-lg font-bold text-ink">Anatomia Healthcare Portal</h3>
-                <p className="mt-1 text-sm text-muted">Access structured medical courses and clinical modules.</p>
-                <Button className="mt-4" onClick={() => nav('/courses')}>Browse Catalog</Button>
+              <div className="home-anatomy-art" aria-hidden="true">
+                <div className="anatomy-orbit orbit-one" /><div className="anatomy-orbit orbit-two" />
+                <div className="anatomy-core"><HeartPulse /></div>
+                <span className="anatomy-label label-top">FORM & FUNCTION</span><span className="anatomy-label label-bottom">HUMAN BODY · DEMYSTIFIED</span>
               </div>
             )}
+            <div className="home-visual-caption">
+              <span>{heroCourse ? 'START LEARNING' : 'A NEW WAY TO LEARN ANATOMY'}</span>
+              <strong>{heroCourse?.title || 'Knowledge, made human.'}</strong>
+              {heroCourse && <Link to={coursePath(heroCourse)} aria-label={`Explore ${heroCourse.title}`}><ArrowUpRight /></Link>}
+            </div>
+            <div className="home-visual-index">01 <span>—</span> LEARN</div>
           </motion.div>
         </div>
+        <div className="home-hero-bottom container-page"><span>ANATOMY · HEALTH SCIENCES · PROFESSIONAL LEARNING</span><span>SCROLL TO EXPLORE ↓</span></div>
       </section>
 
-      {/* ── PARTNERS / ACCREDITATIONS ────────────────────────────────────── */}
-      {partnersList.length > 0 && (
-        <section className="border-b border-line bg-surface py-10">
-          <div className="container-page">
-            <Reveal y={16}>
-              <p className="mb-6 text-center text-xs font-semibold uppercase tracking-widest text-muted">
-                Collaborating Institutions & Healthcare Partners
-              </p>
-              <PartnersSlider partners={partnersList} />
-            </Reveal>
+      {partners.length > 0 && (
+        <section className="home-partners">
+          <div className="container-page home-partners-inner">
+            <span className="home-partners-label">IN GOOD COMPANY</span>
+            <div className="home-partner-list">{partners.slice(0, 5).map((partner) => <div key={partner.id}>
+              {partner.logo_url && <img src={partner.logo_url} alt="" loading="lazy" />}
+              <span>{partner.name}</span>
+            </div>)}</div>
           </div>
         </section>
       )}
 
-      {/* ── INTERACTIVE CLINICAL SIMULATION SHOWCASE ──────────────────────── */}
-      <section className="border-b border-line bg-surface/50 py-16">
+      <section className="home-section home-disciplines">
         <div className="container-page">
-          <Reveal>
-            <div className="mx-auto max-w-3xl card p-8 sm:p-10 border border-line shadow-panel flex flex-col items-center text-center">
-              <Badge color="brand" className="mb-4">
-                <Sparkles className="h-3.5 w-3.5" /> Interactive Clinical Engine
-              </Badge>
-              <h2 className="section-title">Visual Anatomy & Vital Cardiac Simulations</h2>
-              <p className="mt-3 text-muted text-sm sm:text-base max-w-xl">
-                Experience real-time physiological waveforms, synchronized sinus rhythms, and accredited modular anatomy training.
-              </p>
-              
-              <div className="my-6">
-                <PresetAnimation preset="loading" size={180} />
-              </div>
-
-              <div className="flex items-center gap-2 rounded-full border border-line bg-surface px-4 py-1.5 text-xs font-medium text-ink shadow-sm">
-                <span className="h-2 w-2 rounded-full bg-success animate-pulse" />
-                <span>60 FPS Vector Simulation · Sinus Rhythm Active</span>
-              </div>
-
-              <div className="mt-8 flex flex-wrap justify-center gap-3">
-                <Button onClick={() => nav('/courses')} className="px-6 py-2.5">
-                  Explore Anatomical Courses
-                </Button>
-                <Button variant="outline" onClick={() => nav('/register')} className="px-6 py-2.5">
-                  Start Free Training
-                </Button>
-              </div>
-            </div>
-          </Reveal>
-        </div>
-      </section>
-
-      {/* ── CATEGORIES GRID ──────────────────────────────────────────────── */}
-      <section className="container-page py-16 lg:py-20">
-        <Reveal>
-          <div className="mb-8 flex items-end justify-between">
-            <div>
-              <p className="text-sm font-semibold text-brand-700">{t('landing.categoriesEyebrow')}</p>
-              <h2 className="section-title mt-1">{t('landing.categoriesTitle')}</h2>
-            </div>
-            <Link to="/courses" className="hidden items-center gap-1 text-sm font-medium text-brand-700 hover:underline sm:flex">
-              {t('landing.allCourses')} <ChevronRight className="h-4 w-4" />
-            </Link>
+          <div className="home-section-heading">
+            <div><span className="home-kicker">A PLACE TO BEGIN</span><h2>Explore the<br /><em>disciplines.</em></h2></div>
+            <p>Build a deeper understanding of the systems, structures, and science that shape human health.</p>
           </div>
-        </Reveal>
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-          {loadingCats
-            ? Array.from({ length: 8 }).map((_, i) => <CategorySkeleton key={i} />)
-            : categories.map((cat, i) => (
-                <Reveal key={cat.id} delay={Math.min(i * 0.05, 0.3)}>
-                  <Link
-                    to={`/courses?category=${cat.slug}`}
-                    className="card group flex items-start gap-3 p-5 transition-all duration-300 hover:-translate-y-1 hover:shadow-lift"
-                  >
-                    <div
-                      className="rounded-card p-2.5 text-white transition-transform duration-300 group-hover:scale-110"
-                      style={{ backgroundColor: cat.color ?? '#1B4E9B' }}
-                    >
-                      <ShieldCheck className="h-5 w-5" />
-                    </div>
-                    <div>
-                      <p className="font-semibold text-ink">{cat.name}</p>
-                      <p className="mt-0.5 text-xs text-muted">
-                        {t('landing.courseCount', { count: cat.courseCount })}
-                      </p>
-                    </div>
-                  </Link>
-                </Reveal>
-              ))
-          }
+          {loadingCategories ? <div className="home-category-grid">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-36 rounded-xl" />)}</div> : categories.length > 0 ? (
+            <div className="home-category-grid">{categories.slice(0, 4).map((category, index) => <Link key={category.id} to={`/courses?category=${category.slug}`} className="home-category">
+              <span className="home-category-number">0{index + 1}</span><h3>{category.name}</h3><span className="home-category-arrow"><ArrowUpRight /></span>
+            </Link>)}</div>
+          ) : <div className="home-inline-empty">New learning areas are on the way.</div>}
+          <Link to="/courses" className="home-underlined-link">Browse all courses <ArrowRight /></Link>
         </div>
       </section>
 
-      {/* ── FEATURED COURSES ─────────────────────────────────────────────── */}
-      <section className="border-y border-line bg-surface py-16 lg:py-20">
+      <section className="home-section home-courses-section">
         <div className="container-page">
-          <Reveal>
-            <div className="mb-8 text-center">
-              <p className="text-sm font-semibold text-brand-700">{t('landing.featuredEyebrow')}</p>
-              <h2 className="section-title mt-1">{t('landing.featuredTitle')}</h2>
-            </div>
-          </Reveal>
-          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-            {loadingFeatured
-              ? Array.from({ length: 4 }).map((_, i) => <CourseSkeleton key={i} />)
-              : featured.length > 0
-                ? featured.map((c, i) => (
-                    <Reveal key={c.id} delay={Math.min(i * 0.07, 0.28)}>
-                      <CourseCard course={apiCourseToCard(c)} />
-                    </Reveal>
-                  ))
-                : (
-                    <div className="col-span-4 py-12 text-center text-muted">
-                      <p className="text-sm">{t('landing.noFeatured', 'No featured courses yet.')}</p>
-                      <Button variant="outline" className="mt-4" onClick={() => nav('/courses')}>
-                        {t('landing.browseCourses')}
-                      </Button>
-                    </div>
-                  )
-            }
+          <div className="home-section-heading home-course-heading">
+            <div><span className="home-kicker">LEARN SOMETHING THAT MATTERS</span><h2>Courses worth<br /><em>your time.</em></h2></div>
+            <Link to="/courses" className="home-outline-link">View course library <ArrowUpRight /></Link>
+          </div>
+          {loadingCourses ? <div className="home-course-grid">{Array.from({ length: 4 }).map((_, i) => <div className="card overflow-hidden" key={i}><Skeleton className="aspect-video w-full" /><div className="space-y-3 p-5"><Skeleton className="h-3 w-1/3" /><Skeleton className="h-5 w-3/4" /><Skeleton className="h-4 w-1/2" /></div></div>)}</div> : shownCourses.length > 0 ? (
+            <div className="home-course-grid">{shownCourses.map((course) => <CourseTile key={course.id} course={course} />)}</div>
+          ) : <div className="home-course-empty"><BookOpen /><span>Our first courses are taking shape.</span><Link to="/courses">Explore the library <ArrowRight /></Link></div>}
+        </div>
+      </section>
+
+      <section className="home-story">
+        <div className="container-page home-story-inner">
+          <div className="home-story-aside"><span className="home-kicker">WHY ANATOMIA</span><span className="home-story-mark">A.</span></div>
+          <div className="home-story-content"><h2>Medical knowledge,<br /><em>made more accessible.</em></h2><p>We believe understanding the human body should feel clear, connected, and within reach. Anatomia brings learning and practice together in one considered space.</p>
+            <div className="home-benefits">{whyItems.map((item, index) => <div className="home-benefit" key={item.title}><span className="home-benefit-icon">{item.icon}</span><div><span className="home-benefit-index">0{index + 1}</span><h3>{item.title}</h3><p>{item.body}</p></div></div>)}</div>
           </div>
         </div>
       </section>
 
-      {/* ── WHY HAMA ─────────────────────────────────────────────────────── */}
-      <section className="border-y border-line bg-surface py-16 lg:py-20">
+      {instructors.length > 0 && <section className="home-section home-instructors">
         <div className="container-page">
-          <Reveal>
-            <div className="mb-8 text-center">
-              <p className="text-sm font-semibold text-brand-700">{t('landing.whyEyebrow')}</p>
-              <h2 className="section-title mt-1">{t('landing.whyTitle')}</h2>
-            </div>
-          </Reveal>
-          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {why.map((w, i) => (
-              <Reveal key={w.title} delay={Math.min(i * 0.06, 0.3)}>
-                <div className="card group h-full p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-lift">
-                  <div className="mb-4 inline-flex rounded-card bg-brand-50 p-3 text-brand-700 transition-transform duration-300 group-hover:scale-110">{w.icon}</div>
-                  <h3 className="font-semibold text-ink">{w.title}</h3>
-                  <p className="mt-1.5 text-sm leading-relaxed text-muted">{w.text}</p>
-                </div>
-              </Reveal>
-            ))}
-          </div>
+          <div className="home-section-heading"><div><span className="home-kicker">GUIDANCE THAT GOES FURTHER</span><h2>Learn from<br /><em>people who know.</em></h2></div><Link to="/instructors" className="home-outline-link">Meet our instructors <ArrowUpRight /></Link></div>
+          <div className="home-instructor-grid">{instructors.slice(0, 3).map((instructor, index) => <Link to={`/instructors/${instructor.id}`} className="home-instructor" key={instructor.id}>
+            <div className="home-instructor-avatar"><Avatar name={instructor.name} src={instructor.avatar} size="xl" /><span>0{index + 1}</span></div>
+            <h3>{instructor.name}</h3><p>{instructor.title || instructor.headline}</p><ArrowUpRight className="home-instructor-arrow" />
+          </Link>)}</div>
         </div>
-      </section>
+      </section>}
 
-      {/* ── HOW IT WORKS ─────────────────────────────────────────────────── */}
-      <section className="border-y border-line bg-surface py-16 lg:py-20">
-        <div className="container-page">
-          <Reveal>
-            <div className="mb-10 text-center">
-              <p className="text-sm font-semibold text-brand-700">{t('landing.experienceEyebrow')}</p>
-              <h2 className="section-title mt-1">{t('landing.experienceTitle')}</h2>
-            </div>
-          </Reveal>
-          <div className="grid grid-cols-2 gap-6 sm:grid-cols-3 lg:grid-cols-6">
-            {flow.map((f, i) => (
-              <Reveal key={f.step} delay={Math.min(i * 0.07, 0.35)} className="group">
-                <div className="relative text-center">
-                  {i < flow.length - 1 && <div className="absolute left-[60%] top-8 hidden h-px w-[80%] bg-line lg:block" />}
-                  <div className="relative mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full border border-brand-200 bg-brand-50 text-brand-700 transition-transform duration-300 group-hover:scale-110">
-                    {f.icon}
-                    <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-brand-500 text-[10px] font-bold text-white">{i + 1}</span>
-                  </div>
-                  <p className="font-semibold text-ink">{f.step}</p>
-                  <p className="mt-1 text-xs text-muted">{f.text}</p>
-                </div>
-              </Reveal>
-            ))}
-          </div>
+      {articles.length > 0 && <section className="home-section home-journal">
+        <div className="container-page"><div className="home-section-heading"><div><span className="home-kicker">FROM THE JOURNAL</span><h2>Ideas to keep<br /><em>you curious.</em></h2></div><Link to="/articles" className="home-outline-link">Read all articles <ArrowUpRight /></Link></div>
+          <div className="home-journal-grid">{articles.slice(0, 3).map((article) => <Link className="home-journal-item" to={`/articles/${article.slug || article.id}`} key={article.id}>
+            {article.image_url && <img src={article.image_url} alt="" loading="lazy" />}<span>{article.category || 'ANATOMIA JOURNAL'}</span><h3>{article.title}</h3><p>{article.excerpt}</p><b>Read story <ArrowRight /></b>
+          </Link>)}</div>
         </div>
-      </section>
+      </section>}
 
-      {/* ── INSTRUCTORS ──────────────────────────────────────────────────── */}
-      <section className="container-page py-16 lg:py-20">
-        <div className="grid items-center gap-10 lg:grid-cols-2">
-          <Reveal>
-            <div>
-              <p className="text-sm font-semibold text-brand-700">{t('landing.instructorEyebrow')}</p>
-              <h2 className="section-title mt-1">{t('landing.instructorTitle')}</h2>
-              <p className="mt-4 leading-relaxed text-muted">{t('landing.instructorBody')}</p>
-              <ul className="mt-6 space-y-3">
-                {[
-                  t('landing.instructorFeature1'),
-                  t('landing.instructorFeature2'),
-                  t('landing.instructorFeature3'),
-                  t('landing.instructorFeature4')
-                ].map((f) => (
-                  <li key={f} className="flex items-center gap-3 text-sm text-ink">
-                    <CheckCircle2 className="h-5 w-5 shrink-0 text-success" /> {f}
-                  </li>
-                ))}
-              </ul>
-              <Button className="mt-8" onClick={() => nav('/register?role=instructor')}>
-                {t('landing.becomeInstructor')} <ChevronRight className="h-4 w-4" />
-              </Button>
-            </div>
-          </Reveal>
-          <div className="grid gap-4 sm:grid-cols-2">
-            {loadingInstructors
-              ? Array.from({ length: 4 }).map((_, i) => <InstructorSkeleton key={i} />)
-              : instructors.length > 0
-                ? instructors.slice(0, 4).map((ins, i) => (
-                    <Reveal key={ins.id} delay={Math.min(i * 0.07, 0.28)}>
-                      <InstructorCard instructor={apiInstructorToCard(ins)} />
-                    </Reveal>
-                  ))
-                : (
-                    <div className="col-span-2 py-8 text-center text-sm text-muted">
-                      {t('landing.learnFromPros')}
-                    </div>
-                  )
-            }
-          </div>
-        </div>
-      </section>
+      {jobs.length > 0 && <section className="home-careers"><div className="container-page home-careers-inner"><div><span className="home-kicker">GROW WITH US</span><h2>Good work begins<br /><em>with good people.</em></h2></div><div><p>Help us make health education more thoughtful, useful, and accessible.</p><Link to="/careers" className="home-button home-button-dark">Explore careers <ArrowRight /></Link></div></div></section>}
 
-      {/* ── STATS ────────────────────────────────────────────────────────── */}
-      <section className="border-y border-line bg-surface py-16 lg:py-20">
-        <div className="container-page">
-          <Reveal>
-            <div className="mb-8 text-center">
-              <p className="text-sm font-semibold text-brand-700">{t('landing.numbersEyebrow')}</p>
-              <h2 className="section-title mt-1">{t('landing.numbersTitle')}</h2>
-            </div>
-          </Reveal>
-          <div className="grid grid-cols-2 gap-6 lg:grid-cols-4">
-            {stats.length > 0
-              ? stats.map((s, i) => (
-                  <Reveal key={s.label} delay={i * 0.08}>
-                    <div className="text-center">
-                      <Counter to={s.value} suffix={s.suffix} className="font-display text-4xl font-bold text-brand-700" />
-                      <p className="mt-1 text-sm text-muted">{s.label}</p>
-                    </div>
-                  </Reveal>
-                ))
-              : Array.from({ length: 4 }).map((_, i) => (
-                  <div key={i} className="text-center">
-                    <Skeleton className="mx-auto mb-2 h-10 w-20" />
-                    <Skeleton className="mx-auto h-4 w-24" />
-                  </div>
-                ))
-            }
-          </div>
-        </div>
-      </section>
+      {faqs.length > 0 && <section className="home-section home-faq"><div className="container-page home-faq-inner"><div><span className="home-kicker">A FEW ANSWERS</span><h2>Good to<br /><em>know.</em></h2><Link to="/contact" className="home-underlined-link">Still have a question? <ArrowRight /></Link></div><div className="home-faq-list">{faqs.slice(0, 5).map((faq, index) => <Accordion key={faq.id || index} title={<span>{faq.question || faq.q}</span>}><p className="text-sm leading-relaxed text-muted">{faq.answer || faq.a}</p></Accordion>)}</div></div></section>}
 
-      {/* ── CLINICAL ARTICLES & RESEARCH ─────────────────────────────────── */}
-      {articlesList.length > 0 && (
-        <section className="container-page py-16 lg:py-20">
-          <Reveal>
-            <div className="mb-8 flex items-end justify-between">
-              <div>
-                <p className="text-sm font-semibold text-brand-700">Clinical Library</p>
-                <h2 className="section-title mt-1">Anatomical & Clinical Articles</h2>
-              </div>
-              <Link to="/articles" className="hidden items-center gap-1 text-sm font-medium text-brand-700 hover:underline sm:flex">
-                View all <ChevronRight className="h-4 w-4" />
-              </Link>
-            </div>
-          </Reveal>
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {articlesList.map((article) => (
-              <div key={article.id} className="card group flex flex-col overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-lift border border-line">
-                {article.image_url && (
-                  <div className="aspect-video w-full overflow-hidden bg-brand-50">
-                    <img src={article.image_url} alt={article.title} className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" />
-                  </div>
-                )}
-                <div className="flex flex-1 flex-col p-6">
-                  <span className="text-xs font-semibold uppercase text-brand-700">{article.category || 'Anatomy'}</span>
-                  <h3 className="mt-2 font-display text-lg font-semibold text-ink">{article.title}</h3>
-                  <p className="mt-2 line-clamp-3 text-sm text-muted">{article.excerpt}</p>
-                  <div className="mt-4 flex items-center justify-between border-t border-line pt-4 text-xs text-muted">
-                    <span>By {article.author}</span>
-                    <Link to={`/articles/${article.slug || article.id}`} className="font-medium text-brand-700 hover:underline">Read article →</Link>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* ── TRENDING COURSES ─────────────────────────────────────────────── */}
-      <section className="container-page py-16 lg:py-20">
-        <Reveal>
-          <div className="mb-8 text-center">
-            <p className="text-sm font-semibold text-brand-700">{t('landing.trendingEyebrow')}</p>
-            <h2 className="section-title mt-1">{t('landing.trendingTitle')}</h2>
-          </div>
-        </Reveal>
-        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-          {loadingTrending
-            ? Array.from({ length: 4 }).map((_, i) => <CourseSkeleton key={i} />)
-            : trending.length > 0
-              ? trending.map((c, i) => (
-                  <Reveal key={c.id} delay={Math.min(i * 0.07, 0.28)}>
-                    <CourseCard course={apiCourseToCard(c)} />
-                  </Reveal>
-                ))
-              : (
-                  <div className="col-span-4 py-12 text-center text-muted">
-                    <p className="text-sm">{t('landing.noTrending', 'No trending courses yet.')}</p>
-                    <Button variant="outline" className="mt-4" onClick={() => nav('/courses')}>
-                      {t('landing.browseCourses')}
-                    </Button>
-                  </div>
-                )
-          }
-        </div>
-      </section>
-
-      {/* ── FAQ ──────────────────────────────────────────────────────────── */}
-      {faqs.length > 0 && (
-        <section className="container-page max-w-3xl py-16 lg:py-20">
-          <Reveal>
-            <div className="mb-8 text-center">
-              <p className="text-sm font-semibold text-brand-700">{t('landing.faqEyebrow')}</p>
-              <h2 className="section-title mt-1">{t('landing.faqTitle')}</h2>
-            </div>
-          </Reveal>
-          <div className="card px-6">
-            {faqs.map((f: any, i: number) => (
-              <Accordion key={f.id || i} title={<span>{f.question || f.q}</span>} defaultOpen={i === 0}>
-                <p className="text-sm leading-relaxed text-muted">{f.answer || f.a}</p>
-              </Accordion>
-            ))}
-          </div>
-        </section>
-      )}
-
-      <section className="border-y border-line bg-surface py-14">
-          <div className="container-page">
-            <Reveal>
-              <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
-                <div><p className="text-sm font-semibold text-brand-700">Careers</p><h2 className="section-title mt-1">Join the Anatomia team</h2><p className="mt-2 text-sm text-muted">Explore current opportunities and apply online.</p></div>
-                <Button variant="outline" onClick={() => nav('/careers')}>View all openings <ChevronRight className="h-4 w-4" /></Button>
-              </div>
-            </Reveal>
-            {openCareers.length ? <div className="grid gap-4 md:grid-cols-3">{openCareers.map((job, index) => <Reveal key={job.id} delay={Math.min(index * 0.06, 0.18)}><Link to="/careers" className="card block p-5 transition-all hover:-translate-y-1 hover:shadow-lift"><div className="flex items-center gap-2 text-brand-700"><Briefcase className="h-4 w-4" /><span className="text-xs font-semibold">{job.department || job.location || 'Anatomia'}</span></div><h3 className="mt-3 font-semibold text-ink">{job.title}</h3><p className="mt-1 text-sm text-muted">{job.location}{job.location && job.type ? ' · ' : ''}{job.type?.replace('_', ' ')}</p></Link></Reveal>)}</div> : <div className="card py-8 text-center text-sm text-muted">No open roles at the moment. Check back soon.</div>}
-          </div>
-        </section>
-
-      {/* ── CTA ──────────────────────────────────────────────────────────── */}
-      <section className="border-t border-line bg-brand-900">
-        <div className="container-page flex flex-col items-center gap-6 py-16 text-center">
-          <Reveal>
-            <h2 className="max-w-2xl font-display text-3xl font-bold text-white">{t('landing.ctaTitle')}</h2>
-            <p className="mx-auto mt-4 max-w-xl text-brand-200">{t('landing.ctaBody')}</p>
-            <div className="mt-6 flex flex-wrap justify-center gap-3">
-              <Button
-                onClick={() => nav('/register')}
-                className="bg-white px-6 py-3 text-base text-brand-900 hover:bg-brand-50"
-              >
-                {t('landing.createFreeAccount')}
-              </Button>
-              <Button
-                onClick={() => nav('/courses')}
-                className="border border-brand-400 bg-transparent px-6 py-3 text-base text-white hover:bg-brand-800"
-              >
-                {t('landing.browseCourses')}
-              </Button>
-            </div>
-          </Reveal>
-        </div>
-      </section>
+      <section className="home-final-cta"><div className="home-final-orbit" aria-hidden="true" /><div className="container-page home-final-content"><span className="home-kicker">YOUR NEXT CHAPTER STARTS HERE</span><h2>Make room for<br /><em>what you can become.</em></h2><p>Find a course that moves your learning forward.</p><button className="home-button home-button-light" onClick={() => nav('/courses')}>Explore the course library <ArrowRight /></button></div><div className="home-final-foot container-page"><span>ANATOMIA EDUCATION</span><span>HUMAN BODY DEMYSTIFIED</span></div></section>
     </div>
   )
 }
