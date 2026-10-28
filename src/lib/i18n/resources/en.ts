@@ -156,7 +156,7 @@ export default {
       submitting: 'Signing in…',
       invalid: 'Invalid email or password.',
       google: 'Continue with Google',
-      googleInfo: 'Demo build: connect Google OAuth in production.',
+      googleInfo: 'Google sign-in is unavailable right now. Please try again.',
       newHere: 'New to Anatomia?',
       createAccount: 'Create an account',
       welcomeBack: 'Welcome back!',

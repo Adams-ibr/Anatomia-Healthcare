@@ -14,6 +14,7 @@ import Courses from './Courses'
 import CourseDetails from './CourseDetails'
 import Login from './Login'
 import Register from './Register'
+import AuthCallback from './AuthCallback'
 import ForgotPassword, { ResetPassword } from './Auth'
 import VerifyEmail from './VerifyEmail'
 import StudentDashboard from './StudentDashboard'
@@ -351,6 +352,7 @@ export default function App() {
         </Route>
 
         <Route element={<PublicOnly />}>
+          <Route path="/auth/callback" element={<AuthCallback />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />

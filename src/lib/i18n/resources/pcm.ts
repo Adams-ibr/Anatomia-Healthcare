@@ -156,7 +156,7 @@ export default {
       submitting: 'De log in…',
       invalid: 'Email or password no correct.',
       google: 'Continue with Google',
-      googleInfo: 'Demo build: connect Google OAuth for production.',
+      googleInfo: 'Google sign-in no dey available now. Abeg try again.',
       newHere: 'You new for Anatomia?',
       createAccount: 'Create account',
       welcomeBack: 'Welcome back o!',

@@ -208,11 +208,16 @@ export function onAuthStateChange(
 }
 
 // Sign in with Google (OAuth)
-export async function signInWithGoogle(): Promise<void> {
+export async function signInWithGoogle(next?: string): Promise<void> {
+  const callbackUrl = new URL('/auth/callback', window.location.origin)
+  if (next?.startsWith('/') && !next.startsWith('//')) {
+    callbackUrl.searchParams.set('next', next)
+  }
+
   const { error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {
-      redirectTo: `${window.location.origin}/auth/callback`
+      redirectTo: callbackUrl.toString()
     }
   })
   
