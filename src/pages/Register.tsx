@@ -5,16 +5,14 @@ import { Eye, EyeOff, MailCheck, UserPlus } from 'lucide-react'
 import { AuthShell } from '../components/AuthShell'
 import { useApp } from '../lib/store'
 import { Button, Input } from '../components/ui'
-import { cn, homePath } from '../lib/utils'
+import { homePath } from '../lib/utils'
 
 export default function Register() {
   const { register, toast } = useApp()
   const { t } = useTranslation()
   const nav = useNavigate()
   const [params] = useSearchParams()
-  const initialRole = params.get('role') === 'instructor' ? 'instructor' : 'student'
   const next = params.get('next')
-  const [role, setRole] = useState<'student' | 'instructor'>(initialRole)
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -30,7 +28,7 @@ export default function Register() {
     if (password.length < 8) { setError(t('auth.register.passwordTooShort')); return }
     if (password !== confirm) { setError(t('auth.register.passwordMismatch')); return }
     setLoading(true)
-    const res = await register(name, email, password, role)
+    const res = await register(name, email, password, 'student')
     setLoading(false)
     if (!res.ok) { setError(res.error ?? t('auth.register.failed')); return }
     if (res.pendingConfirmation) { setPending(email); return }
@@ -62,21 +60,6 @@ export default function Register() {
       footer={<>{t('auth.register.haveAccount')} <Link to="/login" className="font-medium text-brand-700 hover:underline">{t('auth.register.logIn')}</Link></>}
     >
       <form onSubmit={submit} className="space-y-4">
-        <div className="grid grid-cols-2 gap-2">
-          {(['student', 'instructor'] as const).map((r) => (
-            <button
-              key={r}
-              type="button"
-              onClick={() => setRole(r)}
-              className={cn(
-                'rounded-control border px-4 py-2.5 text-sm font-medium capitalize transition-colors',
-                role === r ? 'border-brand-500 bg-brand-50 text-brand-700' : 'border-line bg-surface text-muted hover:text-ink'
-              )}
-            >
-              {r === 'student' ? t('auth.register.student') : t('auth.register.instructor')}
-            </button>
-          ))}
-        </div>
         <Input label={t('auth.register.name')} required value={name} onChange={(e) => setName(e.target.value)} placeholder={t('auth.register.namePlaceholder')} />
         <Input label={t('auth.register.email')} type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder={t('common.emailPlaceholder')} />
         <div>
