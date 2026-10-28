@@ -159,10 +159,6 @@ export default {
       googleInfo: 'Demo build: connect Google OAuth in production.',
       newHere: 'New to Anatomia?',
       createAccount: 'Create an account',
-      demoTitle: 'Demo accounts',
-      demoStudent: 'Student',
-      demoAdmin: 'Admin',
-      demoInstructor: 'Instructor',
       welcomeBack: 'Welcome back!',
       welcomeBody: 'Good to see you, {{name}}.'
     },

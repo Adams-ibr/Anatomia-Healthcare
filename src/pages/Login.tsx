@@ -35,8 +35,6 @@ export default function Login() {
     nav(target)
   }
 
-  const demo = (em: string, pw: string) => { setEmail(em); setPassword(pw); setError('') }
-
   return (
     <AuthShell
       title={t('auth.login.title')}
@@ -75,14 +73,6 @@ export default function Login() {
         {t('auth.login.google')}
       </Button>
 
-      <div className="mt-8 rounded-card border border-line bg-surface p-4">
-        <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted">{t('auth.login.demoTitle')}</p>
-        <div className="space-y-1.5 text-sm">
-          <button onClick={() => demo('student@anatomia.co', 'student123')} className="block w-full rounded px-2 py-1 text-left text-muted hover:bg-line/40 hover:text-ink">{t('auth.login.demoStudent')} — student@anatomia.co / student123</button>
-          <button onClick={() => demo('admin@anatomia.co', 'admin123')} className="block w-full rounded px-2 py-1 text-left text-muted hover:bg-line/40 hover:text-ink">{t('auth.login.demoAdmin')} — admin@anatomia.co / admin123</button>
-          <button onClick={() => demo('amara.okafor@anatomia.co', 'student123')} className="block w-full rounded px-2 py-1 text-left text-muted hover:bg-line/40 hover:text-ink">{t('auth.login.demoInstructor')} — amara.okafor@anatomia.co / student123</button>
-        </div>
-      </div>
     </AuthShell>
   )
 }
