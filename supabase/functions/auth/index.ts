@@ -2501,7 +2501,7 @@ async function handleEnroll(req: Request): Promise<Response> {
   const guard = await requireUser(req)
   if (guard instanceof Response) return guard
 
-  const { courseId, paymentMethod } = await readBody(req)
+  const { courseId } = await readBody(req)
   if (typeof courseId !== 'string' || !courseId.trim()) return errorResponse(422, 'Course id is required.')
 
   const { data: course } = await supabase
@@ -2521,7 +2521,9 @@ async function handleEnroll(req: Request): Promise<Response> {
   if (existing) return errorResponse(409, 'You are already enrolled in this course.')
 
   const price = Number(course.discount_price ?? course.price) || 0
-  if (price > 0 && !paymentMethod) return errorResponse(422, 'A payment method is required for paid courses.')
+  // Direct enrollment is only for free courses. Paid access must be granted by
+  // the verified checkout flow, never by trusting a client-supplied method.
+  if (price > 0) return errorResponse(422, 'Paid courses must be purchased through checkout.')
 
   const { data, error } = await supabase.from('enrollments').insert({
     user_id: guard.profile.id,
@@ -2533,24 +2535,6 @@ async function handleEnroll(req: Request): Promise<Response> {
     price_paid: price
   }).select('*').single()
   if (error) return errorResponse(500, 'Failed to enroll: ' + error.message)
-
-  if (price > 0) {
-    await supabase.from('orders').insert({
-      user_id: guard.profile.id,
-      total: price,
-      status: 'completed',
-      payment_method: typeof paymentMethod === 'string' ? paymentMethod : 'card'
-    }).select('id').single().then(async ({ data: order }) => {
-      if (order) {
-        await supabase.from('order_items').insert({
-          order_id: order.id,
-          course_id: courseId,
-          title: '',
-          price
-        })
-      }
-    })
-  }
 
   const courseInfo = (await loadEnrollmentCourses([data as EnrollmentRow]))[0]
   return json({ enrollment: mapEnrollment(data as EnrollmentRow, courseInfo) }, 201)
@@ -3718,7 +3702,7 @@ async function handleSubmitAssessment(req: Request): Promise<Response> {
   // Verify enrollment
   const { data: enrollment } = await supabase
     .from('enrollments')
-    .select('id')
+    .select('id, progress, certificate_issued, certificate_id')
     .eq('user_id', guard.profile.id)
     .eq('course_id', assessment.course_id)
     .maybeSingle()
@@ -3796,11 +3780,11 @@ async function handleSubmitAssessment(req: Request): Promise<Response> {
     .single()
   if (insertError) return errorResponse(500, 'Failed to save attempt: ' + insertError.message)
 
-  let certificateIssued = false
-  let certificateId: string | undefined = undefined
+  let certificateIssued = Boolean(enrollment.certificate_issued)
+  let certificateId: string | undefined = enrollment.certificate_id ?? undefined
 
-  // If student passed (score >= 70% cutoff), issue certificate and mark enrollment complete if eligible
-  if (passed) {
+  // Passing an assessment is not enough on its own: lessons must also be complete.
+  if (passed && Number(enrollment.progress) >= 100 && !certificateIssued) {
     const certId = await issueCertificate(assessment.course_id, guard.profile.id)
     if (certId) {
       certificateIssued = true
